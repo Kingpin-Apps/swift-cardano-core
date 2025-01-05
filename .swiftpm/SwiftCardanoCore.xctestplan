@@ -1,0 +1,24 @@
+{
+  "configurations" : [
+    {
+      "id" : "6AE81065-2725-440B-A6EC-4255BCC174BB",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "SwiftCardanoCoreTests",
+        "name" : "SwiftCardanoCoreTests"
+      }
+    }
+  ],
+  "version" : 1
+}
