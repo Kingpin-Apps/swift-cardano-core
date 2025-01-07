@@ -17,16 +17,16 @@ import PotentCBOR
 /// does not refer to itself, which could cause infinite loops.
 protocol CBORSerializable {
     func toShallowPrimitive() -> Any
-    static func fromPrimitive(_ value: Any) -> CBORSerializable
+    static func fromPrimitive<T>(_ value: Any) throws -> T
 }
 
 extension CBORSerializable {
     /// Convert the instance to a CBOR primitive. If the primitive is a container, e.g. list, dict, the type of
     /// its elements could be either a Primitive or a CBORSerializable.
     /// - Returns:  A CBOR primitive.
-    func toShallowPrimitive() -> Any {
-        fatalError("'to_shallow_primitive()' is not implemented by \(type(of: self))")
-    }
+//    func toShallowPrimitive() -> Any {
+//        fatalError("'to_shallow_primitive()' is not implemented by \(type(of: self))")
+//    }
     
     /// Convert the instance and its elements to CBOR primitives recursively.
     /// - Returns: A CBOR primitive.
@@ -38,9 +38,9 @@ extension CBORSerializable {
     /// Turn a CBOR primitive to its original class type.
     /// - Parameter value: A CBOR primitive.
     /// - Returns:  A CBOR serializable object.
-    static func fromPrimitive(_ value: Any) -> CBORSerializable {
-        fatalError("This method must be overridden")
-    }
+//    static func fromPrimitive(_ value: Any) -> CBORSerializable {
+//        fatalError("This method must be overridden")
+//    }
     
     /// Encode a Python object into CBOR bytes.
     /// - Returns: Swift object encoded in cbor bytes.
@@ -62,6 +62,6 @@ extension CBORSerializable {
     /// - Returns: Restored CBORSerializable object.
     static func fromCBOR(_ cbor: Data) throws -> Self? {
         let cborData =  try CBORSerialization.cbor(from: cbor)
-        return fromPrimitive(cborData.unwrapped!) as? Self
+        return try Self.fromPrimitive(cborData.unwrapped!)
     }
 }

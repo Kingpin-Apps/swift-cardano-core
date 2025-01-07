@@ -72,6 +72,10 @@ extension Dictionary where Key == AnyHashable, Value == Any {
 
 // MARK: - String Extensions
 extension String {
+    var toData: Data {
+        return Data(self.utf8)
+    }
+    
     var hexStringToData: Data {
         var tempHex = self
         

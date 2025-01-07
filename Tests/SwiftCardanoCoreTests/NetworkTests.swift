@@ -7,8 +7,8 @@ import Testing
     @Test func testTestnet() async throws {
         let value = Network.testnet
         
-        let networkCBOR = Network.testnet.toCBOR()!
-        let fromCBOR = Network.fromCBOR(networkCBOR)
+        let networkCBOR = try Network.testnet.toCBOR()
+        let fromCBOR = try Network.fromCBOR(networkCBOR)
         
         let primitive = value.toPrimitive()
         let fromPrimitive: Network = try Network.fromPrimitive(primitive)
@@ -20,8 +20,8 @@ import Testing
     @Test func testMainnet() async throws {
         let value = Network.mainnet
         
-        let networkCBOR = Network.mainnet.toCBOR()!
-        let fromCBOR = Network.fromCBOR(networkCBOR)
+        let networkCBOR = try Network.mainnet.toCBOR()
+        let fromCBOR = try Network.fromCBOR(networkCBOR)
         
         let primitive = value.toPrimitive()
         let fromPrimitive: Network = try Network.fromPrimitive(primitive)
@@ -32,7 +32,7 @@ import Testing
     
     @Test func testFromPrimitiveFail() async throws {
         #expect(throws: CardanoException.self) {
-            let _ = try Network.fromPrimitive(-1)
+            let _: Network = try Network.fromPrimitive(-1)
         }
     }
 

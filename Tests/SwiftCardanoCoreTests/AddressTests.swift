@@ -187,7 +187,7 @@ struct PointerAddressTests {
     
     @Test func testFromPrimitive() async throws {
         let data = Data([0x01, 0x02, 0x03])
-        let pointerAddress = try PointerAddress.fromPrimitive(data)
+        let pointerAddress: PointerAddress? = try PointerAddress.fromPrimitive(data)
         #expect(pointerAddress?.slot == 1)
         #expect(pointerAddress?.txIndex == 2)
         #expect(pointerAddress?.certIndex == 3)
@@ -237,7 +237,6 @@ struct AddressTests {
         let data = "addr_test1vr2p8st5t5cxqglyjky7vk98k7jtfhdpvhl4e97cezuhn0cqcexl7"
         let address = try Address.decode(data)
         #expect(address != nil)
-        // Additional assertions can be added based on the actual decoding logic
     }
     
     @Test func testEquality() async throws {
@@ -261,7 +260,7 @@ struct AddressTests {
     
     @Test func testFromPrimitiveData() async throws {
         let addr = "addr_test1vr2p8st5t5cxqglyjky7vk98k7jtfhdpvhl4e97cezuhn0cqcexl7"
-        let address = try Address.fromPrimitive(data: addr)
+        let address: Address = try Address.fromPrimitive(addr)
         #expect(address != nil)
         // Additional assertions can be added based on the actual primitive data
     }

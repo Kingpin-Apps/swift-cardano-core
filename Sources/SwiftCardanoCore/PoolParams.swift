@@ -11,6 +11,7 @@ func isBech32CardanoPoolId(_ poolId: String?) -> Bool {
 }
 
 struct PoolId: CBORSerializable, CustomStringConvertible, CustomDebugStringConvertible {
+
     var description: String { return value }
 
     var debugDescription: String { return value }
@@ -24,12 +25,16 @@ struct PoolId: CBORSerializable, CustomStringConvertible, CustomDebugStringConve
         self.value = value
     }
     
-    func toPrimitive() -> String {
+    func toShallowPrimitive() -> Any {
         return value
     }
     
-    static func fromPrimitive(_ value: String) throws -> PoolId {
-        return try PoolId(value: value)
+    func toPrimitive() -> String {
+        return value
+    }
+
+    static func fromPrimitive<T>(_ value: Any) throws -> T  {
+        return try PoolId(value: value as! String) as! T
     }
     
     // CBOR Serialization
@@ -52,16 +57,25 @@ struct SingleHostAddr: CBORSerializable {
     let ipv4: IPv4Address?
     let ipv6: IPv6Address?
     
-    func toPrimitive() -> [Any?] {
+    func toShallowPrimitive() -> Any {
         return [
             code,
-            port ?? nil,
-            ipv4?.rawValue ?? nil,
-            ipv6?.rawValue ?? nil
+            port as Any,
+            ipv4?.rawValue as Any,
+            ipv6?.rawValue as Any
         ]
     }
     
-    static func fromPrimitive(_ value: Any) throws -> SingleHostAddr {
+//    func toPrimitive() -> [Any?] {
+//        return [
+//            code,
+//            port ?? nil,
+//            ipv4?.rawValue ?? nil,
+//            ipv6?.rawValue ?? nil
+//        ]
+//    }
+    
+    static func fromPrimitive<T>(_ value: Any) throws -> T {
         var code: Int
         var port: Int?
         var ipv4Raw: Any?
@@ -103,7 +117,7 @@ struct SingleHostAddr: CBORSerializable {
             port: port,
             ipv4: ipv4,
             ipv6: ipv6
-        )
+        ) as! T
     }
 }
 
@@ -113,7 +127,15 @@ struct SingleHostName: CBORSerializable {
     let port: Int?
     let dnsName: String?
     
-    static func fromPrimitive(_ value: Any) throws -> SingleHostName {
+    func toShallowPrimitive() -> Any {
+        return [
+            code,
+            port as Any,
+            dnsName as Any
+        ]
+    }
+    
+    static func fromPrimitive<T>(_ value: Any) throws -> T {
         var code: Int
         var port: Int?
         var dnsName: String?
@@ -137,7 +159,7 @@ struct SingleHostName: CBORSerializable {
         return SingleHostName(
             port: port,
             dnsName: dnsName
-        )
+        ) as! T
     }
 }
 
@@ -145,7 +167,14 @@ struct MultiHostName: CBORSerializable {
     public var code: Int { get { return 2 } }
     let dnsName: String?
     
-    static func fromPrimitive(_ value: Any) throws -> MultiHostName {
+    func toShallowPrimitive() -> Any {
+        return [
+            code,
+            dnsName as Any
+        ]
+    }
+    
+    static func fromPrimitive<T>(_ value: Any) throws -> T {
         var code: Int
         var dnsName: String?
         
@@ -165,23 +194,55 @@ struct MultiHostName: CBORSerializable {
         
         return MultiHostName(
             dnsName: dnsName
-        )
+        ) as! T
     }
 }
 
-enum Relay: CBORSerializable {
+enum Relay: ArrayCBORSerializable {
     case singleHostAddr(SingleHostAddr)
     case singleHostName(SingleHostName)
     case multiHostName(MultiHostName)
+    
+    static func fromPrimitive<T>(_ value: Any) throws -> T {
+        if let singleHostAddr: SingleHostAddr = try? SingleHostAddr.fromPrimitive(value) {
+            return Relay.singleHostAddr(singleHostAddr) as! T
+        } else if let singleHostName: SingleHostName = try? SingleHostName.fromPrimitive(value) {
+            return Relay.singleHostName(singleHostName) as! T
+        } else if let multiHostName: MultiHostName = try? MultiHostName.fromPrimitive(value) {
+            return Relay.multiHostName(multiHostName) as! T
+        } else {
+            throw CardanoException.deserializeException("Invalid Relay data: \(value)")
+        }
+    }
 }
 
-struct PoolMetadata: CBORSerializable {
+struct PoolMetadata: ArrayCBORSerializable {
     let url: String
     let poolMetadataHash: PoolMetadataHash
+    
+    static func fromPrimitive<T>(_ value: Any) throws -> T {
+        let url: String
+        let poolMetadataHash: PoolMetadataHash
+        
+        if let list = value as? [Any] {
+            url = list[0] as! String
+            poolMetadataHash = try PoolMetadataHash.fromPrimitive(list[1])
+        } else if let tuple = value as? (Any, Any) {
+            url = tuple.0 as! String
+            poolMetadataHash = try PoolMetadataHash.fromPrimitive(tuple.1)
+        } else {
+            throw CardanoException.deserializeException("Invalid PoolMetadata data: \(value)")
+        }
+        
+        return PoolMetadata(
+            url: url,
+            poolMetadataHash: poolMetadataHash
+        ) as! T
+    }
 }
 
 
-struct PoolParams: CBORSerializable {
+struct PoolParams: ArrayCBORSerializable {
     let poolOperator: PoolKeyHash
     let vrfKeyHash: VrfKeyHash
     let pledge: Int
@@ -192,4 +253,68 @@ struct PoolParams: CBORSerializable {
     let relays: [Relay]?
     let poolMetadata: PoolMetadata?
     let id: PoolId?
+    
+    static func fromPrimitive<T>(_ value: Any) throws -> T {
+        let poolOperator: PoolKeyHash
+        let vrfKeyHash: VrfKeyHash
+        let pledge: Int
+        let cost: Int
+        let margin: FractionNumber
+        let rewardAccount: RewardAccountHash
+        let poolOwners: [VerificationKeyHash]
+        let relays: [Relay]?
+        let poolMetadata: PoolMetadata?
+        let id: PoolId? = nil
+        
+        if let list = value as? [Any] {
+            poolOperator = try PoolKeyHash.fromPrimitive(list[0])
+            vrfKeyHash = try VrfKeyHash.fromPrimitive(list[1])
+            pledge = list[2] as! Int
+            cost = list[3] as! Int
+            margin = FractionNumber(
+                numerator: (list[4] as! (Any, Any)).0 as! Int,
+                denominator: (list[4] as! (Any, Any)).1 as! Int
+            )!
+            rewardAccount = try RewardAccountHash.fromPrimitive(list[5])
+            poolOwners = (list[6] as! [Any]).map {
+                try! VerificationKeyHash.fromPrimitive($0)
+            }
+            relays = (list[6] as! [Any]).map {
+                try! Relay.fromPrimitive($0)
+            }
+            poolMetadata = try PoolMetadata.fromPrimitive(list[8])
+        } else if let tuple = value as? (Any, Any, Any, Any, Any, Any, Any, Any, Any) {
+            poolOperator = try PoolKeyHash.fromPrimitive(tuple.0)
+            vrfKeyHash = try VrfKeyHash.fromPrimitive(tuple.1)
+            pledge = tuple.2 as! Int
+            cost = tuple.3 as! Int
+            margin = FractionNumber(
+                numerator: (tuple.4 as! (Any, Any)).0 as! Int,
+                denominator: (tuple.4 as! (Any, Any)).1 as! Int
+            )!
+            rewardAccount = try RewardAccountHash.fromPrimitive(tuple.5)
+            poolOwners = (tuple.6 as! [Any]).map {
+                try! VerificationKeyHash.fromPrimitive($0)
+            }
+            relays = (tuple.7 as! [Any]).map {
+                try! Relay.fromPrimitive($0)
+            }
+            poolMetadata = try PoolMetadata.fromPrimitive(tuple.8)
+        } else {
+            throw CardanoException.deserializeException("Invalid PoolParams data: \(value)")
+        }
+        
+        return PoolParams(
+            poolOperator: poolOperator,
+            vrfKeyHash: vrfKeyHash,
+            pledge: pledge,
+            cost: cost,
+            margin: margin,
+            rewardAccount: rewardAccount,
+            poolOwners: poolOwners,
+            relays: relays,
+            poolMetadata: poolMetadata,
+            id: id
+        ) as! T
+    }
 }

@@ -87,6 +87,7 @@ extension AddressType: CustomStringConvertible {
     }
 }
 
+// MARK: - Pointer Address
 /// Pointer address.
 ///
 /// It refers to a point of the chain containing a stake key registration certificate.
@@ -155,13 +156,16 @@ struct PointerAddress: CBORSerializable, Equatable {
     }
 
     // MARK: - CBORSerializable
+    func toShallowPrimitive() -> Any {
+        return encode()
+    }
 
     func toPrimitive() -> Data? {
         return encode()
     }
 
-    static func fromPrimitive(_ value: Data) throws -> PointerAddress? {
-        return try decode(value)
+    static func fromPrimitive<T>(_ value: Any) throws -> T {
+        return try decode(value as! Data) as! T
     }
 
     // MARK: - Equatable
@@ -179,13 +183,14 @@ struct PointerAddress: CBORSerializable, Equatable {
     }
 }
 
+// MARK: - Address
 /// A shelley address. It consists of two parts: payment part and staking part.
 /// Either of the parts could be None, but they cannot be None at the same time.
 /// - Parameters:
 ///  - paymentPart: The payment part of the address.
 ///  - stakingPart: The staking part of the address.
 ///  - network: Type of network the address belongs to.
-struct Address: CustomStringConvertible, Equatable {
+struct Address: CBORSerializable, CustomStringConvertible, Equatable {
     public var paymentPart: PaymentPart? { get { return _paymentPart } }
     private let _paymentPart: PaymentPart?
     
@@ -283,8 +288,13 @@ struct Address: CustomStringConvertible, Equatable {
     
     func toBytes() -> Data {
         let paymentData: Data
-        if let paymentPart = paymentPart as? any ConstrainedBytes {
-            paymentData = paymentPart.payload
+        if let paymentPart = paymentPart {
+            switch paymentPart {
+                case .verificationKeyHash(let verificationKeyHash):
+                    paymentData = verificationKeyHash.payload
+                case .scriptHash(let scriptHash):
+                    paymentData = scriptHash.payload
+            }
         } else {
             paymentData = Data()
         }
@@ -292,12 +302,12 @@ struct Address: CustomStringConvertible, Equatable {
         let stakingData: Data
         if let stakingPart = stakingPart {
             switch stakingPart {
-            case .verificationKeyHash(let verificationKeyHash):
-                stakingData = verificationKeyHash.payload
-            case .scriptHash(let scriptHash):
-                stakingData = scriptHash.payload
-            case .pointerAddress(let pointerAddress):
-                stakingData = pointerAddress.encode()
+                case .verificationKeyHash(let verificationKeyHash):
+                    stakingData = verificationKeyHash.payload
+                case .scriptHash(let scriptHash):
+                    stakingData = scriptHash.payload
+                case .pointerAddress(let pointerAddress):
+                    stakingData = pointerAddress.encode()
             }
         } else {
             stakingData = Data()
@@ -341,6 +351,11 @@ struct Address: CustomStringConvertible, Equatable {
         return paymentCheck && stakingCheck && networkCheck
     }
     
+    /// Encode the address in Bech32 format.
+    ///
+    /// More info about Bech32 (here)[https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki#Bech32].
+
+    /// - Returns: Encoded address in Bech32.
     func encode() throws -> String {
         guard let encoded =  Bech32().encode(hrp: self.hrp, witprog: self.toPrimitive()) else {
             throw CardanoException.encodingException("Error encoding data: \(self.toPrimitive())")
@@ -348,21 +363,29 @@ struct Address: CustomStringConvertible, Equatable {
         return encoded
     }
     
+    /// Decode a bech32 string into an address object.
+    /// - Parameter data: Bech32-encoded string.
+    /// - Returns: Decoded address.
+    /// - Throws: CardanoException when the input string is not a valid Shelley address.
     static func decode(_ data: String) throws -> Address {
-        return try Address.fromPrimitive(data: data) // Placeholder for Bech32 decoding logic
+        return try Address.fromPrimitive(data)
+    }
+    
+    func toShallowPrimitive() -> Any {
+        return self.toBytes()
     }
     
     func toPrimitive() -> Data {
         return self.toBytes()
     }
-    
-    static func fromPrimitive(data: String) throws -> Address {
-        guard let bech32 = Bech32().decode(addr: data) else {
-            throw CardanoException.decodingException("Error decoding data: \(data)")
+
+    static func fromPrimitive<T>(_ value: Any) throws -> T {
+        guard let bech32 = Bech32().decode(addr: value as! String) else {
+            throw CardanoException.decodingException("Error decoding data: \(value)")
         }
-        let value = Data(bech32)
+        let data = Data(bech32)
         
-        return try self.fromPrimitive(data: value)
+        return try self.fromPrimitive(data: data) as! T
     }
     
     static func fromPrimitive(data: Data) throws -> Address {

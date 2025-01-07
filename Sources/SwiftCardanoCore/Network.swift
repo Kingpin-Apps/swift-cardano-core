@@ -5,14 +5,24 @@ enum Network: Int, CBORSerializable {
     case testnet = 0
     case mainnet = 1
     
-    func toPrimitive() -> Int {
-        return self.rawValue
+    func toShallowPrimitive() -> Any {
+        return self.rawValue as Int
     }
     
-    static func fromPrimitive(_ value: Int) throws -> Network {
-        guard let network = Network(rawValue: value) else {
-            throw CardanoException.valueError("Invalid network value")
+    static func fromPrimitive<T>(_ value: Any) throws -> T {
+        let network: Network?
+        if let value = value as? Int {
+            network = Network(rawValue: value)
+        } else if let value = value as? UInt64 {
+            let value = Int(value)
+            network = Network(rawValue: value)
+        } else {
+            throw CardanoException.valueError("Invalid value type for Network: \(value)")
         }
-        return network
+        
+        guard network != nil else {
+            throw CardanoException.valueError("Invalid network value: \(value)")
+        }
+        return network as! T
     }
 }

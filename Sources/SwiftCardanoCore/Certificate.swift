@@ -29,7 +29,7 @@ struct StakeCredential: ArrayCBORSerializable {
     }
     let credential: Credential
     
-    static func fromPrimitive(_ value: Any) throws -> StakeCredential {
+    static func fromPrimitive<T>(_ value: Any) throws -> T {
         var code: Int
         var payload: Data
         var credential: Credential
@@ -52,7 +52,7 @@ struct StakeCredential: ArrayCBORSerializable {
             throw CardanoException.deserializeException("Invalid StakeCredential type: \(code)")
         }
         
-        return StakeCredential(credential: credential)
+        return StakeCredential(credential: credential) as! T
     }
 }
 
@@ -60,7 +60,7 @@ struct StakeRegistration: ArrayCBORSerializable {
     public var code: Int { get { return 0 } }
     let stakeCredential: StakeCredential
     
-    static func fromPrimitive(_ value: Any) throws -> StakeRegistration {
+    static func fromPrimitive<T>(_ value: Any) throws -> T {
         var code: Int
         var payload: Data
         
@@ -80,7 +80,7 @@ struct StakeRegistration: ArrayCBORSerializable {
         
         return StakeRegistration(
             stakeCredential: try StakeCredential.fromPrimitive(payload)
-        )
+        ) as! T
     }
 }
 
@@ -88,7 +88,7 @@ struct StakeDeregistration: ArrayCBORSerializable {
     public var code: Int { get { return 1 } }
     let stakeCredential: StakeCredential
     
-    static func fromPrimitive(_ value: Any) throws -> StakeDeregistration {
+    static func fromPrimitive<T>(_ value: Any) throws -> T {
         var code: Int
         var payload: Data
         
@@ -108,7 +108,7 @@ struct StakeDeregistration: ArrayCBORSerializable {
         
         return StakeDeregistration(
             stakeCredential: try StakeCredential.fromPrimitive(payload)
-        )
+        ) as! T
     }
 }
 
@@ -117,7 +117,7 @@ struct StakeDelegation: ArrayCBORSerializable {
     let stakeCredential: StakeCredential
     let poolKeyHash: PoolKeyHash
     
-    static func fromPrimitive(_ value: Any) throws -> StakeDelegation {
+    static func fromPrimitive<T>(_ value: Any) throws -> T {
         var code: Int
         var payload: Data
         var poolKeyHash: Data
@@ -141,7 +141,7 @@ struct StakeDelegation: ArrayCBORSerializable {
         return StakeDelegation(
             stakeCredential: try StakeCredential.fromPrimitive(payload),
             poolKeyHash: try PoolKeyHash(payload: poolKeyHash)
-        )
+        ) as! T
     }
 }
 
@@ -154,7 +154,7 @@ struct PoolRegistration: ArrayCBORSerializable {
         return [code, result]
     }
     
-    static func fromPrimitive(_ value: Any) throws -> PoolRegistration {
+    static func fromPrimitive<T>(_ value: Any) throws -> T {
         var code: Int
         var poolParams: Data
         
@@ -174,7 +174,7 @@ struct PoolRegistration: ArrayCBORSerializable {
         
         return PoolRegistration(
             poolParams: PoolParams.fromPrimitive(poolParams) as! PoolParams
-        )
+        ) as! T
     }
 }
 
@@ -185,18 +185,18 @@ struct PoolRetirement: ArrayCBORSerializable {
     let poolKeyHash: PoolKeyHash
     let epoch: Int
     
-    static func fromPrimitive(_ value: Any) throws -> PoolRetirement {
+    static func fromPrimitive<T>(_ value: Any) throws -> T {
         var code: Int
-        var poolKeyHash: Data
+        var poolKeyHash: PoolKeyHash
         var epoch: Int
         
         if let list = value as? [Any] {
             code = list[0] as! Int
-            poolKeyHash = list[1] as! Data
+            poolKeyHash = try PoolKeyHash.fromPrimitive(list[1] as! Data)
             epoch = list[2] as! Int
         } else if let tuple = value as? (Any, Any, Any) {
             code = tuple.0 as! Int
-            poolKeyHash = tuple.1 as! Data
+            poolKeyHash = try PoolKeyHash.fromPrimitive(tuple.1 as! Data)
             epoch = tuple.2 as! Int
         } else {
             throw CardanoException.deserializeException("Invalid PoolRetirement data: \(value)")
@@ -207,8 +207,8 @@ struct PoolRetirement: ArrayCBORSerializable {
         }
         
         return PoolRetirement(
-            poolKeyHash: PoolKeyHash.fromPrimitive(poolKeyHash) as! PoolKeyHash,
+            poolKeyHash: poolKeyHash,
             epoch: epoch
-        )
+        ) as! T
     }
 }
