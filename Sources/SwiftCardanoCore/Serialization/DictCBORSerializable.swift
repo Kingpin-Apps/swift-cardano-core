@@ -1,23 +1,90 @@
 import Foundation
+import PotentCBOR
 
 /// A dictionary class where all keys share the same type and all values share the same type.
-protocol DictCBORSerializable: CBORSerializable {
-    func toShallowPrimitive() -> Any
-    static func fromPrimitive(_ value: Any) -> CBORSerializable
-}
-
-extension DictCBORSerializable {
-    /// Convert the instance to a CBOR primitive. If the primitive is a container, e.g. list, dict, the type of
-    /// its elements could be either a Primitive or a CBORSerializable.
-    /// - Returns:  A CBOR primitive.
-    func toShallowPrimitive() -> Any {
-        fatalError("'to_shallow_primitive()' is not implemented by \(type(of: self))")
+class DictCBORSerializable: CBORSerializable {
+    typealias KEY_TYPE = AnyHashable
+    typealias VALUE_TYPE = Any
+    
+    private var _data: [KEY_TYPE: VALUE_TYPE] = [:]
+        
+    var data: [KEY_TYPE: VALUE_TYPE] {
+        get {
+            _data
+        }
+        set {
+            _data = newValue
+        }
     }
     
-    /// Turn a CBOR primitive to its original class type.
-    /// - Parameter value: A CBOR primitive.
-    /// - Returns:  A CBOR serializable object.
-    static func fromPrimitive(_ value: Any) -> CBORSerializable {
-        fatalError("This method must be overridden")
+    // Subscript for easier key-value access
+    subscript(key: KEY_TYPE) -> VALUE_TYPE? {
+        get {
+            return _data[key]
+        }
+        set {
+            _data[key] = newValue
+        }
+    }
+    
+    /// Initializer with default validation
+    required init(_ data: [KEY_TYPE: VALUE_TYPE]) throws {
+        self.data = data
+//        try validate()
+    }
+
+//    static func fromPrimitive<T>(_ value: Any) throws -> T {
+//        <#code#>
+//    }
+
+    /// Validate keys and values conform to expected types
+//    func validate() throws {
+//        for (key, value) in data {
+//            if let serializableKey = key as? CBORSerializable {
+//                try serializableKey.validate()
+//            }
+//            try value.validate()
+//        }
+//    }
+    
+    /// Sort keys in a map according to CBOR encoding rules
+    func toShallowPrimitive() throws -> Any {
+        let sortedData = try data.sorted {
+            let key1Bytes = try ($0.key as! CBORSerializable).toCBOR()
+            let key2Bytes = try ($1.key as! CBORSerializable).toCBOR()
+            return key1Bytes.count < key2Bytes.count
+        }
+        return Dictionary(uniqueKeysWithValues: sortedData)
+    }
+    
+    /// Restore a primitive value to its original class type
+    class func fromPrimitive<T>(_ value: Any) throws -> T {
+        guard let dict = value as? [KEY_TYPE: Any] else {
+            throw CardanoCoreError
+                .valueError("Expected dictionary for deserialization.")
+        }
+        
+        var restoredData: [KEY_TYPE: VALUE_TYPE] = [:]
+        
+        for (key, rawValue) in dict {
+            let restoredKey: KEY_TYPE
+            let restoredValue: VALUE_TYPE
+            
+            if let keyType = Self.KEY_TYPE.self as? CBORSerializable.Type {
+                restoredKey = try keyType.fromPrimitive(key)
+            } else {
+                restoredKey = key
+            }
+
+            if let valueType = Self.VALUE_TYPE as? CBORSerializable.Type {
+                restoredValue = try valueType.fromPrimitive(rawValue)
+            } else {
+                restoredValue = rawValue
+            }
+            
+            restoredData[restoredKey] = restoredValue
+        }
+        
+        return try Self(restoredData) as! T
     }
 }

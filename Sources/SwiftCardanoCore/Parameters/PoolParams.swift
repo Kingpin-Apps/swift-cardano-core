@@ -20,7 +20,7 @@ struct PoolId: CBORSerializable, CustomStringConvertible, CustomDebugStringConve
     
     init(value: String) throws {
         guard isBech32CardanoPoolId(value) else {
-            throw CardanoException.valueError("Invalid PoolId format. The PoolId should be a valid Cardano stake pool ID in bech32 format.")
+            throw CardanoCoreError.valueError("Invalid PoolId format. The PoolId should be a valid Cardano stake pool ID in bech32 format.")
         }
         self.value = value
     }
@@ -44,7 +44,7 @@ struct PoolId: CBORSerializable, CustomStringConvertible, CustomDebugStringConve
     
     static func fromCBOR(_ values: [Any]) throws -> PoolId {
         guard let value = values.first as? String else {
-            throw CardanoException.deserializeException("Failed to deserialize PoolId from CBOR.")
+            throw CardanoCoreError.deserializeError("Failed to deserialize PoolId from CBOR.")
         }
         return try PoolId(value: value)
     }
@@ -94,11 +94,11 @@ struct SingleHostAddr: CBORSerializable {
             ipv4Raw = tuple.2
             ipv6Raw = tuple.3
         }else {
-            throw CardanoException.deserializeException("Invalid SingleHostAddr data: \(value)")
+            throw CardanoCoreError.deserializeError("Invalid SingleHostAddr data: \(value)")
         }
         
         guard code == 0 else {
-            throw CardanoException.deserializeException("Invalid SingleHostAddr type: \(code)")
+            throw CardanoCoreError.deserializeError("Invalid SingleHostAddr type: \(code)")
         }
         
         if let ipv4String = ipv4Raw as? String {
@@ -149,11 +149,11 @@ struct SingleHostName: CBORSerializable {
             port = tuple.1 as? Int
             dnsName = tuple.2 as? String
         } else {
-            throw CardanoException.deserializeException("Invalid SingleHostName data: \(value)")
+            throw CardanoCoreError.deserializeError("Invalid SingleHostName data: \(value)")
         }
         
         guard code == 1 else {
-            throw CardanoException.deserializeException("Invalid SingleHostName type: \(code)")
+            throw CardanoCoreError.deserializeError("Invalid SingleHostName type: \(code)")
         }
         
         return SingleHostName(
@@ -185,11 +185,11 @@ struct MultiHostName: CBORSerializable {
             code = tuple.0 as! Int
             dnsName = tuple.1 as? String
         } else {
-            throw CardanoException.deserializeException("Invalid MultiHostName data: \(value)")
+            throw CardanoCoreError.deserializeError("Invalid MultiHostName data: \(value)")
         }
         
         guard code == 2 else {
-            throw CardanoException.deserializeException("Invalid MultiHostName type: \(code)")
+            throw CardanoCoreError.deserializeError("Invalid MultiHostName type: \(code)")
         }
         
         return MultiHostName(
@@ -211,7 +211,7 @@ enum Relay: ArrayCBORSerializable {
         } else if let multiHostName: MultiHostName = try? MultiHostName.fromPrimitive(value) {
             return Relay.multiHostName(multiHostName) as! T
         } else {
-            throw CardanoException.deserializeException("Invalid Relay data: \(value)")
+            throw CardanoCoreError.deserializeError("Invalid Relay data: \(value)")
         }
     }
 }
@@ -231,7 +231,7 @@ struct PoolMetadata: ArrayCBORSerializable {
             url = tuple.0 as! String
             poolMetadataHash = try PoolMetadataHash.fromPrimitive(tuple.1)
         } else {
-            throw CardanoException.deserializeException("Invalid PoolMetadata data: \(value)")
+            throw CardanoCoreError.deserializeError("Invalid PoolMetadata data: \(value)")
         }
         
         return PoolMetadata(
@@ -301,7 +301,7 @@ struct PoolParams: ArrayCBORSerializable {
             }
             poolMetadata = try PoolMetadata.fromPrimitive(tuple.8)
         } else {
-            throw CardanoException.deserializeException("Invalid PoolParams data: \(value)")
+            throw CardanoCoreError.deserializeError("Invalid PoolParams data: \(value)")
         }
         
         return PoolParams(

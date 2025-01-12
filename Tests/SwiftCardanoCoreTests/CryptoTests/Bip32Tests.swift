@@ -34,7 +34,7 @@ final class HDWalletTests: XCTestCase {
 
     func testIsMnemonicUnsupportedLanguage() throws {
         XCTAssertThrowsError(try HDWallet.isMnemonic(mnemonic: mnemonic12, language: .unsupported)) { error in
-            guard error is CardanoException else {
+            guard error is CardanoCoreError else {
                 XCTFail("Expected MnemonicError but got \(error)")
                 return
             }
@@ -48,7 +48,7 @@ final class HDWalletTests: XCTestCase {
 
     func testGenerateMnemonicUnsupportedLang() throws {
         XCTAssertThrowsError(try HDWallet.generateMnemonic(language: .unsupported)) { error in
-            guard error is CardanoException else {
+            guard error is CardanoCoreError else {
                 XCTFail("Expected MnemonicError but got \(error)")
                 return
             }
@@ -58,11 +58,11 @@ final class HDWalletTests: XCTestCase {
     func testFromMnemonicInvalidMnemonic() throws {
         let wrongMnemonic = "test walk nut penalty hip pave soap entry language right filter"
         XCTAssertThrowsError(try HDWallet.fromMnemonic(mnemonic: wrongMnemonic)) { error in
-            guard let error = error as? CardanoException else {
+            guard let error = error as? CardanoCoreError else {
                 XCTFail("Expected MnemonicError but got \(error)")
                 return
             }
-            XCTAssertEqual(error, .invalidDataException("Invalid mnemonic words."))
+            XCTAssertEqual(error, .invalidDataError("Invalid mnemonic words."))
         }
     }
 

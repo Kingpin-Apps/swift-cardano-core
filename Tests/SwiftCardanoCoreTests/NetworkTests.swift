@@ -10,7 +10,7 @@ import Testing
         let networkCBOR = try Network.testnet.toCBOR()
         let fromCBOR = try Network.fromCBOR(networkCBOR)
         
-        let primitive = value.toPrimitive()
+        let primitive = try value.toPrimitive()
         let fromPrimitive: Network = try Network.fromPrimitive(primitive)
         
         #expect(fromCBOR == value)
@@ -23,7 +23,7 @@ import Testing
         let networkCBOR = try Network.mainnet.toCBOR()
         let fromCBOR = try Network.fromCBOR(networkCBOR)
         
-        let primitive = value.toPrimitive()
+        let primitive = try value.toPrimitive()
         let fromPrimitive: Network = try Network.fromPrimitive(primitive)
         
         #expect(fromCBOR == value)
@@ -31,7 +31,7 @@ import Testing
     }
     
     @Test func testFromPrimitiveFail() async throws {
-        #expect(throws: CardanoException.self) {
+        #expect(throws: CardanoCoreError.self) {
             let _: Network = try Network.fromPrimitive(-1)
         }
     }

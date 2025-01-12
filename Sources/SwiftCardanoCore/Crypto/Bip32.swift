@@ -160,7 +160,7 @@ class HDWallet {
 
     static func fromMnemonic(mnemonic: String, passphrase: String = "") throws -> HDWallet {
         guard try isMnemonic(mnemonic: mnemonic) else {
-            throw CardanoException.invalidDataException("Invalid mnemonic words.")
+            throw CardanoCoreError.invalidDataError("Invalid mnemonic words.")
         }
 
         let _mnemonic = try! Mnemonic(mnemonic: mnemonic.components(separatedBy: " "))
@@ -177,7 +177,7 @@ class HDWallet {
 
     static func fromEntropy(entropy: String, passphrase: String = "") throws -> HDWallet {
         guard isEntropy(entropy: entropy) else {
-            throw CardanoException.invalidDataException("Invalid entropy")
+            throw CardanoCoreError.invalidDataError("Invalid entropy")
         }
 
         let seed = generateSeed(passphrase: passphrase, entropy: Data(hex: entropy))
@@ -243,7 +243,7 @@ class HDWallet {
 
     func derive(index: Int, isPrivate: Bool = true, hardened: Bool = false) throws -> HDWallet {
         guard !self.rootXPrivateKey.isEmpty && !self.rootPublicKey.isEmpty else {
-            throw CardanoException.invalidDataException("Missing root keys. Can't do derivation.")
+            throw CardanoCoreError.invalidDataError("Missing root keys. Can't do derivation.")
         }
 
         let index = hardened ? index + (1 << 31) : index
@@ -357,7 +357,7 @@ class HDWallet {
         let iBytes = withUnsafeBytes(of: index.littleEndian, Array.init)
 
         guard index < (1 << 31) else {
-            throw CardanoException.invalidDataException("Cannot derive hardened index with public key")
+            throw CardanoCoreError.invalidDataError("Cannot derive hardened index with public key")
         }
 
         let Z = Data(try! HMAC(key: cP.bytes, variant: .sha2(.sha512)).authenticate(Data([0x02]) + AP + iBytes))
@@ -389,7 +389,7 @@ class HDWallet {
 
     static func generateMnemonic(language: Language = .english, wordCount: WordCount = .twentyFour) throws -> [String] {
         guard SUPPORTED_MNEMONIC_LANGS.contains(language.rawValue) else {
-            throw CardanoException.invalidLanguage(
+            throw CardanoCoreError.invalidLanguage(
                 "Invalid language, use only this options english, french, italian, spanish, chinese_simplified, chinese_traditional, japanese or korean languages."
             )
         }
@@ -401,7 +401,7 @@ class HDWallet {
 
     static func isMnemonic(mnemonic: String, language: Language = .english) throws -> Bool {
         guard SUPPORTED_MNEMONIC_LANGS.contains(language.rawValue) else {
-            throw CardanoException.invalidLanguage(
+            throw CardanoCoreError.invalidLanguage(
                 "Invalid language, use only this options english, french, italian, spanish, chinese_simplified, chinese_traditional, japanese or korean languages."
             )
         }

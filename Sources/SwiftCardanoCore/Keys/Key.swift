@@ -51,12 +51,12 @@ class Key: CBORSerializable, Hashable, Equatable {
         guard let keyType = dict["type"],
               let description = dict["description"],
               let cborHex = dict["cborHex"] else {
-            throw CardanoException.valueError("Invalid Dictionary")
+            throw CardanoCoreError.valueError("Invalid Dictionary")
         }
         
         if validateType {
             guard validateType, dict["type"] == KEY_TYPE else {
-                throw CardanoException.invalidKeyTypeException("Expect key type: \(KEY_TYPE), but got \(dict["type"] ?? "")")
+                throw CardanoCoreError.invalidKeyTypeError("Expect key type: \(KEY_TYPE), but got \(dict["type"] ?? "")")
             }
         }
         
@@ -78,7 +78,7 @@ class Key: CBORSerializable, Hashable, Equatable {
     class func fromJSON(_ json: String, validateType: Bool = false) throws -> Self {
         guard let data = json.data(using: .utf8),
               let dict = try JSONSerialization.jsonObject(with: data) as? [String: String]else {
-            throw CardanoException.valueError("Invalid JSON")
+            throw CardanoCoreError.valueError("Invalid JSON")
         }
         
         return try fromDict(dict, validateType: validateType)
@@ -86,7 +86,7 @@ class Key: CBORSerializable, Hashable, Equatable {
     
     func save(to path: String) throws {
         if FileManager.default.fileExists(atPath: path) {
-            throw CardanoException.ioError("File already exists: \(path)")
+            throw CardanoCoreError.ioError("File already exists: \(path)")
         }
         
         if let jsonString = try toJSON() {
@@ -98,10 +98,6 @@ class Key: CBORSerializable, Hashable, Equatable {
         let jsonString = try String(contentsOfFile: path)
         return try fromJSON(jsonString)
     }
-    
-//    func toCBOR() -> Data {
-//        return payload
-//    }
     
     // Convert to raw bytes
     func toBytes() -> Data {

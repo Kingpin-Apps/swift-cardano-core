@@ -16,7 +16,6 @@ let paymentVKey = [
     "description": "Genesis Initial UTxO Verification Key",
     "cborHex": "58208be8339e9f3addfa6810d59e2f072f85e64d4c024c087e0d24f8317c6544f62f"
 ]
-let paymentVKeyJSON = try! JSONSerialization.data(withJSONObject: paymentVKey, options: .prettyPrinted)
 
 
 // MARK: - Test Suite

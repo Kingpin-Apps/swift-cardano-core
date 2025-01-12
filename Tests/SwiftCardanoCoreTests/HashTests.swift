@@ -87,7 +87,7 @@ let arguments = zip([
     @Test("Test Invalid Payload", arguments: arguments)
     func testInvalidSizePayload(_ type: ConstrainedBytes.Type, size: Int) async throws {
         let invalidPayload = Data(repeating: 0, count: size - 1)
-        #expect(throws: CardanoException.self) {
+        #expect(throws: CardanoCoreError.self) {
             let _ = try type.init(payload: invalidPayload)
         }
     }

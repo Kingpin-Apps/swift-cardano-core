@@ -17,11 +17,11 @@ enum Network: Int, CBORSerializable {
             let value = Int(value)
             network = Network(rawValue: value)
         } else {
-            throw CardanoException.valueError("Invalid value type for Network: \(value)")
+            throw CardanoCoreError.valueError("Invalid value type for Network: \(value)")
         }
         
         guard network != nil else {
-            throw CardanoException.valueError("Invalid network value: \(value)")
+            throw CardanoCoreError.valueError("Invalid network value: \(value)")
         }
         return network as! T
     }

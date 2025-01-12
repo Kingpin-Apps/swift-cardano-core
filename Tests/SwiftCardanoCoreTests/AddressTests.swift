@@ -174,7 +174,7 @@ struct PointerAddressTests {
     
     @Test func testDecodeInvalidData() async throws {
         let invalidData = Data([0x01, 0x02])
-        #expect(throws: CardanoException.self) {
+        #expect(throws: CardanoCoreError.self) {
             let _ = try PointerAddress.decode(invalidData)
         }
     }

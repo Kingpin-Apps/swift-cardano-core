@@ -149,7 +149,7 @@ struct PointerAddress: CBORSerializable, Equatable {
         }
 
         guard ints.count == 3 else {
-            throw CardanoException.decodingException("Error in decoding data \(data) into a PointerAddress")
+            throw CardanoCoreError.decodingError("Error in decoding data \(data) into a PointerAddress")
         }
 
         return PointerAddress(slot: ints[0], txIndex: ints[1], certIndex: ints[2])
@@ -255,7 +255,7 @@ struct Address: CBORSerializable, CustomStringConvertible, Equatable {
                 }
         }
         
-        throw CardanoException.invalidAddressInputException(
+        throw CardanoCoreError.invalidAddressInputError(
             "Cannot construct a shelley address from a combination of payment part: \(String(describing: paymentPart)) and stake part: \(String(describing: stakingPart))")
     }
     
@@ -358,7 +358,7 @@ struct Address: CBORSerializable, CustomStringConvertible, Equatable {
     /// - Returns: Encoded address in Bech32.
     func encode() throws -> String {
         guard let encoded =  Bech32().encode(hrp: self.hrp, witprog: self.toPrimitive()) else {
-            throw CardanoException.encodingException("Error encoding data: \(self.toPrimitive())")
+            throw CardanoCoreError.encodingError("Error encoding data: \(self.toPrimitive())")
         }
         return encoded
     }
@@ -381,7 +381,7 @@ struct Address: CBORSerializable, CustomStringConvertible, Equatable {
 
     static func fromPrimitive<T>(_ value: Any) throws -> T {
         guard let bech32 = Bech32().decode(addr: value as! String) else {
-            throw CardanoException.decodingException("Error decoding data: \(value)")
+            throw CardanoCoreError.decodingError("Error decoding data: \(value)")
         }
         let data = Data(bech32)
         
@@ -396,10 +396,10 @@ struct Address: CBORSerializable, CustomStringConvertible, Equatable {
         let networkBits = UInt8(header & 0x0F)
         
         guard let addrType = AddressType(rawValue: Int(addrBits)) else {
-            throw CardanoException.invalidAddressInputException("Invalid address type in header: \(header)")
+            throw CardanoCoreError.invalidAddressInputError("Invalid address type in header: \(header)")
         }
         guard let network = Network(rawValue: Int(networkBits)) else {
-            throw CardanoException.invalidAddressInputException("Invalid network in header: \(header)")
+            throw CardanoCoreError.invalidAddressInputError("Invalid network in header: \(header)")
         }
         
         switch addrType {
@@ -440,7 +440,7 @@ struct Address: CBORSerializable, CustomStringConvertible, Equatable {
             let stakingPart = try ScriptHash(payload: payload)
             return try Address(paymentPart: nil, stakingPart: StakingPart.scriptHash(stakingPart), network: network)
         default:
-            throw CardanoException.deserializeException("Error in deserializing bytes: \(data)")
+            throw CardanoCoreError.deserializeError("Error in deserializing bytes: \(data)")
         }
         
     }

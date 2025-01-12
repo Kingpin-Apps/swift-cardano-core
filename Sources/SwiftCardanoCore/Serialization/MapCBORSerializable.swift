@@ -4,8 +4,8 @@ import Foundation
 ///
 /// The class is useful when each key in a map have its own semantic meaning.
 protocol MapCBORSerializable: CBORSerializable {
-    func toShallowPrimitive() -> Any
-    static func fromPrimitive(_ value: Any) -> CBORSerializable
+    func toShallowPrimitive() throws -> Any
+    static func fromPrimitive<T>(_ value: Any) throws -> T
 }
 
 extension MapCBORSerializable {

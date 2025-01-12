@@ -29,7 +29,7 @@ class SigningKey: Key {
 class ExtendedSigningKey: Key {
     func sign(data: Data) throws -> Data {
         guard payload.count >= 160 else {
-            throw CardanoException.valueError("Invalid payload size for ExtendedSigningKey. Expected size >= 160, but got \(payload.count).")
+            throw CardanoCoreError.valueError("Invalid payload size for ExtendedSigningKey. Expected size >= 160, but got \(payload.count).")
         }
         
         let privateKey = try BIP32ED25519PrivateKey(

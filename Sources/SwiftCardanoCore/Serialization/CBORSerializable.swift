@@ -16,7 +16,7 @@ import PotentCBOR
 /// to be either CBOR `Primitive` or a `CBORSerializable`, as long as the `CBORSerializable`
 /// does not refer to itself, which could cause infinite loops.
 protocol CBORSerializable {
-    func toShallowPrimitive() -> Any
+    func toShallowPrimitive() throws -> Any
     static func fromPrimitive<T>(_ value: Any) throws -> T
 }
 
@@ -30,8 +30,8 @@ extension CBORSerializable {
     
     /// Convert the instance and its elements to CBOR primitives recursively.
     /// - Returns: A CBOR primitive.
-    func toPrimitive() -> Any {
-        let result = toShallowPrimitive()
+    func toPrimitive() throws -> Any {
+        let result = try toShallowPrimitive()
         return result
     }
     
@@ -42,7 +42,7 @@ extension CBORSerializable {
 //        fatalError("This method must be overridden")
 //    }
     
-    /// Encode a Python object into CBOR bytes.
+    /// Encode a Swift object into CBOR bytes.
     /// - Returns: Swift object encoded in cbor bytes.
     func toCBOR() throws -> Data {
         return try CBORSerialization.data(
@@ -50,7 +50,7 @@ extension CBORSerializable {
         )
     }
     
-    /// Encode a Python object into CBOR hex.
+    /// Encode a Swift object into CBOR hex.
     /// - Returns: Swift object encoded in cbor hex string.
     func toCBORHex() throws -> String? {
         let cbor = try toCBOR()
