@@ -13,7 +13,7 @@ enum MetadataType {
 // MARK: - Metadata
 class Metadata: DictCBORSerializable {
     typealias KEY_TYPE = Int
-    typealias VALUE_TYPE = Any
+    typealias VALUE_TYPE = AnyHashable
     
     static let MAX_ITEM_SIZE = 64
     let INTERNAL_TYPES: [Any.Type] = [
@@ -24,8 +24,8 @@ class Metadata: DictCBORSerializable {
         Dictionary<String, Any>.self
     ]
 
-    required init(_ data: [AnyHashable : Any]) throws {
-        try super.init(data as! [Int : Any])
+    required init(_ data: [AnyHashable : AnyHashable]) throws {
+        try super.init(data as! [Int : AnyHashable])
         try validate()
     }
     
@@ -70,7 +70,7 @@ struct ShelleyMaryMetadata: ArrayCBORSerializable {
             throw CardanoCoreError.deserializeError("Invalid ShelleyMaryMetadata data: \(value)")
         }
         
-        let metadata = try Metadata(list[0] as! [Int: Any])
+        let metadata = try Metadata(list[0] as! [Int: AnyHashable])
         let nativeScripts = list[1] as? [NativeScript]
         
         return ShelleyMaryMetadata(metadata: metadata, nativeScripts: nativeScripts) as! T
@@ -111,7 +111,7 @@ struct AlonzoMetadata: MapCBORSerializable {
             throw CardanoCoreError.deserializeError("Invalid AlonzoMetadata structure.")
         }
         
-        let metadata = dict[0] as? [Int: Any]
+        let metadata = dict[0] as? [Int: AnyHashable]
         
         return AlonzoMetadata(
             metadata: try metadata.map { try Metadata($0) },

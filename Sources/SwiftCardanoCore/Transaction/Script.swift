@@ -1,5 +1,5 @@
 import Foundation
-
+import PotentCBOR
 
 class DatumOption: ArrayCBORSerializable {
     var type: Int
@@ -19,24 +19,37 @@ class DatumOption: ArrayCBORSerializable {
         case datum
     }
 
-    func toPrimitive() -> [Any] {
+    func toPrimitive() throws -> [Any] {
         if type == 1 {
-            return [type, CBORTag(value: 24, data: try! JSONEncoder().encode(datum))]
+            return [
+                type,
+                CBORTag(
+                    tag: 24,
+                    value: try CBORSerialization.data(from: CBOR.fromAny(datum))
+                )
+            ]
         } else {
             return [type, datum]
         }
     }
 
-    static func fromPrimitive(_ values: [Any]) -> DatumOption {
+    static func fromPrimitive<T>(_ values: Any) throws -> T {
+        guard let values = values as? [Any] else {
+            throw CardanoCoreError
+                .valueError("Invalid DatumOption data: \(values)")
+        }
+        
         if values[0] as! Int == 0 {
-            return DatumOption(datum: values[1] as! DatumHash)
+            return DatumOption(datum: values[1] as! DatumHash) as! T
         } else {
             let tag = values[1] as! CBORTag
-            let v = try! JSONDecoder().decode(Any.self, from: tag.data)
-            if v is CBORTag {
-                return DatumOption(datum: RawPlutusData.fromPrimitive(v as! CBORTag))
+            let v = try CBORSerialization.cbor(from: tag.value as! Data)
+            if case let CBOR.tagged(_, v) = v {
+                return DatumOption(
+                    datum: try RawPlutusData.fromPrimitive(v)
+                ) as! T
             } else {
-                return DatumOption(datum: v)
+                return DatumOption(datum: v) as! T
             }
         }
     }
@@ -44,35 +57,42 @@ class DatumOption: ArrayCBORSerializable {
 
 class Script: ArrayCBORSerializable {
     var type: Int
-    var script: Any
+    var script: ScriptType
 
-    init(script: Any) {
+    init(script: ScriptType) {
         self.script = script
-        if script is NativeScript {
-            self.type = 0
-        } else if script is PlutusV1Script {
-            self.type = 1
-        } else {
-            self.type = 2
+        switch script {
+            case .nativeScript:
+                self.type = 0
+            case .plutusV1Script:
+                self.type = 1
+            case .plutusV2Script:
+                self.type = 2
+            case .plutusV3Script(_):
+                self.type = 3
         }
     }
 
-    enum CodingKeys: String, CodingKey {
-        case type = "_TYPE"
-        case script
-    }
-
-    static func fromPrimitive(_ values: [Any]) -> Script {
+    static func fromPrimitive<T>(_ values: Any) throws -> T {
+        guard let values = values as? [Any] else {
+            throw CardanoCoreError
+                .valueError("Invalid Script data: \(values)")
+        }
+        
         if values[0] as! Int == 0 {
-            return Script(script: NativeScript.fromPrimitive(values[1] as! [Any]))
+            return Script(script: try NativeScript.fromPrimitive(values[1] as! [Any])) as! T
         } else {
             let scriptData = values[1] as! Data
             if values[0] as! Int == 1 {
-                return Script(script: PlutusV1Script(scriptData))
-            } else {
-                return Script(script: PlutusV2Script(scriptData))
+                return Script(script: .plutusV1Script(scriptData)) as! T
+            } else if values[0] as! Int == 2 {
+                return Script(script: .plutusV2Script(scriptData)) as! T
+            } else if values[0] as! Int == 3 {
+                return Script(script: .plutusV3Script(scriptData)) as! T
             }
         }
+        throw CardanoCoreError
+            .valueError("Invalid Script data: \(values)")
     }
 }
 
@@ -83,12 +103,22 @@ class ScriptRef: CBORSerializable {
         self.script = script
     }
 
-    func toPrimitive() -> CBORTag {
-        return CBORTag(value: 24, data: try! JSONEncoder().encode(script))
+    func toShallowPrimitive() throws -> Any {
+        return CBORTag(
+            tag: 24,
+            value: try script.toCBOR()
+        )
     }
 
-    static func fromPrimitive(_ value: CBORTag) -> ScriptRef {
-        let script = try! JSONDecoder().decode(Script.self, from: value.data)
-        return ScriptRef(script: script)
+    static func fromPrimitive<T>(_ value: Any) throws -> T {
+        guard let value = value as? CBORTag else {
+            throw CardanoCoreError
+                .valueError("Invalid ScriptRef data: \(value)")
+        }
+        
+        let script: Script = try Script.fromPrimitive(
+            try CBORSerialization.cbor(from: value.value as! Data)
+        )
+        return ScriptRef(script: script) as! T
     }
 }

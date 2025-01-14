@@ -25,7 +25,8 @@ enum NativeScriptType: Int {
 }
 
 /// The metadata for a native script.
-class NativeScript: ArrayCBORSerializable {
+class NativeScript: ArrayCBORSerializable, Equatable {
+    class var type: Int { return 0 }
     class var jsonTag: String { return "" }
     class var jsonField: String { return "" }
 
@@ -36,22 +37,22 @@ class NativeScript: ArrayCBORSerializable {
         
         let scriptType = value[0] as! Int
         switch scriptType {
-            case ScriptPubkey._TYPE:
+            case ScriptPubkey.type:
                 let pubkey: ScriptPubkey = try ScriptPubkey.fromPrimitive(value.dropFirst())
                 return pubkey as! T
-            case ScriptAll._TYPE:
+            case ScriptAll.type:
                 let all: ScriptAll = try ScriptAll.fromPrimitive(value.dropFirst())
                 return all as! T
-            case ScriptAny._TYPE:
+            case ScriptAny.type:
                 let any: ScriptAny = try ScriptAny.fromPrimitive(value.dropFirst())
                 return any as! T
-            case ScriptNofK._TYPE:
+            case ScriptNofK.type:
                 let nofK: ScriptNofK = try ScriptNofK.fromPrimitive(value.dropFirst())
                 return nofK as! T
-            case InvalidBefore._TYPE:
+            case InvalidBefore.type:
                 let invalidBefore: InvalidBefore = try InvalidBefore.fromPrimitive(value.dropFirst())
                 return invalidBefore as! T
-            case InvalidHereAfter._TYPE:
+            case InvalidHereAfter.type:
                 let invalidHereAfter: InvalidHereAfter = try InvalidHereAfter.fromPrimitive(value.dropFirst())
                 return invalidHereAfter as! T
             default:
@@ -62,6 +63,25 @@ class NativeScript: ArrayCBORSerializable {
     func hash() throws -> ScriptHash {
         let cborBytes = try! JSONSerialization.data(withJSONObject: self.toCBOR(), options: [])
         return try ScriptHash(payload: Data(SHA256.hash(data: cborBytes)))
+    }
+    
+    static func == (lhs: NativeScript, rhs: NativeScript) -> Bool {
+        switch (lhs, rhs) {
+            case let (lhs as ScriptPubkey, rhs as ScriptPubkey):
+                return lhs.keyHash == rhs.keyHash
+            case let (lhs as ScriptAll, rhs as ScriptAll):
+                return lhs.nativeScripts == rhs.nativeScripts
+            case let (lhs as ScriptAny, rhs as ScriptAny):
+                return lhs.nativeScripts == rhs.nativeScripts
+            case let (lhs as ScriptNofK, rhs as ScriptNofK):
+                return lhs.nativeScripts == rhs.nativeScripts
+            case let (lhs as InvalidBefore, rhs as InvalidBefore):
+                return lhs.before == rhs.before
+            case let (lhs as InvalidHereAfter, rhs as InvalidHereAfter):
+                return lhs.after == rhs.after
+            default:
+                return false
+        }
     }
     
     /// Parse a standard native script dictionary (potentially parsed from a JSON file).
@@ -119,7 +139,7 @@ class NativeScript: ArrayCBORSerializable {
 }
 
 class ScriptPubkey: NativeScript {
-    static let _TYPE = 0
+    override class var type: Int { return 0 }
     override class var jsonTag: String { return "sig" }
     override class var jsonField: String { return "keyHash" }
 
@@ -131,7 +151,7 @@ class ScriptPubkey: NativeScript {
 }
 
 class ScriptAll: NativeScript {
-    static let _TYPE = 1
+    override class var type: Int { return 1 }
     override class var jsonTag: String { return "all" }
     override class var jsonField: String { return "scripts" }
 
@@ -143,7 +163,7 @@ class ScriptAll: NativeScript {
 }
 
 class ScriptAny: NativeScript {
-    static let _TYPE = 2
+    override class var type: Int { return 2 }
     override class var jsonTag: String { return "any" }
     override class var jsonField: String { return "scripts" }
 
@@ -155,7 +175,7 @@ class ScriptAny: NativeScript {
 }
 
 class ScriptNofK: NativeScript {
-    static let _TYPE = 3
+    override class var type: Int { return 3 }
     override class var jsonTag: String { return "atLeast" }
     override class var jsonField: String { return "required" }
 
@@ -169,7 +189,7 @@ class ScriptNofK: NativeScript {
 }
 
 class InvalidBefore: NativeScript {
-    static let _TYPE = 4
+    override class var type: Int { return 4 }
     override class var jsonTag: String { return "after" }
     override class var jsonField: String { return "slot" }
 
@@ -181,7 +201,7 @@ class InvalidBefore: NativeScript {
 }
 
 class InvalidHereAfter: NativeScript {
-    static let _TYPE = 5
+    override class var type: Int { return 5 }
     override class var jsonTag: String { return "before" }
     override class var jsonField: String { return "slot" }
 

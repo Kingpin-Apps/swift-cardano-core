@@ -1,6 +1,6 @@
 import Foundation
 
-struct GenesisParameters: Codable {
+struct GenesisParameters {
     var alonzoGenesis: [String: Any]?
     var byronGenesis: [String: Any]?
     var conwayGenesis: [String: Any]?

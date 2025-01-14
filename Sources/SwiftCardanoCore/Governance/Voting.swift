@@ -27,7 +27,14 @@ struct VotingProcedure: ArrayCBORSerializable {
     let anchor: Anchor?
     
     static func fromPrimitive<T>(_ value: Any) throws -> T {
-        <#code#>
+        guard let list = value as? [Any], list.count == 2 else {
+            throw CardanoCoreError.deserializeError("Invalid VotingProcedure data: \(value)")
+        }
+        
+        let vote: Vote = try Vote.fromPrimitive(list[0])
+        let anchor: Anchor = try Anchor.fromPrimitive(list[1])
+        
+        return VotingProcedure(vote: vote, anchor: anchor) as! T
     }
 }
 
@@ -35,7 +42,11 @@ struct VotingProcedures: MapCBORSerializable {
     let procedures: [Voter: [GovActionID: VotingProcedure]]
     
     static func fromPrimitive<T>(_ value: Any) throws -> T {
-        <#code#>
+        guard let dict = value as? [Voter: [GovActionID: VotingProcedure]] else {
+            throw CardanoCoreError.deserializeError("Invalid VotingProcedures data: \(value)")
+        }
+        
+        return VotingProcedures(procedures: dict) as! T
     }
 }
 

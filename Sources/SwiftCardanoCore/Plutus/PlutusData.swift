@@ -7,8 +7,16 @@ import PotentCBOR
 /// a data structure in Plutus scripts.
 /// It is not required to use this class to interact with Plutus scripts. However, wrapping datum in PlutusData
 /// class will reduce the complexity of serialization and deserialization tremendously.
-class PlutusData: BaseArrayCBORSerializable {
+@dynamicMemberLookup
+class PlutusData: BaseArrayCBORSerializable, Equatable, Hashable {
     let MAX_BYTES_SIZE = 64
+    
+    private var properties: [String: Any] = [:]
+
+    subscript(dynamicMember member: String) -> Any? {
+        get { properties[member] }
+        set { properties[member] = newValue }
+    }
     
     /// Constructor ID of this plutus data.
     /// It is primarily used by Plutus core to reconstruct a data structure from serialized CBOR bytes.
@@ -33,7 +41,7 @@ class PlutusData: BaseArrayCBORSerializable {
         let validTypes: [Any.Type] = [
             PlutusData.self,
             Dictionary<AnyHashable, Any>.self,
-            IndefiniteList<Any>.self,
+            IndefiniteList<AnyHashable>.self,
             Int.self,
             ByteString.self,
             Data.self
@@ -62,16 +70,16 @@ class PlutusData: BaseArrayCBORSerializable {
     }
     
     func toShallowPrimitive() throws -> Any {
-        var primitives: [Any] = []
+        var primitives: [AnyHashable] = []
         
         let mirror = Mirror(reflecting: self)
         for child in mirror.children {
             if let label = child.label, let value = child.value as? CBORSerializable {
-                primitives.append(try! value.toShallowPrimitive())
+                primitives.append(try! value.toShallowPrimitive() as! AnyHashable)
             } else if child.value is NSNull {
                 continue
             } else {
-                primitives.append(child.value)
+                primitives.append(child.value as! AnyHashable)
             }
         }
         
@@ -216,7 +224,11 @@ class PlutusData: BaseArrayCBORSerializable {
                         if let fieldType = fieldInfo.value as? PlutusData.Type {
                             convertedFields.append(try fieldType.fromDict(f as! [String: Any]))
                         } else if let fieldType = fieldInfo.value as? Datum.Type {
-                            convertedFields.append(try RawPlutusData.fromDict(f as! [String: Any]))
+                            convertedFields
+                                .append(
+                                    try RawPlutusData
+                                        .fromDict(f as! [String: AnyHashable])
+                                )
                         } else if let fieldArray = f as? [Any] {
                             // List handling
                             convertedFields.append(try fieldArray.map { try dfs($0) })
@@ -255,7 +267,7 @@ class PlutusData: BaseArrayCBORSerializable {
                         return Data(Array(bytes.utf8))
                     }
                 } else if let list = objDict["list"] as? [Any] {
-                    return IndefiniteList(try list.map { try dfs($0) })
+                    return IndefiniteList(try list.map { try dfs($0) } as! [AnyHashable])
                 } else {
                     throw CardanoCoreError.decodingError("Unexpected data structure: \(objDict)")
                 }
@@ -274,5 +286,13 @@ class PlutusData: BaseArrayCBORSerializable {
         let jsonData = data.data(using: .utf8)!
         let dict = try JSONSerialization.jsonObject(with: jsonData, options: []) as! [String: Any]
         return try fromDict(dict)
+    }
+    
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(self)
+    }
+    
+    static func == (lhs: PlutusData, rhs: PlutusData) -> Bool {
+        return lhs === rhs
     }
 }

@@ -1,6 +1,6 @@
 import Foundation
 
-enum GovAction {
+enum GovAction: ArrayCBORSerializable {
     case parameterChangeAction(ParameterChangeAction)
     case hardForkInitiationAction(HardForkInitiationAction)
     case treasuryWithdrawalsAction(TreasuryWithdrawalsAction)
@@ -8,6 +8,39 @@ enum GovAction {
     case updateCommittee(UpdateCommittee)
     case newConstitution(NewConstitution)
     case infoAction(InfoAction)
+    
+    static func fromPrimitive<T>(_ value: Any) throws -> T {
+        guard let list = value as? [Any] else {
+            throw CardanoCoreError.deserializeError("Invalid GovActionType data: \(value)")
+        }
+        
+        let code = list[0] as! UInt8
+        switch code {
+            case 0:
+                let action: ParameterChangeAction = try ParameterChangeAction.fromPrimitive(list)
+                return action as! T
+            case 1:
+                let action: HardForkInitiationAction = try HardForkInitiationAction.fromPrimitive(list)
+                return action as! T
+            case 2:
+                let action: TreasuryWithdrawalsAction =  try TreasuryWithdrawalsAction.fromPrimitive(list)
+                return action as! T
+            case 3:
+                let action: NoConfidence =  try NoConfidence.fromPrimitive(list)
+                return action as! T
+            case 4:
+                let action: UpdateCommittee =  try UpdateCommittee.fromPrimitive(list)
+                return action as! T
+            case 5:
+                let action: NewConstitution =  try NewConstitution.fromPrimitive(list)
+                return action as! T
+            case 6:
+                let action: InfoAction =  try InfoAction.fromPrimitive(list)
+                return action as! T
+            default:
+                throw CardanoCoreError.deserializeError("Invalid GovAction code: \(code)")
+        }
+    }
 }
 
 struct GovActionID: ArrayCBORSerializable, Hashable {
@@ -15,83 +48,23 @@ struct GovActionID: ArrayCBORSerializable, Hashable {
     let govActionIndex: UInt16
     
     static func fromPrimitive<T>(_ value: Any) throws -> T {
-        <#code#>
-    }
-}
-
-struct ParameterChangeAction: ArrayCBORSerializable {
-    public var code: Int { get { return 0 } }
-    
-    let id: GovActionID?
-    let protocolParamUpdate: ProtocolParamUpdate
-    let policyHash: PolicyHash?
-    
-    static func fromPrimitive<T>(_ value: Any) throws -> T {
-        <#code#>
-    }
-}
-
-struct HardForkInitiationAction: ArrayCBORSerializable {
-    public var code: Int { get { return 1 } }
-    
-    let id: GovActionID?
-    let protocolVersion: ProtocolVersion
-    
-    static func fromPrimitive<T>(_ value: Any) throws -> T {
-        <#code#>
-    }
-}
-
-struct TreasuryWithdrawalsAction: ArrayCBORSerializable {
-    public var code: Int { get { return 2 } }
-    
-    let withdrawals: [RewardAccount: Coin] // reward_account => coin
-    let policyHash: PolicyHash?
-    
-    static func fromPrimitive<T>(_ value: Any) throws -> T {
-        <#code#>
-    }
-}
-
-struct NoConfidence: ArrayCBORSerializable {
-    public var code: Int { get { return 3 } }
-    
-    let id: GovActionID
-    
-    static func fromPrimitive<T>(_ value: Any) throws -> T {
-        <#code#>
-    }
-}
-
-struct UpdateCommittee: ArrayCBORSerializable  {
-    public var code: Int { get { return 4 } }
-    
-    let id: GovActionID?
-    let coldCredentials: Set<CommitteeColdCredential>
-    let credentialEpochs: [CommitteeColdCredential: UInt64] // committee_cold_credential => epoch_no
-    let interval: UnitInterval
-    
-    static func fromPrimitive<T>(_ value: Any) throws -> T {
-        <#code#>
-    }
-}
-
-struct NewConstitution: ArrayCBORSerializable  {
-    public var code: Int { get { return 5 } }
-    
-    let id: GovActionID
-    let constitution: Constitution
-    
-    static func fromPrimitive<T>(_ value: Any) throws -> T {
-        <#code#>
-    }
-}
-
-struct InfoAction {
-    let value: Int = 6
-    
-    static func fromPrimitive<T>(_ value: Any) throws -> T {
-        <#code#>
+        var transactionID: Data
+        var govActionIndex: UInt16
+        
+        if let list = value as? [Any] {
+            transactionID = list[0] as! Data
+            govActionIndex = list[1] as! UInt16
+        } else if let tuple = value as? (Any, Any) {
+            transactionID = tuple.0 as! Data
+            govActionIndex = tuple.1 as! UInt16
+        } else {
+            throw CardanoCoreError.deserializeError("Invalid GovActionID data: \(value)")
+        }
+        
+        return GovActionID(
+            transactionID: try TransactionId(payload: transactionID),
+            govActionIndex: govActionIndex
+        ) as! T
     }
 }
 
@@ -118,77 +91,114 @@ struct PoolVotingThresholds: ArrayCBORSerializable {
     }
     
     static func fromPrimitive<T>(_ value: Any) throws -> T {
-        <#code#>
+        guard let list = value as? [Any], list.count == 5 else {
+            throw CardanoCoreError.deserializeError("Invalid PoolVotingThresholds data: \(value)")
+        }
+        
+        var thresholds: [UnitInterval] = []
+        for item in list {
+            thresholds.append(try UnitInterval.fromPrimitive(item))
+        }
+        
+        return PoolVotingThresholds(from: thresholds) as! T
     }
 }
 
-struct DrepVotingThresholds {
+struct DrepVotingThresholds: ArrayCBORSerializable  {
     var thresholds: [UnitInterval]
 
     init(thresholds: [UnitInterval]) {
         precondition(thresholds.count == 10, "There must be exactly 10 unit intervals")
         self.thresholds = thresholds
     }
-}
-
-struct ProtocolParamUpdate {
-    var minFeeA: Coin?
-    var minFeeB: Coin?
-    var maxBlockBodySize: UInt32?
-    var maxTransactionSize: UInt32?
-    var maxBlockHeaderSize: UInt16?
-    var keyDeposit: Coin?
-    var poolDeposit: Coin?
-    var maximumEpoch: EpochInterval?
-    var nOpt: UInt16?
-    var poolPledgeInfluence: NonNegativeInterval?
-    var expansionRate: UnitInterval?
-    var treasuryGrowthRate: UnitInterval?
-    var minPoolCost: Coin?
-    var adaPerUtxoByte: Coin?
-    var costModels: CostModels?
-    var executionCosts: ExUnitPrices?
-    var maxTxExUnits: ExUnits?
-    var maxBlockExUnits: ExUnits?
-    var maxValueSize: UInt32?
-    var collateralPercentage: UInt16?
-    var maxCollateralInputs: UInt16?
-    var poolVotingThresholds: PoolVotingThresholds?
-    var drepVotingThresholds: DrepVotingThresholds?
-    var minCommitteeSize: UInt16?
-    var committeeTermLimit: EpochInterval?
-    var governanceActionValidityPeriod: EpochInterval?
-    var governanceActionDeposit: Coin?
-    var drepDeposit: Coin?
-    var drepInactivityPeriod: EpochInterval?
-    var minFeeRefScriptCoinsPerByte: NonNegativeInterval?
+    
+    static func fromPrimitive<T>(_ value: Any) throws -> T {
+        guard let list = value as? [Any], list.count == 10 else {
+            throw CardanoCoreError.deserializeError("Invalid DrepVotingThresholds data: \(value)")
+        }
+        
+        var thresholds: [UnitInterval] = []
+        for item in list {
+            thresholds.append(try UnitInterval.fromPrimitive(item))
+        }
+        
+        return DrepVotingThresholds(thresholds: thresholds) as! T
+    }
 }
 
 
-struct ExUnitPrices {
+struct ExUnitPrices: ArrayCBORSerializable {
     var memPrice: NonNegativeInterval
     var stepPrice: NonNegativeInterval
+    
+    static func fromPrimitive<T>(_ value: Any) throws -> T {
+        guard let list = value as? [Any], list.count == 2 else {
+            throw CardanoCoreError.deserializeError("Invalid ExUnitPrices data: \(value)")
+        }
+        
+        let memPrice: NonNegativeInterval = try NonNegativeInterval.fromPrimitive(list[0])
+        let stepPrice: NonNegativeInterval = try NonNegativeInterval.fromPrimitive(list[1])
+        
+        return ExUnitPrices(memPrice: memPrice, stepPrice: stepPrice) as! T
+    }
+
 }
 
-struct ExUnits {
+struct ExUnits: ArrayCBORSerializable {
     var mem: UInt
     var steps: UInt
+    
+    static func fromPrimitive<T>(_ value: Any) throws -> T {
+        guard let list = value as? [Any], list.count == 2 else {
+            throw CardanoCoreError.deserializeError("Invalid ExUnits data: \(value)")
+        }
+        let mem = list[0] as! UInt
+        let steps = list[1] as! UInt
+        
+        return ExUnits(mem: mem, steps: steps) as! T
+    }
+
 }
 
-struct Constitution {
+struct Constitution: ArrayCBORSerializable {
     let anchor: Anchor
     let scriptHash: ScriptHash?
     
     static func fromPrimitive<T>(_ value: Any) throws -> T {
-        <#code#>
+        guard let list = value as? [Any], list.count == 3 else {
+            throw CardanoCoreError.deserializeError("Invalid Constitution data: \(value)")
+        }
+        
+        let anchor: Anchor = try Anchor.fromPrimitive(list[0])
+        let scriptHash: ScriptHash = try ScriptHash.fromPrimitive(list[1])
+        
+        return Constitution(anchor: anchor, scriptHash: scriptHash) as! T
     }
 }
 
-struct ProposalProcedure {
+struct ProposalProcedure: ArrayCBORSerializable {
     let deposit: Coin
     let rewardAccount: RewardAccount
     let govAction: GovAction
     let anchor: Anchor
+    
+    static func fromPrimitive<T>(_ value: Any) throws -> T {
+        guard let list = value as? [Any], list.count == 4 else {
+            throw CardanoCoreError.deserializeError("Invalid ProposalProcedure data: \(value)")
+        }
+        
+        let deposit: Coin = Coin(list[0] as! UInt64)
+        let rewardAccount = list[1] as! RewardAccount
+        let govAction: GovAction = try GovAction.fromPrimitive(list[2] as! Data)
+        let anchor: Anchor = try Anchor.fromPrimitive(list[3])
+        
+        return ProposalProcedure(
+            deposit: deposit,
+            rewardAccount: rewardAccount,
+            govAction: govAction,
+            anchor: anchor
+        ) as! T
+    }
 }
 
 struct ProposalProcedures {

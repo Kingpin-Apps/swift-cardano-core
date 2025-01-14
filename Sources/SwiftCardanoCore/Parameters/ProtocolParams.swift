@@ -46,28 +46,7 @@ struct MaxExecutionUnits: Codable {
     }
 }
 
-//struct PoolVotingThresholds: Codable {
-//    var committeeNoConfidence: Double?
-//    var committeeNormal: Double?
-//    var hardForkInitiation: Double?
-//    var motionNoConfidence: Double?
-//    var ppSecurityGroup: Double?
-//
-//    enum CodingKeys: String, CodingKey {
-//        case committeeNoConfidence = "committee_no_confidence"
-//        case committeeNormal = "committee_normal"
-//        case hardForkInitiation = "hard_fork_initiation"
-//        case motionNoConfidence = "motion_no_confidence"
-//        case ppSecurityGroup = "pp_security_group"
-//    }
-//}
-
-//struct ProtocolVersion: Codable {
-//    var major: Int?
-//    var minor: Int?
-//}
-
-struct ProtocolParameters: Codable {
+struct ProtocolParameters {
     var collateralPercent: Int?
     var committeeMaxTermLength: Int?
     var committeeMinSize: Int?

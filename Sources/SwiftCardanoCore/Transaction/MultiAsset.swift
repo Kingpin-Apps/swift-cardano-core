@@ -1,6 +1,6 @@
 import Foundation
 
-class MultiAsset: DictCBORSerializable, Equatable {
+class MultiAsset: DictCBORSerializable {
     typealias KEY_TYPE = ScriptHash
     typealias VALUE_TYPE = Asset
 

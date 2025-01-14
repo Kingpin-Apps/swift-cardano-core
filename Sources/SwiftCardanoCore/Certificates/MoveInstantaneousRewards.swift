@@ -7,6 +7,6 @@ struct MoveInstantaneousRewards: ArrayCBORSerializable {
     let moveInstantaneousRewards: MoveInstantaneousReward
     
     static func fromPrimitive<T>(_ value: Any) throws -> T {
-        <#code#>
+        throw  CardanoCoreError.notImplementedError("MoveInstantaneousRewards.fromPrimitive")
     }
 }

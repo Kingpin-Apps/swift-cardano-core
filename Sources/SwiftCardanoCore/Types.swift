@@ -28,18 +28,52 @@ typealias EpochInterval = UInt32
 // Represents an 8-byte unsigned integer
 typealias EpochNumber = UInt64
 
-struct ProtocolVersion: Codable {
+struct ProtocolVersion: ArrayCBORSerializable {
     var major: Int?
     var minor: Int?
+    
+    static func fromPrimitive<T>(_ value: Any) throws -> T {
+        var major: Int
+        var minor: Int
+        
+        if let list = value as? [Any] {
+            major = list[0] as! Int
+            minor = list[1] as! Int
+        } else if let tuple = value as? (Any, Any, Any, Any) {
+            major = tuple.0 as! Int
+            minor = tuple.1 as! Int
+        } else {
+            throw CardanoCoreError.deserializeError("Invalid ProtocolVersion data: \(value)")
+        }
+        
+        return ProtocolVersion(
+            major: major,
+            minor: minor
+        ) as! T
+    }
 }
 
-struct NonNegativeInterval {
-    var uint: UInt
-    var positiveInt: UInt64
+struct NonNegativeInterval: ArrayCBORSerializable {
+    var lowerBound: UInt
+    var upperBound: UInt64
     
-    init(uint: UInt, positiveInt: UInt64) {
-        self.uint = uint
-        self.positiveInt = positiveInt
+    init(lowerBound: UInt, upperBound: UInt64) {
+        self.lowerBound = lowerBound
+        self.upperBound = upperBound
+    }
+    
+    static func fromPrimitive<T>(_ value: Any) throws -> T {
+        guard let list = value as? [Int], list.count == 2 else {
+            throw CardanoCoreError
+                .decodingError(
+                    "Invalid NonNegativeInterval data: \(value)"
+                )
+        }
+        
+        return NonNegativeInterval(
+            lowerBound: UInt(list[0]),
+            upperBound: UInt64(list[1])
+        ) as! T
     }
 }
 
@@ -54,16 +88,35 @@ struct UnitInterval {
         self.numerator = numerator
         self.denominator = denominator
     }
+    
+    static func fromPrimitive<T>(_ value: Any) throws -> T {
+        guard let list = value as? [Int], list.count == 2 else {
+            throw CardanoCoreError
+                .decodingError(
+                    "Invalid UnitInterval data: \(value)"
+                )
+        }
+        
+        return UnitInterval(
+            numerator: UInt(list[0]),
+            denominator: UInt(list[1])
+        ) as! T
+    }
 }
 
 struct Url {
     let value: URL
     
-    init?(_ value: URL) throws {
-        guard value.absoluteString.count <= 128 else {
+    init(_ value: String) throws {
+        guard value.count <= 128 else {
             throw CardanoCoreError.valueError("URL exceeds the maximum length of 128 characters.")
         }
-        self.value = value
+        
+        guard let url = URL(string: value) else {
+            throw CardanoCoreError.valueError("Invalid URL format: \(value)")
+        }
+        
+        self.value = url
     }
 }
 
@@ -72,7 +125,23 @@ struct Anchor: ArrayCBORSerializable {
     let anchorDataHash: AnchorDataHash
     
     static func fromPrimitive<T>(_ value: Any) throws -> T {
-        <#code#>
+        var url: String
+        var dataHash: Data
+        
+        if let list = value as? [Any] {
+            url = list[0] as! String
+            dataHash = list[1] as! Data
+        } else if let tuple = value as? (Any, Any) {
+            url = tuple.0 as! String
+            dataHash = tuple.1 as! Data
+        } else {
+            throw CardanoCoreError.deserializeError("Invalid Anchor data: \(value)")
+        }
+        
+        return Anchor(
+            anchorUrl: try Url(url),
+            anchorDataHash: try AnchorDataHash(payload: dataHash)
+        ) as! T
     }
 
 }
@@ -113,7 +182,7 @@ class Unit: PlutusData {
     class override var CONSTR_ID: Any { return 0 }
 }
 
-class IndefiniteList<T> {
+class IndefiniteList<T>: Equatable where T: Hashable {
     private var items: [T]
     
     init(_ items: [T] = []) {
@@ -156,49 +225,8 @@ class IndefiniteList<T> {
     var description: String {
         return "IndefiniteList: \(items)"
     }
-}
-
-func hasAttribute(_ object: Any, propertyName: String) -> Bool {
-    let mirror = Mirror(reflecting: object)
-    return mirror.children.contains { $0.label == propertyName }
-}
-
-func getAttribute(_ object: Any, propertyName: String) -> Any? {
-    let mirror = Mirror(reflecting: object)
-    for child in mirror.children {
-        if child.label == propertyName {
-            return child.value
-        }
+    
+    static func == (lhs: IndefiniteList<T>, rhs: IndefiniteList<T>) -> Bool {
+        return lhs.items == rhs.items
     }
-    return nil
 }
-func setAttribute(_ object: Any, propertyName: String, value: Any) -> Any? {
-    let mirror = Mirror(reflecting: object)
-    for child in mirror.children {
-        if child.label == propertyName {
-            if let object = object as? NSObject {
-                object.setValue(value, forKey: propertyName)
-                return true
-            }
-        }
-    }
-    return false
-}
-
-//func setAttribute(_ object: AnyObject, propertyName: String, value: Any) -> Bool {
-//    var mirror: Mirror? = Mirror(reflecting: object)
-//    
-//    while let currentMirror = mirror {
-//        for child in currentMirror.children {
-//            if child.label == propertyName {
-//                if let object = object as? NSObject {
-//                    // Use Key-Value Coding if possible
-//                    object.setValue(value, forKey: propertyName)
-//                    return true
-//                }
-//            }
-//        }
-//        mirror = currentMirror.superclassMirror
-//    }
-//    return false
-//}

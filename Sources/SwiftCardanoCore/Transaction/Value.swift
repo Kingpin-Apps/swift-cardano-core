@@ -1,6 +1,6 @@
 import Foundation
 
-struct Value: ArrayCBORSerializable, Equatable {
+struct Value: ArrayCBORSerializable, Hashable, Equatable {
     
     /// Amount of ADA
     var coin: Int = 0
@@ -9,7 +9,18 @@ struct Value: ArrayCBORSerializable, Equatable {
     var multiAsset: MultiAsset = try! MultiAsset([:])
     
     static func fromPrimitive<T>(_ value: Any) throws -> T {
-        <#code#>
+        guard let list = value as? [Any], list.count == 2 else {
+            throw CardanoCoreError
+                .decodingError("Invalid Value data: \(value)")
+        }
+        
+        let coin = list[0] as! Int
+        let multiAsset: MultiAsset = try MultiAsset.fromPrimitive(list[1])
+        
+        return Value(
+            coin: coin,
+            multiAsset: multiAsset
+        ) as! T
     }
 
     func union(_ other: Value) -> Value {

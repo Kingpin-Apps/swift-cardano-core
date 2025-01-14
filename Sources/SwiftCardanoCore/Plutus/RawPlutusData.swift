@@ -2,8 +2,7 @@ import Foundation
 import PotentCBOR
 
 // MARK: - RawPlutusData
-class RawPlutusData: CBORSerializable {
-
+class RawPlutusData: CBORSerializable, Equatable {
     var data: RawDatum
 
     init(data: RawDatum) {
@@ -16,8 +15,8 @@ class RawPlutusData: CBORSerializable {
 
     func toShallowPrimitive() throws -> Any {
         func dfs(_ obj: Any) -> Any {
-            if let list = obj as? [Any] {
-                let indefiniteList = IndefiniteList(list.map { dfs($0) })
+            if let list = obj as? [AnyHashable] {
+                let indefiniteList = IndefiniteList( list.map { dfs($0) as! AnyHashable })
                 return indefiniteList
             } else if let dict = obj as? [AnyHashable: Any] {
                 return dict.reduce(into: [AnyHashable: Any]()) { result, pair in
@@ -26,7 +25,7 @@ class RawPlutusData: CBORSerializable {
             } else if case let CBOR.tagged(tag, innerValue) = obj, let list = innerValue.unwrapped as? [Any] {
                 let value: Any
                 if tag.rawValue == 102 {
-                    let indefiniteList = IndefiniteList(list.map { dfs($0) })
+                    let indefiniteList = IndefiniteList(list.map { dfs($0) as! AnyHashable })
                     value = indefiniteList
                 } else {
                     value = list.map { dfs($0) }
@@ -48,7 +47,7 @@ class RawPlutusData: CBORSerializable {
                 return ["bytes": byteArray.toHex]
             } else if let list = obj as? [Any] {
                 return ["list": try list.map { try dfs($0) }]
-            } else if let list = obj as? IndefiniteList<Any> {
+            } else if let list = obj as? IndefiniteList<AnyHashable> {
                 return ["list": try list.getAll().map { try dfs($0) }]
             } else if let dict = obj as? [AnyHashable: Any] {
                 return ["map": try dict.map { ["k": try dfs($0.key), "v": try dfs($0.value)] }]
@@ -76,7 +75,7 @@ class RawPlutusData: CBORSerializable {
     /// Convert a dictionary to RawPlutusData
     /// - Parameter value: A dictionary.
     /// - Returns: Restored RawPlutusData.
-    class func fromDict(_ data: [String: Any]) throws -> RawPlutusData {
+    class func fromDict(_ data: [String: AnyHashable]) throws -> RawPlutusData {
         func dfs(_ obj: Any) throws -> Any {
             if let dict = obj as? [String: Any] {
                 if let constructor = dict["constructor"] as? Int {
@@ -89,9 +88,15 @@ class RawPlutusData: CBORSerializable {
                     if let tag = getTag(constrID: constructor) {
                         return CBORTag(tag: tag, value: convertedFields)
                     } else {
-                        return CBORTag(tag: 102, value: [constructor, IndefiniteList(convertedFields)])
+                        return CBORTag(
+                            tag: 102,
+                            value: [
+                                constructor,
+                                IndefiniteList(convertedFields as! [AnyHashable])
+                            ]
+                        )
                     }
-                } else if let map = dict["map"] as? [[String: Any]] {
+                } else if let map = dict["map"] as? [[String: AnyHashable]] {
                     var resultMap: [AnyHashable: Any] = [:]
                     for pair in map {
                         if let key = pair["k"], let value = pair["v"] {
@@ -108,7 +113,7 @@ class RawPlutusData: CBORSerializable {
                         return Data(bytes.utf8)
                     }
                 } else if let list = dict["list"] as? [Any] {
-                    return IndefiniteList(try list.map { try dfs($0) })
+                    return IndefiniteList(try list.map { try dfs($0) } as! [AnyHashable])
                 } else {
                     throw CardanoCoreError.deserializeError("Unexpected data structure: \(dict)")
                 }
@@ -125,9 +130,13 @@ class RawPlutusData: CBORSerializable {
     /// - Returns: The restored RawPlutusData.
     class func fromJSON(_ json: String) throws -> RawPlutusData {
         guard let jsonData = json.data(using: .utf8),
-              let dict = try JSONSerialization.jsonObject(with: jsonData, options: []) as? [String: Any] else {
-            throw NSError(domain: "RawPlutusData", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid JSON"])
+              let dict = try JSONSerialization.jsonObject(with: jsonData, options: []) as? [String: AnyHashable] else {
+            throw CardanoCoreError.valueError("Invalid JSON")
         }
         return try fromDict(dict)
+    }
+    
+    static func == (lhs: RawPlutusData, rhs: RawPlutusData) -> Bool {
+        lhs.data == rhs.data
     }
 }

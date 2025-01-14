@@ -2,9 +2,9 @@ import Foundation
 import PotentCBOR
 
 /// A dictionary class where all keys share the same type and all values share the same type.
-class DictCBORSerializable: CBORSerializable {
+class DictCBORSerializable: CBORSerializable, Hashable, Comparable {
     typealias KEY_TYPE = AnyHashable
-    typealias VALUE_TYPE = Any
+    typealias VALUE_TYPE = AnyHashable
     
     private var _data: [KEY_TYPE: VALUE_TYPE] = [:]
         
@@ -47,6 +47,14 @@ class DictCBORSerializable: CBORSerializable {
 //        }
 //    }
     
+    // Hash function
+    func hash(into hasher: inout Hasher) {
+        for (key, value) in data {
+            hasher.combine(key)
+            hasher.combine(value)
+        }
+    }
+    
     /// Sort keys in a map according to CBOR encoding rules
     func toShallowPrimitive() throws -> Any {
         let sortedData = try data.sorted {
@@ -79,12 +87,118 @@ class DictCBORSerializable: CBORSerializable {
             if let valueType = Self.VALUE_TYPE as? CBORSerializable.Type {
                 restoredValue = try valueType.fromPrimitive(rawValue)
             } else {
-                restoredValue = rawValue
+                restoredValue = rawValue as! VALUE_TYPE
             }
             
             restoredData[restoredKey] = restoredValue
         }
         
         return try Self(restoredData) as! T
+    }
+
+    static func + (lhs: DictCBORSerializable, rhs: DictCBORSerializable) -> DictCBORSerializable {
+        var newAsset = lhs
+        for (key, value) in rhs.data {
+            if let lhsValue = newAsset.data[key] as? (any AdditiveArithmetic),
+               let rhsValue = value as? (any AdditiveArithmetic) {
+                if type(of: lhsValue) == type(of: rhsValue) {
+                    if let intLhs = lhsValue as? Int, let intRhs = rhsValue as? Int {
+                        newAsset.data[key] = (intLhs + intRhs) as VALUE_TYPE
+                    } else if let doubleLhs = lhsValue as? Double, let doubleRhs = rhsValue as? Double {
+                        newAsset.data[key] = (doubleLhs + doubleRhs) as VALUE_TYPE
+                    } else if let floatLhs = lhsValue as? Float, let floatRhs = rhsValue as? Float {
+                        newAsset.data[key] = (floatLhs + floatRhs) as VALUE_TYPE
+                    } else {
+                        fatalError("Unsupported AdditiveArithmetic type")
+                    }
+                } else {
+                    fatalError("Mismatched AdditiveArithmetic types")
+                }
+            } else {
+                fatalError("Values are not of type AdditiveArithmetic")
+            }
+        }
+        return newAsset
+    }
+    
+    static func += (lhs: inout DictCBORSerializable, rhs: DictCBORSerializable) {
+        lhs = lhs + rhs
+    }
+
+    static func - (lhs: DictCBORSerializable, rhs: DictCBORSerializable) -> DictCBORSerializable {
+        var newAsset = lhs
+        for (key, value) in rhs.data {
+            if let lhsValue = newAsset.data[key] as? (any AdditiveArithmetic),
+               let rhsValue = value as? (any AdditiveArithmetic) {
+                if type(of: lhsValue) == type(of: rhsValue) {
+                    if let intLhs = lhsValue as? Int, let intRhs = rhsValue as? Int {
+                        newAsset.data[key] = (intLhs - intRhs) as VALUE_TYPE
+                    } else if let doubleLhs = lhsValue as? Double, let doubleRhs = rhsValue as? Double {
+                        newAsset.data[key] = (doubleLhs - doubleRhs) as VALUE_TYPE
+                    } else if let floatLhs = lhsValue as? Float, let floatRhs = rhsValue as? Float {
+                        newAsset.data[key] = (floatLhs - floatRhs) as VALUE_TYPE
+                    } else {
+                        fatalError("Unsupported AdditiveArithmetic type")
+                    }
+                } else {
+                    fatalError("Mismatched AdditiveArithmetic types")
+                }
+            } else {
+                fatalError("Values are not of type AdditiveArithmetic")
+            }
+        }
+        return newAsset
+    }
+
+    static func == (lhs: DictCBORSerializable, rhs: DictCBORSerializable) -> Bool {
+        return lhs.data == rhs.data 
+    }
+    
+    static func < (lhs: DictCBORSerializable, rhs: DictCBORSerializable) -> Bool {
+        for (key, value) in rhs.data {
+            if let lhsValue = lhs.data[key] as? (any AdditiveArithmetic),
+               let rhsValue = value as? (any AdditiveArithmetic) {
+                if type(of: lhsValue) == type(of: rhsValue) {
+                    if let intLhs = lhsValue as? Int, let intRhs = rhsValue as? Int {
+                        return intLhs < intRhs
+                    } else if let doubleLhs = lhsValue as? Double, let doubleRhs = rhsValue as? Double {
+                        return doubleLhs < doubleRhs
+                    } else if let floatLhs = lhsValue as? Float, let floatRhs = rhsValue as? Float {
+                        return floatLhs < floatRhs
+                    } else {
+                        fatalError("Unsupported AdditiveArithmetic type")
+                    }
+                } else {
+                    fatalError("Mismatched AdditiveArithmetic types")
+                }
+            } else {
+                fatalError("Values are not of type AdditiveArithmetic")
+            }
+        }
+        return false
+    }
+
+    static func <= (lhs: DictCBORSerializable, rhs: DictCBORSerializable) -> Bool {
+        for (key, value) in rhs.data {
+            if let lhsValue = lhs.data[key] as? (any AdditiveArithmetic),
+               let rhsValue = value as? (any AdditiveArithmetic) {
+                if type(of: lhsValue) == type(of: rhsValue) {
+                    if let intLhs = lhsValue as? Int, let intRhs = rhsValue as? Int {
+                        return intLhs <= intRhs
+                    } else if let doubleLhs = lhsValue as? Double, let doubleRhs = rhsValue as? Double {
+                        return doubleLhs <= doubleRhs
+                    } else if let floatLhs = lhsValue as? Float, let floatRhs = rhsValue as? Float {
+                        return floatLhs <= floatRhs
+                    } else {
+                        fatalError("Unsupported AdditiveArithmetic type")
+                    }
+                } else {
+                    fatalError("Mismatched AdditiveArithmetic types")
+                }
+            } else {
+                fatalError("Values are not of type AdditiveArithmetic")
+            }
+        }
+        return false
     }
 }

@@ -1,187 +1,5 @@
-//
-//  Created by Hareem Adderley on 29/06/2024 AT 6:28 PM
-//  Copyright © 2024 Kingpin Apps. All rights reserved.
-//  
-
 import Foundation
 
-enum PaymentPart {
-    case verificationKeyHash(VerificationKeyHash)
-    case scriptHash(ScriptHash)
-}
-
-enum StakingPart {
-    case verificationKeyHash(VerificationKeyHash)
-    case scriptHash(ScriptHash)
-    case pointerAddress(PointerAddress)
-}
-
-enum AddressFromPrimitiveData {
-    case bytes(Data)
-    case string(String)
-}
-
-/// Address type definition.
-enum AddressType: Int {
-    
-    /// Byron address
-    case byron = 0b1000
-    
-    /// Payment key hash + Stake key hash
-    case keyKey = 0b0000
-    
-    /// Script hash + Stake key hash
-    case scriptKey = 0b0001
-    
-    /// Payment key hash + Script hash
-    case keyScript = 0b0010
-    
-    /// Script hash + Script hash
-    case scriptScript = 0b0011
-    
-    /// Payment key hash + Pointer address
-    case keyPointer = 0b0100
-    
-    /// Script hash + Pointer address
-    case scriptPointer = 0b0101
-    
-    /// Payment key hash only
-    case keyNone = 0b0110
-    
-    /// Script hash for payment part only
-    case scriptNone = 0b0111
-    
-    /// Stake key hash for stake part only
-    case noneKey = 0b1110
-    
-    /// Script hash for stake part only
-    case noneScript = 0b1111
-}
-
-extension AddressType: CustomStringConvertible {
-    var description: String {
-        switch self {
-        case .byron:
-            return "byron"
-        case .keyKey:
-            return "keyKey"
-        case .scriptKey:
-            return "scriptKey"
-        case .keyScript:
-            return "keyScript"
-        case .scriptScript:
-            return "scriptScript"
-        case .keyPointer:
-            return "keyPointer"
-        case .scriptPointer:
-            return "scriptPointer"
-        case .keyNone:
-            return "keyNone"
-        case .scriptNone:
-            return "scriptNone"
-        case .noneKey:
-            return "noneKey"
-        case .noneScript:
-            return "noneScript"
-        }
-    }
-}
-
-// MARK: - Pointer Address
-/// Pointer address.
-///
-/// It refers to a point of the chain containing a stake key registration certificate.
-///
-/// - Parameters:
-///  - slot: Slot in which the staking certificate was posted.
-///  - txIndex: The transaction index (within that slot).
-///  - certIndex: A (delegation) certificate index (within that transaction).
-struct PointerAddress: CBORSerializable, Equatable {
-    public var slot: Int { get { return _slot } }
-    private let _slot: Int
-    
-    public var txIndex: Int { get { return _txIndex } }
-    private let _txIndex: Int
-    
-    public var certIndex: Int { get { return _certIndex } }
-    private let _certIndex: Int
-
-    init(slot: Int, txIndex: Int, certIndex: Int) {
-        self._slot = slot
-        self._txIndex = txIndex
-        self._certIndex = certIndex
-    }
-
-    private func encodeInt(_ n: Int) -> Data {
-        var n = n
-        var output = [UInt8]()
-        output.append(UInt8(n & 0x7F))
-        n >>= 7
-        while n > 0 {
-            output.append(0x80 | UInt8(n & 0x7F))
-            n >>= 7
-        }
-        return Data(output.reversed())
-    }
-    
-    /// Encode the pointer address to bytes.
-    ///
-    /// The encoding follows [CIP-0019#Pointers](https://github.com/cardano-foundation/CIPs/tree/master/CIP-0019#pointers).
-    /// - Returns: Encoded bytes.
-    func encode() -> Data {
-        return encodeInt(slot) + encodeInt(txIndex) + encodeInt(certIndex)
-    }
-    
-    /// Decode bytes into a PointerAddress.
-    /// - Parameter data: The data to be decoded.
-    /// - Returns: Decoded pointer address.
-    static func decode(_ data: Data) throws -> PointerAddress {
-        var ints = [Int]()
-        var curInt = 0
-        for byte in data {
-            curInt |= Int(byte & 0x7F)
-            if byte & 0x80 == 0 {
-                ints.append(curInt)
-                curInt = 0
-            } else {
-                curInt <<= 7
-            }
-        }
-
-        guard ints.count == 3 else {
-            throw CardanoCoreError.decodingError("Error in decoding data \(data) into a PointerAddress")
-        }
-
-        return PointerAddress(slot: ints[0], txIndex: ints[1], certIndex: ints[2])
-    }
-
-    // MARK: - CBORSerializable
-    func toShallowPrimitive() -> Any {
-        return encode()
-    }
-
-    func toPrimitive() -> Data? {
-        return encode()
-    }
-
-    static func fromPrimitive<T>(_ value: Any) throws -> T {
-        return try decode(value as! Data) as! T
-    }
-
-    // MARK: - Equatable
-
-    static func == (lhs: PointerAddress, rhs: PointerAddress) -> Bool {
-        return lhs.slot == rhs.slot &&
-               lhs.txIndex == rhs.txIndex &&
-               lhs.certIndex == rhs.certIndex
-    }
-
-    // MARK: - CustomStringConvertible
-
-    var description: String {
-        return "PointerAddress(\(slot), \(txIndex), \(certIndex))"
-    }
-}
 
 // MARK: - Address
 /// A shelley address. It consists of two parts: payment part and staking part.
@@ -190,7 +8,7 @@ struct PointerAddress: CBORSerializable, Equatable {
 ///  - paymentPart: The payment part of the address.
 ///  - stakingPart: The staking part of the address.
 ///  - network: Type of network the address belongs to.
-struct Address: CBORSerializable, CustomStringConvertible, Equatable {
+struct Address: CBORSerializable, CustomStringConvertible, Equatable, Hashable {
     public var paymentPart: PaymentPart? { get { return _paymentPart } }
     private let _paymentPart: PaymentPart?
     
@@ -443,5 +261,9 @@ struct Address: CBORSerializable, CustomStringConvertible, Equatable {
             throw CardanoCoreError.deserializeError("Error in deserializing bytes: \(data)")
         }
         
+    }
+    
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(toBytes())
     }
 }

@@ -16,11 +16,11 @@ class CostModels: DictCBORSerializable {
         case plutusV3 = "plutus_v3"
     }
     
-    required init(_ data: [AnyHashable: Any]) throws {
+    required init(_ data: [AnyHashable: AnyHashable]) throws {
         try super.init(data as! [KEY_TYPE: VALUE_TYPE])
 //        self.data = data as! [KEY_TYPE: VALUE_TYPE]
     }
-    
+
     static func fromStaticData() throws -> CostModels {
         return try CostModels([
             0: PLUTUS_V1_COST_MODEL,

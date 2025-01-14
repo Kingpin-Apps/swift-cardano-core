@@ -40,8 +40,14 @@ func scriptHash(script: ScriptType) throws -> ScriptHash {
                 encoder: RawEncoder.self
             )
             return try ScriptHash(payload: hash)
-        default:
-            throw CardanoCoreError.valueError("Unexpected script type: \(type(of: script))")
+        case .plutusV3Script(let plutusScript):
+            let prefix = Data([0x03])
+            let hash = try Hash().blake2b(
+                data: prefix + plutusScript,
+                digestSize: SCRIPT_HASH_SIZE,
+                encoder: RawEncoder.self
+            )
+            return try ScriptHash(payload: hash)
     }
 }
 
@@ -96,7 +102,7 @@ func idMap(cls: AnyClass, skipConstructor: Bool = false) throws -> String {
         return "int"
     } else if cls == CBOR.self || cls == RawPlutusData.self || cls == Datum.self {
         return "any"
-    } else if cls == IndefiniteList<Any>.self {
+    } else if cls == IndefiniteList<AnyHashable>.self {
         return "list"
     }
     
