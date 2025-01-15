@@ -2,9 +2,13 @@ import Foundation
 import PotentCBOR
 
 
-struct StakeRegistration: Codable {
+struct StakeRegistration: Codable, Hashable, Equatable {
     public var code: Int { get { return 0 } }
     let stakeCredential: StakeCredential
+    
+    init(stakeCredential: StakeCredential) {
+        self.stakeCredential = stakeCredential
+    }
     
     init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()

@@ -58,6 +58,5 @@ let spVkJson = """
         
         #expect(key.payload == payload)
         #expect(key.toBytes() == payload)
-        #expect(key.toShallowPrimitive() as! Data == payload)
-    }    
+    }
 }

@@ -1,6 +1,5 @@
 import Foundation
 
-//typealias UnitInterval = (Int, Int)
 typealias StakeCredential = Credential
 typealias DRepCredential = Credential
 typealias CommitteeColdCredential = Credential
@@ -23,6 +22,10 @@ struct Credential: Codable, Hashable {
         }
     }
     let credential: CredentialType
+    
+    init(credential: CredentialType) {
+        self.credential = credential
+    }
     
     init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()

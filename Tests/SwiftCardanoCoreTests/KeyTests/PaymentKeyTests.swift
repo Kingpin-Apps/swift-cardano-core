@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 import SwiftNcal
+import PotentCBOR
 @testable import SwiftCardanoCore
 
 // MARK: - Sample JSON Keys
@@ -38,7 +39,8 @@ let paymentVKey = [
     
     @Test func testPaymentSKey() async throws {
         let SK = try! PaymentSigningKey.fromJSON(paymentSKeyJSON)
-        let cborHex = try SK.toCBORHex()
+        let cborData = try CBOREncoder().encode(SK)
+        let cborHex = cborData.toHex
         let json = try SK.toJSON()
         let expectedPayload = Data([
             0x09, 0x3b, 0xe5, 0xcd, 0x39, 0x87, 0xd0, 0xc9,
@@ -54,7 +56,8 @@ let paymentVKey = [
     
     @Test func testPaymentVKey() async throws {
         let VK = try! PaymentVerificationKey.fromJSON(paymentVKeyJSON)
-        let cborHex = try VK.toCBORHex()
+        let cborData = try CBOREncoder().encode(VK)
+        let cborHex = cborData.toHex
         let json = try VK.toJSON()
         let expectedPayload = Data([
             0x8b, 0xe8, 0x33, 0x9e, 0x9f, 0x3a, 0xdd, 0xfa,

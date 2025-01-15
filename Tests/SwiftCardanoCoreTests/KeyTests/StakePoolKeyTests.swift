@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 import SwiftNcal
+import PotentCBOR
 @testable import SwiftCardanoCore
 
 // MARK: - Sample JSON Keys
@@ -36,7 +37,8 @@ let stakePoolVKey = [
     
     @Test func testStakePoolSKey() async throws {
         let SK = try! StakePoolSigningKey.fromJSON(stakePoolSKeyJSON)
-        let cborHex = try SK.toCBORHex()
+        let cborData = try CBOREncoder().encode(SK)
+        let cborHex = cborData.toHex
         let json = try SK.toJSON()
         let expectedPayload = Data([
             0x44, 0x18, 0x1b, 0xd0, 0xe6, 0xbe, 0x21, 0xce,
@@ -52,7 +54,8 @@ let stakePoolVKey = [
     
     @Test func testStakePoolVKey() async throws {
         let VK = try! StakePoolVerificationKey.fromJSON(stakePoolVKeyJSON)
-        let cborHex = try VK.toCBORHex()
+        let cborData = try CBOREncoder().encode(VK)
+        let cborHex = cborData.toHex
         let json = try VK.toJSON()
         let expectedPayload = Data([
             0x35, 0x4c, 0xe3, 0x2d, 0xa9, 0x2e, 0x71, 0x16,

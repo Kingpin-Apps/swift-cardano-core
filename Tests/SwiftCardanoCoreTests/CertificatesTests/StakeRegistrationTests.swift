@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+import PotentCBOR
 @testable import SwiftCardanoCore
 
 struct StakeRegistrationTests {
@@ -31,13 +32,14 @@ struct StakeRegistrationTests {
         let stakeCredential = StakeCredential(
             credential: .verificationKeyHash(verificationKeyHash)
         )
-        let stakeCredentialCBORHex = try stakeCredential.toCBOR().toHexString()
+        let stakeRegistration = StakeRegistration(stakeCredential: stakeCredential)
         
-        let stakeRegistrationFromCBOR = try StakeCredential.fromCBOR(
-            stakeCredentialCBORHex.hexStringToData
-        )
+        let cborData = try CBOREncoder().encode(stakeCredential)
+        let stakeCredentialCBORHex = cborData.toHex
+        
+        let stakeRegistrationFromCBOR = try CBORDecoder().decode(StakeRegistration.self, from: cborData)
         #expect(stakeCredentialCBORHex == excpectedCBOR)
-        #expect(stakeRegistrationFromCBOR == stakeCredential)
+        #expect(stakeRegistrationFromCBOR == stakeRegistration)
     }
     
 //    @Test func testFromPrimitiveValidData() async throws {
