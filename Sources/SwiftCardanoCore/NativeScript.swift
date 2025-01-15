@@ -1,5 +1,6 @@
 import Foundation
-import CryptoKit
+import SwiftNcal
+import PotentCBOR
 
 
 // MARK: - MetadataType
@@ -24,11 +25,56 @@ enum NativeScriptType: Int {
     }
 }
 
+
 /// The metadata for a native script.
-class NativeScript: ArrayCBORSerializable, Equatable {
+class NativeScript: Codable, Equatable {
     class var type: Int { return 0 }
     class var jsonTag: String { return "" }
     class var jsonField: String { return "" }
+    
+    var data: [NativeScript] {
+        get {
+            _data
+        }
+        set {
+            _data = newValue
+        }
+    }
+    private var _data: [NativeScript] = []
+    
+    init(data: [NativeScript]) {
+        self.data = data
+    }
+    
+    required init(from decoder: Decoder) throws {
+        var container = try decoder.unkeyedContainer()
+        let code = try container.decode(Int.self)
+        
+        // Copy the container to re-parse
+        var copiedContainer = container
+        
+        switch code {
+            case ScriptPubkey.type:
+                data.append(try copiedContainer.decode(ScriptPubkey.self))
+            case ScriptAll.type:
+                data.append(try copiedContainer.decode(ScriptAll.self))
+            case ScriptAny.type:
+                data.append(try copiedContainer.decode(ScriptAny.self))
+            case ScriptNofK.type:
+                data.append(try copiedContainer.decode(ScriptNofK.self))
+            case InvalidBefore.type:
+                data.append(try copiedContainer.decode(InvalidBefore.self))
+            case InvalidHereAfter.type:
+                data.append(try copiedContainer.decode(InvalidHereAfter.self))
+            default:
+                throw CardanoCoreError.decodingError("Invalid NativeScript type: \(code)")
+        }
+    }
+
+    func encode(to encoder: Swift.Encoder) throws {
+        var container = encoder.unkeyedContainer()
+        try container.encode(data)
+    }
 
     static func fromPrimitive<T>(_ value: Any) throws -> T {
         guard let value = value as? [Any] else {
@@ -61,8 +107,15 @@ class NativeScript: ArrayCBORSerializable, Equatable {
     }
 
     func hash() throws -> ScriptHash {
-        let cborBytes = try! JSONSerialization.data(withJSONObject: self.toCBOR(), options: [])
-        return try ScriptHash(payload: Data(SHA256.hash(data: cborBytes)))
+        let cbor = try! CBOREncoder().encode(data)
+        let hash = try Hash().blake2b(
+            data: Data([0x01]) + cbor,
+            digestSize: SCRIPT_HASH_SIZE,
+            encoder: RawEncoder.self
+        )
+        return try ScriptHash(
+            payload: hash
+        )
     }
     
     static func == (lhs: NativeScript, rhs: NativeScript) -> Bool {
@@ -147,6 +200,18 @@ class ScriptPubkey: NativeScript {
     
     init(keyHash: VerificationKeyHash) {
         self.keyHash = keyHash
+        super.init(data: [])
+    }
+
+    required convenience init(from decoder: Decoder) throws {
+        var container = try decoder.unkeyedContainer()
+        let code = try container.decode(Int.self)
+        
+        guard code == 0 else {
+            throw CardanoCoreError.decodingError("Invalid ScriptPubkey type: \(code)")
+        }
+        let keyHash = try container.decode(VerificationKeyHash.self)
+        self.init(keyHash: keyHash)
     }
 }
 
@@ -159,6 +224,18 @@ class ScriptAll: NativeScript {
 
     init(nativeScripts: [NativeScript]) {
         self.nativeScripts = nativeScripts
+        super.init(data: [])
+    }
+    
+    required convenience init(from decoder: Decoder) throws {
+        var container = try decoder.unkeyedContainer()
+        let code = try container.decode(Int.self)
+        
+        guard code == 1 else {
+            throw CardanoCoreError.decodingError("Invalid ScriptAll type: \(code)")
+        }
+        let nativeScripts = try container.decode([NativeScript].self)
+        self.init(nativeScripts: nativeScripts)
     }
 }
 
@@ -171,6 +248,18 @@ class ScriptAny: NativeScript {
 
     init(nativeScripts: [NativeScript]) {
         self.nativeScripts = nativeScripts
+        super.init(data: [])
+    }
+    
+    required convenience init(from decoder: Decoder) throws {
+        var container = try decoder.unkeyedContainer()
+        let code = try container.decode(Int.self)
+        
+        guard code == 2 else {
+            throw CardanoCoreError.decodingError("Invalid ScriptAny type: \(code)")
+        }
+        let nativeScripts = try container.decode([NativeScript].self)
+        self.init(nativeScripts: nativeScripts)
     }
 }
 
@@ -185,6 +274,19 @@ class ScriptNofK: NativeScript {
     init(n: Int, nativeScripts: [NativeScript]) {
         self.n = n
         self.nativeScripts = nativeScripts
+        super.init(data: [])
+    }
+    
+    required convenience init(from decoder: Decoder) throws {
+        var container = try decoder.unkeyedContainer()
+        let code = try container.decode(Int.self)
+        
+        guard code == 3 else {
+            throw CardanoCoreError.decodingError("Invalid ScriptNofK type: \(code)")
+        }
+        let n = try container.decode(Int.self)
+        let nativeScripts = try container.decode([NativeScript].self)
+        self.init(n: n, nativeScripts: nativeScripts)
     }
 }
 
@@ -197,6 +299,18 @@ class InvalidBefore: NativeScript {
 
     init(before: Int) {
         self.before = before
+        super.init(data: [])
+    }
+    
+    required convenience init(from decoder: Decoder) throws {
+        var container = try decoder.unkeyedContainer()
+        let code = try container.decode(Int.self)
+        
+        guard code == 4 else {
+            throw CardanoCoreError.decodingError("Invalid InvalidBefore type: \(code)")
+        }
+        let before = try container.decode(Int.self)
+        self.init(before: before)
     }
 }
 
@@ -209,5 +323,17 @@ class InvalidHereAfter: NativeScript {
 
     init(after: Int) {
         self.after = after
+        super.init(data: [])
+    }
+    
+    required convenience init(from decoder: Decoder) throws {
+        var container = try decoder.unkeyedContainer()
+        let code = try container.decode(Int.self)
+        
+        guard code == 5 else {
+            throw CardanoCoreError.decodingError("Invalid InvalidHereAfter type: \(code)")
+        }
+        let after = try container.decode(Int.self)
+        self.init(after: after)
     }
 }

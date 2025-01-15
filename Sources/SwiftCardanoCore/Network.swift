@@ -1,28 +1,22 @@
 import Foundation
 
 /// Network ID
-enum Network: Int, CBORSerializable {
+enum Network: Int, Codable, CaseIterable {
     case testnet = 0
     case mainnet = 1
     
-    func toShallowPrimitive() -> Any {
-        return self.rawValue as Int
-    }
-    
-    static func fromPrimitive<T>(_ value: Any) throws -> T {
-        let network: Network?
-        if let value = value as? Int {
-            network = Network(rawValue: value)
-        } else if let value = value as? UInt64 {
-            let value = Int(value)
-            network = Network(rawValue: value)
-        } else {
-            throw CardanoCoreError.valueError("Invalid value type for Network: \(value)")
-        }
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let value = try container.decode(Int.self)
         
-        guard network != nil else {
+        guard let network = Network(rawValue: value) else {
             throw CardanoCoreError.valueError("Invalid network value: \(value)")
         }
-        return network as! T
+        self = network
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(self.rawValue)
     }
 }

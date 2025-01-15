@@ -1,10 +1,19 @@
 import Foundation
+import PotentCBOR
 
+// MARK: - Types Aliases
 typealias Coin = UInt64
 typealias RewardAccount = Data
 typealias SlotNumber = UInt64
 
-struct PositiveCoin {
+// Represents a 4-byte unsigned integer
+typealias EpochInterval = UInt32
+
+// Represents an 8-byte unsigned integer
+typealias EpochNumber = UInt64
+
+// MARK: - PositiveCoin
+struct PositiveCoin: Codable {
     let value: UInt
     
     init(_ value: UInt) {
@@ -13,6 +22,7 @@ struct PositiveCoin {
     }
 }
 
+// MARK: - NonEmptySet
 struct NonEmptySet<Element> {
     var elements: [Element]
     
@@ -22,63 +32,81 @@ struct NonEmptySet<Element> {
     }
 }
 
-// Represents a 4-byte unsigned integer
-typealias EpochInterval = UInt32
+// MARK: - ExUnitPrices
+struct ExUnitPrices: Codable {
+    var memPrice: NonNegativeInterval
+    var stepPrice: NonNegativeInterval
+    
+    init(from decoder: Decoder) throws {
+        var container = try decoder.unkeyedContainer()
+        memPrice = try container.decode(NonNegativeInterval.self)
+        stepPrice = try container.decode(NonNegativeInterval.self)
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.unkeyedContainer()
+        try container.encode(memPrice)
+        try container.encode(stepPrice)
+    }
+}
 
-// Represents an 8-byte unsigned integer
-typealias EpochNumber = UInt64
+// MARK: - ExUnits
+struct ExUnits: Codable {
+    var mem: UInt
+    var steps: UInt
+    
+    init(from decoder: Decoder) throws {
+        var container = try decoder.unkeyedContainer()
+        mem = try container.decode(UInt.self)
+        steps = try container.decode(UInt.self)
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.unkeyedContainer()
+        try container.encode(mem)
+        try container.encode(steps)
+    }
+}
 
-struct ProtocolVersion: ArrayCBORSerializable {
+// MARK: - ProtocolVersion
+struct ProtocolVersion: Codable {
     var major: Int?
     var minor: Int?
     
-    static func fromPrimitive<T>(_ value: Any) throws -> T {
-        var major: Int
-        var minor: Int
-        
-        if let list = value as? [Any] {
-            major = list[0] as! Int
-            minor = list[1] as! Int
-        } else if let tuple = value as? (Any, Any, Any, Any) {
-            major = tuple.0 as! Int
-            minor = tuple.1 as! Int
-        } else {
-            throw CardanoCoreError.deserializeError("Invalid ProtocolVersion data: \(value)")
-        }
-        
-        return ProtocolVersion(
-            major: major,
-            minor: minor
-        ) as! T
+    init(from decoder: Decoder) throws {
+        var container = try decoder.unkeyedContainer()
+        major = try container.decode(Int.self)
+        minor = try container.decode(Int.self)
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.unkeyedContainer()
+        try container.encode(major)
+        try container.encode(minor)
     }
 }
 
-struct NonNegativeInterval: ArrayCBORSerializable {
+// MARK: - NonNegativeInterval
+struct NonNegativeInterval: Codable {
     var lowerBound: UInt
     var upperBound: UInt64
     
-    init(lowerBound: UInt, upperBound: UInt64) {
-        self.lowerBound = lowerBound
-        self.upperBound = upperBound
+    init(from decoder: Decoder) throws {
+        var container = try decoder.unkeyedContainer()
+        lowerBound = try container.decode(UInt.self)
+        upperBound = try container.decode(UInt64.self)
     }
     
-    static func fromPrimitive<T>(_ value: Any) throws -> T {
-        guard let list = value as? [Int], list.count == 2 else {
-            throw CardanoCoreError
-                .decodingError(
-                    "Invalid NonNegativeInterval data: \(value)"
-                )
-        }
-        
-        return NonNegativeInterval(
-            lowerBound: UInt(list[0]),
-            upperBound: UInt64(list[1])
-        ) as! T
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.unkeyedContainer()
+        try container.encode(lowerBound)
+        try container.encode(upperBound)
     }
 }
 
+// MARK: - UnitInterval
 /// A unit interval is a number in the range between 0 and 1
-struct UnitInterval {
+struct UnitInterval: Codable {
     let numerator: UInt
     let denominator: UInt
     
@@ -89,21 +117,21 @@ struct UnitInterval {
         self.denominator = denominator
     }
     
-    static func fromPrimitive<T>(_ value: Any) throws -> T {
-        guard let list = value as? [Int], list.count == 2 else {
-            throw CardanoCoreError
-                .decodingError(
-                    "Invalid UnitInterval data: \(value)"
-                )
-        }
-        
-        return UnitInterval(
-            numerator: UInt(list[0]),
-            denominator: UInt(list[1])
-        ) as! T
+    init(from decoder: Decoder) throws {
+        var container = try decoder.unkeyedContainer()
+        let numerator = try container.decode(UInt.self)
+        let denominator = try container.decode(UInt.self)
+        self.init(numerator: numerator, denominator: denominator)
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.unkeyedContainer()
+        try container.encode(numerator)
+        try container.encode(denominator)
     }
 }
 
+// MARK: - Url
 struct Url {
     let value: URL
     
@@ -120,37 +148,70 @@ struct Url {
     }
 }
 
-struct Anchor: ArrayCBORSerializable {
+// MARK: - Anchor
+struct Anchor: Codable {
     let anchorUrl: Url
     let anchorDataHash: AnchorDataHash
     
-    static func fromPrimitive<T>(_ value: Any) throws -> T {
-        var url: String
-        var dataHash: Data
+    init(from decoder: Decoder) throws {
+        var container = try decoder.unkeyedContainer()
+        let url = try container.decode(String.self)
+        let dataHash = try container.decode(Data.self)
         
-        if let list = value as? [Any] {
-            url = list[0] as! String
-            dataHash = list[1] as! Data
-        } else if let tuple = value as? (Any, Any) {
-            url = tuple.0 as! String
-            dataHash = tuple.1 as! Data
-        } else {
-            throw CardanoCoreError.deserializeError("Invalid Anchor data: \(value)")
-        }
-        
-        return Anchor(
-            anchorUrl: try Url(url),
-            anchorDataHash: try AnchorDataHash(payload: dataHash)
-        ) as! T
+        self.anchorUrl = try Url(url)
+        self.anchorDataHash = try AnchorDataHash(payload: dataHash)
     }
-
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.unkeyedContainer()
+        try container.encode(anchorUrl.value.absoluteString)
+        try container.encode(anchorDataHash.payload)
+    }
 }
 
-struct CBORTag {
+// MARK: - CBOR Tag
+struct CBORTag: Codable, Equatable {
     let tag: Int
-    let value: Any
+    let value: CBOR
+    
+    enum CodingKeys: CodingKey {
+        case tag, value
+    }
+    
+    init(tag: Int, value: CBOR) {
+        self.tag = tag
+        self.value = value
+    }
+    
+    init(from decoder: Decoder) throws {
+        var container = try decoder.unkeyedContainer()
+        
+        // Decode the tag
+        tag = try container.decode(Int.self)
+        
+        // Decode the value as a CBOR representation
+        let cborData = try container.decode(Data.self)
+        let cborObject = try CBORSerialization.cbor(from: cborData)
+        value = cborObject
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.unkeyedContainer()
+        
+        // Encode the tag
+        try container.encode(tag)
+        
+        // Encode the value as CBOR data
+        let cborData = try CBORSerialization.data(from: CBOR.fromAny(value))
+        try container.encode(cborData)
+    }
+    
+    static func == (lhs: CBORTag, rhs: CBORTag) -> Bool {
+        return lhs.tag == rhs.tag && lhs.value == rhs.value
+    }
 }
 
+// MARK: - ByteString
 class ByteString: Hashable {
     let value: Data
 
@@ -177,12 +238,14 @@ class ByteString: Hashable {
     }
 }
 
+// MARK: - Unit
 /// The default "Unit type" with a 0 constructor ID
 class Unit: PlutusData {
     class override var CONSTR_ID: Any { return 0 }
 }
 
-class IndefiniteList<T>: Equatable where T: Hashable {
+// MARK: - IndefiniteList
+class IndefiniteList<T>: Codable, Equatable where T: Hashable, T:Codable {
     private var items: [T]
     
     init(_ items: [T] = []) {

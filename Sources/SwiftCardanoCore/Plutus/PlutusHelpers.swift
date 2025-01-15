@@ -1,11 +1,12 @@
 import Foundation
 import CryptoKit
 import PotentCBOR
+import PotentCodables
 import SwiftNcal
 
 
 func datumHash(datum: Datum) throws -> DatumHash {
-    let cborBytes = try datum.toCBOR()
+    let cborBytes = try CBOREncoder().encode(datum)
     let hash = try Hash().blake2b(
         data: cborBytes,
         digestSize: DATUM_HASH_SIZE,
@@ -102,7 +103,7 @@ func idMap(cls: AnyClass, skipConstructor: Bool = false) throws -> String {
         return "int"
     } else if cls == CBOR.self || cls == RawPlutusData.self || cls == Datum.self {
         return "any"
-    } else if cls == IndefiniteList<AnyHashable>.self {
+    } else if cls == IndefiniteList<AnyValue>.self {
         return "list"
     }
     

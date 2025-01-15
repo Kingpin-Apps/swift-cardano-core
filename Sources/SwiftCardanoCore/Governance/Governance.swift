@@ -1,6 +1,6 @@
 import Foundation
 
-enum GovAction: ArrayCBORSerializable {
+enum GovAction: Codable {
     case parameterChangeAction(ParameterChangeAction)
     case hardForkInitiationAction(HardForkInitiationAction)
     case treasuryWithdrawalsAction(TreasuryWithdrawalsAction)
@@ -9,66 +9,78 @@ enum GovAction: ArrayCBORSerializable {
     case newConstitution(NewConstitution)
     case infoAction(InfoAction)
     
-    static func fromPrimitive<T>(_ value: Any) throws -> T {
-        guard let list = value as? [Any] else {
-            throw CardanoCoreError.deserializeError("Invalid GovActionType data: \(value)")
-        }
-        
-        let code = list[0] as! UInt8
-        switch code {
-            case 0:
-                let action: ParameterChangeAction = try ParameterChangeAction.fromPrimitive(list)
-                return action as! T
-            case 1:
-                let action: HardForkInitiationAction = try HardForkInitiationAction.fromPrimitive(list)
-                return action as! T
-            case 2:
-                let action: TreasuryWithdrawalsAction =  try TreasuryWithdrawalsAction.fromPrimitive(list)
-                return action as! T
-            case 3:
-                let action: NoConfidence =  try NoConfidence.fromPrimitive(list)
-                return action as! T
-            case 4:
-                let action: UpdateCommittee =  try UpdateCommittee.fromPrimitive(list)
-                return action as! T
-            case 5:
-                let action: NewConstitution =  try NewConstitution.fromPrimitive(list)
-                return action as! T
-            case 6:
-                let action: InfoAction =  try InfoAction.fromPrimitive(list)
-                return action as! T
-            default:
-                throw CardanoCoreError.deserializeError("Invalid GovAction code: \(code)")
-        }
-    }
+//    static func fromPrimitive<T>(_ value: Any) throws -> T {
+//        guard let list = value as? [Any] else {
+//            throw CardanoCoreError.deserializeError("Invalid GovActionType data: \(value)")
+//        }
+//        
+//        let code = list[0] as! UInt8
+//        switch code {
+//            case 0:
+//                let action: ParameterChangeAction = try ParameterChangeAction.fromPrimitive(list)
+//                return action as! T
+//            case 1:
+//                let action: HardForkInitiationAction = try HardForkInitiationAction.fromPrimitive(list)
+//                return action as! T
+//            case 2:
+//                let action: TreasuryWithdrawalsAction =  try TreasuryWithdrawalsAction.fromPrimitive(list)
+//                return action as! T
+//            case 3:
+//                let action: NoConfidence =  try NoConfidence.fromPrimitive(list)
+//                return action as! T
+//            case 4:
+//                let action: UpdateCommittee =  try UpdateCommittee.fromPrimitive(list)
+//                return action as! T
+//            case 5:
+//                let action: NewConstitution =  try NewConstitution.fromPrimitive(list)
+//                return action as! T
+//            case 6:
+//                let action: InfoAction =  try InfoAction.fromPrimitive(list)
+//                return action as! T
+//            default:
+//                throw CardanoCoreError.deserializeError("Invalid GovAction code: \(code)")
+//        }
+//    }
 }
 
-struct GovActionID: ArrayCBORSerializable, Hashable {
+struct GovActionID: Codable, Hashable {
     let transactionID: TransactionId
     let govActionIndex: UInt16
     
-    static func fromPrimitive<T>(_ value: Any) throws -> T {
-        var transactionID: Data
-        var govActionIndex: UInt16
-        
-        if let list = value as? [Any] {
-            transactionID = list[0] as! Data
-            govActionIndex = list[1] as! UInt16
-        } else if let tuple = value as? (Any, Any) {
-            transactionID = tuple.0 as! Data
-            govActionIndex = tuple.1 as! UInt16
-        } else {
-            throw CardanoCoreError.deserializeError("Invalid GovActionID data: \(value)")
-        }
-        
-        return GovActionID(
-            transactionID: try TransactionId(payload: transactionID),
-            govActionIndex: govActionIndex
-        ) as! T
+    init(from decoder: Decoder) throws {
+        var container = try decoder.unkeyedContainer()
+        transactionID = try container.decode(TransactionId.self)
+        govActionIndex = try container.decode(UInt16.self)
     }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.unkeyedContainer()
+        try container.encode(transactionID)
+        try container.encode(govActionIndex)
+    }
+    
+//    static func fromPrimitive<T>(_ value: Any) throws -> T {
+//        var transactionID: Data
+//        var govActionIndex: UInt16
+//        
+//        if let list = value as? [Any] {
+//            transactionID = list[0] as! Data
+//            govActionIndex = list[1] as! UInt16
+//        } else if let tuple = value as? (Any, Any) {
+//            transactionID = tuple.0 as! Data
+//            govActionIndex = tuple.1 as! UInt16
+//        } else {
+//            throw CardanoCoreError.deserializeError("Invalid GovActionID data: \(value)")
+//        }
+//        
+//        return GovActionID(
+//            transactionID: try TransactionId(payload: transactionID),
+//            govActionIndex: govActionIndex
+//        ) as! T
+//    }
 }
 
-struct PoolVotingThresholds: ArrayCBORSerializable {
+struct PoolVotingThresholds: Codable {
     var committeeNoConfidence: UnitInterval?
     var committeeNormal: UnitInterval?
     var hardForkInitiation: UnitInterval?
@@ -90,21 +102,47 @@ struct PoolVotingThresholds: ArrayCBORSerializable {
         self.thresholds = thresholds
     }
     
-    static func fromPrimitive<T>(_ value: Any) throws -> T {
-        guard let list = value as? [Any], list.count == 5 else {
-            throw CardanoCoreError.deserializeError("Invalid PoolVotingThresholds data: \(value)")
-        }
+    init(from decoder: Decoder) throws {
+        var container = try decoder.unkeyedContainer()
+        committeeNoConfidence = try container.decodeIfPresent(UnitInterval.self)
+        committeeNormal = try container.decodeIfPresent(UnitInterval.self)
+        hardForkInitiation = try container.decodeIfPresent(UnitInterval.self)
+        motionNoConfidence = try container.decodeIfPresent(UnitInterval.self)
+        ppSecurityGroup = try container.decodeIfPresent(UnitInterval.self)
         
-        var thresholds: [UnitInterval] = []
-        for item in list {
-            thresholds.append(try UnitInterval.fromPrimitive(item))
-        }
-        
-        return PoolVotingThresholds(from: thresholds) as! T
+        thresholds = [
+            committeeNoConfidence!,
+            committeeNormal!,
+            hardForkInitiation!,
+            motionNoConfidence!,
+            ppSecurityGroup!
+        ]
     }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.unkeyedContainer()
+        try container.encode(committeeNoConfidence)
+        try container.encode(committeeNormal)
+        try container.encode(hardForkInitiation)
+        try container.encode(motionNoConfidence)
+        try container.encode(ppSecurityGroup)
+    }
+    
+//    static func fromPrimitive<T>(_ value: Any) throws -> T {
+//        guard let list = value as? [Any], list.count == 5 else {
+//            throw CardanoCoreError.deserializeError("Invalid PoolVotingThresholds data: \(value)")
+//        }
+//        
+//        var thresholds: [UnitInterval] = []
+//        for item in list {
+//            thresholds.append(try UnitInterval.fromPrimitive(item))
+//        }
+//        
+//        return PoolVotingThresholds(from: thresholds) as! T
+//    }
 }
 
-struct DrepVotingThresholds: ArrayCBORSerializable  {
+struct DrepVotingThresholds: Codable  {
     var thresholds: [UnitInterval]
 
     init(thresholds: [UnitInterval]) {
@@ -112,93 +150,97 @@ struct DrepVotingThresholds: ArrayCBORSerializable  {
         self.thresholds = thresholds
     }
     
-    static func fromPrimitive<T>(_ value: Any) throws -> T {
-        guard let list = value as? [Any], list.count == 10 else {
-            throw CardanoCoreError.deserializeError("Invalid DrepVotingThresholds data: \(value)")
-        }
-        
-        var thresholds: [UnitInterval] = []
-        for item in list {
-            thresholds.append(try UnitInterval.fromPrimitive(item))
-        }
-        
-        return DrepVotingThresholds(thresholds: thresholds) as! T
+    init(from decoder: Decoder) throws {
+        var container = try decoder.singleValueContainer()
+        thresholds = try container.decode([UnitInterval].self)
     }
-}
-
-
-struct ExUnitPrices: ArrayCBORSerializable {
-    var memPrice: NonNegativeInterval
-    var stepPrice: NonNegativeInterval
     
-    static func fromPrimitive<T>(_ value: Any) throws -> T {
-        guard let list = value as? [Any], list.count == 2 else {
-            throw CardanoCoreError.deserializeError("Invalid ExUnitPrices data: \(value)")
-        }
-        
-        let memPrice: NonNegativeInterval = try NonNegativeInterval.fromPrimitive(list[0])
-        let stepPrice: NonNegativeInterval = try NonNegativeInterval.fromPrimitive(list[1])
-        
-        return ExUnitPrices(memPrice: memPrice, stepPrice: stepPrice) as! T
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.unkeyedContainer()
+        try thresholds.forEach { try container.encode($0) }
     }
-
-}
-
-struct ExUnits: ArrayCBORSerializable {
-    var mem: UInt
-    var steps: UInt
     
-    static func fromPrimitive<T>(_ value: Any) throws -> T {
-        guard let list = value as? [Any], list.count == 2 else {
-            throw CardanoCoreError.deserializeError("Invalid ExUnits data: \(value)")
-        }
-        let mem = list[0] as! UInt
-        let steps = list[1] as! UInt
-        
-        return ExUnits(mem: mem, steps: steps) as! T
-    }
-
+//    static func fromPrimitive<T>(_ value: Any) throws -> T {
+//        guard let list = value as? [Any], list.count == 10 else {
+//            throw CardanoCoreError.deserializeError("Invalid DrepVotingThresholds data: \(value)")
+//        }
+//        
+//        var thresholds: [UnitInterval] = []
+//        for item in list {
+//            thresholds.append(try UnitInterval.fromPrimitive(item))
+//        }
+//        
+//        return DrepVotingThresholds(thresholds: thresholds) as! T
+//    }
 }
 
-struct Constitution: ArrayCBORSerializable {
+struct Constitution: Codable {
     let anchor: Anchor
     let scriptHash: ScriptHash?
     
-    static func fromPrimitive<T>(_ value: Any) throws -> T {
-        guard let list = value as? [Any], list.count == 3 else {
-            throw CardanoCoreError.deserializeError("Invalid Constitution data: \(value)")
-        }
-        
-        let anchor: Anchor = try Anchor.fromPrimitive(list[0])
-        let scriptHash: ScriptHash = try ScriptHash.fromPrimitive(list[1])
-        
-        return Constitution(anchor: anchor, scriptHash: scriptHash) as! T
+    init(from decoder: Decoder) throws {
+        var container = try decoder.unkeyedContainer()
+        anchor = try container.decode(Anchor.self)
+        scriptHash = try container.decode(ScriptHash.self)
     }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.unkeyedContainer()
+        try container.encode(anchor)
+        try container.encode(scriptHash)
+    }
+    
+//    static func fromPrimitive<T>(_ value: Any) throws -> T {
+//        guard let list = value as? [Any], list.count == 3 else {
+//            throw CardanoCoreError.deserializeError("Invalid Constitution data: \(value)")
+//        }
+//        
+//        let anchor: Anchor = try Anchor.fromPrimitive(list[0])
+//        let scriptHash: ScriptHash = try ScriptHash.fromPrimitive(list[1])
+//        
+//        return Constitution(anchor: anchor, scriptHash: scriptHash) as! T
+//    }
 }
 
-struct ProposalProcedure: ArrayCBORSerializable {
+struct ProposalProcedure: Codable {
     let deposit: Coin
     let rewardAccount: RewardAccount
     let govAction: GovAction
     let anchor: Anchor
     
-    static func fromPrimitive<T>(_ value: Any) throws -> T {
-        guard let list = value as? [Any], list.count == 4 else {
-            throw CardanoCoreError.deserializeError("Invalid ProposalProcedure data: \(value)")
-        }
-        
-        let deposit: Coin = Coin(list[0] as! UInt64)
-        let rewardAccount = list[1] as! RewardAccount
-        let govAction: GovAction = try GovAction.fromPrimitive(list[2] as! Data)
-        let anchor: Anchor = try Anchor.fromPrimitive(list[3])
-        
-        return ProposalProcedure(
-            deposit: deposit,
-            rewardAccount: rewardAccount,
-            govAction: govAction,
-            anchor: anchor
-        ) as! T
+    init(from decoder: Decoder) throws {
+        var container = try decoder.unkeyedContainer()
+        deposit = try container.decode(Coin.self)
+        rewardAccount = try container.decode(RewardAccount.self)
+        govAction = try container.decode(GovAction.self)
+        anchor = try container.decode(Anchor.self)
     }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.unkeyedContainer()
+        try container.encode(deposit)
+        try container.encode(rewardAccount)
+        try container.encode(govAction)
+        try container.encode(anchor)
+    }
+    
+//    static func fromPrimitive<T>(_ value: Any) throws -> T {
+//        guard let list = value as? [Any], list.count == 4 else {
+//            throw CardanoCoreError.deserializeError("Invalid ProposalProcedure data: \(value)")
+//        }
+//        
+//        let deposit: Coin = Coin(list[0] as! UInt64)
+//        let rewardAccount = list[1] as! RewardAccount
+//        let govAction: GovAction = try GovAction.fromPrimitive(list[2] as! Data)
+//        let anchor: Anchor = try Anchor.fromPrimitive(list[3])
+//        
+//        return ProposalProcedure(
+//            deposit: deposit,
+//            rewardAccount: rewardAccount,
+//            govAction: govAction,
+//            anchor: anchor
+//        ) as! T
+//    }
 }
 
 struct ProposalProcedures {

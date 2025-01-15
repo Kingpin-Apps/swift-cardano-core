@@ -1,20 +1,20 @@
 import Foundation
 
-enum Vote: Int, CBORSerializable {
+enum Vote: Int, Codable {
     case no = 0
     case yes = 1
     case abstain = 2
     
-    func toShallowPrimitive() throws -> Any {
-        self.rawValue
-    }
-
-    static func fromPrimitive<T>(_ value: Any) throws -> T {
-        return Vote(rawValue: value as! Int) as! T
-    }
+//    func toShallowPrimitive() throws -> Any {
+//        self.rawValue
+//    }
+//
+//    static func fromPrimitive<T>(_ value: Any) throws -> T {
+//        return Vote(rawValue: value as! Int) as! T
+//    }
 }
 
-enum VoterType: Hashable {
+enum VoterType: Codable, Hashable {
     case constitutionalCommitteeHotKeyhash(AddressKeyHash)
     case constitutionalCommitteeHotScriptHash(ScriptHash)
     case drepKeyhash(AddressKeyHash)
@@ -22,35 +22,58 @@ enum VoterType: Hashable {
     case stakePoolKeyhash(AddressKeyHash)
 }
 
-struct VotingProcedure: ArrayCBORSerializable {
+struct VotingProcedure: Codable {
     let vote: Vote
     let anchor: Anchor?
     
-    static func fromPrimitive<T>(_ value: Any) throws -> T {
-        guard let list = value as? [Any], list.count == 2 else {
-            throw CardanoCoreError.deserializeError("Invalid VotingProcedure data: \(value)")
-        }
-        
-        let vote: Vote = try Vote.fromPrimitive(list[0])
-        let anchor: Anchor = try Anchor.fromPrimitive(list[1])
-        
-        return VotingProcedure(vote: vote, anchor: anchor) as! T
+    init(from decoder: Decoder) throws {
+        var container = try decoder.unkeyedContainer()
+        vote = try container.decode(Vote.self)
+        anchor = try container.decode(Anchor.self)
     }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.unkeyedContainer()
+        try container.encode(vote)
+        try container.encode(anchor)
+    }
+
+    
+//    static func fromPrimitive<T>(_ value: Any) throws -> T {
+//        guard let list = value as? [Any], list.count == 2 else {
+//            throw CardanoCoreError.deserializeError("Invalid VotingProcedure data: \(value)")
+//        }
+//        
+//        let vote: Vote = try Vote.fromPrimitive(list[0])
+//        let anchor: Anchor = try Anchor.fromPrimitive(list[1])
+//        
+//        return VotingProcedure(vote: vote, anchor: anchor) as! T
+//    }
 }
 
-struct VotingProcedures: MapCBORSerializable {
+struct VotingProcedures: Codable {
     let procedures: [Voter: [GovActionID: VotingProcedure]]
     
-    static func fromPrimitive<T>(_ value: Any) throws -> T {
-        guard let dict = value as? [Voter: [GovActionID: VotingProcedure]] else {
-            throw CardanoCoreError.deserializeError("Invalid VotingProcedures data: \(value)")
-        }
-        
-        return VotingProcedures(procedures: dict) as! T
+    init(from decoder: Decoder) throws {
+        var container = try decoder.singleValueContainer()
+        procedures = try container.decode([Voter: [GovActionID: VotingProcedure]].self)
     }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.unkeyedContainer()
+        try container.encode(procedures)
+    }
+    
+//    static func fromPrimitive<T>(_ value: Any) throws -> T {
+//        guard let dict = value as? [Voter: [GovActionID: VotingProcedure]] else {
+//            throw CardanoCoreError.deserializeError("Invalid VotingProcedures data: \(value)")
+//        }
+//        
+//        return VotingProcedures(procedures: dict) as! T
+//    }
 }
 
-struct Voter: ArrayCBORSerializable, Hashable {
+struct Voter: Codable, Hashable {
     public var code: Int {
         get {
             switch credential {

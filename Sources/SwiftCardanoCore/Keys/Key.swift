@@ -1,9 +1,10 @@
 import Foundation
+import PotentCBOR
 import CryptoKit
 import SwiftNcal
 
 /// A class that holds a cryptographic key and some metadata. e.g. signing key, verification key.
-class Key: CBORSerializable, Hashable, Equatable {
+class Key: Codable, Hashable, Equatable {
 
     class var KEY_TYPE: String { return "" }
     class var DESCRIPTION: String { return "" }
@@ -23,25 +24,36 @@ class Key: CBORSerializable, Hashable, Equatable {
         self._description = description ?? Self.DESCRIPTION
     }
     
-    func toShallowPrimitive() -> Any {
-        return payload
+    required convenience init(from decoder: Decoder) throws {
+        var container = try decoder.singleValueContainer()
+        let payload = try container.decode(Data.self)
+        self.init(payload: payload)
+    }
+
+    func encode(to encoder: Swift.Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(payload)
     }
     
-    static func fromPrimitive<T>(_ value: Any) throws -> T {
-        return self.init(payload: value as! Data) as! T
-    }
+//    func toShallowPrimitive() -> Any {
+//        return payload
+//    }
+//    
+//    static func fromPrimitive<T>(_ value: Any) throws -> T {
+//        return self.init(payload: value as! Data) as! T
+//    }
     
     /// Serialize the key to JSON.
     ///
     /// The json output has three fields: "type", "description", and "cborHex".
     /// - Returns: JSON representation of the key.
     func toJSON() throws -> String? {
-        let cborHex = try toCBORHex()!
+        let cborData = try CBOREncoder().encode(payload)
         let jsonString = """
         {
             "type": "\(keyType)",
             "description": "\(keyDescription)",
-            "cborHex": "\(cborHex)"
+            "cborHex": "\(cborData.toHex)"
         }
         """
         return jsonString
@@ -61,10 +73,11 @@ class Key: CBORSerializable, Hashable, Equatable {
         }
         
         let cborData = Data(hexString: cborHex)!
-        let key = try fromCBOR(cborData)
+//        let key = try fromCBOR(cborData)
+        let key = try CBORDecoder().decode(Self.self, from: cborData)
         
         return Self(
-            payload: key!.payload,
+            payload: key.payload,
             keyType: keyType,
             description: description
         )

@@ -1,22 +1,25 @@
 import Foundation
 import PotentCBOR
+import PotentCodables
 
 // MARK: - RawPlutusData
-class RawPlutusData: CBORSerializable, Equatable {
+class RawPlutusData: Codable, Equatable {
     var data: RawDatum
 
     init(data: RawDatum) {
         self.data = data
     }
     
-    static func fromPrimitive<T>(_ value: Any) throws -> T {
-        return RawPlutusData(data: value as! RawDatum) as! T
-    }
+//    static func fromPrimitive<T>(_ value: Any) throws -> T {
+//        return RawPlutusData(data: value as! RawDatum) as! T
+//    }
 
     func toShallowPrimitive() throws -> Any {
         func dfs(_ obj: Any) -> Any {
             if let list = obj as? [AnyHashable] {
-                let indefiniteList = IndefiniteList( list.map { dfs($0) as! AnyHashable })
+                let indefiniteList = try! IndefiniteList<AnyValue>(
+                    from: list.map { dfs($0) as! AnyHashable } as! Decoder
+                )
                 return indefiniteList
             } else if let dict = obj as? [AnyHashable: Any] {
                 return dict.reduce(into: [AnyHashable: Any]()) { result, pair in
@@ -25,12 +28,15 @@ class RawPlutusData: CBORSerializable, Equatable {
             } else if case let CBOR.tagged(tag, innerValue) = obj, let list = innerValue.unwrapped as? [Any] {
                 let value: Any
                 if tag.rawValue == 102 {
-                    let indefiniteList = IndefiniteList(list.map { dfs($0) as! AnyHashable })
+                    let indefiniteList = try! IndefiniteList<AnyValue>(
+                        from: list.map { dfs($0) as! AnyValue } as! Decoder
+                    )
+                    
                     value = indefiniteList
                 } else {
                     value = list.map { dfs($0) }
                 }
-                return CBORTag(tag: Int(tag.rawValue), value: value)
+                return CBORTag(tag: Int(tag.rawValue), value: CBOR.fromAny(value))
             }
             return obj
         }
@@ -47,7 +53,7 @@ class RawPlutusData: CBORSerializable, Equatable {
                 return ["bytes": byteArray.toHex]
             } else if let list = obj as? [Any] {
                 return ["list": try list.map { try dfs($0) }]
-            } else if let list = obj as? IndefiniteList<AnyHashable> {
+            } else if let list = obj as? IndefiniteList<AnyValue> {
                 return ["list": try list.getAll().map { try dfs($0) }]
             } else if let dict = obj as? [AnyHashable: Any] {
                 return ["map": try dict.map { ["k": try dfs($0.key), "v": try dfs($0.value)] }]
@@ -61,7 +67,7 @@ class RawPlutusData: CBORSerializable, Equatable {
             }
         }
 
-        return try dfs(RawPlutusData.toPrimitive(self)) as! [String: Any]
+        return try dfs(self.toShallowPrimitive()) as! [String: Any]
     }
     
     /// Convert to a json string
@@ -86,13 +92,15 @@ class RawPlutusData: CBORSerializable, Equatable {
                         }
                     }
                     if let tag = getTag(constrID: constructor) {
-                        return CBORTag(tag: tag, value: convertedFields)
+                        return CBORTag(tag: tag, value: CBOR.fromAny(convertedFields))
                     } else {
                         return CBORTag(
                             tag: 102,
                             value: [
-                                constructor,
-                                IndefiniteList(convertedFields as! [AnyHashable])
+                                CBOR.fromAny(constructor),
+                                CBOR.fromAny(try IndefiniteList<AnyValue>(
+                                    from: convertedFields as! [AnyValue] as! Decoder
+                                ))
                             ]
                         )
                     }
@@ -113,7 +121,11 @@ class RawPlutusData: CBORSerializable, Equatable {
                         return Data(bytes.utf8)
                     }
                 } else if let list = dict["list"] as? [Any] {
-                    return IndefiniteList(try list.map { try dfs($0) } as! [AnyHashable])
+                    return try IndefiniteList<AnyValue>(
+                        from: try list.map { try dfs(
+                            $0
+                        )
+                        } as! [AnyHashable] as! Decoder)
                 } else {
                     throw CardanoCoreError.deserializeError("Unexpected data structure: \(dict)")
                 }

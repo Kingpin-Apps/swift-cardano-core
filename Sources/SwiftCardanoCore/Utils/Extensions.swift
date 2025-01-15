@@ -1,6 +1,46 @@
 import Foundation
 import OrderedCollections
 import PotentCBOR
+import Foundation
+import Network
+
+// MARK: - IPv4Address Extensions
+extension IPv4Address: Codable {
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let addressString = try container.decode(String.self)
+        
+        guard let address = IPv4Address(addressString) else {
+            throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid IPv4 address format")
+        }
+        
+        self = address
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(self.debugDescription)
+    }
+}
+
+// MARK: - IPv6Address Extensions
+extension IPv6Address: Codable {
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let addressString = try container.decode(String.self)
+        
+        guard let address = IPv6Address(addressString) else {
+            throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid IPv6 address format")
+        }
+        
+        self = address
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(self.debugDescription)
+    }
+}
 
 // MARK: - CBOR Extensions
 extension CBOR {

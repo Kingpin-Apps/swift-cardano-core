@@ -1,5 +1,6 @@
 import Foundation
 import CryptoKit
+import PotentCodables
 import PotentCBOR
 
 // MARK: - PlutusScript
@@ -8,7 +9,7 @@ typealias PlutusV2Script = Data
 typealias PlutusV3Script = Data
 
 // MARK: - ScriptType
-enum ScriptType: Equatable, Hashable {
+enum ScriptType: Codable, Equatable, Hashable {
     
 //    case bytes(Data)
     case nativeScript(NativeScript)
@@ -37,43 +38,90 @@ enum ScriptType: Equatable, Hashable {
 }
 
 // MARK: - RawDatum
-enum RawDatum: Equatable, Hashable {
+enum RawDatum: Codable, Equatable, Hashable {
     case plutusData(PlutusData)
-    case dict(Dictionary<AnyHashable, AnyHashable>)
+    case dict(Dictionary<AnyValue, AnyValue>)
     case int(Int)
     case bytes(Data)
-    case indefiniteList(IndefiniteList<AnyHashable>)
+    case indefiniteList(IndefiniteList<AnyValue>)
     case cbor(CBOR)
-    case cborTag(CBOR.Tag)
+    case cborTag(CBORTag)
     
-    func toCBOR() throws -> Data {
-        switch self {
-            case .plutusData(let plutusData):
-                return try plutusData.toCBOR()
-            case .dict(let dict):
-                return try CBORSerialization.data(
-                    from: CBOR.fromAny(dict)
-                )
-            case .int(let int):
-                return try CBORSerialization.data(
-                    from: CBOR.unsignedInt(UInt64(int))
-                )
-            case .bytes(let bytes):
-                return bytes
-            case .indefiniteList(let list):
-                return try CBORSerialization.data(
-                    from: CBOR.array(list.getAll().map { CBOR.fromAny($0) })
-                )
-            case .cbor(let cbor):
-                return try CBORSerialization.data(
-                    from: cbor
-                )
-            case .cborTag(let tag):
-                return try CBORSerialization.data(
-                    from: CBOR.tagged(tag, CBOR.null)
-                )
+    init(from decoder: Decoder) throws {
+        var container = try decoder.singleValueContainer()
+        if let plutusData = try? container.decode(PlutusData.self) {
+            self = .plutusData(plutusData)
+        } else if let dict = try? container.decode(Dictionary<AnyValue, AnyValue>.self) {
+            self = .dict(dict)
+        } else if let int = try? container.decode(Int.self) {
+            self = .int(int)
+        } else if let bytes = try? container.decode(Data.self) {
+            self = .bytes(bytes)
+        } else if let list = try? container.decode(IndefiniteList<AnyValue>.self) {
+            self = .indefiniteList(list)
+        } else if let cborData = try? container.decode(Data.self) {
+            let cbor = try CBORSerialization.cbor(from: cborData)
+            if case let CBOR.tagged(tag, data) = cbor {
+                self = .cborTag(CBORTag(tag: Int(tag.rawValue), value: data))
+            } else {
+                self = .cbor(cbor)
+            }
+        } else {
+            throw CardanoCoreError.deserializeError("Invalid RawDatum data")
         }
     }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+            case .plutusData(let plutusData):
+                try container.encode(plutusData)
+            case .dict(let dict):
+                try container.encode(dict)
+            case .int(let int):
+                try container.encode(int)
+            case .bytes(let bytes):
+                try container.encode(bytes)
+            case .indefiniteList(let list):
+                try container.encode(list)
+            case .cbor(let cbor):
+                try container.encode(try CBORSerialization.data(from: cbor))
+            case .cborTag(let tag):
+                try container.encode(tag)
+        }
+    }
+
+    
+//    func toCBOR() throws -> Data {
+//        switch self {
+//            case .plutusData(let plutusData):
+//                return try CBORSerialization.data(
+//                    from: CBOR.fromAny(plutusData)
+//                )
+//            case .dict(let dict):
+//                return try CBORSerialization.data(
+//                    from: CBOR.fromAny(dict)
+//                )
+//            case .int(let int):
+//                return try CBORSerialization.data(
+//                    from: CBOR.unsignedInt(UInt64(int))
+//                )
+//            case .bytes(let bytes):
+//                return bytes
+//            case .indefiniteList(let list):
+//                return try CBORSerialization.data(
+//                    from: CBOR.array(list.getAll().map { CBOR.fromAny($0) })
+//                )
+//            case .cbor(let cbor):
+//                return try CBORSerialization.data(
+//                    from: cbor
+//                )
+//            case .cborTag(let tag):
+//                return try CBORSerialization.data(
+//                    from: CBOR.tagged(tag, CBOR.null)
+//                )
+//        }
+//    }
     
     func hash(into hasher: inout Hasher) {
         hasher.combine(self)
@@ -103,44 +151,88 @@ enum RawDatum: Equatable, Hashable {
 
 // MARK: - Datum
 /// Plutus Datum type. A Union type that contains all valid datum types.
-enum Datum: Equatable, Hashable {
+enum Datum: Codable, Equatable, Hashable {
 
     case plutusData(PlutusData)
-    case dict(Dictionary<AnyHashable, AnyHashable>)
+    case dict(Dictionary<AnyValue, AnyValue>)
     case int(Int)
     case bytes(Data)
-    case indefiniteList(IndefiniteList<AnyHashable>)
+    case indefiniteList(IndefiniteList<AnyValue>)
     case cbor(CBOR)
     case rawPlutusData(RawPlutusData)
     
-    func toCBOR() throws -> Data {
+    init(from decoder: Decoder) throws {
+        var container = try decoder.singleValueContainer()
+        if let plutusData = try? container.decode(PlutusData.self) {
+            self = .plutusData(plutusData)
+        } else if let dict = try? container.decode(Dictionary<AnyValue, AnyValue>.self) {
+            self = .dict(dict)
+        } else if let int = try? container.decode(Int.self) {
+            self = .int(int)
+        }  else if let list = try? container.decode(IndefiniteList<AnyValue>.self) {
+            self = .indefiniteList(list)
+        } else if let bytes = try? container.decode(Data.self) {
+            if let cbor = try? CBORSerialization.cbor(from: bytes) {
+                self = .cbor(cbor)
+            } else {
+                self = .bytes(bytes)
+            }
+        } else if let rawPlutusData = try? container.decode(RawPlutusData.self) {
+            self = .rawPlutusData(rawPlutusData)
+         } else {
+            throw CardanoCoreError.deserializeError("Invalid Datum")
+        }
+        
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
         switch self {
             case .plutusData(let plutusData):
-                return try plutusData.toCBOR()
+                try container.encode(plutusData)
             case .dict(let dict):
-                return try CBORSerialization.data(
-                    from: CBOR.fromAny(dict)
-                )
+                try container.encode(dict)
             case .int(let int):
-                return try CBORSerialization.data(
-                    from: CBOR.unsignedInt(UInt64(int))
-                )
+                try container.encode(int)
             case .bytes(let bytes):
-                return try CBORSerialization.data(
-                    from: CBOR.byteString(bytes)
-                )
+                try container.encode(bytes)
             case .indefiniteList(let list):
-                return try CBORSerialization.data(
-                    from: CBOR.array(list.getAll().map { CBOR.fromAny($0) })
-                )
+                try container.encode(list)
             case .cbor(let cbor):
-                return try CBORSerialization.data(
-                    from: cbor
-                )
+                try container.encode(try CBORSerialization.data(from: cbor))
             case .rawPlutusData(let rawPlutusData):
-                return try rawPlutusData.data.toCBOR()
+                try container.encode(rawPlutusData)
         }
     }
+    
+//    func toCBOR() throws -> Data {
+//        switch self {
+//            case .plutusData(let plutusData):
+//                return try plutusData.toCBOR()
+//            case .dict(let dict):
+//                return try CBORSerialization.data(
+//                    from: CBOR.fromAny(dict)
+//                )
+//            case .int(let int):
+//                return try CBORSerialization.data(
+//                    from: CBOR.unsignedInt(UInt64(int))
+//                )
+//            case .bytes(let bytes):
+//                return try CBORSerialization.data(
+//                    from: CBOR.byteString(bytes)
+//                )
+//            case .indefiniteList(let list):
+//                return try CBORSerialization.data(
+//                    from: CBOR.array(list.getAll().map { CBOR.fromAny($0) })
+//                )
+//            case .cbor(let cbor):
+//                return try CBORSerialization.data(
+//                    from: cbor
+//                )
+//            case .rawPlutusData(let rawPlutusData):
+//                return try rawPlutusData.data.toCBOR()
+//        }
+//    }
     
     static func == (lhs: Datum, rhs: Datum) -> Bool {
         switch (lhs, rhs) {

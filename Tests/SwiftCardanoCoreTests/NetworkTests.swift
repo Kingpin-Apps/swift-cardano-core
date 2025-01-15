@@ -1,38 +1,23 @@
-import PotentCodables
+import Foundation
 import Testing
+import PotentCBOR
 @testable import SwiftCardanoCore
 
 @Suite struct NetworkTests {
 
-    @Test func testTestnet() async throws {
-        let value = Network.testnet
+    @Test("Test network", arguments: Network.allCases)
+    func testNetwork(_ network: Network) async throws {
+        let networkCBOR = try CBOREncoder().encode(network)
         
-        let networkCBOR = try Network.testnet.toCBOR()
-        let fromCBOR = try Network.fromCBOR(networkCBOR)
+        let fromCBOR = try CBORDecoder().decode(Network.self, from: networkCBOR)
         
-        let primitive = try value.toPrimitive()
-        let fromPrimitive: Network = try Network.fromPrimitive(primitive)
-        
-        #expect(fromCBOR == value)
-        #expect(fromPrimitive == value)
-    }
-
-    @Test func testMainnet() async throws {
-        let value = Network.mainnet
-        
-        let networkCBOR = try Network.mainnet.toCBOR()
-        let fromCBOR = try Network.fromCBOR(networkCBOR)
-        
-        let primitive = try value.toPrimitive()
-        let fromPrimitive: Network = try Network.fromPrimitive(primitive)
-        
-        #expect(fromCBOR == value)
-        #expect(fromPrimitive == value)
+        #expect(fromCBOR == network)
     }
     
     @Test func testFromPrimitiveFail() async throws {
+        let networkCBOR = Data([0x03])
         #expect(throws: CardanoCoreError.self) {
-            let _: Network = try Network.fromPrimitive(-1)
+            let _ = try CBORDecoder().decode(Network.self, from: networkCBOR)
         }
     }
 

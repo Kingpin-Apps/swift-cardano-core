@@ -14,7 +14,11 @@ let arguments = zip([
     PoolKeyHash.self,
     PoolMetadataHash.self,
     VrfKeyHash.self,
-    RewardAccountHash.self
+    RewardAccountHash.self,
+    GenesisHash.self,
+    GenesisDelegateHash.self,
+    AddressKeyHash.self,
+    AnchorDataHash.self
 ],[
     VERIFICATION_KEY_HASH_SIZE,
     SCRIPT_HASH_SIZE,
@@ -25,63 +29,34 @@ let arguments = zip([
     POOL_KEY_HASH_SIZE,
     POOL_METADATA_HASH_SIZE,
     VRF_KEY_HASH_SIZE,
-    REWARD_ACCOUNT_HASH_SIZE
+    REWARD_ACCOUNT_HASH_SIZE,
+    GENESIS_HASH_SIZE,
+    GENESIS_DELEGATE_HASH_SIZE,
+    ADDRESS_KEY_HASH_SIZE,
+    ANCHOR_DATA_HASH_SIZE
 ])
 
 @Suite struct HashTests {
     @Test("Test CBOR Encoding", arguments: arguments)
     func testToCBOR(_ type: ConstrainedBytes.Type, size: Int) async throws {
-        do {
-            let payload = Data(repeating: 0, count: size)
-            let keyHash = try type.init(payload: payload)
-            let cborData = try keyHash.toCBOR()
-            print("CBOR Data: \(cborData)")
-            #expect(cborData != nil, "CBOR data should not be nil")
-        } catch {
-            Issue.record("Error: \(error)")
-        }
+        let payload = Data(repeating: 0, count: size)
+        let keyHash = try type.init(payload: payload)
+        let cborData = try CBOREncoder().encode(keyHash)
+        #expect(cborData != nil, "CBOR data should not be nil")
     }
     
     @Test("Test CBOR Decoding", arguments: arguments)
     func testFromCBOR(_ type: ConstrainedBytes.Type, size: Int) async throws {
-        do {
-            let payload = Data(repeating: 0, count: size)
-            let keyHash = try type.init(payload: payload)
-            let cborData = try keyHash.toCBOR()
-            let decodedKeyHash: ConstrainedBytes
-            
-            if type == VerificationKeyHash.self {
-                decodedKeyHash = try VerificationKeyHash.fromCBOR(cborData)!
-            } else if type == ScriptHash.self {
-                decodedKeyHash = try ScriptHash.fromCBOR(cborData)!
-            } else if type == ScriptDataHash.self {
-                decodedKeyHash = try ScriptDataHash.fromCBOR(cborData)!
-            } else if type == TransactionId.self {
-                decodedKeyHash = try TransactionId.fromCBOR(cborData)!
-            } else if type == DatumHash.self {
-                decodedKeyHash = try DatumHash.fromCBOR(cborData)!
-            } else if type == AuxiliaryDataHash.self {
-                decodedKeyHash = try AuxiliaryDataHash.fromCBOR(cborData)!
-            } else if type == PoolKeyHash.self {
-                decodedKeyHash = try PoolKeyHash.fromCBOR(cborData)!
-            } else if type == PoolMetadataHash.self {
-                decodedKeyHash = try PoolMetadataHash.fromCBOR(cborData)!
-            } else if type == VrfKeyHash.self {
-                decodedKeyHash = try VrfKeyHash.fromCBOR(cborData)!
-            } else if type == RewardAccountHash.self {
-                decodedKeyHash = try RewardAccountHash.fromCBOR(cborData)!
-            } else {
-                Issue.record("Unknown type: \(type)")
-                return
-            }
-            
-            #expect(
-                decodedKeyHash.payload == keyHash.payload,
-                "Decoded payload should match original payload"
-            )
-        } catch {
-            Issue.record("Error: \(error)")
-        }
+        let payload = Data(repeating: 0, count: size)
+        let keyHash = try type.init(payload: payload)
+        let cborData = try CBOREncoder().encode(keyHash)
+        
+        let decodedKeyHash = try CBORDecoder().decode(type, from: cborData)
+        
+        #expect(
+            decodedKeyHash.payload == keyHash.payload,
+            "Decoded payload should match original payload"
+        )
     }
     
     @Test("Test Invalid Payload", arguments: arguments)

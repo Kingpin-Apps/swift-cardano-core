@@ -1,8 +1,42 @@
 import Foundation
 
-class MultiAsset: DictCBORSerializable {
+struct MultiAsset: Codable, Hashable, Equatable {
     typealias KEY_TYPE = ScriptHash
     typealias VALUE_TYPE = Asset
+        
+    var data: [KEY_TYPE: VALUE_TYPE] {
+        get {
+            _data
+        }
+        set {
+            _data = newValue
+        }
+    }
+    private var _data: [KEY_TYPE: VALUE_TYPE] = [:]
+    
+    // Subscript for easier key-value access
+    subscript(key: KEY_TYPE) -> VALUE_TYPE? {
+        get {
+            return _data[key]
+        }
+        set {
+            _data[key] = newValue
+        }
+    }
+    
+    init(_ data: [AnyHashable: AnyHashable]) {
+        self.data = data as! [KEY_TYPE: VALUE_TYPE]
+    }
+    
+    init(from decoder: Decoder) throws {
+        var container = try decoder.singleValueContainer()
+        data = try container.decode([KEY_TYPE: VALUE_TYPE].self)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(data)
+    }
 
     func union(_ other: MultiAsset) -> MultiAsset {
         return self + other
@@ -12,7 +46,7 @@ class MultiAsset: DictCBORSerializable {
         var newMultiAsset = lhs
         for (key, value) in rhs.data {
             newMultiAsset
-                .data[key] = (newMultiAsset.data[key] as! VALUE_TYPE) + (value as! VALUE_TYPE)
+                .data[key] = (newMultiAsset.data[key] ?? Asset.zero) + value
         }
         return newMultiAsset
     }
@@ -25,18 +59,18 @@ class MultiAsset: DictCBORSerializable {
         var newMultiAsset = lhs
         for (key, value) in rhs.data {
             newMultiAsset
-                .data[key] = (newMultiAsset.data[key] as! VALUE_TYPE) - (value as! VALUE_TYPE)
+                .data[key] = (newMultiAsset.data[key] ?? Asset.zero) - value
         }
         return newMultiAsset
     }
 
     static func == (lhs: MultiAsset, rhs: MultiAsset) -> Bool {
-        return lhs.data as! [KEY_TYPE: VALUE_TYPE] == rhs.data as! [KEY_TYPE: VALUE_TYPE]
+        return lhs.data == rhs.data 
     }
 
     static func <= (lhs: MultiAsset, rhs: MultiAsset) -> Bool {
         for (key, value) in lhs.data {
-            if (rhs.data[key] as! VALUE_TYPE) < (value as! VALUE_TYPE) {
+            if (rhs.data[key]!) < (value ) {
                 return false
             }
         }
@@ -47,23 +81,19 @@ class MultiAsset: DictCBORSerializable {
     /// - Parameter criteria: A function that takes in three input arguments (policy_id, asset_name, amount) and returns a bool. If returned value is True, then the asset will be kept, otherwise discarded.
     /// - Returns: A new filtered MultiAsset object.
     func filter(criteria: (ScriptHash, AssetName, Int) -> Bool) throws -> MultiAsset {
-        var newMultiAsset = try! MultiAsset([:])
-        
-        guard let data = data as? [KEY_TYPE: VALUE_TYPE] else {
-            throw CardanoCoreError.valueError("Invalid data type for MultiAsset")
-        }
+        var newMultiAsset = MultiAsset([:])
             
         for (policyId, asset) in data {
             for (assetName, amount) in asset.data {
                 if criteria(
                     policyId,
-                    assetName as! AssetName,
-                    amount as! Int
+                    assetName ,
+                    amount 
                 ) {
                     if newMultiAsset.data[policyId] == nil {
-                        newMultiAsset.data[policyId] = try! Asset([:])
+                        newMultiAsset.data[policyId] = Asset([:])
                     }
-                    (newMultiAsset.data[policyId] as! Asset).data[assetName] = amount
+                    (newMultiAsset.data[policyId]!).data[assetName] = amount
                 }
             }
         }
@@ -71,17 +101,14 @@ class MultiAsset: DictCBORSerializable {
     }
 
     func count(criteria: (ScriptHash, AssetName, Int) -> Bool) throws -> Int {
-        guard let data = data as? [KEY_TYPE: VALUE_TYPE] else {
-            throw CardanoCoreError.valueError("Invalid data type for MultiAsset")
-        }
-        
         var count = 0
         for (policyId, asset) in data {
             for (assetName, amount) in asset.data {
                 if criteria(
                     policyId,
-                    assetName as! AssetName,
-                    amount as! Int) {
+                    assetName,
+                    amount
+                ) {
                     count += 1
                 }
             }

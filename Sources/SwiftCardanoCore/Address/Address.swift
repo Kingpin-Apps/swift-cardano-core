@@ -8,7 +8,7 @@ import Foundation
 ///  - paymentPart: The payment part of the address.
 ///  - stakingPart: The staking part of the address.
 ///  - network: Type of network the address belongs to.
-struct Address: CBORSerializable, CustomStringConvertible, Equatable, Hashable {
+struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
     public var paymentPart: PaymentPart? { get { return _paymentPart } }
     private let _paymentPart: PaymentPart?
     
@@ -34,6 +34,17 @@ struct Address: CBORSerializable, CustomStringConvertible, Equatable, Hashable {
         _addressType = try Address.inferAddressType(paymentPart: paymentPart, stakingPart: stakingPart)
         _headerByte = Address.computeHeaderByte(addressType: _addressType, network: _network)
         _hrp = Address.computeHrp(addressType: _addressType, network: _network)
+    }
+    
+    init(from decoder: Decoder) throws {
+        var container = try decoder.singleValueContainer()
+        let data = try container.decode(Data.self)
+        self = try Address.fromPrimitive(data: data)
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(toBytes())
     }
     
     static func inferAddressType(paymentPart: PaymentPart?, stakingPart: StakingPart?) throws -> AddressType {
@@ -198,10 +209,17 @@ struct Address: CBORSerializable, CustomStringConvertible, Equatable, Hashable {
     }
 
     static func fromPrimitive<T>(_ value: Any) throws -> T {
-        guard let bech32 = Bech32().decode(addr: value as! String) else {
-            throw CardanoCoreError.decodingError("Error decoding data: \(value)")
+        let data: Data
+        if let value = value as? String {
+            guard let bech32 = Bech32().decode(addr: value) else {
+                throw CardanoCoreError.decodingError("Error decoding data: \(value)")
+            }
+            data = Data(bech32)
+        } else if let value = value as? Data {
+            data = value
+        } else {
+            throw CardanoCoreError.valueError("Invalid value type for Address")
         }
-        let data = Data(bech32)
         
         return try self.fromPrimitive(data: data) as! T
     }

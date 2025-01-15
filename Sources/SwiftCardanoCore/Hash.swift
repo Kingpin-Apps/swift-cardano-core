@@ -1,9 +1,5 @@
-//
-//  Created by Hareem Adderley on 29/06/2024 AT 8:18 AM
-//  Copyright © 2024 Kingpin Apps. All rights reserved.
-//  
-
 import Foundation
+import PotentCBOR
 
 let VERIFICATION_KEY_HASH_SIZE = 28,
 SCRIPT_HASH_SIZE = 28,
@@ -22,11 +18,22 @@ ANCHOR_DATA_HASH_SIZE = 32
 
 
 /// A protocol for byte arrays with constraints on their size.
-class ConstrainedBytes: CBORSerializable, Equatable, Hashable, CustomStringConvertible, CustomDebugStringConvertible {
+class ConstrainedBytes: Codable, Equatable, Hashable, CustomStringConvertible, CustomDebugStringConvertible {
 
     var payload: Data
     class var maxSize: Int { return 0 }
     class var minSize: Int { return 0 }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(payload)
+    }
+
+    required convenience init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let payload = try container.decode(Data.self)
+        try self.init(payload: payload)
+    }
     
     required init(payload: Data) throws {
         guard payload.count <= Self.maxSize, payload.count >= Self.minSize else {
@@ -42,25 +49,6 @@ class ConstrainedBytes: CBORSerializable, Equatable, Hashable, CustomStringConve
         hasher.combine(payload)
     }
     
-    func toShallowPrimitive() -> Any {
-        return self.payload
-    }
-    
-    func toPrimitive() -> Data {
-        return self.payload
-    }
-    
-    class func fromPrimitive<T>(_ value: Any) throws -> T {
-        if let string = value as? String {
-            let data = string.hexStringToData
-            return try Self.init(payload: data) as! T
-        } else if let data = value as? Data {
-            return try Self.init(payload: data) as! T
-        } else {
-            throw CardanoCoreError.valueError("Invalid value type for \(Self.self)")
-        }
-    }
-    
     static func == (lhs: ConstrainedBytes, rhs: ConstrainedBytes) -> Bool {
         return lhs.payload == rhs.payload
     }
@@ -72,22 +60,6 @@ class ConstrainedBytes: CBORSerializable, Equatable, Hashable, CustomStringConve
     public var description: String {
         return payload.toHex
     }
-    
-//    func encode(to encoder: Encoder) throws {
-//        var container = encoder.container(keyedBy: CodingKeys.self)
-//        try container.encode(payload, forKey: .payload)
-//    }
-//
-//    init(from decoder: Decoder) throws {
-//        let container = try decoder.container(keyedBy: CodingKeys.self)
-//        let payload = try container.decode(Data.self, forKey: .payload)
-//        try self.init(payload: payload)
-//        
-//        // Ensure the maxSize and minSize are correctly set
-//        guard self.maxSize == maxSize, self.minSize == minSize else {
-//            throw CardanoException.decodingException("Size constraints for \(Self.self) are incorrect. Expected max size: \(maxSize), min size: \(minSize).")
-//        }
-//    }
 }
 
 /// Hash of a Cardano verification key.
