@@ -19,8 +19,8 @@ struct StakeRegistrationTests {
         #expect(stakeRegistration.stakeCredential == stakeCredential)
     }
     
-    @Test func testStakeCredentialVerificationKeyHash() async throws {
-        let excpectedCBOR = "8200581c4828a2dadba97ca9fd0cdc99975899470c219bdc0d828cfa6ddf6d69"
+    @Test func testStakeRegistrationToFromCBOR() async throws {
+        let excpectedCBOR = "82008200581c4828a2dadba97ca9fd0cdc99975899470c219bdc0d828cfa6ddf6d69"
         
         let credential = test_addr.stakingPart
         
@@ -34,10 +34,11 @@ struct StakeRegistrationTests {
         )
         let stakeRegistration = StakeRegistration(stakeCredential: stakeCredential)
         
-        let cborData = try CBOREncoder().encode(stakeCredential)
+        let cborData = try CBOREncoder().encode(stakeRegistration)
         let stakeCredentialCBORHex = cborData.toHex
         
         let stakeRegistrationFromCBOR = try CBORDecoder().decode(StakeRegistration.self, from: cborData)
+        
         #expect(stakeCredentialCBORHex == excpectedCBOR)
         #expect(stakeRegistrationFromCBOR == stakeRegistration)
     }

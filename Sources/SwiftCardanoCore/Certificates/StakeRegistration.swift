@@ -24,6 +24,9 @@ struct StakeRegistration: Codable, Hashable, Equatable {
     func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(code)
+        
+//        var nestedContainer = container.nestedUnkeyedContainer()
+//        try nestedContainer.encode(stakeCredential)
         try container.encode(stakeCredential)
     }
     

@@ -11,6 +11,7 @@ struct CredentialTests {
         let payload = Data(repeating: 0, count: VERIFICATION_KEY_HASH_SIZE)
         let verificationKeyHash = try VerificationKeyHash(payload: payload)
         let credential = Credential(credential: .verificationKeyHash(verificationKeyHash))
+        
         let cborData = try CBOREncoder().encode(credential)
         let decoded = try CBORDecoder().decode(Credential.self, from: cborData)
         

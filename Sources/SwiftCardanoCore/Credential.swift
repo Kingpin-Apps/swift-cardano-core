@@ -51,7 +51,13 @@ struct Credential: Codable, Hashable {
     func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(code)
-        try container.encode(credential)
+        
+        switch credential {
+            case .verificationKeyHash(let verificationKeyHash):
+                try container.encode(verificationKeyHash)
+            case .scriptHash(let scriptHash):
+                try container.encode(scriptHash)
+        }
     }
     
 //    static func fromPrimitive<T>(_ value: Any) throws -> T {
