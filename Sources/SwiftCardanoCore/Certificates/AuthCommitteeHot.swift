@@ -2,9 +2,13 @@ import Foundation
 import PotentCBOR
 
 
+/// Auth Committee Hot Key Registration Certificate
 struct AuthCommitteeHot: CertificateSerializable, Codable {
-    static var TYPE: String { "CertificateShelley" }
-    static var DESCRIPTION: String { "Constitutional Committee Hot Key Registration Certificate" }
+    var type: String { get { return ResignCommitteeCold.TYPE } }
+    var description: String { get { return ResignCommitteeCold.DESCRIPTION } }
+
+    static var TYPE: String { CertificateType.conway.rawValue }
+    static var DESCRIPTION: String { CertificateDescription.authCommitteeHot.rawValue }
     
     public var code: Int { get { return 14 } }
     

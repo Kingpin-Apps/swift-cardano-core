@@ -1,12 +1,40 @@
 import Foundation
 import PotentCBOR
 
+enum CertificateType: String, Codable {
+    case shelley = "CertificateShelley"
+    case conway = "CertificateConway"
+}
 
 protocol CertificateSerializable {
     static var TYPE: String { get }
     static var DESCRIPTION: String { get }
+    var type: String { get }
+    var description: String { get }
 }
 
+
+enum CertificateDescription: String, Codable {
+    case stakeRegistration = "Stake Address Registration Certificate"
+    case stakeDeregistration = "Stake Address Deregistration Certificate"
+    case stakeDelegation = "Stake Delegation Certificate"
+    case poolRegistration = "Stake Pool Registration Certificate"
+    case poolRetirement = "Stake Pool Retirement Certificate"
+    case genesisKeyDelegation = "Genesis Key Delegation Certificate"
+    case moveInstantaneousRewards = "Move Instantaneous Rewards Certificate"
+    case register = "Registration Certificate"
+    case unregister = "Stake Address Retirement Certificate"
+    case voteDelegate = "Vote Delegation Certificate"
+    case stakeVoteDelegate = "Stake and Vote Delegation Certificate"
+    case stakeRegisterDelegate = "Stake address registration and stake delegation Certificate"
+    case voteRegisterDelegate = "Stake address registration and vote delegation Certificate"
+    case stakeVoteRegisterDelegate = "Stake address registration and vote delegation Certificate"
+    case authCommitteeHot = "Constitutional Committee Hot Key Registration Certificate"
+    case resignCommitteeCold = "Constitutional Committee Hot Key Retirement Certificate"
+    case registerDRep = "DRep Key Registration Certificate"
+    case unRegisterDRep = "DRep Retirement Certificate"
+    case updateDRep = "DRep Update Certificate"
+}
 
 enum Certificate: Codable {
     case stakeRegistration(StakeRegistration)
@@ -26,151 +54,88 @@ enum Certificate: Codable {
     case authCommitteeHot(AuthCommitteeHot)
     case resignCommitteeCold(ResignCommitteeCold)
     case registerDRep(RegisterDRep)
-    case unRegisterDRep(UnRegisterDRep)
+    case unRegisterDRep(UnregisterDRep)
     case updateDRep(UpdateDRep)
     
-    func toJSON() -> CertificateJSON {
+    func toCertificateJSON() -> CertificateJSON {
+        let cbor: Data
+        let cert: CertificateSerializable
+        
         switch self {
             case .stakeRegistration(let value):
-                let cbor = try! CBOREncoder().encode(value)
-                return CertificateJSON(
-                    payload: cbor,
-                    type: StakeRegistration.TYPE,
-                    description: StakeRegistration.DESCRIPTION
-                )
+                cbor = try! CBOREncoder().encode(value)
+                cert = value
             case .stakeDeregistration(let value):
-                let cbor = try! CBOREncoder().encode(value)
-                return CertificateJSON(
-                    payload: cbor,
-                    type: StakeDeregistration.TYPE,
-                    description: StakeDeregistration.DESCRIPTION
-                )
+                cbor = try! CBOREncoder().encode(value)
+                cert = value
             case .stakeDelegation(let value):
-                let cbor = try! CBOREncoder().encode(value)
-                return CertificateJSON(
-                    payload: cbor,
-                    type: StakeDelegation.TYPE,
-                    description: StakeDelegation.DESCRIPTION
-                )
+                cbor = try! CBOREncoder().encode(value)
+                cert = value
             case .poolRegistration(let value):
-                let cbor = try! CBOREncoder().encode(value)
-                return CertificateJSON(
-                    payload: cbor,
-                    type: PoolRegistration.TYPE,
-                    description: PoolRegistration.DESCRIPTION
-                )
+                cbor = try! CBOREncoder().encode(value)
+                cert = value
             case .poolRetirement(let value):
-                let cbor = try! CBOREncoder().encode(value)
-                return CertificateJSON(
-                    payload: cbor,
-                    type: PoolRetirement.TYPE,
-                    description: PoolRetirement.DESCRIPTION
-                )
+                cbor = try! CBOREncoder().encode(value)
+                cert = value
             case .genesisKeyDelegation(let value):
-                let cbor = try! CBOREncoder().encode(value)
-                return CertificateJSON(
-                    payload: cbor,
-                    type: GenesisKeyDelegation.TYPE,
-                    description: GenesisKeyDelegation.DESCRIPTION
-                )
+                cbor = try! CBOREncoder().encode(value)
+                cert = value
             case .moveInstantaneousRewards(let value):
-                let cbor = try! CBOREncoder().encode(value)
-                return CertificateJSON(
-                    payload: cbor,
-                    type: MoveInstantaneousRewards.TYPE,
-                    description: MoveInstantaneousRewards.DESCRIPTION
-                )
+                cbor = try! CBOREncoder().encode(value)
+                cert = value
             case .register(let value):
-                let cbor = try! CBOREncoder().encode(value)
-                return CertificateJSON(
-                    payload: cbor,
-                    type: Register.TYPE,
-                    description: Register.DESCRIPTION
-                )
+                cbor = try! CBOREncoder().encode(value)
+                cert = value
             case .unregister(let value):
-                let cbor = try! CBOREncoder().encode(value)
-                return CertificateJSON(
-                    payload: cbor,
-                    type: Unregister.TYPE,
-                    description: Unregister.DESCRIPTION
-                )
+                cbor = try! CBOREncoder().encode(value)
+                cert = value
             case .voteDelegate(let value):
-                let cbor = try! CBOREncoder().encode(value)
-                return CertificateJSON(
-                    payload: cbor,
-                    type: VoteDelegate.TYPE,
-                    description: VoteDelegate.DESCRIPTION
-                )
+                cbor = try! CBOREncoder().encode(value)
+                cert = value
             case .stakeVoteDelegate(let value):
-                let cbor = try! CBOREncoder().encode(value)
-                return CertificateJSON(
-                    payload: cbor,
-                    type: StakeVoteDelegate.TYPE,
-                    description: StakeVoteDelegate.DESCRIPTION
-                )
+                cbor = try! CBOREncoder().encode(value)
+                cert = value
             case .stakeRegisterDelegate(let value):
-                let cbor = try! CBOREncoder().encode(value)
-                return CertificateJSON(
-                    payload: cbor,
-                    type: StakeRegisterDelegate.TYPE,
-                    description: StakeRegisterDelegate.DESCRIPTION
-                )
+                cbor = try! CBOREncoder().encode(value)
+                cert = value
             case .voteRegisterDelegate(let value):
-                let cbor = try! CBOREncoder().encode(value)
-                return CertificateJSON(
-                    payload: cbor,
-                    type: VoteRegisterDelegate.TYPE,
-                    description: VoteRegisterDelegate.DESCRIPTION
-                )
+                cbor = try! CBOREncoder().encode(value)
+                cert = value
             case .stakeVoteRegisterDelegate(let value):
-                let cbor = try! CBOREncoder().encode(value)
-                return CertificateJSON(
-                    payload: cbor,
-                    type: StakeVoteRegisterDelegate.TYPE,
-                    description: StakeVoteRegisterDelegate.DESCRIPTION
-                )
+                cbor = try! CBOREncoder().encode(value)
+                cert = value
             case .authCommitteeHot(let value):
-                let cbor = try! CBOREncoder().encode(value)
-                return CertificateJSON(
-                    payload: cbor,
-                    type: AuthCommitteeHot.TYPE,
-                    description: AuthCommitteeHot.DESCRIPTION
-                )
+                cbor = try! CBOREncoder().encode(value)
+                cert = value
             case .resignCommitteeCold(let value):
-                let cbor = try! CBOREncoder().encode(value)
-                return CertificateJSON(
-                    payload: cbor,
-                    type: ResignCommitteeCold.TYPE,
-                    description: ResignCommitteeCold.DESCRIPTION
-                )
+                cbor = try! CBOREncoder().encode(value)
+                cert = value
             case .registerDRep(let value):
-                let cbor = try! CBOREncoder().encode(value)
-                return CertificateJSON(
-                    payload: cbor,
-                    type: RegisterDRep.TYPE,
-                    description: RegisterDRep.DESCRIPTION
-                )
+                cbor = try! CBOREncoder().encode(value)
+                cert = value
             case .unRegisterDRep(let value):
-                let cbor = try! CBOREncoder().encode(value)
-                return CertificateJSON(
-                    payload: cbor,
-                    type: UnRegisterDRep.TYPE,
-                    description: UnRegisterDRep.DESCRIPTION
-                )
+                cbor = try! CBOREncoder().encode(value)
+                cert = value
             case .updateDRep(let value):
-                let cbor = try! CBOREncoder().encode(value)
-                return CertificateJSON(
-                    payload: cbor,
-                    type: UpdateDRep.TYPE,
-                    description: UpdateDRep.DESCRIPTION
-                )
-                    
+                cbor = try! CBOREncoder().encode(value)
+                cert = value
         }
+        
+        return CertificateJSON(
+            payload: cbor,
+            type: cert.type,
+            description: cert.description
+        )
+    }
+    
+    static func fromCertificateJSON(_ json: CertificateJSON) throws -> Certificate {
+        let decoded = try CBORDecoder().decode(Credential.self, from: json.payload)
+        let cbor = CBORDecoder().decode(from: json.payload, using: <#_#>)
     }
 }
 
 class CertificateJSON: PayloadJSONSerializable {
-    class var TYPE: String  { return "CertificateShelley" }
+    class var TYPE: String  { return CertificateType.conway.rawValue }
     class var DESCRIPTION: String { return "Certificate" }
 
     internal var _payload: Data

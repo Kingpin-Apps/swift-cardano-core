@@ -2,8 +2,12 @@ import Foundation
 import PotentCBOR
 
 
+/// Stake Address Registration Certificate
 struct StakeRegistration: CertificateSerializable, Codable, Hashable, Equatable {
-    static var TYPE: String { "CertificateShelley" }
+    var type: String { get { return StakeRegistration.TYPE } }
+    var description: String { get { return StakeRegistration.DESCRIPTION } }
+
+    static var TYPE: String { CertificateType.shelley.rawValue }
     static var DESCRIPTION: String { "Stake Address Registration Certificate" }
 
     public var code: Int { get { return 0 } }

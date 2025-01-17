@@ -1,8 +1,12 @@
 import Foundation
 import PotentCBOR
 
+/// Stake Pool Registration Certificate
 struct PoolRegistration: CertificateSerializable, Codable {
-    static var TYPE: String { "CertificateShelley" }
+    var type: String { get { return PoolRegistration.TYPE } }
+    var description: String { get { return PoolRegistration.DESCRIPTION } }
+
+    static var TYPE: String { CertificateType.shelley.rawValue }
     static var DESCRIPTION: String { "Stake Pool Registration Certificate" }
     
     public var code: Int { get { return 3 } }

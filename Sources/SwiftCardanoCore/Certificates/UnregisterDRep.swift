@@ -2,9 +2,21 @@ import Foundation
 import PotentCBOR
 
 
-struct UnRegisterDRep: CertificateSerializable, Codable {
-    static var TYPE: String { "CertificateConway" }
-    static var DESCRIPTION: String { "Retirement Certificate" }
+struct UnregisterDRep: CertificateSerializable, Codable {
+    var type: String { get { return UnregisterDRep.TYPE } }
+    var description: String {
+        get {
+            switch self.drepCredential.credential {
+                case .verificationKeyHash(_):
+                    return "DRep Key Retirement Certificate"
+                case .scriptHash(_):
+                    return "DRep Script Retirement Certificate"
+            }
+        }
+    }
+
+    static var TYPE: String { CertificateType.conway.rawValue }
+    static var DESCRIPTION: String { "DRep Retirement Certificate" }
     
     public var code: Int { get { return 17 } }
     
@@ -16,7 +28,7 @@ struct UnRegisterDRep: CertificateSerializable, Codable {
         let code = try container.decode(Int.self)
         
         guard code == 17 else {
-            throw CardanoCoreError.deserializeError("Invalid UnRegisterDRep type: \(code)")
+            throw CardanoCoreError.deserializeError("Invalid UnregisterDRep type: \(code)")
         }
         
         drepCredential = try container.decode(DRepCredential.self)

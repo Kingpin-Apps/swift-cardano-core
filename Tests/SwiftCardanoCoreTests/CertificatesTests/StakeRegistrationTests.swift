@@ -19,6 +19,16 @@ struct StakeRegistrationTests {
         #expect(stakeRegistration.stakeCredential == stakeCredential)
     }
     
+    @Test func testDecode() async throws {
+        guard let certFilePath = Bundle.module.path(forResource: "test.stake", ofType: "cert", inDirectory: "data") else {
+            Issue.record("File not found: test.stake.cert")
+            return
+        }
+        
+        let stakeRegistrationCert = try StakeRegistration.load(from: certFilePath)
+        
+    }
+    
     @Test func testStakeRegistrationToFromCBOR() async throws {
         let excpectedCBOR = "82008200581c4828a2dadba97ca9fd0cdc99975899470c219bdc0d828cfa6ddf6d69"
         
@@ -42,57 +52,4 @@ struct StakeRegistrationTests {
         #expect(stakeCredentialCBORHex == excpectedCBOR)
         #expect(stakeRegistrationFromCBOR == stakeRegistration)
     }
-    
-//    @Test func testFromPrimitiveValidData() async throws {
-//        let stakeCredentialData = Data(repeating: 0, count: VERIFICATION_KEY_HASH_SIZE)
-//        let primitive = [0, stakeCredentialData] as [Any]
-//        
-//        let stakeRegistration: StakeRegistration = try StakeRegistration.fromPrimitive(primitive)
-//        #expect(stakeRegistration.code == 0)
-//        #expect(stakeRegistration.stakeCredential == StakeCredential.verificationKeyHash(
-//            VerificationKeyHash(payload: stakeCredentialData)
-//        ))
-//    }
-//    
-//    @Test func testFromPrimitiveInvalidType() async throws {
-//        let invalidPrimitive = [1, Data(repeating: 0, count: VERIFICATION_KEY_HASH_SIZE)] as [Any]
-//        
-//        #expect(throws: CardanoCoreError.self) {
-//            let _: StakeRegistration = try StakeRegistration.fromPrimitive(invalidPrimitive)
-//        }
-//    }
-//    
-//    @Test func testFromPrimitiveInvalidDataStructure() async throws {
-//        let invalidPrimitive = "invalid_data"
-//        
-//        #expect(throws: CardanoCoreError.self) {
-//            let _: StakeRegistration = try StakeRegistration.fromPrimitive(invalidPrimitive)
-//        }
-//    }
-//    
-//    @Test func testEquality() async throws {
-//        let stakeCredential1 = try StakeCredential.verificationKeyHash(
-//            VerificationKeyHash(payload: Data(repeating: 0, count: VERIFICATION_KEY_HASH_SIZE))
-//        )
-//        let stakeCredential2 = try StakeCredential.verificationKeyHash(
-//            VerificationKeyHash(payload: Data(repeating: 1, count: VERIFICATION_KEY_HASH_SIZE))
-//        )
-//        
-//        let stakeRegistration1 = StakeRegistration(stakeCredential: stakeCredential1)
-//        let stakeRegistration2 = StakeRegistration(stakeCredential: stakeCredential1)
-//        let stakeRegistration3 = StakeRegistration(stakeCredential: stakeCredential2)
-//        
-//        #expect(stakeRegistration1 == stakeRegistration2)
-//        #expect(stakeRegistration1 != stakeRegistration3)
-//    }
-//    
-//    @Test func testDescription() async throws {
-//        let stakeCredential = try StakeCredential.verificationKeyHash(
-//            VerificationKeyHash(payload: Data(repeating: 0, count: VERIFICATION_KEY_HASH_SIZE))
-//        )
-//        let stakeRegistration = StakeRegistration(stakeCredential: stakeCredential)
-//        
-//        let expectedDescription = "StakeRegistration(stakeCredential: \(stakeCredential))"
-//        #expect(stakeRegistration.description == expectedDescription)
-//    }
 }

@@ -1,9 +1,22 @@
 import Foundation
 import PotentCBOR
 
+/// DRep registration certificate
 struct RegisterDRep: CertificateSerializable, Codable {
-    static var TYPE: String { "CertificateShelley" }
-    static var DESCRIPTION: String { "Registration Certificate" }
+    var type: String { get { return RegisterDRep.TYPE } }
+    var description: String {
+        get {
+            switch self.drepCredential.credential {
+                case .verificationKeyHash(_):
+                    return "DRep Key Registration Certificate"
+                case .scriptHash(_):
+                    return "DRep Script Registration Certificate"
+            }
+        }
+    }
+
+    static var TYPE: String { CertificateType.conway.rawValue }
+    static var DESCRIPTION: String { "DRep Key Registration Certificate" }
     
     public var code: Int { get { return 16 } }
     

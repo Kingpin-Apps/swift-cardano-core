@@ -2,7 +2,10 @@ import Foundation
 import PotentCBOR
 
 struct GenesisKeyDelegation: CertificateSerializable, Codable {
-    static var TYPE: String { "CertificateShelley" }
+    var type: String { get { return GenesisKeyDelegation.TYPE } }
+    var description: String { get { return GenesisKeyDelegation.DESCRIPTION } }
+
+    static var TYPE: String { CertificateType.shelley.rawValue }
     static var DESCRIPTION: String { "Genesis Key Delegation Certificate" }
     
     public var code: Int { get { return 5 } }

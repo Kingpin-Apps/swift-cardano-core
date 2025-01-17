@@ -1,8 +1,12 @@
 import Foundation
 import PotentCBOR
 
+/// Stake Delegation Certificate
 struct StakeDelegation: CertificateSerializable, Codable {
-    static var TYPE: String { "CertificateShelley" }
+    var type: String { get { return StakeDelegation.TYPE } }
+    var description: String { get { return StakeDelegation.DESCRIPTION } }
+
+    static var TYPE: String { CertificateType.shelley.rawValue }
     static var DESCRIPTION: String { "Stake Delegation Certificate" }
     
     public var code: Int { get { return 2 } }

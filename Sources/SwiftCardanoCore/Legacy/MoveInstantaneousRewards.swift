@@ -17,7 +17,10 @@ struct MoveInstantaneousReward: Codable {
 }
 
 struct MoveInstantaneousRewards: CertificateSerializable, Codable {
-    static var TYPE: String { "CertificateShelley" }
+    var type: String { get { return MoveInstantaneousRewards.TYPE } }
+    var description: String { get { return MoveInstantaneousRewards.DESCRIPTION } }
+
+    static var TYPE: String { CertificateType.shelley.rawValue }
     static var DESCRIPTION: String { "Move Instantaneous Rewards Certificate" }
     
     public var code: Int { get { return 6 } }

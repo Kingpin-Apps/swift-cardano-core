@@ -1,8 +1,12 @@
 import Foundation
 import PotentCBOR
 
+/// Resign Committee Cold certificate
 struct ResignCommitteeCold: CertificateSerializable, Codable {
-    static var TYPE: String { "CertificateConway" }
+    var type: String { get { return ResignCommitteeCold.TYPE } }
+    var description: String { get { return ResignCommitteeCold.DESCRIPTION } }
+
+    static var TYPE: String { CertificateType.conway.rawValue }
     static var DESCRIPTION: String { "Constitutional Committee Hot Key Retirement Certificate" }
     
     public var code: Int { get { return 15 } }

@@ -3,8 +3,12 @@ import PotentCBOR
 
 /// Register a stake credential with an optional deposit amount.
 struct Register: CertificateSerializable, Codable {
-    static var TYPE: String { "CertificateShelley" }
-    static var DESCRIPTION: String { "Stake Address Registration Certificate" }
+    var type: String { get { return Register.TYPE } }
+    var description: String { get { return Register.DESCRIPTION } }
+
+    static var TYPE: String { CertificateType.conway.rawValue }
+    static var DESCRIPTION: String { "Registration Certificate" }
+
     
     public var code: Int { get { return 7 } }
     

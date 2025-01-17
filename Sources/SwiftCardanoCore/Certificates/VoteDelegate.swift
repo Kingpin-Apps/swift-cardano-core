@@ -3,7 +3,10 @@ import PotentCBOR
 
 /// Delegate stake to a `DRep`
 struct VoteDelegate: CertificateSerializable, Codable {
-    static var TYPE: String { "CertificateConway" }
+    var type: String { get { return VoteDelegate.TYPE } }
+    var description: String { get { return VoteDelegate.DESCRIPTION } }
+
+    static var TYPE: String { CertificateType.conway.rawValue }
     static var DESCRIPTION: String { "Vote Delegation Certificate" }
     
     public var code: Int { get { return 9 } }

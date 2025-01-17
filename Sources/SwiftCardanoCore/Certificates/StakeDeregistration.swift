@@ -1,8 +1,12 @@
 import Foundation
 import PotentCBOR
 
+/// Stake Address Deregistration Certificate
 struct StakeDeregistration: CertificateSerializable, Codable {
-    static var TYPE: String { "CertificateShelley" }
+    var type: String { get { return StakeDeregistration.TYPE } }
+    var description: String { get { return StakeDeregistration.DESCRIPTION } }
+
+    static var TYPE: String { CertificateType.shelley.rawValue }
     static var DESCRIPTION: String { "Stake Address Deregistration Certificate" }
     
     public var code: Int { get { return 1 } }

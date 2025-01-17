@@ -3,7 +3,10 @@ import PotentCBOR
 
 /// Un-Register a stake credential with an optional refund amount
 struct Unregister: CertificateSerializable, Codable {
-    static var TYPE: String { "CertificateConway" }
+    var type: String { get { return Unregister.TYPE } }
+    var description: String { get { return Unregister.DESCRIPTION } }
+
+    static var TYPE: String { CertificateType.conway.rawValue }
     static var DESCRIPTION: String { "Stake Address Retirement Certificate" }
     
     public var code: Int { get { return 8 } }
