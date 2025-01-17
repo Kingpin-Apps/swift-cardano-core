@@ -52,7 +52,7 @@ let spVkJson = """
         ])
         let key = Key(
             payload: payload,
-            keyType: "GenesisUTxOSigningKey_ed25519",
+            type: "GenesisUTxOSigningKey_ed25519",
             description: "Genesis Initial UTxO Signing Key"
         )
         

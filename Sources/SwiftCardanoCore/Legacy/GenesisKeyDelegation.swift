@@ -1,7 +1,10 @@
 import Foundation
 import PotentCBOR
 
-struct GenesisKeyDelegation: Codable {
+struct GenesisKeyDelegation: CertificateSerializable, Codable {
+    static var TYPE: String { "CertificateShelley" }
+    static var DESCRIPTION: String { "Genesis Key Delegation Certificate" }
+    
     public var code: Int { get { return 5 } }
     
     let genesisHash: GenesisHash

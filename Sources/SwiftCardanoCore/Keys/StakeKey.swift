@@ -1,22 +1,22 @@
 import Foundation
 
 class StakeSigningKey: SigningKey {
-    class override var KEY_TYPE: String { "StakeSigningKeyShelley_ed25519" }
+    class override var TYPE: String { "StakeSigningKeyShelley_ed25519" }
     class override var DESCRIPTION: String { "Stake Signing Key" }
 }
 
 class StakeVerificationKey: VerificationKey {
-    class override var KEY_TYPE: String { "StakeVerificationKeyShelley_ed25519" }
+    class override var TYPE: String { "StakeVerificationKeyShelley_ed25519" }
     class override var DESCRIPTION: String { "Stake Verification Key" }
 }
 
 class StakeExtendedSigningKey: ExtendedSigningKey {
-    class override var KEY_TYPE: String { "StakeExtendedSigningKeyShelley_ed25519_bip32" }
+    class override var TYPE: String { "StakeExtendedSigningKeyShelley_ed25519_bip32" }
     class override var DESCRIPTION: String { "Stake Signing Key" }
 }
 
 class StakeExtendedVerificationKey: ExtendedVerificationKey {
-    class override var KEY_TYPE: String { "StakeExtendedVerificationKeyShelley_ed25519_bip32" }
+    class override var TYPE: String { "StakeExtendedVerificationKeyShelley_ed25519_bip32" }
     class override var DESCRIPTION: String { "Stake Verification Key" }
 }
 

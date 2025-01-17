@@ -5,7 +5,7 @@ enum PaymentPart {
     case scriptHash(ScriptHash)
 }
 
-enum StakingPart {
+enum StakingPart: Sendable {
     case verificationKeyHash(VerificationKeyHash)
     case scriptHash(ScriptHash)
     case pointerAddress(PointerAddress)

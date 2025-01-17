@@ -37,7 +37,7 @@ struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
     }
     
     init(from decoder: Decoder) throws {
-        var container = try decoder.singleValueContainer()
+        let container = try decoder.singleValueContainer()
         let data = try container.decode(Data.self)
         self = try Address.fromPrimitive(data: data)
     }
@@ -108,7 +108,7 @@ struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
     
     var description: String {
         do {
-            return try self.encode()
+            return try self.toBech32()
         } catch {
             return ""
         }
@@ -185,9 +185,9 @@ struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
     /// More info about Bech32 (here)[https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki#Bech32].
 
     /// - Returns: Encoded address in Bech32.
-    func encode() throws -> String {
-        guard let encoded =  Bech32().encode(hrp: self.hrp, witprog: self.toPrimitive()) else {
-            throw CardanoCoreError.encodingError("Error encoding data: \(self.toPrimitive())")
+    func toBech32() throws -> String {
+        guard let encoded =  Bech32().encode(hrp: self.hrp, witprog: self.toBytes()) else {
+            throw CardanoCoreError.encodingError("Error encoding data: \(self.toBytes())")
         }
         return encoded
     }
@@ -196,16 +196,8 @@ struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
     /// - Parameter data: Bech32-encoded string.
     /// - Returns: Decoded address.
     /// - Throws: CardanoException when the input string is not a valid Shelley address.
-    static func decode(_ data: String) throws -> Address {
+    static func fromBech32(_ data: String) throws -> Address {
         return try Address.fromPrimitive(data)
-    }
-    
-    func toShallowPrimitive() -> Any {
-        return self.toBytes()
-    }
-    
-    func toPrimitive() -> Data {
-        return self.toBytes()
     }
 
     static func fromPrimitive<T>(_ value: Any) throws -> T {
@@ -240,41 +232,115 @@ struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
         
         switch addrType {
         case .keyKey:
-            let paymentPart = try VerificationKeyHash(payload: payload.prefix(VERIFICATION_KEY_HASH_SIZE))
-            let stakingPart = try VerificationKeyHash(payload: payload.suffix(from: VERIFICATION_KEY_HASH_SIZE))
-            return try Address(paymentPart: PaymentPart.verificationKeyHash(paymentPart), stakingPart: StakingPart.verificationKeyHash(stakingPart), network: network)
+            let paymentPart = try VerificationKeyHash(
+                payload: payload.prefix(VERIFICATION_KEY_HASH_SIZE)
+            )
+            let stakingPart = try VerificationKeyHash(
+                payload: payload.suffix(VERIFICATION_KEY_HASH_SIZE)
+            )
+                
+            return try Address(
+                paymentPart: PaymentPart.verificationKeyHash(paymentPart),
+                stakingPart: StakingPart.verificationKeyHash(stakingPart),
+                network: network
+            )
         case .keyScript:
-            let paymentPart = try VerificationKeyHash(payload: payload.prefix(VERIFICATION_KEY_HASH_SIZE))
-            let stakingPart = try ScriptHash(payload: payload.suffix(from: VERIFICATION_KEY_HASH_SIZE))
-            return try Address(paymentPart: PaymentPart.verificationKeyHash(paymentPart), stakingPart: StakingPart.scriptHash(stakingPart), network: network)
+            let paymentPart = try VerificationKeyHash(
+                payload: payload.prefix(VERIFICATION_KEY_HASH_SIZE)
+            )
+            let stakingPart = try ScriptHash(
+                payload: payload.suffix( VERIFICATION_KEY_HASH_SIZE)
+            )
+                
+            return try Address(
+                paymentPart: PaymentPart.verificationKeyHash(paymentPart),
+                stakingPart: StakingPart.scriptHash(stakingPart),
+                network: network
+            )
         case .keyPointer:
-            let paymentPart = try VerificationKeyHash(payload: payload.prefix(VERIFICATION_KEY_HASH_SIZE))
-            let pointerAddr = try PointerAddress.decode(payload.suffix(from: VERIFICATION_KEY_HASH_SIZE))
-            return try Address(paymentPart: PaymentPart.verificationKeyHash(paymentPart), stakingPart: StakingPart.pointerAddress(pointerAddr), network: network)
+            let paymentPart = try VerificationKeyHash(
+                payload: payload.prefix(VERIFICATION_KEY_HASH_SIZE)
+            )
+                let pointerAddr = try PointerAddress.decode(payload.suffix(from: VERIFICATION_KEY_HASH_SIZE + 1))
+                
+            return try Address(
+                paymentPart: PaymentPart.verificationKeyHash(paymentPart),
+                stakingPart: StakingPart.pointerAddress(pointerAddr),
+                network: network
+            )
         case .keyNone:
-            let paymentPart = try VerificationKeyHash(payload: payload)
-            return try Address(paymentPart: PaymentPart.verificationKeyHash(paymentPart), stakingPart: nil, network: network)
+            let paymentPart = try VerificationKeyHash(
+                payload: payload
+            )
+                
+            return try Address(
+                paymentPart: PaymentPart.verificationKeyHash(paymentPart),
+                stakingPart: nil, network: network
+            )
         case .scriptKey:
-            let paymentPart = try ScriptHash(payload: payload.prefix(VERIFICATION_KEY_HASH_SIZE))
-            let stakingPart = try VerificationKeyHash(payload: payload.suffix(from: VERIFICATION_KEY_HASH_SIZE))
-            return try Address(paymentPart: PaymentPart.scriptHash(paymentPart), stakingPart: StakingPart.verificationKeyHash(stakingPart), network: network)
+            let paymentPart = try ScriptHash(
+                payload: payload.prefix(VERIFICATION_KEY_HASH_SIZE)
+            )
+            let stakingPart = try VerificationKeyHash(
+                payload: payload.suffix( VERIFICATION_KEY_HASH_SIZE)
+            )
+                
+            return try Address(
+                paymentPart: PaymentPart.scriptHash(paymentPart),
+                stakingPart: StakingPart.verificationKeyHash(stakingPart),
+                network: network
+            )
         case .scriptScript:
-            let paymentPart = try ScriptHash(payload: payload.prefix(VERIFICATION_KEY_HASH_SIZE))
-            let stakingPart = try ScriptHash(payload: payload.suffix(from: VERIFICATION_KEY_HASH_SIZE))
-            return try Address(paymentPart: PaymentPart.scriptHash(paymentPart), stakingPart: StakingPart.scriptHash(stakingPart), network: network)
+            let paymentPart = try ScriptHash(
+                payload: payload.prefix(VERIFICATION_KEY_HASH_SIZE)
+            )
+            let stakingPart = try ScriptHash(
+                payload: payload.suffix( VERIFICATION_KEY_HASH_SIZE)
+            )
+            return try Address(
+                paymentPart: PaymentPart.scriptHash(paymentPart),
+                stakingPart: StakingPart.scriptHash(stakingPart),
+                network: network
+            )
         case .scriptPointer:
-            let paymentPart = try ScriptHash(payload: payload.prefix(VERIFICATION_KEY_HASH_SIZE))
-            let pointerAddr = try PointerAddress.decode(payload.suffix(from: VERIFICATION_KEY_HASH_SIZE))
-            return try Address(paymentPart: PaymentPart.scriptHash(paymentPart), stakingPart: StakingPart.pointerAddress(pointerAddr), network: network)
+            let paymentPart = try ScriptHash(
+                payload: payload.prefix(VERIFICATION_KEY_HASH_SIZE)
+            )
+            let pointerAddr = try PointerAddress.decode(payload.suffix(from: VERIFICATION_KEY_HASH_SIZE + 1))
+                
+            return try Address(
+                paymentPart: PaymentPart.scriptHash(paymentPart),
+                stakingPart: StakingPart.pointerAddress(pointerAddr),
+                network: network
+            )
         case .scriptNone:
-            let paymentPart = try ScriptHash(payload: payload)
-            return try Address(paymentPart: PaymentPart.scriptHash(paymentPart), stakingPart: nil, network: network)
+            let paymentPart = try ScriptHash(
+                payload: payload
+            )
+                
+            return try Address(
+                paymentPart: PaymentPart.scriptHash(paymentPart),
+                stakingPart: nil,
+                network: network
+            )
         case .noneKey:
-            let stakingPart = try VerificationKeyHash(payload: payload)
-            return try Address(paymentPart: nil, stakingPart: StakingPart.verificationKeyHash(stakingPart), network: network)
+            let stakingPart = try VerificationKeyHash(
+                payload: payload
+            )
+            return try Address(
+                paymentPart: nil,
+                stakingPart: StakingPart.verificationKeyHash(stakingPart),
+                network: network
+            )
         case .noneScript:
-            let stakingPart = try ScriptHash(payload: payload)
-            return try Address(paymentPart: nil, stakingPart: StakingPart.scriptHash(stakingPart), network: network)
+            let stakingPart = try ScriptHash(
+                payload: payload
+            )
+            return try Address(
+                paymentPart: nil,
+                stakingPart: StakingPart.scriptHash(stakingPart),
+                network: network
+            )
         default:
             throw CardanoCoreError.deserializeError("Error in deserializing bytes: \(data)")
         }
@@ -283,5 +349,23 @@ struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
     
     func hash(into hasher: inout Hasher) {
         hasher.combine(toBytes())
+    }
+    
+    func save(to path: String) throws {
+        if FileManager.default.fileExists(atPath: path) {
+            throw CardanoCoreError.ioError("File already exists: \(path)")
+        }
+        
+        let bech32String = try toBech32()
+        try bech32String.write(toFile: path, atomically: true, encoding: .utf8)
+    }
+    
+    static func load(from path: String) throws -> Address {
+        guard FileManager.default.fileExists(atPath: path) else {
+            throw CardanoCoreError.ioError("File not found: \(path)")
+        }
+        
+        let bech32String = try String(contentsOfFile: path)
+        return try Address.fromBech32(bech32String)
     }
 }

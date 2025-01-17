@@ -1,12 +1,12 @@
 import Foundation
 
 class StakePoolSigningKey: SigningKey {
-    class override var KEY_TYPE: String { "StakePoolSigningKey_ed25519" }
+    class override var TYPE: String { "StakePoolSigningKey_ed25519" }
     class override var DESCRIPTION: String { "Stake Pool Operator Signing Key" }
 }
 
 class StakePoolVerificationKey: VerificationKey {
-    class override var KEY_TYPE: String { "StakePoolVerificationKey_ed25519" }
+    class override var TYPE: String { "StakePoolVerificationKey_ed25519" }
     class override var DESCRIPTION: String { "Stake Pool Operator Verification Key" }
 }
 

@@ -1,22 +1,22 @@
 import Foundation
 
 class PaymentSigningKey: SigningKey {
-    class override var KEY_TYPE: String { "PaymentSigningKeyShelley_ed25519" }
+    class override var TYPE: String { "PaymentSigningKeyShelley_ed25519" }
     class override var DESCRIPTION: String { "Payment Signing Key" }
 }
 
 class PaymentVerificationKey: VerificationKey {
-    class override var KEY_TYPE: String { "PaymentVerificationKeyShelley_ed25519" }
+    class override var TYPE: String { "PaymentVerificationKeyShelley_ed25519" }
     class override var DESCRIPTION: String { "Payment Verification Key" }
 }
 
 class PaymentExtendedSigningKey: ExtendedSigningKey {
-    class override var KEY_TYPE: String { "PaymentExtendedSigningKeyShelley_ed25519_bip32" }
+    class override var TYPE: String { "PaymentExtendedSigningKeyShelley_ed25519_bip32" }
     class override var DESCRIPTION: String { "Payment Signing Key" }
 }
 
 class PaymentExtendedVerificationKey: ExtendedVerificationKey {
-    class override var KEY_TYPE: String { "PaymentExtendedVerificationKeyShelley_ed25519_bip32" }
+    class override var TYPE: String { "PaymentExtendedVerificationKeyShelley_ed25519_bip32" }
     class override var DESCRIPTION: String { "Payment Verification Key" }
 }
 

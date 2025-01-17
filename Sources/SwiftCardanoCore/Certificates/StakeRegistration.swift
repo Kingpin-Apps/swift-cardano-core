@@ -2,7 +2,10 @@ import Foundation
 import PotentCBOR
 
 
-struct StakeRegistration: Codable, Hashable, Equatable {
+struct StakeRegistration: CertificateSerializable, Codable, Hashable, Equatable {
+    static var TYPE: String { "CertificateShelley" }
+    static var DESCRIPTION: String { "Stake Address Registration Certificate" }
+
     public var code: Int { get { return 0 } }
     let stakeCredential: StakeCredential
     
@@ -24,32 +27,6 @@ struct StakeRegistration: Codable, Hashable, Equatable {
     func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(code)
-        
-//        var nestedContainer = container.nestedUnkeyedContainer()
-//        try nestedContainer.encode(stakeCredential)
         try container.encode(stakeCredential)
     }
-    
-//    static func fromPrimitive<T>(_ value: Any) throws -> T {
-//        var code: Int
-//        var payload: Data
-//        
-//        if let list = value as? [Any] {
-//            code = list[0] as! Int
-//            payload = list[1] as! Data
-//        } else if let tuple = value as? (Any, Any) {
-//            code = tuple.0 as! Int
-//            payload = tuple.1 as! Data
-//        } else {
-//            throw CardanoCoreError.deserializeError("Invalid StakeRegistration data: \(value)")
-//        }
-//        
-//        guard code == 0 else {
-//            throw CardanoCoreError.deserializeError("Invalid StakeRegistration type: \(code)")
-//        }
-//        
-//        return StakeRegistration(
-//            stakeCredential: try StakeCredential.fromPrimitive(payload)
-//        ) as! T
-//    }
 }

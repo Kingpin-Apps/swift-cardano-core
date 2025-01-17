@@ -2,7 +2,10 @@ import Foundation
 import PotentCBOR
 
 /// Register a stake credential with an optional deposit amount.
-struct Register: Codable {
+struct Register: CertificateSerializable, Codable {
+    static var TYPE: String { "CertificateShelley" }
+    static var DESCRIPTION: String { "Stake Address Registration Certificate" }
+    
     public var code: Int { get { return 7 } }
     
     let stakeCredential: StakeCredential
@@ -26,31 +29,4 @@ struct Register: Codable {
         try container.encode(stakeCredential)
         try container.encode(coin)
     }
-    
-//    static func fromPrimitive<T>(_ value: Any) throws -> T {
-//        var code: Int
-//        var stakeCredential: Data
-//        var coin: Int
-//        
-//        if let list = value as? [Any] {
-//            code = list[0] as! Int
-//            stakeCredential = list[1] as! Data
-//            coin = list[2] as! Int
-//        } else if let tuple = value as? (Any, Any, Any) {
-//            code = tuple.0 as! Int
-//            stakeCredential = tuple.1 as! Data
-//            coin = tuple.2 as! Int
-//        } else {
-//            throw CardanoCoreError.deserializeError("Invalid Register data: \(value)")
-//        }
-//        
-//        guard code == 7 else {
-//            throw CardanoCoreError.deserializeError("Invalid Register type: \(code)")
-//        }
-//        
-//        return Register(
-//            stakeCredential: try StakeCredential.fromPrimitive(stakeCredential),
-//            coin: Coin(coin)
-//        ) as! T
-//    }
 }

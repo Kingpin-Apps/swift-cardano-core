@@ -9,7 +9,7 @@ import Foundation
 ///  - slot: Slot in which the staking certificate was posted.
 ///  - txIndex: The transaction index (within that slot).
 ///  - certIndex: A (delegation) certificate index (within that transaction).
-struct PointerAddress: CBORSerializable, Equatable {
+struct PointerAddress: Codable, Equatable {
     public var slot: Int { get { return _slot } }
     private let _slot: Int
     
@@ -66,19 +66,6 @@ struct PointerAddress: CBORSerializable, Equatable {
         }
 
         return PointerAddress(slot: ints[0], txIndex: ints[1], certIndex: ints[2])
-    }
-
-    // MARK: - CBORSerializable
-    func toShallowPrimitive() -> Any {
-        return encode()
-    }
-
-    func toPrimitive() -> Data? {
-        return encode()
-    }
-
-    static func fromPrimitive<T>(_ value: Any) throws -> T {
-        return try decode(value as! Data) as! T
     }
 
     // MARK: - Equatable

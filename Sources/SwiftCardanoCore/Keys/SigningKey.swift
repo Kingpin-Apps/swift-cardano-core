@@ -14,8 +14,8 @@ class SigningKey: Key {
         let signingKey = try SwiftNcal.SigningKey(seed: payload)
         return T(
             payload: signingKey.verifyKey.bytes,
-            keyType: keyType.replacingOccurrences(of: "Signing", with: "Verification"),
-            description: keyDescription.replacingOccurrences(of: "Signing", with: "Verification")
+            type: type.replacingOccurrences(of: "Signing", with: "Verification"),
+            description: description.replacingOccurrences(of: "Signing", with: "Verification")
         )
     }
 
@@ -44,8 +44,8 @@ class ExtendedSigningKey: Key {
     func toVerificationKey() -> ExtendedVerificationKey {
         return ExtendedVerificationKey(
             payload: payload[64...95],  // Bytes 64 to 95
-            keyType: keyType.replacingOccurrences(of: "Signing", with: "Verification"),
-            description: keyDescription.replacingOccurrences(of: "Signing", with: "Verification")
+            type: type.replacingOccurrences(of: "Signing", with: "Verification"),
+            description: description.replacingOccurrences(of: "Signing", with: "Verification")
         )
     }
 
@@ -54,7 +54,7 @@ class ExtendedSigningKey: Key {
         
         return Self(
             payload: payload,
-            keyType: "PaymentExtendedSigningKeyShelley_ed25519_bip32",
+            type: "PaymentExtendedSigningKeyShelley_ed25519_bip32",
             description: "Payment Signing Key"
         )
     }

@@ -18,9 +18,9 @@ ANCHOR_DATA_HASH_SIZE = 32
 
 
 /// A protocol for byte arrays with constraints on their size.
-class ConstrainedBytes: Codable, Equatable, Hashable, CustomStringConvertible, CustomDebugStringConvertible {
+class ConstrainedBytes: Codable, Equatable, Hashable, CustomStringConvertible, CustomDebugStringConvertible, @unchecked Sendable {
 
-    var payload: Data
+    let payload: Data
     class var maxSize: Int { return 0 }
     class var minSize: Int { return 0 }
     
@@ -63,13 +63,13 @@ class ConstrainedBytes: Codable, Equatable, Hashable, CustomStringConvertible, C
 }
 
 /// Hash of a Cardano verification key.
-class VerificationKeyHash: ConstrainedBytes {
+final class VerificationKeyHash: ConstrainedBytes {
     class override var maxSize: Int { VERIFICATION_KEY_HASH_SIZE }
     class override var minSize: Int { VERIFICATION_KEY_HASH_SIZE }
 }
 
 /// Hash of a policy/plutus script.
-class ScriptHash: ConstrainedBytes {
+final class ScriptHash: ConstrainedBytes {
     class override var maxSize: Int { SCRIPT_HASH_SIZE }
     class override var minSize: Int { SCRIPT_HASH_SIZE }
 }
@@ -79,73 +79,73 @@ typealias PolicyHash = ScriptHash
 
 /// Hash of script data.
 /// See: [alonzo.cddl](https://github.com/input-output-hk/cardano-ledger/blob/525844be05adae151e82069dcd0000f3301ca0d0/eras/alonzo/test-suite/cddl-files/alonzo.cddl#L79-L86)
-class ScriptDataHash: ConstrainedBytes {
+final class ScriptDataHash: ConstrainedBytes {
     class override var maxSize: Int { SCRIPT_DATA_HASH_SIZE }
     class override var minSize: Int { SCRIPT_DATA_HASH_SIZE }
 }
 
 /// Hash of a transaction.
-class TransactionId: ConstrainedBytes {
+final class TransactionId: ConstrainedBytes {
     class override var maxSize: Int { TRANSACTION_HASH_SIZE }
     class override var minSize: Int { TRANSACTION_HASH_SIZE }
 }
 
 /// Hash of a datum.
-class DatumHash: ConstrainedBytes {
+final class DatumHash: ConstrainedBytes {
     class override var maxSize: Int { DATUM_HASH_SIZE }
     class override var minSize: Int { DATUM_HASH_SIZE }
 }
 
 /// Hash of auxiliary data.
-class AuxiliaryDataHash: ConstrainedBytes {
+final class AuxiliaryDataHash: ConstrainedBytes {
     class override var maxSize: Int { AUXILIARY_DATA_HASH_SIZE }
     class override var minSize: Int { AUXILIARY_DATA_HASH_SIZE }
 }
 
 /// Hash of a stake pool.
-class PoolKeyHash: ConstrainedBytes {
+final class PoolKeyHash: ConstrainedBytes {
     class override var maxSize: Int { POOL_KEY_HASH_SIZE }
     class override var minSize: Int { POOL_KEY_HASH_SIZE }
 }
 
 /// Hash of a stake pool metadata.
-class PoolMetadataHash: ConstrainedBytes {
+final class PoolMetadataHash: ConstrainedBytes {
     class override var maxSize: Int { POOL_METADATA_HASH_SIZE }
     class override var minSize: Int { POOL_METADATA_HASH_SIZE }
 }
 
 /// Hash of a Cardano VRF key.
-class VrfKeyHash: ConstrainedBytes {
+final class VrfKeyHash: ConstrainedBytes {
     class override var maxSize: Int { VRF_KEY_HASH_SIZE }
     class override var minSize: Int { VRF_KEY_HASH_SIZE }
 }
 
 /// Hash of a Cardano VRF key.
-class RewardAccountHash: ConstrainedBytes {
+final class RewardAccountHash: ConstrainedBytes {
     class override var maxSize: Int { REWARD_ACCOUNT_HASH_SIZE }
     class override var minSize: Int { REWARD_ACCOUNT_HASH_SIZE }
 }
 
 /// Hash of a genesis key.
-class GenesisHash: ConstrainedBytes {
+final class GenesisHash: ConstrainedBytes {
     class override var maxSize: Int { GENESIS_HASH_SIZE }
     class override var minSize: Int { GENESIS_HASH_SIZE }
 }
 
 /// Hash of a genesis delegate key.
-class GenesisDelegateHash: ConstrainedBytes {
+final class GenesisDelegateHash: ConstrainedBytes {
     class override var maxSize: Int { GENESIS_DELEGATE_HASH_SIZE }
     class override var minSize: Int { GENESIS_DELEGATE_HASH_SIZE }
 }
 
 /// Hash of a genesis delegate key.
-class AddressKeyHash: ConstrainedBytes {
+final class AddressKeyHash: ConstrainedBytes {
     class override var maxSize: Int { ADDRESS_KEY_HASH_SIZE }
     class override var minSize: Int { ADDRESS_KEY_HASH_SIZE }
 }
 
 /// Hash of a genesis delegate key.
-class AnchorDataHash: ConstrainedBytes {
+final class AnchorDataHash: ConstrainedBytes {
     class override var maxSize: Int { ANCHOR_DATA_HASH_SIZE }
     class override var minSize: Int { ANCHOR_DATA_HASH_SIZE }
 }

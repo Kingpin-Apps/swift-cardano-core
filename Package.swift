@@ -46,6 +46,10 @@ let package = Package(
         ),
         .testTarget(
             name: "SwiftCardanoCoreTests",
-            dependencies: ["SwiftCardanoCore"]),
+            dependencies: ["SwiftCardanoCore"],
+            resources: [
+               .copy("data")
+           ]
+        ),
     ]
 )

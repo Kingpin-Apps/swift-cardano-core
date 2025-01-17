@@ -16,7 +16,10 @@ struct MoveInstantaneousReward: Codable {
     let coin: UInt64?
 }
 
-struct MoveInstantaneousRewards: Codable {
+struct MoveInstantaneousRewards: CertificateSerializable, Codable {
+    static var TYPE: String { "CertificateShelley" }
+    static var DESCRIPTION: String { "Move Instantaneous Rewards Certificate" }
+    
     public var code: Int { get { return 6 } }
     
     let moveInstantaneousRewards: MoveInstantaneousReward
