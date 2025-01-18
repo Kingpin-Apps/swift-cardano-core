@@ -1,6 +1,6 @@
 import Foundation
 
-class PaymentSigningKey: SigningKey {
+final class PaymentSigningKey: SigningKey {
     class override var TYPE: String { "PaymentSigningKeyShelley_ed25519" }
     class override var DESCRIPTION: String { "Payment Signing Key" }
 }

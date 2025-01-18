@@ -3,9 +3,9 @@ import PotentCBOR
 
 
 /// Auth Committee Hot Key Registration Certificate
-struct AuthCommitteeHot: CertificateSerializable, Codable {
-    var type: String { get { return ResignCommitteeCold.TYPE } }
-    var description: String { get { return ResignCommitteeCold.DESCRIPTION } }
+struct AuthCommitteeHot: CertificateSerializable, Codable, Hashable, Equatable {
+    var type: String { get { return AuthCommitteeHot.TYPE } }
+    var description: String { get { return AuthCommitteeHot.DESCRIPTION } }
 
     static var TYPE: String { CertificateType.conway.rawValue }
     static var DESCRIPTION: String { CertificateDescription.authCommitteeHot.rawValue }
@@ -15,6 +15,11 @@ struct AuthCommitteeHot: CertificateSerializable, Codable {
     let committeeColdCredential: CommitteeColdCredential
     let committeeHotCredential: CommitteeHotCredential
     
+    init (committeeColdCredential: CommitteeColdCredential, committeeHotCredential: CommitteeHotCredential) {
+        self.committeeColdCredential = committeeColdCredential
+        self.committeeHotCredential = committeeHotCredential
+    }
+    
     init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         let code = try container.decode(Int.self)
@@ -23,8 +28,8 @@ struct AuthCommitteeHot: CertificateSerializable, Codable {
             throw CardanoCoreError.deserializeError("Invalid AuthCommitteeHot type: \(code)")
         }
         
-        committeeColdCredential = try container.decode(CommitteeColdCredential.self)
-        committeeHotCredential = try container.decode(CommitteeHotCredential.self)
+        self.committeeColdCredential = try container.decode(CommitteeColdCredential.self)
+        self.committeeHotCredential = try container.decode(CommitteeHotCredential.self)
     }
     
     func encode(to encoder: Encoder) throws {

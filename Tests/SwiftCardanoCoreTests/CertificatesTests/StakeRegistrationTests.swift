@@ -4,10 +4,6 @@ import PotentCBOR
 @testable import SwiftCardanoCore
 
 struct StakeRegistrationTests {
-    
-    let test_addr: Address = try! Address.fromPrimitive("stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n")
-    
-    
     @Test func testInitialization() async throws {
         let verificationKeyHash = try VerificationKeyHash(
             payload: Data(repeating: 0, count: VERIFICATION_KEY_HASH_SIZE)
@@ -19,27 +15,29 @@ struct StakeRegistrationTests {
         #expect(stakeRegistration.stakeCredential == stakeCredential)
     }
     
-    @Test func testDecode() async throws {
-        guard let certFilePath = Bundle.module.path(forResource: "test.stake", ofType: "cert", inDirectory: "data") else {
+    @Test func testJSON() async throws {
+        guard let certFilePath = Bundle.module.path(forResource: "test.stake", ofType: "cert", inDirectory: "data/certs") else {
             Issue.record("File not found: test.stake.cert")
             return
         }
         
-        let stakeRegistrationCertJSON = try CertificateJSON.load(from: certFilePath)
-        let stakeRegistrationCert = try Certificate.fromCertificateJSON(
-            stakeRegistrationCertJSON
-        )
-        guard case .stakeRegistration(let stakeRegistration) = stakeRegistrationCert else {
+        let certJSON = try CertificateJSON.load(from: certFilePath)
+        let cert = try Certificate.fromCertificateJSON(certJSON)
+        
+        guard case .stakeRegistration(let stakeRegistration) = cert else {
             Issue.record("Expected stakeRegistration")
             return
         }
+        
+        let json = cert.toCertificateJSON()
         #expect(stakeRegistration.code == 0)
+        #expect(certJSON == json)
     }
     
-    @Test func testStakeRegistrationToFromCBOR() async throws {
-        let excpectedCBOR = "82008200581c4828a2dadba97ca9fd0cdc99975899470c219bdc0d828cfa6ddf6d69"
+    @Test func testToFromCBOR() async throws {
+        let excpectedCBOR = stakeRegistrationJSON?.payload.toHex
         
-        let credential = test_addr.stakingPart
+        let credential = stakeAddress!.stakingPart
         
         guard case .verificationKeyHash(let verificationKeyHash) = credential else {
             Issue.record("Expected verificationKeyHash")

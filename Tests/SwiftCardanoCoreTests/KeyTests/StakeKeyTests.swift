@@ -54,6 +54,7 @@ let stakeVKey = [
     
     @Test func testStakeVerificationKey() async throws {
         let VK = try! StakeVerificationKey.fromJSON(stakeVKeyJSON)
+//        let VK = stakeVerificationKey
         let cborData = try CBOREncoder().encode(VK)
         let cborHex = cborData.toHex
         let json = try VK.toJSON()

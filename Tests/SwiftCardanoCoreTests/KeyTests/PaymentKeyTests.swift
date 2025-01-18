@@ -37,7 +37,7 @@ let paymentVKey = [
     """
     
     
-    @Test func testPaymentSKey() async throws {
+    @Test func testPaymentSigningKey() async throws {
         let SK = try! PaymentSigningKey.fromJSON(paymentSKeyJSON)
         let cborData = try CBOREncoder().encode(SK)
         let cborHex = cborData.toHex

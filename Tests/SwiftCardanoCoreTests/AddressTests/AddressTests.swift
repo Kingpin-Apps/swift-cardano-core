@@ -126,15 +126,20 @@ struct AddressTests {
         #expect(addressBech32 == expected)
     }
     
-    @Test func testHash() async throws {
-        let test_addr: Address = try! Address.fromPrimitive("addr1q89gvt69g9hv3ushfzw64jr06qgml8rdeanuz2e3hn9xrytk99uy7hwe828zf7vzm5k37wuyzjrgmqnqakm2qmyy0f5suhvr47")
-        
-        let hash = test_addr.hashValue
-        print(hash)
-    }
-    
     @Test func testSave() async throws {
+        let test_addr: Address = try! Address.fromPrimitive("addr1q89gvt69g9hv3ushfzw64jr06qgml8rdeanuz2e3hn9xrytk99uy7hwe828zf7vzm5k37wuyzjrgmqnqakm2qmyy0f5suhvr47")
+        let tempDirectory = FileManager.default.temporaryDirectory
+        let tempFileURL = tempDirectory.appendingPathComponent("test.addr")
         
+        if FileManager.default.fileExists(atPath: tempFileURL.path) {
+            try FileManager.default.removeItem(at: tempFileURL)
+        }
+        
+        try test_addr.save(to: tempFileURL.path())
+        let loaded = try Address.load(from: tempFileURL.path())
+        
+        #expect(FileManager.default.fileExists(atPath: tempFileURL.path))
+        #expect(test_addr == loaded)
     }
     
     @Test func testLoad() async throws {
