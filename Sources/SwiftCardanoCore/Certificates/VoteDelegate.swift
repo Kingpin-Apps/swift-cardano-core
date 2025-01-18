@@ -7,7 +7,7 @@ struct VoteDelegate: CertificateSerializable, Codable {
     var description: String { get { return VoteDelegate.DESCRIPTION } }
 
     static var TYPE: String { CertificateType.conway.rawValue }
-    static var DESCRIPTION: String { "Vote Delegation Certificate" }
+    static var DESCRIPTION: String { CertificateDescription.voteDelegate.rawValue }
     
     public var code: Int { get { return 9 } }
     

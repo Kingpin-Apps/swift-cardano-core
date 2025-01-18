@@ -1,6 +1,6 @@
 import Foundation
 
-enum PaymentPart {
+enum PaymentPart: Sendable {
     case verificationKeyHash(VerificationKeyHash)
     case scriptHash(ScriptHash)
 }

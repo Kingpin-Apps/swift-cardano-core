@@ -8,7 +8,7 @@ struct StakeRegistration: CertificateSerializable, Codable, Hashable, Equatable 
     var description: String { get { return StakeRegistration.DESCRIPTION } }
 
     static var TYPE: String { CertificateType.shelley.rawValue }
-    static var DESCRIPTION: String { "Stake Address Registration Certificate" }
+    static var DESCRIPTION: String { CertificateDescription.stakeRegistration.rawValue }
 
     public var code: Int { get { return 0 } }
     let stakeCredential: StakeCredential

@@ -7,7 +7,7 @@ struct PoolRegistration: CertificateSerializable, Codable {
     var description: String { get { return PoolRegistration.DESCRIPTION } }
 
     static var TYPE: String { CertificateType.shelley.rawValue }
-    static var DESCRIPTION: String { "Stake Pool Registration Certificate" }
+    static var DESCRIPTION: String { CertificateDescription.poolRegistration.rawValue }
     
     public var code: Int { get { return 3 } }
     let poolParams: PoolParams

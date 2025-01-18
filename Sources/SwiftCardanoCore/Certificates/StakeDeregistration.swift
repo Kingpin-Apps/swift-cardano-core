@@ -7,7 +7,7 @@ struct StakeDeregistration: CertificateSerializable, Codable {
     var description: String { get { return StakeDeregistration.DESCRIPTION } }
 
     static var TYPE: String { CertificateType.shelley.rawValue }
-    static var DESCRIPTION: String { "Stake Address Deregistration Certificate" }
+    static var DESCRIPTION: String { CertificateDescription.stakeDeregistration.rawValue }
     
     public var code: Int { get { return 1 } }
     let stakeCredential: StakeCredential

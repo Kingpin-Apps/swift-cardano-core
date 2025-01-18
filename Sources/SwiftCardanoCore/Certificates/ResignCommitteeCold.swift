@@ -7,7 +7,7 @@ struct ResignCommitteeCold: CertificateSerializable, Codable {
     var description: String { get { return ResignCommitteeCold.DESCRIPTION } }
 
     static var TYPE: String { CertificateType.conway.rawValue }
-    static var DESCRIPTION: String { "Constitutional Committee Hot Key Retirement Certificate" }
+    static var DESCRIPTION: String { CertificateDescription.resignCommitteeCold.rawValue }
     
     public var code: Int { get { return 15 } }
     

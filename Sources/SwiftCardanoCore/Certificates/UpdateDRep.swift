@@ -15,7 +15,7 @@ struct UpdateDRep: CertificateSerializable, Codable {
     }
 
     static var TYPE: String { CertificateType.conway.rawValue }
-    static var DESCRIPTION: String { "DRep Update Certificate" }
+    static var DESCRIPTION: String { CertificateDescription.updateDRep.rawValue }
     
     public var code: Int { get { return 18 } }
     

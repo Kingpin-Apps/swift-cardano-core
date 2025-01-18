@@ -28,10 +28,10 @@ enum CertificateDescription: String, Codable {
     case stakeVoteDelegate = "Stake and Vote Delegation Certificate"
     case stakeRegisterDelegate = "Stake address registration and stake delegation Certificate"
     case voteRegisterDelegate = "Stake address registration and vote delegation Certificate"
-    case stakeVoteRegisterDelegate = "Stake address registration and vote delegation Certificate"
+    case stakeVoteRegisterDelegate = "Stake address registration delegation and vote delegation Certificate"
     case authCommitteeHot = "Constitutional Committee Hot Key Registration Certificate"
     case resignCommitteeCold = "Constitutional Committee Hot Key Retirement Certificate"
-    case registerDRep = "DRep Key Registration Certificate"
+    case registerDRep = "DRep Registration Certificate"
     case unRegisterDRep = "DRep Retirement Certificate"
     case updateDRep = "DRep Update Certificate"
 }
@@ -129,8 +129,49 @@ enum Certificate: Codable {
     }
     
     static func fromCertificateJSON(_ json: CertificateJSON) throws -> Certificate {
-        let decoded = try CBORDecoder().decode(Credential.self, from: json.payload)
-        let cbor = CBORDecoder().decode(from: json.payload, using: <#_#>)
+        switch json.description {
+            case CertificateDescription.stakeRegistration.rawValue:
+                return .stakeRegistration(try CBORDecoder().decode(StakeRegistration.self, from: json.payload))
+            case CertificateDescription.stakeDeregistration.rawValue:
+                return .stakeDeregistration(try CBORDecoder().decode(StakeDeregistration.self, from: json.payload))
+            case CertificateDescription.stakeDelegation.rawValue:
+                return .stakeDelegation(try CBORDecoder().decode(StakeDelegation.self, from: json.payload))
+            case CertificateDescription.poolRegistration.rawValue:
+                return .poolRegistration(try CBORDecoder().decode(PoolRegistration.self, from: json.payload))
+            case CertificateDescription.poolRetirement.rawValue:
+                return .poolRetirement(try CBORDecoder().decode(PoolRetirement.self, from: json.payload))
+            case CertificateDescription.genesisKeyDelegation.rawValue:
+                return .genesisKeyDelegation(try CBORDecoder().decode(GenesisKeyDelegation.self, from: json.payload))
+            case CertificateDescription.moveInstantaneousRewards.rawValue:
+                return .moveInstantaneousRewards(try CBORDecoder().decode(MoveInstantaneousRewards.self, from: json.payload))
+            case CertificateDescription.register.rawValue:
+                return .register(try CBORDecoder().decode(Register.self, from: json.payload))
+            case CertificateDescription.unregister.rawValue:
+                return .unregister(try CBORDecoder().decode(Unregister.self, from: json.payload))
+            case CertificateDescription.voteDelegate.rawValue:
+                return .voteDelegate(try CBORDecoder().decode(VoteDelegate.self, from: json.payload))
+            case CertificateDescription.stakeVoteDelegate.rawValue:
+                return .stakeVoteDelegate(try CBORDecoder().decode(StakeVoteDelegate.self, from: json.payload))
+            case CertificateDescription.stakeRegisterDelegate.rawValue:
+                return .stakeRegisterDelegate(try CBORDecoder().decode(StakeRegisterDelegate.self, from: json.payload))
+            case CertificateDescription.voteRegisterDelegate.rawValue:
+                return .voteRegisterDelegate(try CBORDecoder().decode(VoteRegisterDelegate.self, from: json.payload))
+            case CertificateDescription.stakeVoteRegisterDelegate.rawValue:
+                return .stakeVoteRegisterDelegate(try CBORDecoder().decode(StakeVoteRegisterDelegate.self, from: json.payload))
+            case CertificateDescription.authCommitteeHot.rawValue:
+                return .authCommitteeHot(try CBORDecoder().decode(AuthCommitteeHot.self, from: json.payload))
+            case CertificateDescription.resignCommitteeCold.rawValue:
+                return .resignCommitteeCold(try CBORDecoder().decode(ResignCommitteeCold.self, from: json.payload))
+            case  _ where Set(CertificateDescription.registerDRep.rawValue).isSubset(of: json.description):
+                return .registerDRep(try CBORDecoder().decode(RegisterDRep.self, from: json.payload))
+            case _ where Set(CertificateDescription.unRegisterDRep.rawValue).isSubset(of: json.description):
+                return .unRegisterDRep(try CBORDecoder().decode(UnregisterDRep.self, from: json.payload))
+            case _ where Set(CertificateDescription.updateDRep.rawValue).isSubset(of: json.description):
+                return .updateDRep(try CBORDecoder().decode(UpdateDRep.self, from: json.payload))
+            default:
+                throw CardanoCoreError.deserializeError("Invalid Certificate type: \(json.description)")
+                
+        }
     }
 }
 

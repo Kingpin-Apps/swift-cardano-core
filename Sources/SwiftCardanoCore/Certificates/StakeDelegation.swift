@@ -7,7 +7,7 @@ struct StakeDelegation: CertificateSerializable, Codable {
     var description: String { get { return StakeDelegation.DESCRIPTION } }
 
     static var TYPE: String { CertificateType.shelley.rawValue }
-    static var DESCRIPTION: String { "Stake Delegation Certificate" }
+    static var DESCRIPTION: String { CertificateDescription.stakeDelegation.rawValue }
     
     public var code: Int { get { return 2 } }
     let stakeCredential: StakeCredential

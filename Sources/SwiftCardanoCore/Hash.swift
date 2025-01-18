@@ -63,13 +63,13 @@ class ConstrainedBytes: Codable, Equatable, Hashable, CustomStringConvertible, C
 }
 
 /// Hash of a Cardano verification key.
-final class VerificationKeyHash: ConstrainedBytes {
+final class VerificationKeyHash: ConstrainedBytes, @unchecked Sendable {
     class override var maxSize: Int { VERIFICATION_KEY_HASH_SIZE }
     class override var minSize: Int { VERIFICATION_KEY_HASH_SIZE }
 }
 
 /// Hash of a policy/plutus script.
-final class ScriptHash: ConstrainedBytes {
+final class ScriptHash: ConstrainedBytes, @unchecked Sendable {
     class override var maxSize: Int { SCRIPT_HASH_SIZE }
     class override var minSize: Int { SCRIPT_HASH_SIZE }
 }
@@ -79,73 +79,73 @@ typealias PolicyHash = ScriptHash
 
 /// Hash of script data.
 /// See: [alonzo.cddl](https://github.com/input-output-hk/cardano-ledger/blob/525844be05adae151e82069dcd0000f3301ca0d0/eras/alonzo/test-suite/cddl-files/alonzo.cddl#L79-L86)
-final class ScriptDataHash: ConstrainedBytes {
+final class ScriptDataHash: ConstrainedBytes, @unchecked Sendable {
     class override var maxSize: Int { SCRIPT_DATA_HASH_SIZE }
     class override var minSize: Int { SCRIPT_DATA_HASH_SIZE }
 }
 
 /// Hash of a transaction.
-final class TransactionId: ConstrainedBytes {
+final class TransactionId: ConstrainedBytes, @unchecked Sendable {
     class override var maxSize: Int { TRANSACTION_HASH_SIZE }
     class override var minSize: Int { TRANSACTION_HASH_SIZE }
 }
 
 /// Hash of a datum.
-final class DatumHash: ConstrainedBytes {
+final class DatumHash: ConstrainedBytes, @unchecked Sendable {
     class override var maxSize: Int { DATUM_HASH_SIZE }
     class override var minSize: Int { DATUM_HASH_SIZE }
 }
 
 /// Hash of auxiliary data.
-final class AuxiliaryDataHash: ConstrainedBytes {
+final class AuxiliaryDataHash: ConstrainedBytes, @unchecked Sendable {
     class override var maxSize: Int { AUXILIARY_DATA_HASH_SIZE }
     class override var minSize: Int { AUXILIARY_DATA_HASH_SIZE }
 }
 
 /// Hash of a stake pool.
-final class PoolKeyHash: ConstrainedBytes {
+final class PoolKeyHash: ConstrainedBytes, @unchecked Sendable {
     class override var maxSize: Int { POOL_KEY_HASH_SIZE }
     class override var minSize: Int { POOL_KEY_HASH_SIZE }
 }
 
 /// Hash of a stake pool metadata.
-final class PoolMetadataHash: ConstrainedBytes {
+final class PoolMetadataHash: ConstrainedBytes, @unchecked Sendable {
     class override var maxSize: Int { POOL_METADATA_HASH_SIZE }
     class override var minSize: Int { POOL_METADATA_HASH_SIZE }
 }
 
 /// Hash of a Cardano VRF key.
-final class VrfKeyHash: ConstrainedBytes {
+final class VrfKeyHash: ConstrainedBytes, @unchecked Sendable {
     class override var maxSize: Int { VRF_KEY_HASH_SIZE }
     class override var minSize: Int { VRF_KEY_HASH_SIZE }
 }
 
 /// Hash of a Cardano VRF key.
-final class RewardAccountHash: ConstrainedBytes {
+final class RewardAccountHash: ConstrainedBytes, @unchecked Sendable {
     class override var maxSize: Int { REWARD_ACCOUNT_HASH_SIZE }
     class override var minSize: Int { REWARD_ACCOUNT_HASH_SIZE }
 }
 
 /// Hash of a genesis key.
-final class GenesisHash: ConstrainedBytes {
+final class GenesisHash: ConstrainedBytes, @unchecked Sendable {
     class override var maxSize: Int { GENESIS_HASH_SIZE }
     class override var minSize: Int { GENESIS_HASH_SIZE }
 }
 
 /// Hash of a genesis delegate key.
-final class GenesisDelegateHash: ConstrainedBytes {
+final class GenesisDelegateHash: ConstrainedBytes, @unchecked Sendable {
     class override var maxSize: Int { GENESIS_DELEGATE_HASH_SIZE }
     class override var minSize: Int { GENESIS_DELEGATE_HASH_SIZE }
 }
 
 /// Hash of a genesis delegate key.
-final class AddressKeyHash: ConstrainedBytes {
+final class AddressKeyHash: ConstrainedBytes, @unchecked Sendable {
     class override var maxSize: Int { ADDRESS_KEY_HASH_SIZE }
     class override var minSize: Int { ADDRESS_KEY_HASH_SIZE }
 }
 
 /// Hash of a genesis delegate key.
-final class AnchorDataHash: ConstrainedBytes {
+final class AnchorDataHash: ConstrainedBytes, @unchecked Sendable {
     class override var maxSize: Int { ANCHOR_DATA_HASH_SIZE }
     class override var minSize: Int { ANCHOR_DATA_HASH_SIZE }
 }

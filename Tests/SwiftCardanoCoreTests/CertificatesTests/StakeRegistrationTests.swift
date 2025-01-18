@@ -25,8 +25,15 @@ struct StakeRegistrationTests {
             return
         }
         
-        let stakeRegistrationCert = try StakeRegistration.load(from: certFilePath)
-        
+        let stakeRegistrationCertJSON = try CertificateJSON.load(from: certFilePath)
+        let stakeRegistrationCert = try Certificate.fromCertificateJSON(
+            stakeRegistrationCertJSON
+        )
+        guard case .stakeRegistration(let stakeRegistration) = stakeRegistrationCert else {
+            Issue.record("Expected stakeRegistration")
+            return
+        }
+        #expect(stakeRegistration.code == 0)
     }
     
     @Test func testStakeRegistrationToFromCBOR() async throws {

@@ -23,7 +23,8 @@ protocol PayloadSerializable: Payloadable, Codable, Hashable, Equatable {
     init(payload: Data, type: String?, description: String?)
 }
 
-protocol PayloadJSONSerializable: PayloadSerializable {}
+protocol PayloadJSONSerializable: PayloadSerializable {
+}
 
 protocol PayloadCBORSerializable: PayloadJSONSerializable {}
 
@@ -116,11 +117,16 @@ extension PayloadJSONSerializable {
             }
         }
         
+        let payload: Data
         let cborData = Data(hexString: cborHex)!
-        let key = try CBORDecoder().decode(Self.self, from: cborData)
+        if let object = try? CBORDecoder().decode(Self.self, from: cborData) {
+            payload = object.payload
+        } else {
+            payload = cborData
+        }
         
         return Self(
-            payload: key.payload,
+            payload: payload,
             type: type,
             description: description
         )

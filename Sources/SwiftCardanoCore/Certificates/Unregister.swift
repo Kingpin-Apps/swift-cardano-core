@@ -7,7 +7,7 @@ struct Unregister: CertificateSerializable, Codable {
     var description: String { get { return Unregister.DESCRIPTION } }
 
     static var TYPE: String { CertificateType.conway.rawValue }
-    static var DESCRIPTION: String { "Stake Address Retirement Certificate" }
+    static var DESCRIPTION: String { CertificateDescription.unregister.rawValue }
     
     public var code: Int { get { return 8 } }
     
