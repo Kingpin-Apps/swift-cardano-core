@@ -36,7 +36,7 @@ class RawPlutusData: Codable, Equatable {
                 } else {
                     value = list.map { dfs($0) }
                 }
-                return CBORTag(tag: Int(tag.rawValue), value: CBOR.fromAny(value))
+                return CBORTag(tag: UInt64(tag.rawValue), value: CBOR.fromAny(value))
             }
             return obj
         }
@@ -92,7 +92,10 @@ class RawPlutusData: Codable, Equatable {
                         }
                     }
                     if let tag = getTag(constrID: constructor) {
-                        return CBORTag(tag: tag, value: CBOR.fromAny(convertedFields))
+                        return CBORTag(
+                            tag: UInt64(tag),
+                            value: CBOR.fromAny(convertedFields)
+                        )
                     } else {
                         return CBORTag(
                             tag: 102,

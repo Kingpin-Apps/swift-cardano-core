@@ -39,41 +39,6 @@ struct DatumOption: Codable {
             try container.encode(datum as! DatumOption)
         }
     }
-
-//    func toPrimitive() throws -> [Any] {
-//        if type == 1 {
-//            return [
-//                type,
-//                CBORTag(
-//                    tag: 24,
-//                    value: try CBORSerialization.data(from: CBOR.fromAny(datum))
-//                )
-//            ]
-//        } else {
-//            return [type, datum]
-//        }
-//    }
-
-//    static func fromPrimitive<T>(_ values: Any) throws -> T {
-//        guard let values = values as? [Any] else {
-//            throw CardanoCoreError
-//                .valueError("Invalid DatumOption data: \(values)")
-//        }
-//        
-//        if values[0] as! Int == 0 {
-//            return DatumOption(datum: values[1] as! DatumHash) as! T
-//        } else {
-//            let tag = values[1] as! CBORTag
-//            let v = try CBORSerialization.cbor(from: tag.value)
-//            if case let CBOR.tagged(_, v) = v {
-//                return DatumOption(
-//                    datum: try RawPlutusData.fromPrimitive(v)
-//                ) as! T
-//            } else {
-//                return DatumOption(datum: v) as! T
-//            }
-//        }
-//    }
 }
 
 struct Script: Codable {
@@ -100,7 +65,7 @@ struct Script: Codable {
         
         switch type {
             case 0:
-                script = .nativeScript(try container.decode(NativeScript.self))
+                script = .nativeScript(try container.decode(NativeScripts.self))
             case 1:
                 script = .plutusV1Script(try container.decode(Data.self))
             case 2:
@@ -127,28 +92,6 @@ struct Script: Codable {
                 try container.encode(script)
         }
     }
-
-//    static func fromPrimitive<T>(_ values: Any) throws -> T {
-//        guard let values = values as? [Any] else {
-//            throw CardanoCoreError
-//                .valueError("Invalid Script data: \(values)")
-//        }
-//        
-//        if values[0] as! Int == 0 {
-//            return Script(script: try NativeScript.fromPrimitive(values[1] as! [Any])) as! T
-//        } else {
-//            let scriptData = values[1] as! Data
-//            if values[0] as! Int == 1 {
-//                return Script(script: .plutusV1Script(scriptData)) as! T
-//            } else if values[0] as! Int == 2 {
-//                return Script(script: .plutusV2Script(scriptData)) as! T
-//            } else if values[0] as! Int == 3 {
-//                return Script(script: .plutusV3Script(scriptData)) as! T
-//            }
-//        }
-//        throw CardanoCoreError
-//            .valueError("Invalid Script data: \(values)")
-//    }
 }
 
 struct ScriptRef: Codable {
@@ -179,23 +122,4 @@ struct ScriptRef: Codable {
         var container = encoder.unkeyedContainer()
         try container.encode(cborTag)
     }
-
-//    func toShallowPrimitive() throws -> Any {
-//        return CBORTag(
-//            tag: 24,
-//            value: CBOR.fromAny(script)
-//        )
-//    }
-//
-//    static func fromPrimitive<T>(_ value: Any) throws -> T {
-//        guard let value = value as? CBORTag else {
-//            throw CardanoCoreError
-//                .valueError("Invalid ScriptRef data: \(value)")
-//        }
-//        
-//        let script: Script = try Script.fromPrimitive(
-//            try CBORSerialization.cbor(from: value.value)
-//        )
-//        return ScriptRef(script: script) as! T
-//    }
 }

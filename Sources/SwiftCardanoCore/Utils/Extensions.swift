@@ -55,6 +55,8 @@ extension CBOR {
             return .byteString(dataValue)
         } else if let dictValue = value as? [AnyHashable: Any] {
             return .map(dictValue.mapKeysToCbor)
+        } else if let codable = value as? any Codable {
+            return .byteString(try! CBOREncoder().encode(codable))
         } else {
             return .null
         }

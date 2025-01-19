@@ -24,7 +24,7 @@ func plutusScriptHash(script: ScriptType) throws -> ScriptHash {
 func scriptHash(script: ScriptType) throws -> ScriptHash {
     switch script {
         case .nativeScript(let nativeScript):
-            return try nativeScript.hash()
+            return try nativeScript.scriptHash()
         case .plutusV1Script(let plutusScript):
             let prefix = Data([0x01])
             let hash = try Hash().blake2b(

@@ -74,69 +74,6 @@ class PlutusData: Codable, Equatable, Hashable {
         try container.encode(properties)
     }
     
-//    func toShallowPrimitive() throws -> Any {
-//        var primitives: [AnyHashable] = []
-//        
-//        let mirror = Mirror(reflecting: self)
-//        for child in mirror.children {
-//            if let label = child.label, let value = child.value as? CBORSerializable {
-//                primitives.append(try! value.toShallowPrimitive() as! AnyHashable)
-//            } else if child.value is NSNull {
-//                continue
-//            } else {
-//                primitives.append(child.value as! AnyHashable)
-//            }
-//        }
-//        
-//        let tag = getTag(constrID: Self.CONSTR_ID as! Int)
-//        
-//        if !primitives.isEmpty {
-//            let primitives = IndefiniteList(primitives)
-//            if tag != nil {
-//                return CBOR
-//                    .tagged(CBOR.Tag(rawValue: UInt64(tag!)), CBOR.fromAny(primitives))
-//            } else {
-//                return CBOR
-//                    .tagged(
-//                        CBOR.Tag(rawValue: UInt64(102)),
-//                        CBOR.fromAny([Self.CONSTR_ID, primitives])
-//                    )
-//            }
-//        } else {
-//            throw CardanoCoreError.valueError("Empty PlutusData.")
-//        }
-//    }
-
-//    override class func fromPrimitive<T>(_ value: Any) throws -> T {
-//        guard case let CBOR.tagged(tag, innerValue) = value else {
-//            throw CardanoCoreError.valueError("Expected tagged CBOR value.")
-//        }
-//        
-//        guard let innerTag = innerValue.unwrapped as? [Any] else {
-//            throw CardanoCoreError.valueError("Expected tagged CBOR value.")
-//        }
-//        
-//        if tag.rawValue == 102 {
-//            if innerTag[0] as! Int != Self.CONSTR_ID as! Int {
-//                throw CardanoCoreError.decodingError("Unexpected constructor ID for \(Self.self). Expected \(Self.CONSTR_ID), got \(innerTag[0]).")
-//            }
-//            
-//            guard innerTag.count == 2 else {
-//                throw CardanoCoreError.decodingError("Expect the length of value to be exactly 2, got \(innerTag.count).")
-//            }
-//            let primitive: BaseArrayCBORSerializable = try super.fromPrimitive(innerTag[1])
-//            return primitive as! T
-//        } else {
-//            let expectedTag = getTag(constrID: Self.CONSTR_ID as! Int)!
-//            if expectedTag != tag.rawValue {
-//                throw CardanoCoreError.decodingError("Unexpected constructor ID. Expected \(expectedTag), got \(tag.rawValue).")
-//            }
-//            let primitive: BaseArrayCBORSerializable = try super.fromPrimitive(innerTag)
-//            return primitive as! T
-//        }
-//        
-//    }
-    
     func hash() throws -> DatumHash {
         return try datumHash(datum: .plutusData(self))
     }
@@ -228,7 +165,7 @@ class PlutusData: Codable, Equatable, Hashable {
                         // Type-specific handling
                         if let fieldType = fieldInfo.value as? PlutusData.Type {
                             convertedFields.append(try fieldType.fromDict(f as! [String: Any]))
-                        } else if let fieldType = fieldInfo.value as? Datum.Type {
+                        } else if fieldInfo.value is Datum.Type {
                             convertedFields
                                 .append(
                                     try RawPlutusData

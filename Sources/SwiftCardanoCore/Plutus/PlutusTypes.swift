@@ -12,7 +12,7 @@ typealias PlutusV3Script = Data
 enum ScriptType: Codable, Equatable, Hashable {
     
 //    case bytes(Data)
-    case nativeScript(NativeScript)
+    case nativeScript(NativeScripts)
     case plutusV1Script(PlutusV1Script)
     case plutusV2Script(PlutusV2Script)
     case plutusV3Script(PlutusV3Script)
@@ -48,7 +48,7 @@ enum RawDatum: Codable, Equatable, Hashable {
     case cborTag(CBORTag)
     
     init(from decoder: Decoder) throws {
-        var container = try decoder.singleValueContainer()
+        let container = try decoder.singleValueContainer()
         if let plutusData = try? container.decode(PlutusData.self) {
             self = .plutusData(plutusData)
         } else if let dict = try? container.decode(Dictionary<AnyValue, AnyValue>.self) {
@@ -62,7 +62,7 @@ enum RawDatum: Codable, Equatable, Hashable {
         } else if let cborData = try? container.decode(Data.self) {
             let cbor = try CBORSerialization.cbor(from: cborData)
             if case let CBOR.tagged(tag, data) = cbor {
-                self = .cborTag(CBORTag(tag: Int(tag.rawValue), value: data))
+                self = .cborTag(CBORTag(tag: UInt64(tag.rawValue), value: data))
             } else {
                 self = .cbor(cbor)
             }

@@ -1,5 +1,6 @@
 import Foundation
 import PotentCBOR
+import PotentCodables
 
 // MARK: - Types Aliases
 typealias Coin = UInt64
@@ -171,14 +172,14 @@ struct Anchor: Codable {
 
 // MARK: - CBOR Tag
 struct CBORTag: Codable, Equatable {
-    let tag: Int
-    let value: CBOR
+    let tag: UInt64
+    let value: AnyHashable
     
     enum CodingKeys: CodingKey {
         case tag, value
     }
     
-    init(tag: Int, value: CBOR) {
+    init(tag: UInt64, value: AnyHashable) {
         self.tag = tag
         self.value = value
     }
@@ -187,16 +188,21 @@ struct CBORTag: Codable, Equatable {
         var container = try decoder.unkeyedContainer()
         
         // Decode the tag
-        tag = try container.decode(Int.self)
+        tag = try container.decode(UInt64.self)
         
         // Decode the value as a CBOR representation
         let cborData = try container.decode(Data.self)
         let cborObject = try CBORSerialization.cbor(from: cborData)
-        value = cborObject
+        value = cborObject.unwrapped as! AnyHashable
     }
     
     func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
+        
+//        let cborData = CBOR.tagged(
+//            CBOR.Tag(rawValue: tag),
+//            CBOR.fromAny(value)
+//        )
         
         // Encode the tag
         try container.encode(tag)
