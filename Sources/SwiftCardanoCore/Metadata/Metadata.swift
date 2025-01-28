@@ -27,13 +27,6 @@ struct Metadata: Codable, Hashable, Equatable {
     typealias VALUE_TYPE = TransactionMetadatum
     
     static let MAX_ITEM_SIZE = 64
-//    let INTERNAL_TYPES: [Any.Type] = [
-//        Int.self,
-//        String.self,
-//        Data.self,
-//        Array<Any>.self,
-//        Dictionary<String, Any>.self
-//    ]
     
     var data: [KEY_TYPE: VALUE_TYPE] {
         get {
@@ -54,12 +47,18 @@ struct Metadata: Codable, Hashable, Equatable {
         }
     }
 
-    init(_ data: [AnyHashable : AnyHashable]) throws {
+    init(_ data: [KEY_TYPE: VALUE_TYPE]) throws {
         try validate()
-        guard let data = data as? [KEY_TYPE: VALUE_TYPE] else {
-            throw CardanoCoreError.invalidArgument("Invalid metadata data: \(data)")
+        
+        var metadata = [KEY_TYPE: VALUE_TYPE]()
+        for (key, value) in data {
+            let key = key 
+            let value = value
+            
+            metadata[key] = value
         }
-        self.data = data
+        
+        self.data = metadata
     }
     
     init(from decoder: Decoder) throws {
@@ -74,11 +73,6 @@ struct Metadata: Codable, Hashable, Equatable {
     
     private func validate() throws {
         func validateTypeAndSize(_ value: Any) throws {
-//            let type = type(of: value)
-//            guard INTERNAL_TYPES.contains(where: { $0 == type }) else {
-//                throw CardanoCoreError.invalidArgument("Value \(value) is of unsupported type: \(type)")
-//            }
-            
             if let data = value as? Data, data.count > Self.MAX_ITEM_SIZE {
                 throw CardanoCoreError.invalidArgument("Data size exceeds \(Self.MAX_ITEM_SIZE) bytes.")
             } else if let string = value as? String, string.utf8.count > Self.MAX_ITEM_SIZE {
@@ -162,63 +156,70 @@ struct AlonzoMetadata: Codable, Hashable, Equatable {
             throw CardanoCoreError.deserializeError("Expect CBOR tag: \(AlonzoMetadata.TAG), got: \(tag) instead.")
         }
         
-        let cborData = try container.decode(Data.self)
-        let cborObject = try CBORSerialization.cbor(from: cborData)
-        
-        guard let dict = cborObject.unwrapped as? [UInt64: Any] else {
-            throw CardanoCoreError.deserializeError("Invalid AlonzoMetadata structure.")
-        }
-        
-        // Step 4: Decode Metadata
-        if let metadataDict = dict[0] as? [AnyHashable: AnyHashable] {
-            metadata = try Metadata(metadataDict)
+        let cborData = try container.decode([Int:Data].self)
+    
+        if let metadataDict = cborData[0] {
+            let dict = try CBORDecoder().decode(
+                [Metadata.KEY_TYPE: Metadata.VALUE_TYPE].self,
+                from: metadataDict
+            )
+            metadata = try Metadata(dict)
         } else {
             metadata = nil
         }
         
-        // Step 5: Decode Native Scripts
-        if let nativeScriptsArray = dict[1] as? [Any] {
-            nativeScripts = try nativeScriptsArray.map {
-                guard let scriptData = $0 as? Data else {
-                    throw CardanoCoreError.deserializeError("Invalid native script format.")
-                }
-                return try CBORSerialization.cbor(from: scriptData) as! NativeScripts
-            }
+        if let nativeScriptsArray = cborData[1] {
+            nativeScripts = try CBORDecoder().decode([NativeScripts].self, from: nativeScriptsArray)
         } else {
             nativeScripts = nil
         }
         
-        // Step 6: Decode Plutus Scripts
-        plutusV1Script = dict[2] as? [PlutusV1Script]
-        plutusV2Script = dict[3] as? [PlutusV2Script]
-        plutusV3Script = dict[4] as? [PlutusV3Script]
+        if let plutusV1ScriptArray = cborData[2] {
+            plutusV1Script = try CBORDecoder().decode([PlutusV1Script].self, from: plutusV1ScriptArray)
+        } else {
+            plutusV1Script = nil
+        }
+        
+        if let plutusV2ScriptArray = cborData[3] {
+            plutusV2Script = try CBORDecoder().decode([PlutusV2Script].self, from: plutusV2ScriptArray)
+        } else {
+            plutusV2Script = nil
+        }
+        
+        if let plutusV3ScriptArray = cborData[4] {
+            plutusV3Script = try CBORDecoder().decode([PlutusV3Script].self, from: plutusV3ScriptArray)
+        } else {
+            plutusV3Script = nil
+        }
     }
 
     func encode(to encoder: Encoder) throws {
-        let primitive = [
-            0: (metadata?.data ?? [:]) as [TransactionMetadatumLabel: TransactionMetadatum],
-            1: (nativeScripts ?? []) as [NativeScripts],
-            2: (plutusV1Script ?? [Data()]) as [PlutusV1Script],
-            3: (plutusV2Script ?? [Data()]) as [PlutusV2Script],
-            4: (plutusV3Script ?? [Data()]) as [PlutusV3Script]
-        ] as [Int : Any]
+        var cbor: [Int:Data] = [:]
         
-//        let cborTag = CBORTag(
-//            tag: AlonzoMetadata.TAG,
-//            value: primitive as AnyValue
-//        )
+        if metadata != nil {
+            cbor[0] = try CBOREncoder().encode(metadata!.data)
+        }
+        
+        if nativeScripts != nil {
+            cbor[1] = try CBOREncoder().encode(nativeScripts!)
+        }
+        
+        if plutusV1Script != nil {
+            cbor[2] = try CBOREncoder().encode(plutusV1Script!)
+        }
+        
+        if plutusV2Script != nil {
+            cbor[3] = try CBOREncoder().encode(plutusV2Script!)
+        }
+        
+        if plutusV3Script != nil {
+            cbor[4] = try CBOREncoder().encode(plutusV3Script!)
+        }
         
         var container = encoder.unkeyedContainer()
         try container.encode(AlonzoMetadata.TAG)
         
-//        let cborData = CBOR.tagged(
-//            CBOR.Tag(rawValue: AlonzoMetadata.TAG),
-//            CBOR.fromAny(primitive)
-//        )
-//        let serialized = try CBORSerialization.data(from: cborData)
-        let cborData = try CBORSerialization.data(from: CBOR.fromAny(primitive))
-        
-        try container.encode(cborData)
+        try container.encode(cbor)
     }
 }
 

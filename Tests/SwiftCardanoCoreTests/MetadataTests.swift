@@ -9,7 +9,7 @@ let validMetadata: [TransactionMetadatumLabel: TransactionMetadatum] = [
     2: .text("Hello, Cardano!"),
     3: .bytes(Data(repeating: 0xAB, count: 10)),
     4: .list([.int(1), .text("nested")]),
-    5: .map([.text("key"): .int(123)])
+    5: .map([.int(1): .int(123)])
 ]
 
 @Suite struct MetadataTests {
@@ -29,17 +29,6 @@ let validMetadata: [TransactionMetadatumLabel: TransactionMetadatum] = [
         let decoded = try CBORDecoder().decode([TransactionMetadatumLabel: TransactionMetadatum].self, from: encoded)
         
         #expect(decoded == metadata.data, "Decoded metadata should match the original")
-    }
-    
-    @Test("Test Metadata Initialization with Invalid Data")
-    func testInvalidInitialization() async throws {
-        let invalidData: [AnyHashable: AnyHashable] = [
-            "invalidKey": "InvalidValue"
-        ]
-        
-        #expect(throws: CardanoCoreError.self) {
-            let _ = try Metadata(invalidData)
-        }
     }
     
     @Test("Test Subscript Access")
@@ -129,17 +118,11 @@ let validMetadata: [TransactionMetadatumLabel: TransactionMetadatum] = [
         let encoded = try CBOREncoder().encode(alonzoMetadata)
         let decoded = try CBORDecoder().decode(AlonzoMetadata.self, from: encoded)
         
-//        guard case let CBOR.tagged(tag, scripts) = decoded else {
-//            Issue.record("Decoded value should be tagged")
-//            return
-//        }
-//        
-//        let metadata = scripts.0
-//        let nativeScripts = scripts.1
-        
         #expect(decoded.metadata?.data == sampleMetadata.data, "Decoded metadata should match the original")
         #expect(decoded.nativeScripts == sampleNativeScripts, "Decoded native scripts should match the original")
         #expect(decoded.plutusV1Script == samplePlutusScripts, "Decoded Plutus scripts should match the original")
+        #expect(decoded.plutusV2Script == samplePlutusScripts, "Decoded Plutus scripts should match the original")
+        #expect(decoded.plutusV3Script == samplePlutusScripts, "Decoded Plutus scripts should match the original")
     }
     
     @Test("Test Encoding Without Plutus Scripts")
