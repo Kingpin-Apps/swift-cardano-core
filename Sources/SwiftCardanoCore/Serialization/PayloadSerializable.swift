@@ -19,16 +19,25 @@ protocol PayloadSerializable: Payloadable, Codable, Hashable, Equatable {
     static var TYPE: String { get }
     static var DESCRIPTION: String { get }
     
-    init(payload: Data)
+//    init(payload: Data)
     init(payload: Data, type: String?, description: String?)
 }
 
-protocol PayloadJSONSerializable: PayloadSerializable {
-}
+protocol PayloadJSONSerializable: PayloadSerializable {}
 
 protocol PayloadCBORSerializable: PayloadJSONSerializable {}
 
 extension PayloadSerializable {
+    init(payload: Data) {
+        self.init(payload: payload, type: Self.TYPE, description: Self.DESCRIPTION)
+    }
+    
+//    init(payload: Data, type: String?, description: String?) {
+//        self._payload = payload
+//        self._type = type ?? Self.TYPE
+//        self._description = description ?? Self.DESCRIPTION
+//    }
+    
     /// Convert to raw bytes
     /// - Returns: The raw bytes
     func toBytes() -> Data {
@@ -110,6 +119,8 @@ extension PayloadJSONSerializable {
               let cborHex = dict["cborHex"] else {
             throw CardanoCoreError.valueError("Invalid Dictionary")
         }
+        
+        print("cborHex: \(cborHex)")
         
         if validateType {
             guard validateType, dict["type"] == Self.TYPE else {

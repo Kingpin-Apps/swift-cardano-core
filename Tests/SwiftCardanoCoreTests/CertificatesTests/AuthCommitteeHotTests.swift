@@ -20,33 +20,23 @@ struct AuthCommitteeHotTests {
             committeeColdCredential: committeeColdCredential,
             committeeHotCredential: committeeHotCredential
         )
-
+        
+        #expect(AuthCommitteeHot.CODE.rawValue == 14)
         #expect(authCommitteeHot.committeeColdCredential == committeeColdCredential)
         #expect(authCommitteeHot.committeeHotCredential == committeeHotCredential)
-        #expect(authCommitteeHot.code == 14)
     }
 
     @Test func testJSON() async throws {
-        guard let certFilePath = Bundle.module.path(forResource: "test.auth", ofType: "cert", inDirectory: "data/certs") else {
-            Issue.record("File not found: test.stake.cert")
-            return
-        }
+        let cert = authCommitteeCertificate!
         
-        let certJSON = try CertificateJSON.load(from: certFilePath)
-        let cert = try Certificate.fromCertificateJSON(certJSON)
+        let json = try cert.toJSON()
+        let certFromJSON = try AuthCommitteeHot.fromJSON(json!)
         
-        guard case .authCommitteeHot(let authCommitteeHot) = cert else {
-            Issue.record("Expected stakeRegistration")
-            return
-        }
-        
-        let json = cert.toCertificateJSON()
-        #expect(authCommitteeHot.code == 14)
-        #expect(certJSON == json)
+        #expect(cert == certFromJSON)
     }
 
-    @Test func testToFromCBOR() async throws {
-        let excpectedCBOR = authCommitteeJSON?.payload.toHex
+    @Test func testCBOR() async throws {
+        let excpectedCBOR = authCommitteeCertificate?.payload.toHex
         
         let coldVKey = committeeColdVerificationKey
         let hotVKey = committeeHotVerificationKey

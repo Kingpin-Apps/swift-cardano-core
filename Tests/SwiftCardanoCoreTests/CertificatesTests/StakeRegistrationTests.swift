@@ -11,7 +11,10 @@ struct StakeRegistrationTests {
         let stakeCredential = StakeCredential(
             credential: .verificationKeyHash(verificationKeyHash)
         )
+        
         let stakeRegistration = StakeRegistration(stakeCredential: stakeCredential)
+        
+        #expect(StakeRegistration.CODE.rawValue == 0)
         #expect(stakeRegistration.stakeCredential == stakeCredential)
     }
     
@@ -21,21 +24,16 @@ struct StakeRegistrationTests {
             return
         }
         
-        let certJSON = try CertificateJSON.load(from: certFilePath)
-        let cert = try Certificate.fromCertificateJSON(certJSON)
+        let cert = try StakeRegistration.load(from: certFilePath)
         
-        guard case .stakeRegistration(let stakeRegistration) = cert else {
-            Issue.record("Expected stakeRegistration")
-            return
-        }
+        let json = try cert.toJSON()
+        let certFromJSON = try StakeRegistration.fromJSON(json!)
         
-        let json = cert.toCertificateJSON()
-        #expect(stakeRegistration.code == 0)
-        #expect(certJSON == json)
+        #expect(cert == certFromJSON)
     }
     
     @Test func testToFromCBOR() async throws {
-        let excpectedCBOR = stakeRegistrationJSON?.payload.toHex
+        let excpectedCBOR = stakeRegistrationCertificate?.payload.toHex
         
         let credential = stakeAddress!.stakingPart
         
@@ -50,11 +48,11 @@ struct StakeRegistrationTests {
         let stakeRegistration = StakeRegistration(stakeCredential: stakeCredential)
         
         let cborData = try CBOREncoder().encode(stakeRegistration)
-        let stakeCredentialCBORHex = cborData.toHex
+        let cborHex = cborData.toHex
         
-        let stakeRegistrationFromCBOR = try CBORDecoder().decode(StakeRegistration.self, from: cborData)
+        let fromCBOR = try CBORDecoder().decode(StakeRegistration.self, from: cborData)
         
-        #expect(stakeCredentialCBORHex == excpectedCBOR)
-        #expect(stakeRegistrationFromCBOR == stakeRegistration)
+        #expect(cborHex == excpectedCBOR)
+        #expect(fromCBOR == stakeRegistration)
     }
 }

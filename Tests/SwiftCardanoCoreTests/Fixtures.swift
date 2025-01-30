@@ -73,6 +73,12 @@ let authCommitteeFilePath = (
     inDirectory: "data/certs"
 )
 
+let resignCommitteeColdFilePath = (
+    forResource: "test.resignation",
+    ofType: "cert",
+    inDirectory: "data/certs"
+)
+
 // MARK: - Helper Functions
 func getTestAddress(forResource: String, ofType: String, inDirectory: String) throws -> Address? {
     guard let filePath = Bundle.module.path(
@@ -93,7 +99,7 @@ func getTestAddress(forResource: String, ofType: String, inDirectory: String) th
     }
 }
 
-func getCertificateJSON(forResource: String, ofType: String, inDirectory: String) throws -> CertificateJSON? {
+func getCertificatePath(forResource: String, ofType: String, inDirectory: String) throws -> String? {
     guard let filePath = Bundle.module.path(
         forResource: forResource,
         ofType: ofType,
@@ -102,14 +108,15 @@ func getCertificateJSON(forResource: String, ofType: String, inDirectory: String
         try #require(Bool(false))
         return nil
     }
+    return filePath
     
-    do {
-        return try CertificateJSON.load(from: filePath)
-    } catch {
-        Issue.record("Failed to load certificate from file: \(filePath)")
-        try #require(Bool(false))
-        return nil
-    }
+//    do {
+//        return try CertificateJSON.load(from: filePath)
+//    } catch {
+//        Issue.record("Failed to load certificate from file: \(filePath)")
+//        try #require(Bool(false))
+//        return nil
+//    }
 }
 
 func getKeyPath(forResource: String, ofType: String, inDirectory: String) throws -> String? {
@@ -177,23 +184,40 @@ var stakeAddress: Address? {
 }
 
 // MARK: - Certificate Fixtures
-var stakeRegistrationJSON: CertificateJSON? {
+var stakeRegistrationCertificate: StakeRegistration? {
     do {
-        return try getCertificateJSON(
+        let certificatePath = try getCertificatePath(
             forResource: stakeRegistrationFilePath.forResource,
             ofType: stakeRegistrationFilePath.ofType,
-            inDirectory: stakeRegistrationFilePath.inDirectory)
+            inDirectory: stakeRegistrationFilePath.inDirectory
+        )
+        return try StakeRegistration.load(from: certificatePath!)
     } catch {
         return nil
     }
 }
 
-var authCommitteeJSON: CertificateJSON? {
+var authCommitteeCertificate: AuthCommitteeHot? {
     do {
-        return try getCertificateJSON(
+        let certificatePath = try getCertificatePath(
             forResource: authCommitteeFilePath.forResource,
             ofType: authCommitteeFilePath.ofType,
-            inDirectory: authCommitteeFilePath.inDirectory)
+            inDirectory: authCommitteeFilePath.inDirectory
+        )
+        return try AuthCommitteeHot.load(from: certificatePath!)
+    } catch {
+        return nil
+    }
+}
+
+var resignCommitteeColdCertificate: ResignCommitteeCold? {
+    do {
+        let certificatePath = try getCertificatePath(
+            forResource: resignCommitteeColdFilePath.forResource,
+            ofType: resignCommitteeColdFilePath.ofType,
+            inDirectory: resignCommitteeColdFilePath.inDirectory
+        )
+        return try ResignCommitteeCold.load(from: certificatePath!)
     } catch {
         return nil
     }

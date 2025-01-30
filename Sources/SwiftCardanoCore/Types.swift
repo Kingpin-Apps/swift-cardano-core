@@ -133,7 +133,7 @@ struct UnitInterval: Codable {
 }
 
 // MARK: - Url
-struct Url {
+struct Url: Hashable {
     let value: URL
     
     init(_ value: String) throws {
@@ -150,9 +150,14 @@ struct Url {
 }
 
 // MARK: - Anchor
-struct Anchor: Codable {
+struct Anchor: Codable, Hashable {
     let anchorUrl: Url
     let anchorDataHash: AnchorDataHash
+    
+    init(anchorUrl: Url, anchorDataHash: AnchorDataHash) {
+        self.anchorUrl = anchorUrl
+        self.anchorDataHash = anchorDataHash
+    }
     
     init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
@@ -160,7 +165,7 @@ struct Anchor: Codable {
         let dataHash = try container.decode(Data.self)
         
         self.anchorUrl = try Url(url)
-        self.anchorDataHash = try AnchorDataHash(payload: dataHash)
+        self.anchorDataHash = AnchorDataHash(payload: dataHash)
     }
     
     func encode(to encoder: Encoder) throws {

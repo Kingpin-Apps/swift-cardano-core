@@ -1,10 +1,13 @@
 import Foundation
 import CryptoKit
 
-class AssetName: ConstrainedBytes {
-    static let MAX_SIZE = 32
+struct AssetName: ConstrainedBytes {
 
-    override var description: String {
+    var payload: Data
+    static var maxSize: Int { 32 }
+    static var minSize: Int { 0 }
+
+    var description: String {
         return "AssetName(\(payload))"
     }
 }
