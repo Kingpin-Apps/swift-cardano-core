@@ -6,7 +6,7 @@ import PotentCBOR
 struct ResignCommitteeColdTests {
 
     @Test func testInitialization() async throws {
-        let verificationKeyHash = try VerificationKeyHash(
+        let verificationKeyHash = VerificationKeyHash(
             payload: Data(repeating: 0, count: VERIFICATION_KEY_HASH_SIZE)
         )
         let committeeColdCredential = CommitteeColdCredential(
@@ -15,7 +15,7 @@ struct ResignCommitteeColdTests {
         
         let anchor = Anchor(
             anchorUrl: try Url("https://example.com"),
-            anchorDataHash: try AnchorDataHash(
+            anchorDataHash: AnchorDataHash(
                 payload: Data(repeating: 0, count: 32)
             )
         )

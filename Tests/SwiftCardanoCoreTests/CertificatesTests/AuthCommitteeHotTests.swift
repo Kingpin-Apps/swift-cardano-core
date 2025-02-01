@@ -6,7 +6,7 @@ import PotentCBOR
 struct AuthCommitteeHotTests {
 
     @Test func testInitialization() async throws {
-        let verificationKeyHash = try VerificationKeyHash(
+        let verificationKeyHash = VerificationKeyHash(
             payload: Data(repeating: 0, count: VERIFICATION_KEY_HASH_SIZE)
         )
         let committeeColdCredential = CommitteeColdCredential(

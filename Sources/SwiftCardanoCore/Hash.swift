@@ -67,7 +67,7 @@ extension ConstrainedBytes {
 }
 
 /// Hash of a Cardano verification key.
-struct VerificationKeyHash: ConstrainedBytes, Sendable {
+struct VerificationKeyHash: ConstrainedBytes {
     var payload: Data
     static var maxSize: Int { VERIFICATION_KEY_HASH_SIZE }
     static var minSize: Int { VERIFICATION_KEY_HASH_SIZE }

@@ -29,7 +29,7 @@ struct MultiAsset: Codable, Hashable, Equatable {
     }
     
     init(from decoder: Decoder) throws {
-        var container = try decoder.singleValueContainer()
+        let container = try decoder.singleValueContainer()
         data = try container.decode([KEY_TYPE: VALUE_TYPE].self)
     }
 

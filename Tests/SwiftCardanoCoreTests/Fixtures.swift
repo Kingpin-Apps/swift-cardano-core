@@ -61,6 +61,17 @@ let committeeHotSigningKeyFilePath = (
     inDirectory: "data/keys"
 )
 
+let stakePoolVerificationKeyFilePath = (
+    forResource: "test.cold",
+    ofType: "vkey",
+    inDirectory: "data/keys"
+)
+let stakePoolSigningKeyFilePath = (
+    forResource: "test.cold",
+    ofType: "skey",
+    inDirectory: "data/keys"
+)
+
 // MARK: - Certificate File Paths
 let stakeRegistrationFilePath = (
     forResource: "test.stake",
@@ -297,6 +308,32 @@ var committeeHotSigningKey: CommitteeHotSigningKey? {
             inDirectory: committeeHotSigningKeyFilePath.inDirectory
         )
         return try CommitteeHotSigningKey.load(from: keyPath!)
+    } catch {
+        return nil
+    }
+}
+
+
+var stakePoolVerificationKey: StakePoolVerificationKey? {
+    do {
+        let keyPath = try getKeyPath(
+            forResource: stakePoolVerificationKeyFilePath.forResource,
+            ofType: stakePoolVerificationKeyFilePath.ofType,
+            inDirectory: stakePoolVerificationKeyFilePath.inDirectory
+        )
+        return try StakePoolVerificationKey.load(from: keyPath!)
+    } catch {
+        return nil
+    }
+}
+var stakePoolSigningKey: StakePoolSigningKey? {
+    do {
+        let keyPath = try getKeyPath(
+            forResource: stakePoolSigningKeyFilePath.forResource,
+            ofType: stakePoolSigningKeyFilePath.ofType,
+            inDirectory: stakePoolSigningKeyFilePath.inDirectory
+        )
+        return try StakePoolSigningKey.load(from: keyPath!)
     } catch {
         return nil
     }

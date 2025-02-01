@@ -14,7 +14,7 @@ struct BabbageTransactionOutput: Codable {
     }
     
     init(from decoder: Decoder) throws {
-        var container = try decoder.container(keyedBy: CodingKeys.self)
+        let container = try decoder.container(keyedBy: CodingKeys.self)
         address = try container.decode(Address.self, forKey: .address)
         amount = try container.decode(Value.self, forKey: .amount)
         datum = try container.decode(DatumOption.self, forKey: .datum)

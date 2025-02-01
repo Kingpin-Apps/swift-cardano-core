@@ -162,7 +162,7 @@ enum Datum: Codable, Equatable, Hashable {
     case rawPlutusData(RawPlutusData)
     
     init(from decoder: Decoder) throws {
-        var container = try decoder.singleValueContainer()
+        let container = try decoder.singleValueContainer()
         if let plutusData = try? container.decode(PlutusData.self) {
             self = .plutusData(plutusData)
         } else if let dict = try? container.decode(Dictionary<AnyValue, AnyValue>.self) {

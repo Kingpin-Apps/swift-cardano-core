@@ -50,7 +50,7 @@ struct TransactionBody: Codable {
     }
     
     init(from decoder: Decoder) throws {
-        var container = try decoder.container(keyedBy: CodingKeys.self)
+        let container = try decoder.container(keyedBy: CodingKeys.self)
         inputs = try container.decode([TransactionInput].self, forKey: .inputs)
         outputs = try container.decode([TransactionOutput].self, forKey: .outputs)
         fee = try container.decode(Coin.self, forKey: .fee)
@@ -98,116 +98,6 @@ struct TransactionBody: Codable {
         try container.encodeIfPresent(currentTreasuryAmount, forKey: .currentTreasuryAmount)
         try container.encodeIfPresent(treasuryDonation, forKey: .treasuryDonation)
     }
-    
-//    static func fromPrimitive<T>(_ value: Any) throws -> T {
-//        guard let dict = value as? [Int: Any] else {
-//            throw CardanoCoreError.valueError("Expected dictionary for deserialization.")
-//        }
-//        
-//        var inputs: [TransactionInput] = []
-//        var outputs: [TransactionOutput] = []
-//        var fee: Coin = 0
-//        var ttl: Int? = nil
-//        var certificates: [Certificate]? = nil
-//        var withdraws: Withdrawals? = nil
-//        var auxiliaryDataHash: AuxiliaryDataHash? = nil
-//        var validityStart: Int? = nil
-//        var mint: MultiAsset? = nil
-//        var scriptDataHash: ScriptDataHash? = nil
-//        var collateral: [TransactionInput]? = nil
-//        var requiredSigners: [VerificationKeyHash]? = nil
-//        var networkId: Int? = nil
-//        var collateralReturn: TransactionOutput? = nil
-//        var totalCollateral: Coin? = nil
-//        var referenceInputs: [TransactionInput]? = nil
-//        var votingProcedures: VotingProcedure? = nil
-//        var proposalProcedures: ProposalProcedure? = nil
-//        var currentTreasuryAmount: Coin? = nil
-//        var treasuryDonation: PositiveCoin? = nil
-//        
-//        for (key, rawValue) in dict {
-//            switch key {
-//            case 0:
-//                inputs = try (rawValue as? [Any])?.map {
-//                    try TransactionInput.fromPrimitive($0)
-//                } ?? []
-//            case 1:
-//                outputs = try (rawValue as? [Any])?.map {
-//                    try TransactionOutput.fromPrimitive($0)
-//                } ?? []
-//            case 2:
-//                fee = rawValue as? Coin ?? 0
-//            case 3:
-//                ttl = rawValue as? Int
-//            case 4:
-//                certificates = try (rawValue as? [Any])?.map {
-//                    try Certificate.fromPrimitive($0)
-//                }
-//            case 5:
-//                withdraws = try Withdrawals.fromPrimitive(rawValue)
-//            case 7:
-//                auxiliaryDataHash = try AuxiliaryDataHash.fromPrimitive(rawValue)
-//            case 8:
-//                validityStart = rawValue as? Int
-//            case 9:
-//                mint = try MultiAsset.fromPrimitive(rawValue)
-//            case 11:
-//                scriptDataHash = try ScriptDataHash.fromPrimitive(rawValue)
-//            case 13:
-//                collateral = try (rawValue as? [Any])?.map {
-//                    try TransactionInput.fromPrimitive($0)
-//                }
-//            case 14:
-//                requiredSigners = try (rawValue as? [Any])?.map {
-//                    try VerificationKeyHash.fromPrimitive($0)
-//                }
-//            case 15:
-//                networkId = rawValue as? Int
-//            case 16:
-//                collateralReturn = try TransactionOutput.fromPrimitive(rawValue)
-//            case 17:
-//                totalCollateral = rawValue as? Coin
-//            case 18:
-//                referenceInputs = try (rawValue as? [Any])?.map {
-//                    try TransactionInput.fromPrimitive($0)
-//                }
-//            case 19:
-//                votingProcedures = try VotingProcedure.fromPrimitive(rawValue)
-//            case 20:
-//                proposalProcedures = try ProposalProcedure.fromPrimitive(rawValue)
-//            case 21:
-//                currentTreasuryAmount = rawValue as? Coin
-//            case 22:
-//                treasuryDonation = rawValue as? PositiveCoin
-//            default:
-//                throw CardanoCoreError.valueError("Unexpected key \(key) in transaction body deserialization.")
-//            }
-//        }
-//        
-//        return TransactionBody(
-//            inputs: inputs,
-//            outputs: outputs,
-//            fee: fee,
-//            ttl: ttl,
-//            certificates: certificates,
-//            withdraws: withdraws,
-//            update: nil, // Handle if needed
-//            auxiliaryDataHash: auxiliaryDataHash,
-//            validityStart: validityStart,
-//            mint: mint,
-//            scriptDataHash: scriptDataHash,
-//            collateral: collateral,
-//            requiredSigners: requiredSigners,
-//            networkId: networkId,
-//            collateralReturn: collateralReturn,
-//            totalCollateral: totalCollateral,
-//            referenceInputs: referenceInputs,
-//            votingProcedures: votingProcedures,
-//            proposalProcedures: proposalProcedures,
-//            currentTreasuryAmount: currentTreasuryAmount,
-//            treasuryDonation: treasuryDonation
-//        ) as! T
-//    }
 
     func validate() throws {
         if let mint = mint, try mint
@@ -217,7 +107,7 @@ struct TransactionBody: Codable {
     }
 
     var id: TransactionId {
-        return try! TransactionId(payload: hash())
+        return TransactionId(payload: hash())
     }
     
     func hash() -> Data {

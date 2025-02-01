@@ -12,7 +12,7 @@ func datumHash(datum: Datum) throws -> DatumHash {
         digestSize: DATUM_HASH_SIZE,
         encoder: RawEncoder.self
     )
-    return try DatumHash(payload: hash)
+    return DatumHash(payload: hash)
 }
 
 func plutusScriptHash(script: ScriptType) throws -> ScriptHash {
@@ -32,7 +32,7 @@ func scriptHash(script: ScriptType) throws -> ScriptHash {
                 digestSize: SCRIPT_HASH_SIZE,
                 encoder: RawEncoder.self
             )
-            return try ScriptHash(payload: hash)
+            return ScriptHash(payload: hash)
         case .plutusV2Script(let plutusScript):
             let prefix = Data([0x02])
             let hash = try Hash().blake2b(
@@ -40,7 +40,7 @@ func scriptHash(script: ScriptType) throws -> ScriptHash {
                 digestSize: SCRIPT_HASH_SIZE,
                 encoder: RawEncoder.self
             )
-            return try ScriptHash(payload: hash)
+            return ScriptHash(payload: hash)
         case .plutusV3Script(let plutusScript):
             let prefix = Data([0x03])
             let hash = try Hash().blake2b(
@@ -48,7 +48,7 @@ func scriptHash(script: ScriptType) throws -> ScriptHash {
                 digestSize: SCRIPT_HASH_SIZE,
                 encoder: RawEncoder.self
             )
-            return try ScriptHash(payload: hash)
+            return ScriptHash(payload: hash)
     }
 }
 
@@ -96,14 +96,14 @@ func getConstructorIDAndFields(value: CBOR) throws -> (Int, [Any]) {
 ///   - skipConstructor: Whether to skip the constructor ID.
 /// - Throws: CardanoException if the type is not supported.
 /// - Returns: A unique representation of the PlutusData type.
-func idMap(cls: AnyClass, skipConstructor: Bool = false) throws -> String {
-    if cls == Data.self || cls == [UInt8].self {
+func idMap(cls: Any, skipConstructor: Bool = false) throws -> String {
+    if ((cls as? Data) != nil) || ((cls as? [UInt8]) != nil) {
         return "bytes"
-    } else if cls == Int.self || cls is any BinaryInteger.Type {
+    } else if cls as? any Any.Type == Int.self || cls is any BinaryInteger.Type {
         return "int"
-    } else if cls == CBOR.self || cls == RawPlutusData.self || cls == Datum.self {
+    } else if cls as? any Any.Type == CBOR.self || cls as? any Any.Type == RawPlutusData.self || cls as? any Any.Type == Datum.self {
         return "any"
-    } else if cls == IndefiniteList<AnyValue>.self {
+    } else if cls as? any Any.Type == IndefiniteList<AnyValue>.self {
         return "list"
     }
     

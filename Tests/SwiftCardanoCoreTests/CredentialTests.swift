@@ -9,7 +9,7 @@ struct CredentialTests {
     
     @Test func testVerificationKeyHashInitialization() async throws {
         let payload = Data(repeating: 0, count: VERIFICATION_KEY_HASH_SIZE)
-        let verificationKeyHash = try VerificationKeyHash(payload: payload)
+        let verificationKeyHash = VerificationKeyHash(payload: payload)
         let credential = Credential(credential: .verificationKeyHash(verificationKeyHash))
         
         let cborData = try CBOREncoder().encode(credential)
@@ -22,7 +22,7 @@ struct CredentialTests {
     
     @Test func testScriptHashInitialization() async throws {
         let payload = Data(repeating: 1, count: SCRIPT_HASH_SIZE)
-        let scriptHash = try ScriptHash(payload: payload)
+        let scriptHash = ScriptHash(payload: payload)
         let credential = Credential(credential: .scriptHash(scriptHash))
         let cborData = try CBOREncoder().encode(credential)
         let decoded = try CBORDecoder().decode(Credential.self, from: cborData)
@@ -36,8 +36,8 @@ struct CredentialTests {
         let payload1 = Data(repeating: 0, count: VERIFICATION_KEY_HASH_SIZE)
         let payload2 = Data(repeating: 1, count: VERIFICATION_KEY_HASH_SIZE)
         
-        let verificationKeyHash1 = try VerificationKeyHash(payload: payload1)
-        let verificationKeyHash2 = try VerificationKeyHash(payload: payload2)
+        let verificationKeyHash1 = VerificationKeyHash(payload: payload1)
+        let verificationKeyHash2 = VerificationKeyHash(payload: payload2)
         
         let credential1 = Credential(credential: .verificationKeyHash(verificationKeyHash1))
         let credential2 = Credential(credential: .verificationKeyHash(verificationKeyHash1))

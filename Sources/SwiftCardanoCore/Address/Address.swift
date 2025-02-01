@@ -232,10 +232,10 @@ struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
         
         switch addrType {
         case .keyKey:
-            let paymentPart = try VerificationKeyHash(
+            let paymentPart = VerificationKeyHash(
                 payload: payload.prefix(VERIFICATION_KEY_HASH_SIZE)
             )
-            let stakingPart = try VerificationKeyHash(
+            let stakingPart = VerificationKeyHash(
                 payload: payload.suffix(VERIFICATION_KEY_HASH_SIZE)
             )
                 
@@ -245,10 +245,10 @@ struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
                 network: network
             )
         case .keyScript:
-            let paymentPart = try VerificationKeyHash(
+            let paymentPart = VerificationKeyHash(
                 payload: payload.prefix(VERIFICATION_KEY_HASH_SIZE)
             )
-            let stakingPart = try ScriptHash(
+            let stakingPart = ScriptHash(
                 payload: payload.suffix( VERIFICATION_KEY_HASH_SIZE)
             )
                 
@@ -258,7 +258,7 @@ struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
                 network: network
             )
         case .keyPointer:
-            let paymentPart = try VerificationKeyHash(
+            let paymentPart = VerificationKeyHash(
                 payload: payload.prefix(VERIFICATION_KEY_HASH_SIZE)
             )
                 let pointerAddr = try PointerAddress.decode(payload.suffix(from: VERIFICATION_KEY_HASH_SIZE + 1))
@@ -269,7 +269,7 @@ struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
                 network: network
             )
         case .keyNone:
-            let paymentPart = try VerificationKeyHash(
+            let paymentPart = VerificationKeyHash(
                 payload: payload
             )
                 
@@ -278,10 +278,10 @@ struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
                 stakingPart: nil, network: network
             )
         case .scriptKey:
-            let paymentPart = try ScriptHash(
+            let paymentPart = ScriptHash(
                 payload: payload.prefix(VERIFICATION_KEY_HASH_SIZE)
             )
-            let stakingPart = try VerificationKeyHash(
+            let stakingPart = VerificationKeyHash(
                 payload: payload.suffix( VERIFICATION_KEY_HASH_SIZE)
             )
                 
@@ -291,10 +291,10 @@ struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
                 network: network
             )
         case .scriptScript:
-            let paymentPart = try ScriptHash(
+            let paymentPart = ScriptHash(
                 payload: payload.prefix(VERIFICATION_KEY_HASH_SIZE)
             )
-            let stakingPart = try ScriptHash(
+            let stakingPart = ScriptHash(
                 payload: payload.suffix( VERIFICATION_KEY_HASH_SIZE)
             )
             return try Address(
@@ -303,9 +303,10 @@ struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
                 network: network
             )
         case .scriptPointer:
-            let paymentPart = try ScriptHash(
+            let paymentPart = ScriptHash(
                 payload: payload.prefix(VERIFICATION_KEY_HASH_SIZE)
             )
+                
             let pointerAddr = try PointerAddress.decode(payload.suffix(from: VERIFICATION_KEY_HASH_SIZE + 1))
                 
             return try Address(
@@ -314,7 +315,7 @@ struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
                 network: network
             )
         case .scriptNone:
-            let paymentPart = try ScriptHash(
+            let paymentPart = ScriptHash(
                 payload: payload
             )
                 
@@ -324,7 +325,7 @@ struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
                 network: network
             )
         case .noneKey:
-            let stakingPart = try VerificationKeyHash(
+            let stakingPart = VerificationKeyHash(
                 payload: payload
             )
             return try Address(
@@ -333,7 +334,7 @@ struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
                 network: network
             )
         case .noneScript:
-            let stakingPart = try ScriptHash(
+            let stakingPart = ScriptHash(
                 payload: payload
             )
             return try Address(

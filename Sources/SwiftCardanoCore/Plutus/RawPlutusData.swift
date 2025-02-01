@@ -57,7 +57,7 @@ class RawPlutusData: Codable, Equatable {
                 return ["list": try list.getAll().map { try dfs($0) }]
             } else if let dict = obj as? [AnyHashable: Any] {
                 return ["map": try dict.map { ["k": try dfs($0.key), "v": try dfs($0.value)] }]
-            } else if case let CBOR.tagged(tag, innerValue) = obj, let list = innerValue.unwrapped as? [Any]  {
+            } else if case CBOR.tagged(_, _) = obj {
                 let (constructor, fields) = try getConstructorIDAndFields(
                     value: obj as! CBOR
                 )

@@ -45,7 +45,7 @@ struct Asset: Codable, Comparable, Hashable, Equatable, AdditiveArithmetic {
     }
     
     init(from decoder: Decoder) throws {
-        var container = try decoder.singleValueContainer()
+        let container = try decoder.singleValueContainer()
         data = try container.decode([KEY_TYPE: VALUE_TYPE].self)
     }
 
@@ -91,7 +91,6 @@ struct Asset: Codable, Comparable, Hashable, Equatable, AdditiveArithmetic {
     }
 
     static func < (lhs: Asset, rhs: Asset) -> Bool {
-        var result = lhs
         for (key, value) in rhs.data {
             if (rhs.data[key]!) < (value ) {
                 return false

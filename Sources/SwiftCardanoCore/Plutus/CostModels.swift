@@ -50,7 +50,7 @@ struct CostModels: Codable, Hashable {
     }
     
     init(from decoder: Decoder) throws {
-        var container = try decoder.container(keyedBy: CodingKeys.self)
+        let container = try decoder.container(keyedBy: CodingKeys.self)
         plutusV1 = try container.decodeIfPresent(VALUE_TYPE.self, forKey: .plutusV1)
         plutusV2 = try container.decodeIfPresent(VALUE_TYPE.self, forKey: .plutusV2)
         plutusV3 = try container.decodeIfPresent(VALUE_TYPE.self, forKey: .plutusV3)

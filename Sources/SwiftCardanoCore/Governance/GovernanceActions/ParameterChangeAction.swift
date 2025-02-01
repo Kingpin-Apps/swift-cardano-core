@@ -143,7 +143,7 @@ struct ProtocolParamUpdate: Codable {
     }
     
     init(from decoder: Decoder) throws {
-        var container = try decoder.container(keyedBy: CodingKeys.self)
+        let container = try decoder.container(keyedBy: CodingKeys.self)
         
         minFeeA = try container.decodeIfPresent(Coin.self, forKey: .minFeeA)
         minFeeB = try container.decodeIfPresent(Coin.self, forKey: .minFeeB)

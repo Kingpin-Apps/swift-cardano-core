@@ -6,7 +6,7 @@ class VerificationKey: Key {
     /// Compute a blake2b hash from the key
     /// - Returns: Hash output in bytes.
     func hash() throws -> VerificationKeyHash {
-        return try VerificationKeyHash(
+        return VerificationKeyHash(
             payload: try SwiftNcal.Hash().blake2b(
                 data: payload,
                 digestSize: VERIFICATION_KEY_HASH_SIZE,

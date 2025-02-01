@@ -127,19 +127,6 @@ struct PoolVotingThresholds: Codable {
         try container.encode(motionNoConfidence)
         try container.encode(ppSecurityGroup)
     }
-    
-//    static func fromPrimitive<T>(_ value: Any) throws -> T {
-//        guard let list = value as? [Any], list.count == 5 else {
-//            throw CardanoCoreError.deserializeError("Invalid PoolVotingThresholds data: \(value)")
-//        }
-//        
-//        var thresholds: [UnitInterval] = []
-//        for item in list {
-//            thresholds.append(try UnitInterval.fromPrimitive(item))
-//        }
-//        
-//        return PoolVotingThresholds(from: thresholds) as! T
-//    }
 }
 
 struct DrepVotingThresholds: Codable  {
@@ -151,7 +138,7 @@ struct DrepVotingThresholds: Codable  {
     }
     
     init(from decoder: Decoder) throws {
-        var container = try decoder.singleValueContainer()
+        let container = try decoder.singleValueContainer()
         thresholds = try container.decode([UnitInterval].self)
     }
     
@@ -159,19 +146,6 @@ struct DrepVotingThresholds: Codable  {
         var container = encoder.unkeyedContainer()
         try thresholds.forEach { try container.encode($0) }
     }
-    
-//    static func fromPrimitive<T>(_ value: Any) throws -> T {
-//        guard let list = value as? [Any], list.count == 10 else {
-//            throw CardanoCoreError.deserializeError("Invalid DrepVotingThresholds data: \(value)")
-//        }
-//        
-//        var thresholds: [UnitInterval] = []
-//        for item in list {
-//            thresholds.append(try UnitInterval.fromPrimitive(item))
-//        }
-//        
-//        return DrepVotingThresholds(thresholds: thresholds) as! T
-//    }
 }
 
 struct Constitution: Codable {
@@ -189,17 +163,6 @@ struct Constitution: Codable {
         try container.encode(anchor)
         try container.encode(scriptHash)
     }
-    
-//    static func fromPrimitive<T>(_ value: Any) throws -> T {
-//        guard let list = value as? [Any], list.count == 3 else {
-//            throw CardanoCoreError.deserializeError("Invalid Constitution data: \(value)")
-//        }
-//        
-//        let anchor: Anchor = try Anchor.fromPrimitive(list[0])
-//        let scriptHash: ScriptHash = try ScriptHash.fromPrimitive(list[1])
-//        
-//        return Constitution(anchor: anchor, scriptHash: scriptHash) as! T
-//    }
 }
 
 struct ProposalProcedure: Codable {
@@ -223,24 +186,6 @@ struct ProposalProcedure: Codable {
         try container.encode(govAction)
         try container.encode(anchor)
     }
-    
-//    static func fromPrimitive<T>(_ value: Any) throws -> T {
-//        guard let list = value as? [Any], list.count == 4 else {
-//            throw CardanoCoreError.deserializeError("Invalid ProposalProcedure data: \(value)")
-//        }
-//        
-//        let deposit: Coin = Coin(list[0] as! UInt64)
-//        let rewardAccount = list[1] as! RewardAccount
-//        let govAction: GovAction = try GovAction.fromPrimitive(list[2] as! Data)
-//        let anchor: Anchor = try Anchor.fromPrimitive(list[3])
-//        
-//        return ProposalProcedure(
-//            deposit: deposit,
-//            rewardAccount: rewardAccount,
-//            govAction: govAction,
-//            anchor: anchor
-//        ) as! T
-//    }
 }
 
 struct ProposalProcedures {

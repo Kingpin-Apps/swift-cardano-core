@@ -97,7 +97,7 @@ class DictCBORSerializable: CBORSerializable, Hashable, Comparable {
     }
 
     static func + (lhs: DictCBORSerializable, rhs: DictCBORSerializable) -> DictCBORSerializable {
-        var newAsset = lhs
+        let newAsset = lhs
         for (key, value) in rhs.data {
             if let lhsValue = newAsset.data[key] as? (any AdditiveArithmetic),
                let rhsValue = value as? (any AdditiveArithmetic) {
@@ -126,7 +126,7 @@ class DictCBORSerializable: CBORSerializable, Hashable, Comparable {
     }
 
     static func - (lhs: DictCBORSerializable, rhs: DictCBORSerializable) -> DictCBORSerializable {
-        var newAsset = lhs
+        let newAsset = lhs
         for (key, value) in rhs.data {
             if let lhsValue = newAsset.data[key] as? (any AdditiveArithmetic),
                let rhsValue = value as? (any AdditiveArithmetic) {

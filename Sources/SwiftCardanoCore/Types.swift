@@ -165,7 +165,7 @@ struct Anchor: Codable, Hashable {
         let dataHash = try container.decode(Data.self)
         
         self.anchorUrl = try Url(url)
-        self.anchorDataHash = AnchorDataHash(payload: dataHash)
+        self.anchorDataHash =  AnchorDataHash(payload: dataHash)
     }
     
     func encode(to encoder: Encoder) throws {
@@ -223,7 +223,7 @@ struct CBORTag: Codable, Equatable {
 }
 
 // MARK: - ByteString
-class ByteString: Hashable {
+struct ByteString: Hashable {
     let value: Data
 
     init(value: Data) {
@@ -249,14 +249,8 @@ class ByteString: Hashable {
     }
 }
 
-// MARK: - Unit
-/// The default "Unit type" with a 0 constructor ID
-class Unit: PlutusData {
-    class override var CONSTR_ID: Any { return 0 }
-}
-
 // MARK: - IndefiniteList
-class IndefiniteList<T>: Codable, Equatable where T: Hashable, T:Codable {
+struct IndefiniteList<T>: Codable, Equatable where T: Hashable, T:Codable {
     private var items: [T]
     
     init(_ items: [T] = []) {
@@ -264,7 +258,7 @@ class IndefiniteList<T>: Codable, Equatable where T: Hashable, T:Codable {
     }
     
     // Adds an item to the list
-    func add(_ item: T) {
+    mutating func add(_ item: T) {
         items.append(item)
     }
     
@@ -280,7 +274,7 @@ class IndefiniteList<T>: Codable, Equatable where T: Hashable, T:Codable {
     }
     
     // Removes the item at the specified index
-    func remove(at index: Int) {
+    mutating func remove(at index: Int) {
         guard index < items.count else { return }
         items.remove(at: index)
     }

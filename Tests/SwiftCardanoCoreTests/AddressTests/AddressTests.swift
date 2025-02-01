@@ -64,7 +64,7 @@ struct AddressTests {
     //    }
     
     @Test func testToBech32() async throws {
-        let keyHash = try VerificationKeyHash(payload: Data(repeating: 0, count: VERIFICATION_KEY_HASH_SIZE))
+        let keyHash = VerificationKeyHash(payload: Data(repeating: 0, count: VERIFICATION_KEY_HASH_SIZE))
         let address = try Address(paymentPart: .verificationKeyHash(keyHash), stakingPart: .verificationKeyHash(keyHash), network: .mainnet)
         let bech32 = try address.toBech32()
         let excpected = "addr1qyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqv2t5am"
@@ -81,8 +81,8 @@ struct AddressTests {
     }
     
     @Test func testEquality() async throws {
-        let keyHash = try VerificationKeyHash(payload: Data(repeating: 0, count: VERIFICATION_KEY_HASH_SIZE))
-        let scriptHash = try ScriptHash(payload: Data(repeating: 1, count: SCRIPT_HASH_SIZE))
+        let keyHash = VerificationKeyHash(payload: Data(repeating: 0, count: VERIFICATION_KEY_HASH_SIZE))
+        let scriptHash = ScriptHash(payload: Data(repeating: 1, count: SCRIPT_HASH_SIZE))
         
         let address1 = try Address(paymentPart: .verificationKeyHash(keyHash), stakingPart: .verificationKeyHash(keyHash), network: .mainnet)
         let address2 = try Address(paymentPart: .verificationKeyHash(keyHash), stakingPart: .verificationKeyHash(keyHash), network: .mainnet)
@@ -93,7 +93,7 @@ struct AddressTests {
     }
     
     @Test func testDescription() async throws {
-        let keyHash = try VerificationKeyHash(payload: Data(repeating: 0, count: VERIFICATION_KEY_HASH_SIZE))
+        let keyHash = VerificationKeyHash(payload: Data(repeating: 0, count: VERIFICATION_KEY_HASH_SIZE))
         let address = try Address(paymentPart: .verificationKeyHash(keyHash), stakingPart: .verificationKeyHash(keyHash), network: .mainnet)
         let encoded = try address.toBech32()
         #expect(address.description == encoded)
@@ -107,7 +107,7 @@ struct AddressTests {
     }
     
     @Test func testToPrimitiveData() async throws {
-        let keyHash = try VerificationKeyHash(payload: Data(repeating: 0, count: VERIFICATION_KEY_HASH_SIZE))
+        let keyHash = VerificationKeyHash(payload: Data(repeating: 0, count: VERIFICATION_KEY_HASH_SIZE))
         let address = try Address(paymentPart: .verificationKeyHash(keyHash), stakingPart: .verificationKeyHash(keyHash), network: .mainnet)
         let primitiveData = address.toBytes()
         #expect(primitiveData != nil)

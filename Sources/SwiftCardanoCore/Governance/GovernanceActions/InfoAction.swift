@@ -6,7 +6,7 @@ struct InfoAction: Codable {
     let value: Int = 6
     
     init(from decoder: Decoder) throws {
-        var container = try decoder.singleValueContainer()
+        let container = try decoder.singleValueContainer()
         let code = try container.decode(Int.self)
         
         guard code == 6 else {

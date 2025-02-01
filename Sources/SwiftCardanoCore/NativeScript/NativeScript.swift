@@ -74,7 +74,7 @@ extension NativeScript {
             digestSize: SCRIPT_HASH_SIZE,
             encoder: RawEncoder.self
         )
-        return try ScriptHash(
+        return ScriptHash(
             payload: hash
         )
     }

@@ -4,14 +4,6 @@ enum Vote: Int, Codable {
     case no = 0
     case yes = 1
     case abstain = 2
-    
-//    func toShallowPrimitive() throws -> Any {
-//        self.rawValue
-//    }
-//
-//    static func fromPrimitive<T>(_ value: Any) throws -> T {
-//        return Vote(rawValue: value as! Int) as! T
-//    }
 }
 
 enum VoterType: Codable, Hashable {
@@ -37,25 +29,13 @@ struct VotingProcedure: Codable {
         try container.encode(vote)
         try container.encode(anchor)
     }
-
-    
-//    static func fromPrimitive<T>(_ value: Any) throws -> T {
-//        guard let list = value as? [Any], list.count == 2 else {
-//            throw CardanoCoreError.deserializeError("Invalid VotingProcedure data: \(value)")
-//        }
-//        
-//        let vote: Vote = try Vote.fromPrimitive(list[0])
-//        let anchor: Anchor = try Anchor.fromPrimitive(list[1])
-//        
-//        return VotingProcedure(vote: vote, anchor: anchor) as! T
-//    }
 }
 
 struct VotingProcedures: Codable {
     let procedures: [Voter: [GovActionID: VotingProcedure]]
     
     init(from decoder: Decoder) throws {
-        var container = try decoder.singleValueContainer()
+        let container = try decoder.singleValueContainer()
         procedures = try container.decode([Voter: [GovActionID: VotingProcedure]].self)
     }
     
@@ -63,14 +43,6 @@ struct VotingProcedures: Codable {
         var container = encoder.unkeyedContainer()
         try container.encode(procedures)
     }
-    
-//    static func fromPrimitive<T>(_ value: Any) throws -> T {
-//        guard let dict = value as? [Voter: [GovActionID: VotingProcedure]] else {
-//            throw CardanoCoreError.deserializeError("Invalid VotingProcedures data: \(value)")
-//        }
-//        
-//        return VotingProcedures(procedures: dict) as! T
-//    }
 }
 
 struct Voter: Codable, Hashable {
@@ -110,16 +82,16 @@ struct Voter: Codable, Hashable {
         if code == 0 {
             credential =
                 .constitutionalCommitteeHotKeyhash(
-                    try AddressKeyHash(payload: payload)
+                    AddressKeyHash(payload: payload)
                 )
         } else if code == 1 {
-            credential = .constitutionalCommitteeHotScriptHash(try ScriptHash(payload: payload))
+            credential = .constitutionalCommitteeHotScriptHash(ScriptHash(payload: payload))
         } else if code == 2 {
-            credential = .drepKeyhash(try AddressKeyHash(payload: payload))
+            credential = .drepKeyhash(AddressKeyHash(payload: payload))
         } else if code == 3 {
-            credential = .drepScriptHash(try ScriptHash(payload: payload))
+            credential = .drepScriptHash(ScriptHash(payload: payload))
         } else if code == 4 {
-            credential = .stakePoolKeyhash(try AddressKeyHash(payload: payload))
+            credential = .stakePoolKeyhash(AddressKeyHash(payload: payload))
         } else {
             throw CardanoCoreError.deserializeError("Invalid Voter type: \(code)")
         }

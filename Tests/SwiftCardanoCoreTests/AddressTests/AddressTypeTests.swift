@@ -5,7 +5,7 @@ import Foundation
 struct PaymentPartTests {
     
     @Test func testPaymentPartVerificationKeyHash() async throws {
-        let keyHash = try VerificationKeyHash(payload: Data(repeating: 0, count: VERIFICATION_KEY_HASH_SIZE))
+        let keyHash = VerificationKeyHash(payload: Data(repeating: 0, count: VERIFICATION_KEY_HASH_SIZE))
         let paymentPart = PaymentPart.verificationKeyHash(keyHash)
         
         switch paymentPart {
@@ -17,7 +17,7 @@ struct PaymentPartTests {
     }
     
     @Test func testPaymentPartScriptHash() async throws {
-        let scriptHash = try ScriptHash(payload: Data(repeating: 0, count: SCRIPT_HASH_SIZE))
+        let scriptHash = ScriptHash(payload: Data(repeating: 0, count: SCRIPT_HASH_SIZE))
         let paymentPart = PaymentPart.scriptHash(scriptHash)
         
         switch paymentPart {
@@ -32,7 +32,7 @@ struct PaymentPartTests {
 struct StakingPartTests {
     
     @Test func testStakingPartVerificationKeyHash() async throws {
-        let keyHash = try VerificationKeyHash(payload: Data(repeating: 0, count: VERIFICATION_KEY_HASH_SIZE))
+        let keyHash = VerificationKeyHash(payload: Data(repeating: 0, count: VERIFICATION_KEY_HASH_SIZE))
         let stakingPart = StakingPart.verificationKeyHash(keyHash)
         
         switch stakingPart {
@@ -44,7 +44,7 @@ struct StakingPartTests {
     }
     
     @Test func testStakingPartScriptHash() async throws {
-        let scriptHash = try ScriptHash(payload: Data(repeating: 0, count: SCRIPT_HASH_SIZE))
+        let scriptHash = ScriptHash(payload: Data(repeating: 0, count: SCRIPT_HASH_SIZE))
         let stakingPart = StakingPart.scriptHash(scriptHash)
         
         switch stakingPart {

@@ -13,21 +13,21 @@ extension ArrayCBORSerializable {
    /// the type of its elements could be either a Primitive or CBORSerializable.
    ///
    /// - Returns: A CBOR primitive (e.g., array).
-   func toShallowPrimitive() -> Any {
-       var primitives: [Any] = []
-       
-       let mirror = Mirror(reflecting: self)
-       for child in mirror.children {
-           if let label = child.label, let value = child.value as? CBORSerializable {
-               primitives.append(try! value.toShallowPrimitive())
-           } else if child.value is NSNull {
-               continue
-           } else {
-               primitives.append(child.value)
-           }
-       }
-       return primitives
-   }
+//   func toShallowPrimitive() -> Any {
+//       var primitives: [Any] = []
+//       
+//       let mirror = Mirror(reflecting: self)
+//       for child in mirror.children {
+//           if let label = child.label, let value = child.value as? CBORSerializable {
+//               primitives.append(try! value.toShallowPrimitive())
+//           } else if child.value is NSNull {
+//               continue
+//           } else {
+//               primitives.append(child.value)
+//           }
+//       }
+//       return primitives
+//   }
    
    /// Restore a primitive value to its original class type.
    ///
@@ -60,30 +60,30 @@ extension ArrayCBORSerializable {
        return "\(type(of: self))(\(properties.joined(separator: ", ")))"
    }
 }
-class BaseArrayCBORSerializable: ArrayCBORSerializable {
-    required init() {}
-    
-    /// Restore a primitive value to its original class type.
-    ///
-    /// - Parameters:
-    ///   - value: A CBOR primitive (e.g., array).
-    /// - Returns: Restored object.
-    class func fromPrimitive<T>(_ value: Any) throws -> T {
-        guard let array = value as? [Any] else {
-            throw CardanoCoreError.valueError("Expected array for deserialization.")
-        }
-        
-        let instance = self.init()
-        let mirror = Mirror(reflecting: Self.self)
-        let children = Array(mirror.children)
-        
-        for (index, element) in array.enumerated() {
-            if index < children.count, let key = children[index].label {
-                let _ = setAttribute(instance, propertyName: key, value: element)
-            } else {
-                let _ = setAttribute(instance, propertyName: "unknown_field\(index - children.count)", value: element)
-            }
-        }
-        return instance as! T
-    }
-}
+//class BaseArrayCBORSerializable: ArrayCBORSerializable {
+//    required init() {}
+//    
+//    /// Restore a primitive value to its original class type.
+//    ///
+//    /// - Parameters:
+//    ///   - value: A CBOR primitive (e.g., array).
+//    /// - Returns: Restored object.
+//    class func fromPrimitive<T>(_ value: Any) throws -> T {
+//        guard let array = value as? [Any] else {
+//            throw CardanoCoreError.valueError("Expected array for deserialization.")
+//        }
+//        
+//        let instance = self.init()
+//        let mirror = Mirror(reflecting: Self.self)
+//        let children = Array(mirror.children)
+//        
+//        for (index, element) in array.enumerated() {
+//            if index < children.count, let key = children[index].label {
+//                let _ = setAttribute(instance, propertyName: key, value: element)
+//            } else {
+//                let _ = setAttribute(instance, propertyName: "unknown_field\(index - children.count)", value: element)
+//            }
+//        }
+//        return instance as! T
+//    }
+//}

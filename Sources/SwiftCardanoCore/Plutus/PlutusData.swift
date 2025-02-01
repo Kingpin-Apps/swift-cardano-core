@@ -3,40 +3,33 @@ import CryptoKit
 import PotentCodables
 import PotentCBOR
 
+
+protocol PlutusDataProtocol: Codable, Equatable, Hashable {
+    static var CONSTR_ID: Any { get }
+    var properties: [String: AnyValue] { get set }
+}
+
+
 // MARK: - PlutusData
 /// PlutusData is a helper class that can serialize itself into a CBOR format, which could be intepreted as
 /// a data structure in Plutus scripts.
 /// It is not required to use this class to interact with Plutus scripts. However, wrapping datum in PlutusData
 /// class will reduce the complexity of serialization and deserialization tremendously.
-@dynamicMemberLookup
-class PlutusData: Codable, Equatable, Hashable {
-    let MAX_BYTES_SIZE = 64
+//@dynamicMemberLookup
+extension PlutusDataProtocol {
+    static var MAX_BYTES_SIZE: Int { 64 }
     
-    private var properties: [String: AnyValue] = [:]
+    private var properties: [String: AnyValue] {
+        get { return self.properties }
+        set { self.properties = newValue }
+    }
 
     subscript(dynamicMember member: String) -> AnyValue? {
         get { properties[member] }
         set { properties[member] = newValue }
     }
     
-    /// Constructor ID of this plutus data.
-    /// It is primarily used by Plutus core to reconstruct a data structure from serialized CBOR bytes.
-    /// The default implementation is an almost unique, deterministic constructor ID in the range 1 - 2^32 based
-    /// on class attributes, types and class name.
-    class var CONSTR_ID: Any {
-        let k = "_CONSTR_ID_\(String(describing: self))"
-        
-        _ = Mirror(reflecting: self)
-        if !hasAttribute(self, propertyName: k) {
-            let detString = try! idMap(cls: self, skipConstructor: true)
-            let detHash = SHA256.hash(data: Data(detString.utf8)).map { String(format: "%02x", $0) }.joined()
-            let _ = setAttribute(self, propertyName: k, value: Int(detHash, radix: 16)! % (1 << 32))
-        }
-        
-        return getAttribute(self, propertyName: k)!
-    }
-    
-    required init(_ fields: [Any]) throws {        
+    init(_ fields: [Any]) throws {
         let validTypes: [Any.Type] = [
             PlutusData.self,
             Dictionary<AnyHashable, Any>.self,
@@ -54,19 +47,21 @@ class PlutusData: Codable, Equatable, Hashable {
                 throw CardanoCoreError.typeError("Invalid field type: \(fieldType). A field in PlutusData should be one of \(validTypes).")
             }
             
-            let _ = setAttribute(self, propertyName: String(describing: field), value: field)
-            let data = getAttribute(self, propertyName: String(describing: field))!
+//            let _ = setAttribute(self, propertyName: String(describing: field), value: field)
+//            _ = getAttribute(self, propertyName: String(describing: field))!
             
             // Check if the data is a Data (byte array) and exceeds the allowed size
-            if let data = field as? Data, data.count > MAX_BYTES_SIZE {
-                throw CardanoCoreError.invalidArgument("The size of \(data) exceeds \(MAX_BYTES_SIZE) bytes. Use ByteString for long bytes.")
+            if let data = field as? Data, data.count > Self.MAX_BYTES_SIZE {
+                throw CardanoCoreError.invalidArgument("The size of \(data) exceeds \(Self.MAX_BYTES_SIZE) bytes. Use ByteString for long bytes.")
             }
         }
+        try self.init(fields.map { $0 as! AnyValue })
     }
     
-    required init(from decoder: Decoder) throws {
+    init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
-        properties = try container.decode([String: AnyValue].self)
+        let properties = try container.decode([String: AnyValue].self)
+        try self.init(properties.map { $0.value })
     }
 
     func encode(to encoder: Encoder) throws {
@@ -75,7 +70,7 @@ class PlutusData: Codable, Equatable, Hashable {
     }
     
     func hash() throws -> DatumHash {
-        return try datumHash(datum: .plutusData(self))
+        return try datumHash(datum: .plutusData(PlutusData([self.properties])))
     }
     
     /// Convert to a dictionary.
@@ -234,7 +229,37 @@ class PlutusData: Codable, Equatable, Hashable {
         hasher.combine(self)
     }
     
-    static func == (lhs: PlutusData, rhs: PlutusData) -> Bool {
-        return lhs === rhs
+//    static func == (lhs: PlutusData, rhs: PlutusData) -> Bool {
+//        return lhs === rhs
+//    }
+}
+
+struct PlutusData: PlutusDataProtocol {
+    var properties: [String : PotentCodables.AnyValue]
+
+    /// Constructor ID of this plutus data.
+    /// It is primarily used by Plutus core to reconstruct a data structure from serialized CBOR bytes.
+    /// The default implementation is an almost unique, deterministic constructor ID in the range 1 - 2^32 based
+    /// on class attributes, types and class name.
+    static var CONSTR_ID: Any {
+        let k = "_CONSTR_ID_\(String(describing: self))"
+        
+        _ = Mirror(reflecting: self)
+        if !hasAttribute(self, propertyName: k) {
+            let detString = try! idMap(cls: self, skipConstructor: true)
+            let detHash = SHA256.hash(data: Data(detString.utf8)).map { String(format: "%02x", $0) }.joined()
+            let _ = setAttribute(self, propertyName: k, value: Int(detHash, radix: 16)! % (1 << 32))
+        }
+        
+        return getAttribute(self, propertyName: k)!
     }
+}
+
+
+// MARK: - Unit
+/// The default "Unit type" with a 0 constructor ID
+struct Unit: PlutusDataProtocol {
+    var properties: [String : PotentCodables.AnyValue]
+
+    static var CONSTR_ID: Any { return 0 }
 }

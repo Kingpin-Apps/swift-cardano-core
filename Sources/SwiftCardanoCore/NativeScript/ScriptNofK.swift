@@ -17,7 +17,7 @@ struct ScriptNofK: NativeScript {
     }
     
     init(from decoder: Swift.Decoder) throws {
-        if let jsonDecoder = decoder as? JSONDecoder {
+        if decoder is JSONDecoder {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             let typeString = try container.decode(String.self, forKey: .type)
             
@@ -41,7 +41,7 @@ struct ScriptNofK: NativeScript {
     }
 
     func encode(to encoder: Swift.Encoder) throws {
-        if let jsonEncoder = encoder as? JSONEncoder {
+        if encoder is JSONEncoder {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(Self.type.description(), forKey: .type)
             try container.encode(required, forKey: .required)
