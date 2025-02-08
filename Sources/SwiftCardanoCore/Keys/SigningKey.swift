@@ -15,17 +15,21 @@ extension SigningKey {
     
     func toVerificationKey<T>() throws -> T where T: VerificationKey {        
         let signingKey = try SwiftNcal.SigningKey(seed: payload)
-        return T(
+        var vkey =  T(
             payload: signingKey.verifyKey.bytes,
             type: type.replacingOccurrences(of: "Signing", with: "Verification"),
             description: description.replacingOccurrences(of: "Signing", with: "Verification")
         )
+        vkey._payload = signingKey.verifyKey.bytes
+        return vkey        
     }
 
     
     static func generate() throws -> Self {
         let signingKey = try SwiftNcal.SigningKey.generate()
-        return Self(payload: signingKey.bytes)
+        var sKey = Self(payload: signingKey.bytes)
+        sKey._payload = signingKey.bytes
+        return sKey
     }
 }
 
