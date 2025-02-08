@@ -1,8 +1,29 @@
 import Foundation
 
 enum VerificationKeyType: Codable {
-    case extendedVerificationKey(ExtendedVerificationKey)
-    case verificationKey(VerificationKey)
+    case extendedVerificationKey(any ExtendedVerificationKey)
+    case verificationKey(any VerificationKey)
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let data = try container.decode(Data.self)
+        if data.count == 64 {
+            self = .verificationKey(VKey(payload: data))
+        } else {
+            self = .extendedVerificationKey(ExtendedVKey(payload: data))
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        
+        switch self {
+            case .extendedVerificationKey(let key):
+                try container.encode(key)
+            case .verificationKey(let key):
+                try container.encode(key)
+        }
+    }
 }
 
 struct VerificationKeyWitness: Codable {

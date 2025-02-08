@@ -1,26 +1,81 @@
 import Foundation
+import PotentCBOR
 
-/// A class that holds a cryptographic key and some metadata. e.g. signing key, verification key.
-class Key: PayloadCBORSerializable {
-    class var TYPE: String  { return "" }
-    class var DESCRIPTION: String { return "" }
+struct VKey: VerificationKey {
+    var _payload: Data
+    var _type: String
+    var _description: String
 
-    internal var _payload: Data
-    internal var _type: String
-    internal var _description: String
+    static var TYPE: String { "" }
+    static var DESCRIPTION: String { "Verification Key" }
     
-    required init(payload: Data) {
-        self._payload = payload
-        self._type = Self.TYPE
-        self._description = Self.DESCRIPTION
+    init(payload: Data, type: String?, description: String?) {
+        if let payloadData = try? CBORDecoder().decode(Data.self, from: payload) {
+            self._payload = payloadData
+        } else {
+            self._payload = payload
+        }
+        self._type = type ?? Self.TYPE
+        self._description = description ?? Self.DESCRIPTION
     }
+}
+
+struct SKey: SigningKey {
+    var _payload: Data
+    var _type: String
+    var _description: String
+
+    static var TYPE: String { "" }
+    static var DESCRIPTION: String { "Signing Key" }
     
-    required init(
-        payload: Data,
-        type: String? = nil,
-        description: String? = nil
-    ) {
-        self._payload = payload
+    init(payload: Data, type: String?, description: String?) {
+        if let payloadData = try? CBORDecoder().decode(Data.self, from: payload) {
+            self._payload = payloadData
+        } else {
+            self._payload = payload
+        }
+        
+        self._type = type ?? Self.TYPE
+        self._description = description ?? Self.DESCRIPTION
+    }
+}
+
+
+struct ExtendedVKey: ExtendedVerificationKey {
+    var _payload: Data
+    var _type: String
+    var _description: String
+
+    static var TYPE: String { "" }
+    static var DESCRIPTION: String { "Extended Verification Key" }
+    
+    init(payload: Data, type: String?, description: String?) {
+        if let payloadData = try? CBORDecoder().decode(Data.self, from: payload) {
+            self._payload = payloadData
+        } else {
+            self._payload = payload
+        }
+        
+        self._type = type ?? Self.TYPE
+        self._description = description ?? Self.DESCRIPTION
+    }
+}
+
+struct ExtendedSKey: ExtendedSigningKey {
+    var _payload: Data
+    var _type: String
+    var _description: String
+
+    static var TYPE: String { "" }
+    static var DESCRIPTION: String { "Extended Signing Key" }
+    
+    init(payload: Data, type: String?, description: String?) {
+        if let payloadData = try? CBORDecoder().decode(Data.self, from: payload) {
+            self._payload = payloadData
+        } else {
+            self._payload = payload
+        }
+        
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
     }

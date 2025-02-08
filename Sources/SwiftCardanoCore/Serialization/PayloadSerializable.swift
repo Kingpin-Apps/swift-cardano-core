@@ -85,7 +85,7 @@ extension PayloadJSONSerializable {
             throw CardanoCoreError.valueError("Invalid JSON")
         }
         
-        return try fromDict(dict, validateType: validateType)
+        return try Self.fromDict(dict, validateType: validateType)
     }
     
     /// Save the JSON representation to a file.
@@ -120,24 +120,22 @@ extension PayloadJSONSerializable {
             throw CardanoCoreError.valueError("Invalid Dictionary")
         }
         
-        print("cborHex: \(cborHex)")
-        
         if validateType {
             guard validateType, dict["type"] == Self.TYPE else {
                 throw CardanoCoreError.invalidKeyTypeError("Expect key type: \(Self.TYPE), but got \(dict["type"] ?? "")")
             }
         }
         
-        let payload: Data
+//        let payload: Data
         let cborData = Data(hexString: cborHex)!
-        if let object = try? CBORDecoder().decode(Self.self, from: cborData) {
-            payload = object.payload
-        } else {
-            payload = cborData
-        }
+//        if let object = try? CBORDecoder().decode(Self.self, from: cborData) {
+//            payload = object.payload
+//        } else {
+//            payload = cborData
+//        }
         
         return Self(
-            payload: payload,
+            payload: cborData,
             type: type,
             description: description
         )
@@ -152,9 +150,7 @@ extension PayloadCBORSerializable where Self: Codable {
         let container = try decoder.singleValueContainer()
         let payload = try container.decode(Data.self)
         self.init(
-            payload: payload,
-            type: Self.TYPE,
-            description: Self.DESCRIPTION
+            payload: payload
         )
     }
     

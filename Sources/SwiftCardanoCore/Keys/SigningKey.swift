@@ -2,7 +2,10 @@ import Foundation
 import CryptoKit
 import SwiftNcal
 
-class SigningKey: Key {
+protocol SigningKey: PayloadCBORSerializable {}
+protocol ExtendedSigningKey: PayloadCBORSerializable {}
+
+extension SigningKey {
     func sign(data: Data) throws -> Data {
         let signingKey = try SwiftNcal.SigningKey(seed: payload)
         let signedMessage = try signingKey.sign(message: data)
@@ -10,7 +13,7 @@ class SigningKey: Key {
     }
     
     
-    func toVerificationKey<T>() throws -> T where T: VerificationKey {
+    func toVerificationKey<T>() throws -> T where T: VerificationKey {        
         let signingKey = try SwiftNcal.SigningKey(seed: payload)
         return T(
             payload: signingKey.verifyKey.bytes,
@@ -26,7 +29,8 @@ class SigningKey: Key {
     }
 }
 
-class ExtendedSigningKey: Key {
+extension ExtendedSigningKey {
+    
     func sign(data: Data) throws -> Data {
         guard payload.count >= 160 else {
             throw CardanoCoreError.valueError("Invalid payload size for ExtendedSigningKey. Expected size >= 160, but got \(payload.count).")
@@ -41,15 +45,15 @@ class ExtendedSigningKey: Key {
         return signedMessage
     }
 
-    func toVerificationKey() -> ExtendedVerificationKey {
-        return ExtendedVerificationKey(
+    func toVerificationKey<T>() -> T where T: ExtendedVerificationKey {
+        return T(
             payload: payload[64...95],  // Bytes 64 to 95
             type: type.replacingOccurrences(of: "Signing", with: "Verification"),
             description: description.replacingOccurrences(of: "Signing", with: "Verification")
         )
     }
 
-    static func fromHDWallet(_ hdwallet: HDWallet) throws -> ExtendedSigningKey {
+    static func fromHDWallet(_ hdwallet: HDWallet) throws -> any ExtendedSigningKey {
         let payload = hdwallet.xPrivateKey + hdwallet.publicKey + hdwallet.chainCode
         
         return Self(

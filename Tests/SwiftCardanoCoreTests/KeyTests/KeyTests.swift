@@ -43,14 +43,14 @@ let spVkJson = """
     let SPSK = try! StakePoolSigningKey.fromJSON(spSkJson)
     let SPVK = try! StakePoolVerificationKey.fromJSON(spVkJson)
     
-    @Test func testKey() async throws {
+    @Test func testVKey() async throws {
         let payload = Data([
             0x09, 0x3b, 0xe5, 0xcd, 0x39, 0x87, 0xd0, 0xc9,
             0xfd, 0x88, 0x54, 0xef, 0x90, 0x8f, 0x77, 0x46,
             0xb6, 0x9e, 0x2d, 0x73, 0x32, 0x0d, 0xb6, 0xdc,
             0x0f, 0x78, 0x0d, 0x81, 0x58, 0x5b, 0x84, 0xc2
         ])
-        let key = Key(
+        let key = VKey(
             payload: payload,
             type: "GenesisUTxOSigningKey_ed25519",
             description: "Genesis Initial UTxO Signing Key"

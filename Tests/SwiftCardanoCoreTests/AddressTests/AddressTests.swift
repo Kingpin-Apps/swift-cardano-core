@@ -19,12 +19,12 @@ struct AddressTests {
     let test_addr: Address = try! Address.fromPrimitive("stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n")
     
     @Test("Test initialization", arguments: [
-        PaymentPart.verificationKeyHash(try VerificationKeyHash(payload: Data(repeating: 0, count: VERIFICATION_KEY_HASH_SIZE))),
-        PaymentPart.scriptHash(try ScriptHash(payload: Data(repeating: 0, count: SCRIPT_HASH_SIZE))),
+        PaymentPart.verificationKeyHash(VerificationKeyHash(payload: Data(repeating: 0, count: VERIFICATION_KEY_HASH_SIZE))),
+        PaymentPart.scriptHash(ScriptHash(payload: Data(repeating: 0, count: SCRIPT_HASH_SIZE))),
     ],[
-        StakingPart.verificationKeyHash(try VerificationKeyHash(payload: Data(repeating: 0, count: VERIFICATION_KEY_HASH_SIZE))),
-        StakingPart.scriptHash(try ScriptHash(payload: Data(repeating: 0, count: SCRIPT_HASH_SIZE))),
-        StakingPart.pointerAddress(try PointerAddress(slot: 1, txIndex: 2, certIndex: 3))
+        StakingPart.verificationKeyHash(VerificationKeyHash(payload: Data(repeating: 0, count: VERIFICATION_KEY_HASH_SIZE))),
+        StakingPart.scriptHash(ScriptHash(payload: Data(repeating: 0, count: SCRIPT_HASH_SIZE))),
+        StakingPart.pointerAddress(PointerAddress(slot: 1, txIndex: 2, certIndex: 3))
     ])
     func testInitialization(_ paymentPart: PaymentPart, _ stakingPart: StakingPart) async throws {
         for network in Network.allCases {

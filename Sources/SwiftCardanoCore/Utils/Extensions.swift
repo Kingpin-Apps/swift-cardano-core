@@ -1,4 +1,5 @@
 import Foundation
+import FractionNumber
 import OrderedCollections
 import PotentCBOR
 import Foundation
@@ -142,3 +143,4 @@ extension String {
         return Data(bytes)
     }
 }
+

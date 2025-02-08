@@ -19,12 +19,7 @@ struct StakeRegistrationTests {
     }
     
     @Test func testJSON() async throws {
-        guard let certFilePath = Bundle.module.path(forResource: "test.stake", ofType: "cert", inDirectory: "data/certs") else {
-            Issue.record("File not found: test.stake.cert")
-            return
-        }
-        
-        let cert = try StakeRegistration.load(from: certFilePath)
+        let cert = stakeRegistrationCertificate!
         
         let json = try cert.toJSON()
         let certFromJSON = try StakeRegistration.fromJSON(json!)
@@ -45,14 +40,14 @@ struct StakeRegistrationTests {
         let stakeCredential = StakeCredential(
             credential: .verificationKeyHash(verificationKeyHash)
         )
-        let stakeRegistration = StakeRegistration(stakeCredential: stakeCredential)
+        let cert = StakeRegistration(stakeCredential: stakeCredential)
         
-        let cborData = try CBOREncoder().encode(stakeRegistration)
+        let cborData = try CBOREncoder().encode(cert)
         let cborHex = cborData.toHex
         
         let fromCBOR = try CBORDecoder().decode(StakeRegistration.self, from: cborData)
         
         #expect(cborHex == excpectedCBOR)
-        #expect(fromCBOR == stakeRegistration)
+        #expect(fromCBOR == cert)
     }
 }

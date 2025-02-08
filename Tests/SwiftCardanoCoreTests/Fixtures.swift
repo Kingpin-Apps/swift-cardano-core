@@ -72,6 +72,17 @@ let stakePoolSigningKeyFilePath = (
     inDirectory: "data/keys"
 )
 
+let vrfVerificationKeyFilePath = (
+    forResource: "test.vrf",
+    ofType: "vkey",
+    inDirectory: "data/keys"
+)
+let vrfSigningKeyFilePath = (
+    forResource: "test.vrf",
+    ofType: "skey",
+    inDirectory: "data/keys"
+)
+
 // MARK: - Certificate File Paths
 let stakeRegistrationFilePath = (
     forResource: "test.stake",
@@ -88,6 +99,25 @@ let resignCommitteeColdFilePath = (
     forResource: "test.resignation",
     ofType: "cert",
     inDirectory: "data/certs"
+)
+
+let poolRegistrationFilePath = (
+    forResource: "test.pool",
+    ofType: "cert",
+    inDirectory: "data/certs"
+)
+
+// MARK: - Pool Metadata Paths
+let poolMetadataJSONFilePath = (
+    forResource: "poolMetadata",
+    ofType: "json",
+    inDirectory: "data"
+)
+
+let poolMetadataHashFilePath = (
+    forResource: "poolMetadataHash",
+    ofType: "txt",
+    inDirectory: "data"
 )
 
 // MARK: - Helper Functions
@@ -110,7 +140,7 @@ func getTestAddress(forResource: String, ofType: String, inDirectory: String) th
     }
 }
 
-func getCertificatePath(forResource: String, ofType: String, inDirectory: String) throws -> String? {
+func getFilePath(forResource: String, ofType: String, inDirectory: String) throws -> String? {
     guard let filePath = Bundle.module.path(
         forResource: forResource,
         ofType: ofType,
@@ -120,35 +150,6 @@ func getCertificatePath(forResource: String, ofType: String, inDirectory: String
         return nil
     }
     return filePath
-    
-//    do {
-//        return try CertificateJSON.load(from: filePath)
-//    } catch {
-//        Issue.record("Failed to load certificate from file: \(filePath)")
-//        try #require(Bool(false))
-//        return nil
-//    }
-}
-
-func getKeyPath(forResource: String, ofType: String, inDirectory: String) throws -> String? {
-    guard let filePath = Bundle.module.path(
-        forResource: forResource,
-        ofType: ofType,
-        inDirectory: inDirectory) else {
-        Issue.record("File not found: \(forResource).\(ofType)")
-        try #require(Bool(false))
-        return nil
-    }
-    return filePath
-    
-//    do {
-//        let key = try T.load(from: filePath)
-//        return key
-//    } catch {
-//        Issue.record("Failed to load address from file: \(filePath)")
-//        try #require(Bool(false))
-//        return nil
-//    }
 }
 
 func getVerificationKey<T>(forResource: String, ofType: String, inDirectory: String) throws -> T? where T: VerificationKey {
@@ -197,7 +198,7 @@ var stakeAddress: Address? {
 // MARK: - Certificate Fixtures
 var stakeRegistrationCertificate: StakeRegistration? {
     do {
-        let certificatePath = try getCertificatePath(
+        let certificatePath = try getFilePath(
             forResource: stakeRegistrationFilePath.forResource,
             ofType: stakeRegistrationFilePath.ofType,
             inDirectory: stakeRegistrationFilePath.inDirectory
@@ -210,7 +211,7 @@ var stakeRegistrationCertificate: StakeRegistration? {
 
 var authCommitteeCertificate: AuthCommitteeHot? {
     do {
-        let certificatePath = try getCertificatePath(
+        let certificatePath = try getFilePath(
             forResource: authCommitteeFilePath.forResource,
             ofType: authCommitteeFilePath.ofType,
             inDirectory: authCommitteeFilePath.inDirectory
@@ -223,7 +224,7 @@ var authCommitteeCertificate: AuthCommitteeHot? {
 
 var resignCommitteeColdCertificate: ResignCommitteeCold? {
     do {
-        let certificatePath = try getCertificatePath(
+        let certificatePath = try getFilePath(
             forResource: resignCommitteeColdFilePath.forResource,
             ofType: resignCommitteeColdFilePath.ofType,
             inDirectory: resignCommitteeColdFilePath.inDirectory
@@ -234,10 +235,23 @@ var resignCommitteeColdCertificate: ResignCommitteeCold? {
     }
 }
 
+var poolRegistrationCertificate: PoolRegistration? {
+    do {
+        let certificatePath = try getFilePath(
+            forResource: poolRegistrationFilePath.forResource,
+            ofType: poolRegistrationFilePath.ofType,
+            inDirectory: poolRegistrationFilePath.inDirectory
+        )
+        return try PoolRegistration.load(from: certificatePath!)
+    } catch {
+        return nil
+    }
+}
+
 // MARK: - Key Fixtures
 var paymentVerificationKey: PaymentVerificationKey? {
     do {
-        let keyPath = try getKeyPath(
+        let keyPath = try getFilePath(
             forResource: paymentVerificationKeyFilePath.forResource,
             ofType: paymentVerificationKeyFilePath.ofType,
             inDirectory: paymentVerificationKeyFilePath.inDirectory
@@ -250,7 +264,7 @@ var paymentVerificationKey: PaymentVerificationKey? {
 
 var stakeVerificationKey: StakeVerificationKey? {
     do {
-        let keyPath = try getKeyPath(
+        let keyPath = try getFilePath(
             forResource: stakeVerificationKeyFilePath.forResource,
             ofType: stakeVerificationKeyFilePath.ofType,
             inDirectory: stakeVerificationKeyFilePath.inDirectory
@@ -264,7 +278,7 @@ var stakeVerificationKey: StakeVerificationKey? {
 
 var committeeColdVerificationKey: CommitteeColdVerificationKey? {
     do {
-        let keyPath = try getKeyPath(
+        let keyPath = try getFilePath(
             forResource: committeeColdVerificationKeyFilePath.forResource,
             ofType: committeeColdVerificationKeyFilePath.ofType,
             inDirectory: committeeColdVerificationKeyFilePath.inDirectory
@@ -276,7 +290,7 @@ var committeeColdVerificationKey: CommitteeColdVerificationKey? {
 }
 var committeeColdSigningKey: CommitteeColdSigningKey? {
     do {
-        let keyPath = try getKeyPath(
+        let keyPath = try getFilePath(
             forResource: committeeColdSigningKeyFilePath.forResource,
             ofType: committeeColdSigningKeyFilePath.ofType,
             inDirectory: committeeColdSigningKeyFilePath.inDirectory
@@ -290,7 +304,7 @@ var committeeColdSigningKey: CommitteeColdSigningKey? {
 
 var committeeHotVerificationKey: CommitteeHotVerificationKey? {
     do {
-        let keyPath = try getKeyPath(
+        let keyPath = try getFilePath(
             forResource: committeeHotVerificationKeyFilePath.forResource,
             ofType: committeeHotVerificationKeyFilePath.ofType,
             inDirectory: committeeHotVerificationKeyFilePath.inDirectory
@@ -302,7 +316,7 @@ var committeeHotVerificationKey: CommitteeHotVerificationKey? {
 }
 var committeeHotSigningKey: CommitteeHotSigningKey? {
     do {
-        let keyPath = try getKeyPath(
+        let keyPath = try getFilePath(
             forResource: committeeHotSigningKeyFilePath.forResource,
             ofType: committeeHotSigningKeyFilePath.ofType,
             inDirectory: committeeHotSigningKeyFilePath.inDirectory
@@ -316,7 +330,7 @@ var committeeHotSigningKey: CommitteeHotSigningKey? {
 
 var stakePoolVerificationKey: StakePoolVerificationKey? {
     do {
-        let keyPath = try getKeyPath(
+        let keyPath = try getFilePath(
             forResource: stakePoolVerificationKeyFilePath.forResource,
             ofType: stakePoolVerificationKeyFilePath.ofType,
             inDirectory: stakePoolVerificationKeyFilePath.inDirectory
@@ -328,12 +342,63 @@ var stakePoolVerificationKey: StakePoolVerificationKey? {
 }
 var stakePoolSigningKey: StakePoolSigningKey? {
     do {
-        let keyPath = try getKeyPath(
+        let keyPath = try getFilePath(
             forResource: stakePoolSigningKeyFilePath.forResource,
             ofType: stakePoolSigningKeyFilePath.ofType,
             inDirectory: stakePoolSigningKeyFilePath.inDirectory
         )
         return try StakePoolSigningKey.load(from: keyPath!)
+    } catch {
+        return nil
+    }
+}
+
+var vrfVerificationKey: VRFVerificationKey? {
+    do {
+        let keyPath = try getFilePath(
+            forResource: vrfVerificationKeyFilePath.forResource,
+            ofType: vrfVerificationKeyFilePath.ofType,
+            inDirectory: vrfVerificationKeyFilePath.inDirectory
+        )
+        return try VRFVerificationKey.load(from: keyPath!)
+    } catch {
+        return nil
+    }
+}
+var vrfSigningKey: VRFSigningKey? {
+    do {
+        let keyPath = try getFilePath(
+            forResource: vrfSigningKeyFilePath.forResource,
+            ofType: vrfSigningKeyFilePath.ofType,
+            inDirectory: vrfSigningKeyFilePath.inDirectory
+        )
+        return try VRFSigningKey.load(from: keyPath!)
+    } catch {
+        return nil
+    }
+}
+
+// MARK: - Pool Meteadata Fixtures
+var poolMetadataJSON: PoolMetadata? {
+    do {
+        let filePath = try getFilePath(
+            forResource: poolMetadataJSONFilePath.forResource,
+            ofType: poolMetadataJSONFilePath.ofType,
+            inDirectory: poolMetadataJSONFilePath.inDirectory
+        )
+        return try PoolMetadata.load(from: filePath!)
+    } catch {
+        return nil
+    }
+}
+var poolMetadataHash: String? {
+    do {
+        let filePath = try getFilePath(
+            forResource: poolMetadataHashFilePath.forResource,
+            ofType: poolMetadataHashFilePath.ofType,
+            inDirectory: poolMetadataHashFilePath.inDirectory
+        )
+        return try String(contentsOfFile: filePath!).trimmingCharacters(in: .newlines)
     } catch {
         return nil
     }

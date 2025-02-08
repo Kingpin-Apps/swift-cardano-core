@@ -90,38 +90,6 @@ enum RawDatum: Codable, Equatable, Hashable {
                 try container.encode(tag)
         }
     }
-
-    
-//    func toCBOR() throws -> Data {
-//        switch self {
-//            case .plutusData(let plutusData):
-//                return try CBORSerialization.data(
-//                    from: CBOR.fromAny(plutusData)
-//                )
-//            case .dict(let dict):
-//                return try CBORSerialization.data(
-//                    from: CBOR.fromAny(dict)
-//                )
-//            case .int(let int):
-//                return try CBORSerialization.data(
-//                    from: CBOR.unsignedInt(UInt64(int))
-//                )
-//            case .bytes(let bytes):
-//                return bytes
-//            case .indefiniteList(let list):
-//                return try CBORSerialization.data(
-//                    from: CBOR.array(list.getAll().map { CBOR.fromAny($0) })
-//                )
-//            case .cbor(let cbor):
-//                return try CBORSerialization.data(
-//                    from: cbor
-//                )
-//            case .cborTag(let tag):
-//                return try CBORSerialization.data(
-//                    from: CBOR.tagged(tag, CBOR.null)
-//                )
-//        }
-//    }
     
     func hash(into hasher: inout Hasher) {
         hasher.combine(self)

@@ -4,38 +4,7 @@ import SwiftNcal
 import PotentCBOR
 @testable import SwiftCardanoCore
 
-// MARK: - Committee Key Tests
 @Suite struct CommitteeKeyTests {
-    let coldVKeyJSON = """
-    {
-        "type": "ConstitutionalCommitteeColdVerificationKey_ed25519",
-        "description": "Constitutional Committee Cold Verification Key",
-        "cborHex": "5820a113e3d33c93f3919f7f21866fd1d6ec489d8b041bd0a554a0dbeac72e50ea1d"
-    }
-    """
-    let coldSKeyJSON = """
-    {
-        "type": "ConstitutionalCommitteeColdSigningKey_ed25519",
-        "description": "Constitutional Committee Cold Signing Key",
-        "cborHex": "5820c3cf402a61b53bfd5b1102b50e6f618506cc4c3c9f4157eb1ee505e31370548c"
-    }
-    """
-    
-    let hotVKeyJSON = """
-    {
-        "type": "ConstitutionalCommitteeHotVerificationKey_ed25519",
-        "description": "Constitutional Committee Hot Verification Key",
-        "cborHex": "582080d608a7bec6c413ac1e4db9db05cb0bf404fad80ddf2531ef57c75575c0b0f5"
-    }
-    """
-    let hotSKeyJSON = """
-    {
-        "type": "ConstitutionalCommitteeHotSigningKey_ed25519",
-        "description": "Constitutional Committee Hot Signing Key",
-        "cborHex": "58208b52868ca8ac2e8ec24f6ae7a86ef39a1cdc53135d4d93c014b20471ea602778"
-    }
-    """
-    
     @Test func testColdVerificationKey() async throws {
         let VK = committeeColdVerificationKey!
         
@@ -43,6 +12,16 @@ import PotentCBOR
         let encodedHex = encodedData.toHex
         
         let json = try VK.toJSON()
+        
+        let keyPath = try getFilePath(
+            forResource: committeeColdVerificationKeyFilePath.forResource,
+            ofType: committeeColdVerificationKeyFilePath.ofType,
+            inDirectory: committeeColdVerificationKeyFilePath.inDirectory
+        )
+        let jsonString = try String(
+            contentsOfFile: keyPath!,
+            encoding: .utf8
+        ).trimmingCharacters(in: .whitespacesAndNewlines)
         
         guard let data = json!.data(using: .utf8),
               let dict = try JSONSerialization.jsonObject(with: data) as? [String: String] else {
@@ -58,7 +37,7 @@ import PotentCBOR
         ])
         
         #expect(encodedHex == dict["cborHex"])
-        #expect(json == coldVKeyJSON)
+        #expect(json == jsonString)
         #expect(VK.payload == expectedPayload)
     }
     
@@ -70,11 +49,24 @@ import PotentCBOR
         
         let json = try SK.toJSON()
         
+        let keyPath = try getFilePath(
+            forResource: committeeColdSigningKeyFilePath.forResource,
+            ofType: committeeColdSigningKeyFilePath.ofType,
+            inDirectory: committeeColdSigningKeyFilePath.inDirectory
+        )
+        let jsonString = try String(
+            contentsOfFile: keyPath!,
+            encoding: .utf8
+        ).trimmingCharacters(in: .whitespacesAndNewlines)
+        
         guard let data = json!.data(using: .utf8),
               let dict = try JSONSerialization.jsonObject(with: data) as? [String: String] else {
             Issue.record("Invalid JSON")
             return
         }
+        
+        print("hex1: \(encodedHex)")
+        print("hex2: \(dict["cborHex"]!)")
         
         let expectedPayload = Data([
             0xC3, 0xCF, 0x40, 0x2A, 0x61, 0xB5, 0x3B, 0xFD,
@@ -84,7 +76,7 @@ import PotentCBOR
         ])
         
         #expect(encodedHex == dict["cborHex"])
-        #expect(json == coldSKeyJSON)
+        #expect(json == jsonString)
         #expect(SK.payload == expectedPayload)
     }
     
@@ -95,6 +87,16 @@ import PotentCBOR
         let encodedHex = encodedData.toHex
         
         let json = try VK.toJSON()
+        
+        let keyPath = try getFilePath(
+            forResource: committeeHotVerificationKeyFilePath.forResource,
+            ofType: committeeHotVerificationKeyFilePath.ofType,
+            inDirectory: committeeHotVerificationKeyFilePath.inDirectory
+        )
+        let jsonString = try String(
+            contentsOfFile: keyPath!,
+            encoding: .utf8
+        ).trimmingCharacters(in: .whitespacesAndNewlines)
         
         guard let data = json!.data(using: .utf8),
               let dict = try JSONSerialization.jsonObject(with: data) as? [String: String] else {
@@ -110,7 +112,7 @@ import PotentCBOR
         ])
         
         #expect(encodedHex == dict["cborHex"])
-        #expect(json == hotVKeyJSON)
+        #expect(json == jsonString)
         #expect(VK.payload == expectedPayload)
     }
     
@@ -121,6 +123,16 @@ import PotentCBOR
         let encodedHex = encodedData.toHex
         
         let json = try SK.toJSON()
+        
+        let keyPath = try getFilePath(
+            forResource: committeeHotSigningKeyFilePath.forResource,
+            ofType: committeeHotSigningKeyFilePath.ofType,
+            inDirectory: committeeHotSigningKeyFilePath.inDirectory
+        )
+        let jsonString = try String(
+            contentsOfFile: keyPath!,
+            encoding: .utf8
+        ).trimmingCharacters(in: .whitespacesAndNewlines)
         
         guard let data = json!.data(using: .utf8),
               let dict = try JSONSerialization.jsonObject(with: data) as? [String: String] else {
@@ -136,7 +148,7 @@ import PotentCBOR
         ])
         
         #expect(encodedHex == dict["cborHex"])
-        #expect(json == hotSKeyJSON)
+        #expect(json == jsonString)
         #expect(SK.payload == expectedPayload)
     }
     

@@ -1,27 +1,88 @@
 import Foundation
+import PotentCBOR
 
-class CommitteeColdSigningKey: SigningKey {
-    class override var TYPE: String { "ConstitutionalCommitteeColdSigningKey_ed25519" }
-    class override var DESCRIPTION: String { "Constitutional Committee Cold Signing Key" }
+struct CommitteeColdSigningKey: SigningKey {
+    var _payload: Data
+    var _type: String
+    var _description: String
+
+    static var TYPE: String { "ConstitutionalCommitteeColdSigningKey_ed25519" }
+    static var DESCRIPTION: String { "Constitutional Committee Cold Signing Key" }
+    
+    init(payload: Data, type: String?, description: String?) {
+        if let payloadData = try? CBORDecoder().decode(Data.self, from: payload) {
+            self._payload = payloadData
+        } else {
+            self._payload = payload
+        }
+        
+        self._type = type ?? Self.TYPE
+        self._description = description ?? Self.DESCRIPTION
+    }
 }
 
-class CommitteeColdVerificationKey: VerificationKey {
-    class override var TYPE: String { "ConstitutionalCommitteeColdVerificationKey_ed25519" }
-    class override var DESCRIPTION: String { "Constitutional Committee Cold Verification Key" }
+struct CommitteeColdVerificationKey: VerificationKey {
+    var _payload: Data
+    var _type: String
+    var _description: String
+
+    static var TYPE: String { "ConstitutionalCommitteeColdVerificationKey_ed25519" }
+    static var DESCRIPTION: String { "Constitutional Committee Cold Verification Key" }
+    
+    init(payload: Data, type: String?, description: String?) {
+        if let payloadData = try? CBORDecoder().decode(Data.self, from: payload) {
+            self._payload = payloadData
+        } else {
+            self._payload = payload
+        }
+        
+        self._type = type ?? Self.TYPE
+        self._description = description ?? Self.DESCRIPTION
+    }
 }
 
 
-class CommitteeHotSigningKey: SigningKey {
-    class override var TYPE: String { "ConstitutionalCommitteeHotSigningKey_ed25519" }
-    class override var DESCRIPTION: String { "Constitutional Committee Hot Signing Key" }
+struct CommitteeHotSigningKey: SigningKey {
+    var _payload: Data
+    var _type: String
+    var _description: String
+
+    static var TYPE: String { "ConstitutionalCommitteeHotSigningKey_ed25519" }
+    static var DESCRIPTION: String { "Constitutional Committee Hot Signing Key" }
+    
+    init(payload: Data, type: String?, description: String?) {
+        if let payloadData = try? CBORDecoder().decode(Data.self, from: payload) {
+            self._payload = payloadData
+        } else {
+            self._payload = payload
+        }
+        
+        self._type = type ?? Self.TYPE
+        self._description = description ?? Self.DESCRIPTION
+    }
 }
 
-class CommitteeHotVerificationKey: VerificationKey {
-    class override var TYPE: String { "ConstitutionalCommitteeHotVerificationKey_ed25519" }
-    class override var DESCRIPTION: String { "Constitutional Committee Hot Verification Key" }
+struct CommitteeHotVerificationKey: VerificationKey {
+    var _payload: Data
+    var _type: String
+    var _description: String
+
+    static var TYPE: String { "ConstitutionalCommitteeHotVerificationKey_ed25519" }
+    static var DESCRIPTION: String { "Constitutional Committee Hot Verification Key" }
+    
+    init(payload: Data, type: String?, description: String?) {
+        if let payloadData = try? CBORDecoder().decode(Data.self, from: payload) {
+            self._payload = payloadData
+        } else {
+            self._payload = payload
+        }
+        
+        self._type = type ?? Self.TYPE
+        self._description = description ?? Self.DESCRIPTION
+    }
 }
 
-class CommitteeColdKeyPair {
+struct CommitteeColdKeyPair {
     let signingKey: CommitteeColdSigningKey
     let verificationKey: CommitteeColdVerificationKey
     
@@ -30,14 +91,14 @@ class CommitteeColdKeyPair {
         self.verificationKey = verificationKey
     }
     
-    // Class method to generate a new CommitteeColdKeyPair
-    class func generate() throws -> CommitteeColdKeyPair {
+    // static method to generate a new CommitteeColdKeyPair
+    static func generate() throws -> CommitteeColdKeyPair {
         let signingKey = try CommitteeColdSigningKey.generate()
         return try fromSigningKey(signingKey)
     }
     
-    // Create a CommitteeColdKeyPair from an existing signing key
-    class func fromSigningKey(_ signingKey: CommitteeColdSigningKey) throws -> CommitteeColdKeyPair {
+    // static a CommitteeColdKeyPair from an existing signing key
+    static func fromSigningKey(_ signingKey: CommitteeColdSigningKey) throws -> CommitteeColdKeyPair {
         let verificationKey: CommitteeColdVerificationKey = try CommitteeColdVerificationKey.fromSigningKey(signingKey)
         return CommitteeColdKeyPair(
             signingKey: signingKey,
@@ -54,7 +115,7 @@ extension CommitteeColdKeyPair: Equatable {
     }
 }
 
-class CommitteeHotKeyPair {
+struct CommitteeHotKeyPair {
     let signingKey: CommitteeHotSigningKey
     let verificationKey: CommitteeHotVerificationKey
     
@@ -63,14 +124,14 @@ class CommitteeHotKeyPair {
         self.verificationKey = verificationKey
     }
     
-    // Class method to generate a new CommitteeHotKeyPair
-    class func generate() throws -> CommitteeHotKeyPair {
+    // static method to generate a new CommitteeHotKeyPair
+    static func generate() throws -> CommitteeHotKeyPair {
         let signingKey = try CommitteeHotSigningKey.generate()
         return try fromSigningKey(signingKey)
     }
     
-    // Create a PaymentKeyPair from an existing signing key
-    class func fromSigningKey(_ signingKey: CommitteeHotSigningKey) throws -> CommitteeHotKeyPair {
+    // static a PaymentKeyPair from an existing signing key
+    static func fromSigningKey(_ signingKey: CommitteeHotSigningKey) throws -> CommitteeHotKeyPair {
         let verificationKey: CommitteeHotVerificationKey = try CommitteeHotVerificationKey.fromSigningKey(signingKey)
         return CommitteeHotKeyPair(
             signingKey: signingKey,

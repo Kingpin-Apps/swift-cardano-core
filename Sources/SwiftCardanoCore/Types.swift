@@ -107,7 +107,7 @@ struct NonNegativeInterval: Codable {
 
 // MARK: - UnitInterval
 /// A unit interval is a number in the range between 0 and 1
-struct UnitInterval: Codable {
+struct UnitInterval: Codable, Equatable, Hashable {
     let numerator: UInt
     let denominator: UInt
     
@@ -119,10 +119,23 @@ struct UnitInterval: Codable {
     }
     
     init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        let numerator = try container.decode(UInt.self)
-        let denominator = try container.decode(UInt.self)
-        self.init(numerator: numerator, denominator: denominator)
+        let container = try decoder.singleValueContainer()
+        
+        // Decode the CBOR value
+        let cborData = try container.decode(AnyValue.self)
+        
+        switch cborData {
+            case .array(let cborData):
+                guard cborData.count == 2 else {
+                    throw CardanoCoreError.valueError("UnitInterval must contain exactly 2 elements")
+                }
+                self.init(
+                    numerator: UInt(cborData[0].intValue!),
+                    denominator: UInt(cborData[1].intValue!)
+                )
+            default:
+                throw CardanoCoreError.valueError("UnitInterval must be an array")
+        }
     }
     
     func encode(to encoder: Encoder) throws {
@@ -133,8 +146,12 @@ struct UnitInterval: Codable {
 }
 
 // MARK: - Url
-struct Url: Hashable {
+struct Url: Codable, Hashable {
     let value: URL
+    
+    var absoluteString: String {
+        return value.absoluteString
+    }
     
     init(_ value: String) throws {
         guard value.count <= 128 else {
@@ -190,7 +207,7 @@ struct CBORTag: Codable, Equatable {
     }
     
     init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
+        let container = try decoder.singleValueContainer()
         
         // Decode the tag
         tag = try container.decode(UInt64.self)

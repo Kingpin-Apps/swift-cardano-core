@@ -1,26 +1,87 @@
 import Foundation
+import PotentCBOR
 
-class StakeSigningKey: SigningKey {
-    class override var TYPE: String { "StakeSigningKeyShelley_ed25519" }
-    class override var DESCRIPTION: String { "Stake Signing Key" }
+struct StakeSigningKey: SigningKey {
+    var _payload: Data
+    var _type: String
+    var _description: String
+
+    static var TYPE: String { "StakeSigningKeyShelley_ed25519" }
+    static var DESCRIPTION: String { "Stake Signing Key" }
+    
+    init(payload: Data, type: String?, description: String?) {
+        if let payloadData = try? CBORDecoder().decode(Data.self, from: payload) {
+            self._payload = payloadData
+        } else {
+            self._payload = payload
+        }
+        
+        self._type = type ?? Self.TYPE
+        self._description = description ?? Self.DESCRIPTION
+    }
 }
 
-class StakeVerificationKey: VerificationKey {
-    class override var TYPE: String { "StakeVerificationKeyShelley_ed25519" }
-    class override var DESCRIPTION: String { "Stake Verification Key" }
+struct StakeVerificationKey: VerificationKey {
+    var _payload: Data
+    var _type: String
+    var _description: String
+
+    static var TYPE: String { "StakeVerificationKeyShelley_ed25519" }
+    static var DESCRIPTION: String { "Stake Verification Key" }
+    
+    init(payload: Data, type: String?, description: String?) {
+        if let payloadData = try? CBORDecoder().decode(Data.self, from: payload) {
+            self._payload = payloadData
+        } else {
+            self._payload = payload
+        }
+        
+        self._type = type ?? Self.TYPE
+        self._description = description ?? Self.DESCRIPTION
+    }
 }
 
-class StakeExtendedSigningKey: ExtendedSigningKey {
-    class override var TYPE: String { "StakeExtendedSigningKeyShelley_ed25519_bip32" }
-    class override var DESCRIPTION: String { "Stake Signing Key" }
+struct StakeExtendedSigningKey: ExtendedSigningKey {
+    var _payload: Data
+    var _type: String
+    var _description: String
+
+    static var TYPE: String { "StakeExtendedSigningKeyShelley_ed25519_bip32" }
+    static var DESCRIPTION: String { "Stake Signing Key" }
+    
+    init(payload: Data, type: String?, description: String?) {
+        if let payloadData = try? CBORDecoder().decode(Data.self, from: payload) {
+            self._payload = payloadData
+        } else {
+            self._payload = payload
+        }
+        
+        self._type = type ?? Self.TYPE
+        self._description = description ?? Self.DESCRIPTION
+    }
 }
 
-class StakeExtendedVerificationKey: ExtendedVerificationKey {
-    class override var TYPE: String { "StakeExtendedVerificationKeyShelley_ed25519_bip32" }
-    class override var DESCRIPTION: String { "Stake Verification Key" }
+struct StakeExtendedVerificationKey: ExtendedVerificationKey {
+    var _payload: Data
+    var _type: String
+    var _description: String
+
+    static var TYPE: String { "StakeExtendedVerificationKeyShelley_ed25519_bip32" }
+    static var DESCRIPTION: String { "Stake Verification Key" }
+    
+    init(payload: Data, type: String?, description: String?) {
+        if let payloadData = try? CBORDecoder().decode(Data.self, from: payload) {
+            self._payload = payloadData
+        } else {
+            self._payload = payload
+        }
+        
+        self._type = type ?? Self.TYPE
+        self._description = description ?? Self.DESCRIPTION
+    }
 }
 
-class StakeKeyPair {
+struct StakeKeyPair {
     let signingKey: StakeSigningKey
     let verificationKey: StakeVerificationKey
     
@@ -29,14 +90,14 @@ class StakeKeyPair {
         self.verificationKey = verificationKey
     }
     
-    // Class method to generate a new StakeKeyPair
-    class func generate() throws -> StakeKeyPair {
+    // static method to generate a new StakeKeyPair
+    static func generate() throws -> StakeKeyPair {
         let signingKey = try StakeSigningKey.generate()
         return try fromSigningKey(signingKey)
     }
     
-    // Create a StakeKeyPair from an existing signing key
-    class func fromSigningKey(_ signingKey: StakeSigningKey) throws -> StakeKeyPair {
+    // static a StakeKeyPair from an existing signing key
+    static func fromSigningKey(_ signingKey: StakeSigningKey) throws -> StakeKeyPair {
         let verificationKey: StakeVerificationKey = try StakeVerificationKey.fromSigningKey(signingKey)
         return StakeKeyPair(
             signingKey: signingKey,
