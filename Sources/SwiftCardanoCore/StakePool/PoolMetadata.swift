@@ -97,7 +97,7 @@ struct PoolMetadata: JSONSerializable {
             var container = encoder.unkeyedContainer()
             
             try container.encode(url!.absoluteString)
-            try container.encode(poolMetadataHash)
+            try container.encode(poolMetadataHash?.payload)
         }
     }
     

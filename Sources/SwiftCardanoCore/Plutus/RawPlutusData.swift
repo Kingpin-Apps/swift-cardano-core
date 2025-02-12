@@ -15,32 +15,35 @@ class RawPlutusData: Codable, Equatable {
 //    }
 
     func toShallowPrimitive() throws -> Any {
-        func dfs(_ obj: Any) -> Any {
+        func dfs(_ obj: Any) throws -> Any {
             if let list = obj as? [AnyHashable] {
                 let indefiniteList = try! IndefiniteList<AnyValue>(
-                    from: list.map { dfs($0) as! AnyHashable } as! Decoder
+                    from: list.map { try dfs($0) as! AnyHashable } as! Decoder
                 )
                 return indefiniteList
             } else if let dict = obj as? [AnyHashable: Any] {
-                return dict.reduce(into: [AnyHashable: Any]()) { result, pair in
-                    result[dfs(pair.key as Any) as! AnyHashable] = dfs(pair.value)
+                return try dict.reduce(into: [AnyHashable: Any]()) { result, pair in
+                    result[try dfs(pair.key as Any) as! AnyHashable] = try dfs(pair.value)
                 }
             } else if case let CBOR.tagged(tag, innerValue) = obj, let list = innerValue.unwrapped as? [Any] {
                 let value: Any
                 if tag.rawValue == 102 {
                     let indefiniteList = try! IndefiniteList<AnyValue>(
-                        from: list.map { dfs($0) as! AnyValue } as! Decoder
+                        from: list.map { try dfs($0) as! AnyValue } as! Decoder
                     )
                     
                     value = indefiniteList
                 } else {
-                    value = list.map { dfs($0) }
+                    value = try list.map { try dfs($0) }
                 }
-                return CBORTag(tag: UInt64(tag.rawValue), value: CBOR.fromAny(value))
+                return CBORTag(
+                    tag: UInt64(tag.rawValue),
+                    value: try AnyValue.wrapped(value)
+                )
             }
             return obj
         }
-        return dfs(self.data)
+        return try dfs(self.data)
     }
     
     /// Convert to a dictionary.
@@ -94,14 +97,14 @@ class RawPlutusData: Codable, Equatable {
                     if let tag = getTag(constrID: constructor) {
                         return CBORTag(
                             tag: UInt64(tag),
-                            value: CBOR.fromAny(convertedFields)
+                            value: try AnyValue.wrapped(convertedFields)
                         )
                     } else {
                         return CBORTag(
                             tag: 102,
                             value: [
-                                CBOR.fromAny(constructor),
-                                CBOR.fromAny(try IndefiniteList<AnyValue>(
+                                try AnyValue.wrapped(constructor),
+                                try AnyValue.wrapped(try IndefiniteList<AnyValue>(
                                     from: convertedFields as! [AnyValue] as! Decoder
                                 ))
                             ]

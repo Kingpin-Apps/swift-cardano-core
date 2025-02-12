@@ -1,5 +1,6 @@
 import Foundation
 import PotentCBOR
+import PotentCodables
 
 struct DatumOption: Codable {
     var type: Int
@@ -33,7 +34,7 @@ struct DatumOption: Codable {
         var container = encoder.unkeyedContainer()
         try container.encode(type)
         if type == 1 {
-            let cborTag = CBORTag(tag: 24, value: CBOR.fromAny(datum))
+            let cborTag = CBORTag(tag: 24, value: datum as! AnyValue)
             try container.encode(cborTag)
         } else {
             try container.encode(datum as! DatumOption)
@@ -116,7 +117,7 @@ struct ScriptRef: Codable {
     func encode(to encoder: Encoder) throws {
         let cborTag = CBORTag(
             tag: 24,
-            value: CBOR.fromAny(script)
+            value: AnyValue.data(try CBOREncoder().encode(script))
         )
         
         var container = encoder.unkeyedContainer()

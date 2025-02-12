@@ -70,7 +70,7 @@ struct PoolRegistration: CertificateSerializable {
                 cost: try container.decode(Int.self),
                 margin: try container.decode(UnitInterval.self),
                 rewardAccount: try container.decode(RewardAccountHash.self),
-                poolOwners: try container.decode(PoolOwners.self),
+                poolOwners: try container.decode(CBORSet<VerificationKeyHash>.self),
                 relays: try container.decode([Relay].self),
                 poolMetadata: try container.decode(PoolMetadata.self),
                 id: nil
@@ -91,7 +91,9 @@ struct PoolRegistration: CertificateSerializable {
         try container.encode(poolParams.vrfKeyHash)
         try container.encode(poolParams.pledge)
         try container.encode(poolParams.cost)
+        
         try container.encode(poolParams.margin)
+        
         try container.encode(poolParams.rewardAccount)
         try container.encode(poolParams.poolOwners)
         try container.encode(poolParams.relays)

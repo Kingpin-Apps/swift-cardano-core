@@ -4,16 +4,21 @@ import PotentCBOR
 import FractionNumber
 @testable import SwiftCardanoCore
 
-struct PoolRegistrationTests {
+@Suite struct PoolRegistrationTests {
+    let poolOwners = CBORSet(
+        Set([
+            try! stakeVerificationKey!.hash()
+        ])
+    )
     let poolParams = PoolParams(
         poolOperator: try! stakePoolVerificationKey!.poolKeyHash(),
         vrfKeyHash: try! vrfVerificationKey!.hash(),
         pledge: 100000000,
         cost: 340000000,
         margin: UnitInterval(numerator: 1, denominator: 100),
-        rewardAccount: RewardAccountHash(payload: try! stakeVerificationKey!.hash().payload),
-        poolOwners: PoolOwners(
-            addressKeyHashes: Set([
+        rewardAccount: try! stakeVerificationKey!.rewardAccountHash(network: .mainnet),
+        poolOwners: CBORSet(
+            Set([
                 try! stakeVerificationKey!.hash()
             ])
         ),
@@ -25,7 +30,7 @@ struct PoolRegistrationTests {
         poolMetadata: try! PoolMetadata(
             url: try! Url("https://yourpoollink.com/poolMetaData.json"),
             poolMetadataHash: PoolMetadataHash(
-                payload: poolMetadataHash!.toData
+                payload: poolMetadataHash!.hexStringToData
             )
             ),
         id: nil
@@ -61,7 +66,7 @@ struct PoolRegistrationTests {
         print("hex1: \(cborHex)")
         print("hex2: \(excpectedCBOR!)")
         
-//        #expect(cborHex == excpectedCBOR)
+        #expect(cborHex == excpectedCBOR)
         #expect(fromCBOR == cert)
     }
 }

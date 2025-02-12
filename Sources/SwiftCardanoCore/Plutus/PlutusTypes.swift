@@ -62,7 +62,12 @@ enum RawDatum: Codable, Equatable, Hashable {
         } else if let cborData = try? container.decode(Data.self) {
             let cbor = try CBORSerialization.cbor(from: cborData)
             if case let CBOR.tagged(tag, data) = cbor {
-                self = .cborTag(CBORTag(tag: UInt64(tag.rawValue), value: data))
+                self = .cborTag(
+                    CBORTag(
+                        tag: UInt64(tag.rawValue),
+                        value: data.unwrapped as! AnyValue
+                    )
+                )
             } else {
                 self = .cbor(cbor)
             }

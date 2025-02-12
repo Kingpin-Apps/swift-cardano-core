@@ -32,12 +32,6 @@ extension PayloadSerializable {
         self.init(payload: payload, type: Self.TYPE, description: Self.DESCRIPTION)
     }
     
-//    init(payload: Data, type: String?, description: String?) {
-//        self._payload = payload
-//        self._type = type ?? Self.TYPE
-//        self._description = description ?? Self.DESCRIPTION
-//    }
-    
     /// Convert to raw bytes
     /// - Returns: The raw bytes
     func toBytes() -> Data {
@@ -126,13 +120,7 @@ extension PayloadJSONSerializable {
             }
         }
         
-//        let payload: Data
         let cborData = Data(hexString: cborHex)!
-//        if let object = try? CBORDecoder().decode(Self.self, from: cborData) {
-//            payload = object.payload
-//        } else {
-//            payload = cborData
-//        }
         
         return Self(
             payload: cborData,

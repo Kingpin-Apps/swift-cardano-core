@@ -2,6 +2,7 @@ import Foundation
 import FractionNumber
 import OrderedCollections
 import PotentCBOR
+import PotentCodables
 import Foundation
 import Network
 
@@ -44,21 +45,70 @@ extension IPv6Address: Codable {
 }
 
 // MARK: - CBOR Extensions
+extension CBOR: Codable {
+    public init(from decoder: Swift.Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let cborData = try container.decode(Data.self)
+        let cbor = try CBORSerialization.cbor(from: cborData)
+        self = cbor
+    }
+
+    public func encode(to encoder: Swift.Encoder) throws {
+        let cbor = try CBORSerialization.data(from: self)
+        try cbor.encode(to: encoder)
+    }
+}
+
 extension CBOR {
     static func fromAny(_ value: Any) -> CBOR {
-        if let stringValue = value as? String {
+        print("Type of value:", Mirror(reflecting: value).subjectType) // Debugging
+        
+        if let anyValue = value as? AnyValue {
+            let unwrapped = anyValue.unwrapped!
+            return CBOR.fromAny(unwrapped)
+        }
+        else if let stringValue = value as? String {
             return .utf8String(stringValue)
-        } else if let intValue = value as? Int {
+        }
+        else if let simpleValue = value as? UInt8 {
+            return .simple(simpleValue)
+        }
+        else if let simpleValue = value as? Int8 {
+            return .simple(UInt8(simpleValue))
+        }
+        else if let floatValue = value as? Float {
+            return .float(floatValue)
+        }
+        else if let doubleValue = value as? Double {
+            return .double(doubleValue)
+        }
+        else if let intValue = value as? Int {
             return intValue >= 0 ?
                 .unsignedInt(UInt64(intValue)) :
                 .negativeInt(UInt64(abs(intValue)))
-        } else if let dataValue = value as? Data {
+        }
+        else if let arrayValue = value as? Array {
+            return .array(arrayValue.map { CBOR.fromAny($0) })
+        }
+        else if let arrayValue = value as? [Any] {
+            return .array(arrayValue.map { CBOR.fromAny($0) })
+        }
+        else if let boolValue = value as? Bool {
+            return .boolean(boolValue)
+        }
+        else if let taggedValue = value as? (Tag, CBOR) {
+            return .tagged(taggedValue.0, taggedValue.1)
+        }
+        else if let dataValue = value as? Data {
             return .byteString(dataValue)
-        } else if let dictValue = value as? [AnyHashable: Any] {
+        }
+        else if let dictValue = value as? [AnyHashable: Any] {
             return .map(dictValue.mapKeysToCbor)
-        } else if let codable = value as? any Codable {
+        }
+        else if let codable = value as? any Codable {
             return .byteString(try! CBOREncoder().encode(codable))
-        } else {
+        }
+        else {
             return .null
         }
     }

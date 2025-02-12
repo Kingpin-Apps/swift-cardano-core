@@ -1,5 +1,6 @@
 import Foundation
 import PotentCBOR
+import SwiftNcal
 
 struct StakeSigningKey: SigningKey {
     var _payload: Data
@@ -38,6 +39,18 @@ struct StakeVerificationKey: VerificationKey {
         
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
+    }
+    
+    func rewardAccountHash(network: Network) throws -> RewardAccountHash {
+        let vKeyHash = VerificationKeyHash(
+            payload: try SwiftNcal.Hash().blake2b(
+                data: payload,
+                digestSize: VERIFICATION_KEY_HASH_SIZE,
+                encoder: RawEncoder.self
+            )
+        )
+        let address = try Address(stakingPart: .verificationKeyHash(vKeyHash), network: network)
+        return RewardAccountHash(payload: address.toBytes())
     }
 }
 
