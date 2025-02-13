@@ -30,9 +30,6 @@ import PotentCodables
             from: encodedCBOR
         )
         
-        print("cbor1: \(encodedCBOR.toHex)")
-        print("cbor2: \(testCBORHex)")
-        
         #expect(decodedCBOR == cborTag)
         #expect(decodedCBOR.tag == 30)
         #expect(testCBORHex == encodedCBOR.toHex)
@@ -70,9 +67,6 @@ import PotentCodables
             UnitInterval.self,
             from: encodedCBOR
         )
-        
-        print("cbor1: \(encodedCBOR.toHex)")
-        print("cbor2: \(testCBORHex)")
         
         #expect(decodedCBOR == unitInterval)
         #expect(UnitInterval.tag == 30)

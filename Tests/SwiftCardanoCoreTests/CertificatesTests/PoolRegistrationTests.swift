@@ -5,11 +5,6 @@ import FractionNumber
 @testable import SwiftCardanoCore
 
 @Suite struct PoolRegistrationTests {
-    let poolOwners = CBORSet(
-        Set([
-            try! stakeVerificationKey!.hash()
-        ])
-    )
     let poolParams = PoolParams(
         poolOperator: try! stakePoolVerificationKey!.poolKeyHash(),
         vrfKeyHash: try! vrfVerificationKey!.hash(),
@@ -62,9 +57,6 @@ import FractionNumber
         let cborHex = cborData.toHex
         
         let fromCBOR = try CBORDecoder().decode(PoolRegistration.self, from: cborData)
-        
-        print("hex1: \(cborHex)")
-        print("hex2: \(excpectedCBOR!)")
         
         #expect(cborHex == excpectedCBOR)
         #expect(fromCBOR == cert)

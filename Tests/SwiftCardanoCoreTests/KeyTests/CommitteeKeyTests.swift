@@ -65,9 +65,6 @@ import PotentCBOR
             return
         }
         
-        print("hex1: \(encodedHex)")
-        print("hex2: \(dict["cborHex"]!)")
-        
         let expectedPayload = Data([
             0xC3, 0xCF, 0x40, 0x2A, 0x61, 0xB5, 0x3B, 0xFD,
             0x5B, 0x11, 0x02, 0xB5, 0x0E, 0x6F, 0x61, 0x85,

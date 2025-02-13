@@ -60,9 +60,7 @@ extension CBOR: Codable {
 }
 
 extension CBOR {
-    static func fromAny(_ value: Any) -> CBOR {
-        print("Type of value:", Mirror(reflecting: value).subjectType) // Debugging
-        
+    static func fromAny(_ value: Any) -> CBOR {        
         if let anyValue = value as? AnyValue {
             let unwrapped = anyValue.unwrapped!
             return CBOR.fromAny(unwrapped)

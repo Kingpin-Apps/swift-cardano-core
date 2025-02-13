@@ -48,27 +48,11 @@ struct AddressTests {
         }
     }
     
-    //    @Test func testInitialization() async throws {
-    //        let keyHash = try VerificationKeyHash(payload: Data(repeating: 0, count: VERIFICATION_KEY_HASH_SIZE))
-    //        let scriptHash = try ScriptHash(payload: Data(repeating: 0, count: SCRIPT_HASH_SIZE))
-    //        let pointerAddress = PointerAddress(slot: 1, txIndex: 2, certIndex: 3)
-    //
-    //        let address1 = try Address(paymentPart: .verificationKeyHash(keyHash), stakingPart: .verificationKeyHash(keyHash), network: .mainnet)
-    //        #expect(address1 != nil)
-    //
-    //        let address2 = try Address(paymentPart: .scriptHash(scriptHash), stakingPart: .scriptHash(scriptHash), network: .testnet)
-    //        #expect(address2 != nil)
-    //
-    //        let address3 = try Address(paymentPart: .verificationKeyHash(keyHash), stakingPart: .pointerAddress(pointerAddress), network: .mainnet)
-    //        #expect(address3 != nil)
-    //    }
-    
     @Test func testToBech32() async throws {
         let keyHash = VerificationKeyHash(payload: Data(repeating: 0, count: VERIFICATION_KEY_HASH_SIZE))
         let address = try Address(paymentPart: .verificationKeyHash(keyHash), stakingPart: .verificationKeyHash(keyHash), network: .mainnet)
         let bech32 = try address.toBech32()
         let excpected = "addr1qyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqv2t5am"
-        print(bech32)
         #expect(bech32 == excpected)
     }
     
