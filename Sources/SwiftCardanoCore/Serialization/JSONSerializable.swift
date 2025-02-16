@@ -31,11 +31,23 @@ extension JSONSerializable {
     ///   - json: JSON string.
     /// - Returns: The object restored from JSON.
     static func fromJSON(_ json: String) throws -> Self {
-        guard let data = json.data(using: .utf8),
-              let dict = try JSONSerialization.jsonObject(with: data) as? [String: String] else {
+//        guard let data = json.data(using: .utf8),
+//              let dict = try JSONSerialization.jsonObject(with: data) as? [AnyHashable: Any] else {
+//            throw CardanoCoreError.valueError("Invalid JSON")
+//        }
+        
+        if let data = json.data(using: .utf8) {
+            do {
+                let dict = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+                return try fromDict(dict)
+            } catch {
+                throw CardanoCoreError.valueError("Error: \(error)")
+            }
+        } else {
             throw CardanoCoreError.valueError("Invalid JSON")
         }
+            
         
-        return try fromDict(dict)
+//        return try fromDict(dict)
     }
 }

@@ -11,7 +11,7 @@ struct Register: CertificateSerializable {
     var description: String { get { return Register.DESCRIPTION } }
 
     static var TYPE: String { CertificateType.conway.rawValue }
-    static var DESCRIPTION: String { CertificateDescription.register.rawValue }
+    static var DESCRIPTION: String { CertificateDescription.stakeRegistration.rawValue }
     static var CODE: CertificateCode { get { return .register } }
     
     let stakeCredential: StakeCredential

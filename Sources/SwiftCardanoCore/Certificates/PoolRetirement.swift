@@ -2,7 +2,7 @@ import Foundation
 import PotentCBOR
 
 /// Stake Pool Retirement Certificate
-struct PoolRetirement: PayloadJSONSerializable {
+struct PoolRetirement: CertificateSerializable {
     var _payload: Data
     var _type: String
     var _description: String
@@ -10,9 +10,8 @@ struct PoolRetirement: PayloadJSONSerializable {
     var type: String { get { return PoolRetirement.TYPE } }
     var description: String { get { return PoolRetirement.DESCRIPTION } }
 
-    static var TYPE: String { CertificateType.shelley.rawValue }
+    static var TYPE: String { CertificateType.conway.rawValue }
     static var DESCRIPTION: String { CertificateDescription.poolRetirement.rawValue }
-    
     static var CODE: CertificateCode { get { return .poolRetirement } }
     
     let poolKeyHash: PoolKeyHash

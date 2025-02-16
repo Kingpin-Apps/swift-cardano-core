@@ -85,8 +85,7 @@ struct PoolRegistration: CertificateSerializable {
     func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(Self.CODE.rawValue)
-//        try poolParams.encode(to: encoder)
-//        try container.encode(poolParams)
+        
         try container.encode(poolParams.poolOperator)
         try container.encode(poolParams.vrfKeyHash)
         try container.encode(poolParams.pledge)

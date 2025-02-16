@@ -1,12 +1,29 @@
 import Foundation
 
-enum DRepType: Codable {
+enum DRepType: Codable, Hashable {
     case verificationKeyHash(VerificationKeyHash)
     case scriptHash(ScriptHash)
-    case other(Data)
+    case alwaysAbstain
+    case alwaysNoConfidence
 }
 
-struct DRep: Codable {
+/// Represents a Delegate Representative (DRep) in the Cardano governance system.
+///
+/// DReps are entities that can represent stake holders in governance decisions.
+struct DRep: Codable, Hashable {
+    
+    var id: String {
+        get throws {
+            return try self.toBech32()
+        }
+    }
+    
+    public var idHex: String {
+        get {
+            return self.toBytes().toHex
+        }
+    }
+    
     public var code: Int {
         get {
             switch credential {
@@ -14,12 +31,19 @@ struct DRep: Codable {
                     return 0
                 case .scriptHash(_):
                     return 1
-                case .other(_):
+                case .alwaysAbstain:
                     return 2
+                case .alwaysNoConfidence:
+                    return 3
             }
         }
     }
+    
     let credential: DRepType
+    
+    init(credential: DRepType) {
+        self.credential = credential
+    }
     
     init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
@@ -33,8 +57,9 @@ struct DRep: Codable {
             let scriptHash = try container.decode(ScriptHash.self)
             credential = .scriptHash(scriptHash)
         } else if code == 2 {
-            let otherHash = try container.decode(Data.self)
-            credential = .other(otherHash)
+            credential = .alwaysAbstain
+        } else if code == 3 {
+            credential = .alwaysNoConfidence
         } else {
             throw CardanoCoreError
                 .deserializeError(
@@ -48,6 +73,45 @@ struct DRep: Codable {
     func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(code)
-        try container.encode(credential)
+        
+        switch credential {
+            case .verificationKeyHash(let verificationKeyHash):
+                try container.encode(verificationKeyHash)
+            case .scriptHash(let scriptHash):
+                try container.encode(scriptHash)
+            default:
+                break
+        }
     }
+    
+    var description: String {
+        do {
+            return try self.toBech32()
+        } catch {
+            return ""
+        }
+        
+    }
+    
+    func toBytes() -> Data {
+        switch credential {
+            case .verificationKeyHash(let verificationKeyHash):
+                return verificationKeyHash.payload
+            case .scriptHash(let scriptHash):
+                return scriptHash.payload
+            case .alwaysAbstain:
+                return Data([2])
+            case .alwaysNoConfidence:
+                return Data([3])
+                
+        }
+    }
+    
+    func toBech32() throws -> String {
+        guard let encoded =  Bech32().encode(hrp: "drep", witprog: self.toBytes()) else {
+            throw CardanoCoreError.encodingError("Error encoding data: \(self.toBytes())")
+        }
+        return encoded
+    }
+    
 }
