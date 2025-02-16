@@ -10,7 +10,7 @@ struct StakeDelegation: CertificateSerializable {
     var type: String { get { return StakeDelegation.TYPE } }
     var description: String { get { return StakeDelegation.DESCRIPTION } }
 
-    static var TYPE: String { CertificateType.shelley.rawValue }
+    static var TYPE: String { CertificateType.conway.rawValue }
     static var DESCRIPTION: String { CertificateDescription.stakeDelegation.rawValue }
     static var CODE: CertificateCode { get { return .stakeDelegation } }
     

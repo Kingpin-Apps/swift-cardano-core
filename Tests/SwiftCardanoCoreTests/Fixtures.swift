@@ -157,6 +157,11 @@ let voteDelegateScriptFilePath = (
     ofType: "cert",
     inDirectory: "data/certs"
 )
+let stakeDelegationFilePath = (
+    forResource: "test.delegation",
+    ofType: "cert",
+    inDirectory: "data/certs"
+)
 
 // MARK: - DRep Paths
 let drepIdFilePath = (
@@ -411,6 +416,18 @@ var voteDelegateScriptCertificate: VoteDelegate? {
             inDirectory: voteDelegateScriptFilePath.inDirectory
         )
         return try VoteDelegate.load(from: certificatePath!)
+    } catch {
+        return nil
+    }
+}
+var stakeDelegationCertificate: StakeDelegation? {
+    do {
+        let certificatePath = try getFilePath(
+            forResource: stakeDelegationFilePath.forResource,
+            ofType: stakeDelegationFilePath.ofType,
+            inDirectory: stakeDelegationFilePath.inDirectory
+        )
+        return try StakeDelegation.load(from: certificatePath!)
     } catch {
         return nil
     }
