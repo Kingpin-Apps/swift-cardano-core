@@ -126,6 +126,12 @@ let stakeDeregistrationFilePath = (
     inDirectory: "data/certs"
 )
 
+let stakeRegisterDelegateFilePath = (
+    forResource: "test.stake-register-delegate",
+    ofType: "cert",
+    inDirectory: "data/certs"
+)
+
 let stakeDelegationFilePath = (
     forResource: "test.delegation",
     ofType: "cert",
