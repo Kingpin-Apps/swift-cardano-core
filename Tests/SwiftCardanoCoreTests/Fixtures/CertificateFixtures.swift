@@ -184,7 +184,6 @@ var stakeDeregistrationCertificate: StakeDeregistration? {
     }
 }
 
-
 var stakeRegisterDelegateCertificate: StakeRegisterDelegate? {
     do {
         let certificatePath = try getFilePath(
@@ -193,6 +192,19 @@ var stakeRegisterDelegateCertificate: StakeRegisterDelegate? {
             inDirectory: stakeRegisterDelegateFilePath.inDirectory
         )
         return try StakeRegisterDelegate.load(from: certificatePath!)
+    } catch {
+        return nil
+    }
+}
+
+var stakeVoteDelegateCertificate: StakeVoteDelegate? {
+    do {
+        let certificatePath = try getFilePath(
+            forResource: stakeVoteDelegateFilePath.forResource,
+            ofType: stakeVoteDelegateFilePath.ofType,
+            inDirectory: stakeVoteDelegateFilePath.inDirectory
+        )
+        return try StakeVoteDelegate.load(from: certificatePath!)
     } catch {
         return nil
     }

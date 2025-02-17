@@ -4,11 +4,11 @@ import PotentCBOR
 @testable import SwiftCardanoCore
 
 struct StakeRegistrationTests {
+    let stakeCredential = StakeCredential(
+        credential: .verificationKeyHash(try! stakeVerificationKey!.hash())
+    )
+    
     @Test func testInitialization() async throws {
-        let stakeCredential = StakeCredential(
-            credential: .verificationKeyHash(try stakeVerificationKey!.hash())
-        )
-        
         let stakeRegistration = StakeRegistration(stakeCredential: stakeCredential)
         
         #expect(StakeRegistration.CODE.rawValue == 0)
@@ -27,16 +27,6 @@ struct StakeRegistrationTests {
     @Test func testToFromCBOR() async throws {
         let excpectedCBOR = stakeRegistrationCertificate?.payload.toHex
         
-        let credential = stakeAddress!.stakingPart
-        
-        guard case .verificationKeyHash(let verificationKeyHash) = credential else {
-            Issue.record("Expected verificationKeyHash")
-            return
-        }
-        
-        let stakeCredential = StakeCredential(
-            credential: .verificationKeyHash(verificationKeyHash)
-        )
         let cert = StakeRegistration(stakeCredential: stakeCredential)
         
         let cborData = try CBOREncoder().encode(cert)

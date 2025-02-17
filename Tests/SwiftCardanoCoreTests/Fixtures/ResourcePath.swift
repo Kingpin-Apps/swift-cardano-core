@@ -138,6 +138,12 @@ let stakeDelegationFilePath = (
     inDirectory: "data/certs"
 )
 
+let stakeVoteDelegateFilePath = (
+    forResource: "test.stake-and-vote-delegation",
+    ofType: "cert",
+    inDirectory: "data/certs"
+)
+
 let resignCommitteeColdFilePath = (
     forResource: "test.resignation",
     ofType: "cert",
