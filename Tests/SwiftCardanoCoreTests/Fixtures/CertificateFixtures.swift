@@ -118,6 +118,7 @@ var voteDelegateAlwaysAbstainCertificate: VoteDelegate? {
         return nil
     }
 }
+
 var voteDelegateAlwaysNoConfidenceCertificate: VoteDelegate? {
     do {
         let certificatePath = try getFilePath(
@@ -130,6 +131,7 @@ var voteDelegateAlwaysNoConfidenceCertificate: VoteDelegate? {
         return nil
     }
 }
+
 var voteDelegateScriptCertificate: VoteDelegate? {
     do {
         let certificatePath = try getFilePath(
@@ -142,6 +144,7 @@ var voteDelegateScriptCertificate: VoteDelegate? {
         return nil
     }
 }
+
 var stakeDelegationCertificate: StakeDelegation? {
     do {
         let certificatePath = try getFilePath(
@@ -150,6 +153,33 @@ var stakeDelegationCertificate: StakeDelegation? {
             inDirectory: stakeDelegationFilePath.inDirectory
         )
         return try StakeDelegation.load(from: certificatePath!)
+    } catch {
+        return nil
+    }
+}
+
+var stakeUnregisterCertificate: Unregister? {
+    do {
+        let certificatePath = try getFilePath(
+            forResource: stakeUnregisterFilePath.forResource,
+            ofType: stakeUnregisterFilePath.ofType,
+            inDirectory: stakeUnregisterFilePath.inDirectory
+        )
+        return try Unregister.load(from: certificatePath!)
+    } catch {
+        return nil
+    }
+}
+
+
+var stakeDeregistrationCertificate: StakeDeregistration? {
+    do {
+        let certificatePath = try getFilePath(
+            forResource: stakeDeregistrationFilePath.forResource,
+            ofType: stakeDeregistrationFilePath.ofType,
+            inDirectory: stakeDeregistrationFilePath.inDirectory
+        )
+        return try StakeDeregistration.load(from: certificatePath!)
     } catch {
         return nil
     }

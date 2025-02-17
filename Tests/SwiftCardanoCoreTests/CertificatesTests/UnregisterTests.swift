@@ -3,44 +3,44 @@ import Foundation
 import PotentCBOR
 @testable import SwiftCardanoCore
 
-struct StakeDelegationTests {
+struct UnregisterTests {
     let stakeCredential = StakeCredential(
         credential: .verificationKeyHash(try! stakeVerificationKey!.hash())
     )
-    let poolKeyHash = try! stakePoolVerificationKey!.poolKeyHash()
+    
+    let coin: Coin = 2000000
     
     @Test func testInitialization() async throws {
-        let stakeDelegation = StakeDelegation(
+        let stakeRegistration = Unregister(
             stakeCredential: stakeCredential,
-            poolKeyHash: poolKeyHash
+            coin: coin
         )
         
-        #expect(StakeDelegation.CODE.rawValue == 2)
-        #expect(stakeDelegation.stakeCredential == stakeCredential)
-        #expect(stakeDelegation.poolKeyHash == poolKeyHash)
+        #expect(Unregister.CODE.rawValue == 8)
+        #expect(stakeRegistration.stakeCredential == stakeCredential)
     }
     
     @Test func testJSON() async throws {
-        let cert = stakeDelegationCertificate!
+        let cert = stakeUnregisterCertificate!
         
         let json = try cert.toJSON()
-        let certFromJSON = try StakeDelegation.fromJSON(json!)
+        let certFromJSON = try Unregister.fromJSON(json!)
         
         #expect(cert == certFromJSON)
     }
     
     @Test func testToFromCBOR() async throws {
-        let excpectedCBOR = stakeDelegationCertificate?.payload.toHex
+        let excpectedCBOR = stakeUnregisterCertificate?.payload.toHex
         
-        let cert = StakeDelegation(
+        let cert = Unregister(
             stakeCredential: stakeCredential,
-            poolKeyHash: poolKeyHash
+            coin: coin
         )
         
         let cborData = try CBOREncoder().encode(cert)
         let cborHex = cborData.toHex
         
-        let fromCBOR = try CBORDecoder().decode(StakeDelegation.self, from: cborData)
+        let fromCBOR = try CBORDecoder().decode(Unregister.self, from: cborData)
         
         #expect(cborHex == excpectedCBOR)
         #expect(fromCBOR == cert)

@@ -1,0 +1,5 @@
+{
+    "type": "CertificateShelley",
+    "description": "Stake Address Deregistration Certificate",
+    "cborHex": "82018200581c7629784f5dd93a8e24f982dd2d1f3b8414868d8260edb6a06c847a69"
+}

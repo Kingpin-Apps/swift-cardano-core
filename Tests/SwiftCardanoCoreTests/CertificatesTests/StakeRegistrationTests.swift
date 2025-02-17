@@ -5,11 +5,8 @@ import PotentCBOR
 
 struct StakeRegistrationTests {
     @Test func testInitialization() async throws {
-        let verificationKeyHash = VerificationKeyHash(
-            payload: Data(repeating: 0, count: VERIFICATION_KEY_HASH_SIZE)
-        )
         let stakeCredential = StakeCredential(
-            credential: .verificationKeyHash(verificationKeyHash)
+            credential: .verificationKeyHash(try stakeVerificationKey!.hash())
         )
         
         let stakeRegistration = StakeRegistration(stakeCredential: stakeCredential)

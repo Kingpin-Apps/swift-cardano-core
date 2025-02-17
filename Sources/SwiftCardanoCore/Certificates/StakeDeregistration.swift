@@ -44,7 +44,7 @@ struct StakeDeregistration: CertificateSerializable {
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
         
-        let cbor = try! CBORDecoder().decode(StakeDelegation.self, from: payload)
+        let cbor = try! CBORDecoder().decode(StakeDeregistration.self, from: payload)
         
         self.stakeCredential = cbor.stakeCredential
     }

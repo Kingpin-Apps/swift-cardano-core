@@ -95,13 +95,39 @@ let drepSigningKeyFilePath = (
 )
 
 // MARK: - Certificate File Paths
+
+let authCommitteeFilePath = (
+    forResource: "test.auth",
+    ofType: "cert",
+    inDirectory: "data/certs"
+)
+
+let registerFilePath = (
+    forResource: "test.stake-registration",
+    ofType: "cert",
+    inDirectory: "data/certs"
+)
+
 let stakeRegistrationFilePath = (
     forResource: "test.stake",
     ofType: "cert",
     inDirectory: "data/certs"
 )
-let authCommitteeFilePath = (
-    forResource: "test.auth",
+
+let stakeUnregisterFilePath = (
+    forResource: "test.stake-unregister",
+    ofType: "cert",
+    inDirectory: "data/certs"
+)
+
+let stakeDeregistrationFilePath = (
+    forResource: "test.stake-deregistration",
+    ofType: "cert",
+    inDirectory: "data/certs"
+)
+
+let stakeDelegationFilePath = (
+    forResource: "test.delegation",
     ofType: "cert",
     inDirectory: "data/certs"
 )
@@ -113,19 +139,13 @@ let resignCommitteeColdFilePath = (
 )
 
 let poolRegistrationFilePath = (
-    forResource: "test.pool",
+    forResource: "test.pool-registration",
     ofType: "cert",
     inDirectory: "data/certs"
 )
 
 let poolRetireFilePath = (
-    forResource: "test.dereg",
-    ofType: "cert",
-    inDirectory: "data/certs"
-)
-
-let registerFilePath = (
-    forResource: "test.register",
+    forResource: "test.pool-retire",
     ofType: "cert",
     inDirectory: "data/certs"
 )
@@ -147,18 +167,15 @@ let voteDelegateAlwaysAbstainFilePath = (
     ofType: "cert",
     inDirectory: "data/certs"
 )
+
 let voteDelegateAlwaysNoConfidenceFilePath = (
     forResource: "test.vote-deleg-always-no-confidence",
     ofType: "cert",
     inDirectory: "data/certs"
 )
+
 let voteDelegateScriptFilePath = (
     forResource: "test.vote-deleg-script",
-    ofType: "cert",
-    inDirectory: "data/certs"
-)
-let stakeDelegationFilePath = (
-    forResource: "test.delegation",
     ofType: "cert",
     inDirectory: "data/certs"
 )

@@ -36,7 +36,7 @@ enum CertificateDescription: String, Codable {
     case poolRetirement = "Stake Pool Retirement Certificate"
     case genesisKeyDelegation = "Genesis Key Delegation Certificate"
     case moveInstantaneousRewards = "Move Instantaneous Rewards Certificate"
-    case unregister = "Stake Address Retirement Certificate"
+//    case unregister = "Stake Address Retirement Certificate"
     case voteDelegate = "Vote Delegation Certificate"
     case stakeVoteDelegate = "Stake and Vote Delegation Certificate"
     case stakeRegisterDelegate = "Stake address registration and stake delegation Certificate"
