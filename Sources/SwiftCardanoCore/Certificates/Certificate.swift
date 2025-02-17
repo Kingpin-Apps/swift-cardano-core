@@ -41,7 +41,7 @@ enum CertificateDescription: String, Codable {
     case stakeVoteDelegate = "Stake and Vote Delegation Certificate"
     case stakeRegisterDelegate = "Stake address registration and stake delegation certificate"
     case voteRegisterDelegate = "Stake address registration and vote delegation certificate"
-    case stakeVoteRegisterDelegate = "Stake address registration delegation and vote delegation Certificate"
+//    case stakeVoteRegisterDelegate = "Stake address registration and vote delegation certificate"
     case authCommitteeHot = "Constitutional Committee Hot Key Registration Certificate"
     case resignCommitteeCold = "Constitutional Committee Cold Key Resignation Certificate"
     case registerDRep = "DRep Registration Certificate"

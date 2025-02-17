@@ -209,3 +209,55 @@ var stakeVoteDelegateCertificate: StakeVoteDelegate? {
         return nil
     }
 }
+
+var stakeVoteRegisterDelegateCertificate: StakeVoteRegisterDelegate? {
+    do {
+        let certificatePath = try getFilePath(
+            forResource: stakeVoteRegisterDelegateFilePath.forResource,
+            ofType: stakeVoteRegisterDelegateFilePath.ofType,
+            inDirectory: stakeVoteRegisterDelegateFilePath.inDirectory
+        )
+        return try StakeVoteRegisterDelegate.load(from: certificatePath!)
+    } catch {
+        return nil
+    }
+}
+
+var voteRegisterDelegateCertificate: VoteRegisterDelegate? {
+    do {
+        let certificatePath = try getFilePath(
+            forResource: voteRegisterDelegateFilePath.forResource,
+            ofType: voteRegisterDelegateFilePath.ofType,
+            inDirectory: voteRegisterDelegateFilePath.inDirectory
+        )
+        return try VoteRegisterDelegate.load(from: certificatePath!)
+    } catch {
+        return nil
+    }
+}
+
+var unregisterDRepCertificate: UnregisterDRep? {
+    do {
+        let certificatePath = try getFilePath(
+            forResource: unregisterDRepFilePath.forResource,
+            ofType: unregisterDRepFilePath.ofType,
+            inDirectory: unregisterDRepFilePath.inDirectory
+        )
+        return try UnregisterDRep.load(from: certificatePath!)
+    } catch {
+        return nil
+    }
+}
+
+var updateDRepCertificate: UpdateDRep? {
+    do {
+        let certificatePath = try getFilePath(
+            forResource: updateDRepFilePath.forResource,
+            ofType: updateDRepFilePath.ofType,
+            inDirectory: updateDRepFilePath.inDirectory
+        )
+        return try UpdateDRep.load(from: certificatePath!)
+    } catch {
+        return nil
+    }
+}

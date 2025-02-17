@@ -7,16 +7,7 @@ struct UpdateDRep: CertificateSerializable {
     var _description: String
     
     var type: String { get { return UpdateDRep.TYPE } }
-    var description: String {
-        get {
-            switch self.drepCredential.credential {
-                case .verificationKeyHash(_):
-                    return "DRep Key Update Certificate"
-                case .scriptHash(_):
-                    return "DRep Script Update Certificate"
-            }
-        }
-    }
+    var description: String { get { return UpdateDRep.DESCRIPTION } }
 
     static var TYPE: String { CertificateType.conway.rawValue }
     static var DESCRIPTION: String { CertificateDescription.updateDRep.rawValue }

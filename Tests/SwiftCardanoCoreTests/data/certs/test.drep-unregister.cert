@@ -1,0 +1,5 @@
+{
+    "type": "CertificateConway",
+    "description": "DRep Retirement Certificate",
+    "cborHex": "83118200581cb02f7b335aebf284bbdc20bdc3b59e4e183ae2cfc47ad2d8bc19a2411a1dcd6500"
+}

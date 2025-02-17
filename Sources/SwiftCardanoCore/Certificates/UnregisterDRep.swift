@@ -8,16 +8,7 @@ struct UnregisterDRep: CertificateSerializable {
     var _description: String
     
     var type: String { get { return UnregisterDRep.TYPE } }
-    var description: String {
-        get {
-            switch self.drepCredential.credential {
-                case .verificationKeyHash(_):
-                    return "DRep Key Retirement Certificate"
-                case .scriptHash(_):
-                    return "DRep Script Retirement Certificate"
-            }
-        }
-    }
+    var description: String { get { return UnregisterDRep.DESCRIPTION } }
 
     static var TYPE: String { CertificateType.conway.rawValue }
     static var DESCRIPTION: String { CertificateDescription.unRegisterDRep.rawValue }

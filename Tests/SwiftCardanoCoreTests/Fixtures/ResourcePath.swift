@@ -144,6 +144,18 @@ let stakeVoteDelegateFilePath = (
     inDirectory: "data/certs"
 )
 
+let stakeVoteRegisterDelegateFilePath = (
+    forResource: "test.registration-stake-and-vote-delegation",
+    ofType: "cert",
+    inDirectory: "data/certs"
+)
+
+let voteRegisterDelegateFilePath = (
+    forResource: "test.registration-and-vote-delegation",
+    ofType: "cert",
+    inDirectory: "data/certs"
+)
+
 let resignCommitteeColdFilePath = (
     forResource: "test.resignation",
     ofType: "cert",
@@ -163,7 +175,19 @@ let poolRetireFilePath = (
 )
 
 let registerDRepFilePath = (
-    forResource: "test.drep-reg",
+    forResource: "test.drep-register",
+    ofType: "cert",
+    inDirectory: "data/certs"
+)
+
+let unregisterDRepFilePath = (
+    forResource: "test.drep-unregister",
+    ofType: "cert",
+    inDirectory: "data/certs"
+)
+
+let updateDRepFilePath = (
+    forResource: "test.drep-update",
     ofType: "cert",
     inDirectory: "data/certs"
 )

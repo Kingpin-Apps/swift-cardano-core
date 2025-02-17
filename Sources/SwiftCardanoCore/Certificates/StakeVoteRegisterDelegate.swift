@@ -10,7 +10,7 @@ struct StakeVoteRegisterDelegate: CertificateSerializable {
     var description: String { get { return StakeVoteRegisterDelegate.DESCRIPTION } }
 
     static var TYPE: String { CertificateType.conway.rawValue }
-    static var DESCRIPTION: String { CertificateDescription.stakeVoteRegisterDelegate.rawValue }
+    static var DESCRIPTION: String { CertificateDescription.voteRegisterDelegate.rawValue }
     static var CODE: CertificateCode { get { return .stakeVoteRegisterDelegate } }
     
     let stakeCredential: StakeCredential
@@ -18,7 +18,7 @@ struct StakeVoteRegisterDelegate: CertificateSerializable {
     let drep: DRep
     let coin: Coin
     
-    /// Initialize a new `StakeVoteDelegate` certificate
+    /// Initialize a new `StakeVoteRegisterDelegate` certificate
     /// - Parameters:
     ///   - stakeCredential: The stake credential
     ///   - poolKeyHash: The pool key hash
