@@ -1,6 +1,20 @@
 import Foundation
 
-enum GovAction: Codable {
+enum GovActionCode: Int, Codable {
+    case parameterChangeAction = 0
+    case hardForkInitiationAction = 1
+    case treasuryWithdrawalsAction = 2
+    case noConfidence = 3
+    case updateCommittee = 4
+    case newConstitution = 5
+    case infoAction = 6
+}
+
+protocol GovernanceAction: Codable, Hashable, Equatable {
+    static var code: GovActionCode { get }
+}
+
+enum GovAction: Codable, Hashable, Equatable {
     case parameterChangeAction(ParameterChangeAction)
     case hardForkInitiationAction(HardForkInitiationAction)
     case treasuryWithdrawalsAction(TreasuryWithdrawalsAction)
@@ -8,44 +22,16 @@ enum GovAction: Codable {
     case updateCommittee(UpdateCommittee)
     case newConstitution(NewConstitution)
     case infoAction(InfoAction)
-    
-//    static func fromPrimitive<T>(_ value: Any) throws -> T {
-//        guard let list = value as? [Any] else {
-//            throw CardanoCoreError.deserializeError("Invalid GovActionType data: \(value)")
-//        }
-//        
-//        let code = list[0] as! UInt8
-//        switch code {
-//            case 0:
-//                let action: ParameterChangeAction = try ParameterChangeAction.fromPrimitive(list)
-//                return action as! T
-//            case 1:
-//                let action: HardForkInitiationAction = try HardForkInitiationAction.fromPrimitive(list)
-//                return action as! T
-//            case 2:
-//                let action: TreasuryWithdrawalsAction =  try TreasuryWithdrawalsAction.fromPrimitive(list)
-//                return action as! T
-//            case 3:
-//                let action: NoConfidence =  try NoConfidence.fromPrimitive(list)
-//                return action as! T
-//            case 4:
-//                let action: UpdateCommittee =  try UpdateCommittee.fromPrimitive(list)
-//                return action as! T
-//            case 5:
-//                let action: NewConstitution =  try NewConstitution.fromPrimitive(list)
-//                return action as! T
-//            case 6:
-//                let action: InfoAction =  try InfoAction.fromPrimitive(list)
-//                return action as! T
-//            default:
-//                throw CardanoCoreError.deserializeError("Invalid GovAction code: \(code)")
-//        }
-//    }
 }
 
-struct GovActionID: Codable, Hashable {
+struct GovActionID: Codable, Hashable, Equatable {
     let transactionID: TransactionId
     let govActionIndex: UInt16
+    
+    init(transactionID: TransactionId, govActionIndex: UInt16) {
+        self.transactionID = transactionID
+        self.govActionIndex = govActionIndex
+    }
     
     init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
@@ -58,29 +44,9 @@ struct GovActionID: Codable, Hashable {
         try container.encode(transactionID)
         try container.encode(govActionIndex)
     }
-    
-//    static func fromPrimitive<T>(_ value: Any) throws -> T {
-//        var transactionID: Data
-//        var govActionIndex: UInt16
-//        
-//        if let list = value as? [Any] {
-//            transactionID = list[0] as! Data
-//            govActionIndex = list[1] as! UInt16
-//        } else if let tuple = value as? (Any, Any) {
-//            transactionID = tuple.0 as! Data
-//            govActionIndex = tuple.1 as! UInt16
-//        } else {
-//            throw CardanoCoreError.deserializeError("Invalid GovActionID data: \(value)")
-//        }
-//        
-//        return GovActionID(
-//            transactionID: try TransactionId(payload: transactionID),
-//            govActionIndex: govActionIndex
-//        ) as! T
-//    }
 }
 
-struct PoolVotingThresholds: Codable {
+struct PoolVotingThresholds: Codable, Hashable, Equatable {
     var committeeNoConfidence: UnitInterval?
     var committeeNormal: UnitInterval?
     var hardForkInitiation: UnitInterval?
@@ -96,6 +62,23 @@ struct PoolVotingThresholds: Codable {
     }
     
     var thresholds: [UnitInterval]
+    
+    init(committeeNoConfidence: UnitInterval, committeeNormal: UnitInterval, hardForkInitiation: UnitInterval, motionNoConfidence: UnitInterval, ppSecurityGroup: UnitInterval) {
+        self.committeeNoConfidence = committeeNoConfidence
+        self.committeeNormal = committeeNormal
+        self.hardForkInitiation = hardForkInitiation
+        self.motionNoConfidence = motionNoConfidence
+        self.ppSecurityGroup = ppSecurityGroup
+        
+        self.thresholds = [
+            committeeNoConfidence,
+            committeeNormal,
+            hardForkInitiation,
+            motionNoConfidence,
+            ppSecurityGroup
+        ]
+    }
+        
 
     init(from thresholds: [UnitInterval]) {
         precondition(thresholds.count == 5, "There must be exactly 5 unit intervals")
@@ -129,7 +112,7 @@ struct PoolVotingThresholds: Codable {
     }
 }
 
-struct DrepVotingThresholds: Codable  {
+struct DrepVotingThresholds: Codable, Hashable, Equatable  {
     var thresholds: [UnitInterval]
 
     init(thresholds: [UnitInterval]) {
@@ -148,9 +131,14 @@ struct DrepVotingThresholds: Codable  {
     }
 }
 
-struct Constitution: Codable {
+struct Constitution: Codable, Hashable, Equatable {
     let anchor: Anchor
     let scriptHash: ScriptHash?
+    
+    init(anchor: Anchor, scriptHash: ScriptHash?) {
+        self.anchor = anchor
+        self.scriptHash = scriptHash
+    }
     
     init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
@@ -163,31 +151,4 @@ struct Constitution: Codable {
         try container.encode(anchor)
         try container.encode(scriptHash)
     }
-}
-
-struct ProposalProcedure: Codable {
-    let deposit: Coin
-    let rewardAccount: RewardAccount
-    let govAction: GovAction
-    let anchor: Anchor
-    
-    init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        deposit = try container.decode(Coin.self)
-        rewardAccount = try container.decode(RewardAccount.self)
-        govAction = try container.decode(GovAction.self)
-        anchor = try container.decode(Anchor.self)
-    }
-    
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.unkeyedContainer()
-        try container.encode(deposit)
-        try container.encode(rewardAccount)
-        try container.encode(govAction)
-        try container.encode(anchor)
-    }
-}
-
-struct ProposalProcedures {
-    var procedures: NonEmptySet<ProposalProcedure>
 }

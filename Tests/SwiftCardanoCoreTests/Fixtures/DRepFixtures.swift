@@ -25,18 +25,18 @@ var drepHexId: String? {
         return nil
     }
 }
-var drepMetadata: DRepMetadata? {
-    do {
-        let filePath = try getFilePath(
-            forResource: drepMetadataFilePath.forResource,
-            ofType: drepMetadataFilePath.ofType,
-            inDirectory: drepMetadataFilePath.inDirectory
-        )
-        return try DRepMetadata.load(from: filePath!)
-    } catch {
-        return nil
-    }
-}
+//var drepMetadata: DRepMetadata? {
+//    do {
+//        let filePath = try getFilePath(
+//            forResource: drepMetadataFilePath.forResource,
+//            ofType: drepMetadataFilePath.ofType,
+//            inDirectory: drepMetadataFilePath.inDirectory
+//        )
+//        return try DRepMetadata.load(from: filePath!)
+//    } catch {
+//        return nil
+//    }
+//}
 var drepMetadataHash: String? {
     do {
         let filePath = try getFilePath(

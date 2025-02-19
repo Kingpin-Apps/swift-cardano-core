@@ -35,9 +35,14 @@ struct NonEmptySet<Element> {
 }
 
 // MARK: - ExUnitPrices
-struct ExUnitPrices: Codable {
+struct ExUnitPrices: Codable, Hashable, Equatable {
     var memPrice: NonNegativeInterval
     var stepPrice: NonNegativeInterval
+    
+    init(memPrice: NonNegativeInterval, stepPrice: NonNegativeInterval) {
+        self.memPrice = memPrice
+        self.stepPrice = stepPrice
+    }
     
     init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
@@ -53,9 +58,14 @@ struct ExUnitPrices: Codable {
 }
 
 // MARK: - ExUnits
-struct ExUnits: Codable {
+struct ExUnits: Codable, Hashable, Equatable {
     var mem: UInt
     var steps: UInt
+    
+    init(mem: UInt, steps: UInt) {
+        self.mem = mem
+        self.steps = steps
+    }
     
     init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
@@ -71,9 +81,14 @@ struct ExUnits: Codable {
 }
 
 // MARK: - ProtocolVersion
-struct ProtocolVersion: Codable {
+struct ProtocolVersion: Codable, Hashable, Equatable {
     var major: Int?
     var minor: Int?
+    
+    init(major: Int, minor: Int) {
+        self.major = major
+        self.minor = minor
+    }
     
     init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
@@ -89,9 +104,15 @@ struct ProtocolVersion: Codable {
 }
 
 // MARK: - NonNegativeInterval
-struct NonNegativeInterval: Codable {
+struct NonNegativeInterval: Codable, Hashable, Equatable {
     var lowerBound: UInt
     var upperBound: UInt64
+    
+    init(lowerBound: UInt, upperBound: UInt64) {
+        precondition(lowerBound <= upperBound, "Lower bound must be less than or equal to upper bound")
+        self.lowerBound = lowerBound
+        self.upperBound = upperBound
+    }
     
     init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()

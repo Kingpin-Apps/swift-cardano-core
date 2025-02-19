@@ -1,17 +1,22 @@
 import Foundation
 
 
-struct NewConstitution: Codable {
-    public var code: Int { get { return 5 } }
+struct NewConstitution: GovernanceAction {
+    static var code: GovActionCode { get { .newConstitution } }
     
     let id: GovActionID
     let constitution: Constitution
+    
+    init(id: GovActionID, constitution: Constitution) {
+        self.id = id
+        self.constitution = constitution
+    }
     
     init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         let code = try container.decode(Int.self)
         
-        guard code == 5 else {
+        guard code == Self.code.rawValue else {
             throw CardanoCoreError.deserializeError("Invalid NewConstitution type: \(code)")
         }
         
@@ -21,35 +26,8 @@ struct NewConstitution: Codable {
     
     func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
-        try container.encode(code)
+        try container.encode(Self.code)
         try container.encode(id)
         try container.encode(constitution)
     }
-    
-//    static func fromPrimitive<T>(_ value: Any) throws -> T {
-//        var code: Int
-//        var id: Data
-//        var constitution: Data
-//        
-//        if let list = value as? [Any] {
-//            code = list[0] as! Int
-//            id = list[1] as! Data
-//            constitution = list[2] as! Data
-//        } else if let tuple = value as? (Any, Any, Any, Any) {
-//            code = tuple.0 as! Int
-//            id = tuple.1 as! Data
-//            constitution = tuple.2 as! Data
-//        } else {
-//            throw CardanoCoreError.deserializeError("Invalid NewConstitution data: \(value)")
-//        }
-//        
-//        guard code == 5 else {
-//            throw CardanoCoreError.deserializeError("Invalid NewConstitution type: \(code)")
-//        }
-//        
-//        return NewConstitution(
-//            id: try GovActionID.fromPrimitive(id),
-//            constitution: try Constitution.fromPrimitive(constitution)
-//        ) as! T
-//    }
 }
