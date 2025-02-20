@@ -12,6 +12,12 @@ struct SingleHostAddr: Codable, Equatable, Hashable {
     let ipv4: IPv4Address?
     let ipv6: IPv6Address?
     
+    init(port: Int?, ipv4: IPv4Address?, ipv6: IPv6Address?) {
+        self.port = port
+        self.ipv4 = ipv4
+        self.ipv6 = ipv6
+    }
+    
     init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         let code = try container.decode(Int.self)
@@ -68,6 +74,10 @@ struct SingleHostName: Codable, Equatable, Hashable {
 struct MultiHostName: Codable, Equatable, Hashable {
     public var code: Int { get { return 2 } }
     let dnsName: String?
+    
+    init(dnsName: String?) {
+        self.dnsName = dnsName
+    }
     
     init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()

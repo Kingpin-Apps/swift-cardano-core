@@ -27,7 +27,7 @@ import FractionNumber
             poolMetadataHash: PoolMetadataHash(
                 payload: poolMetadataHash!.hexStringToData
             )
-            ),
+        ),
         id: nil
     )
     
