@@ -32,3 +32,14 @@ extension FileHashable {
         return hash.toHex
     }
 }
+
+/// Hash of a file
+struct FileHash: FileHashable {
+    var contents: String
+    static var HASH_SIZE: Int { 32 }
+    
+    init(contents: String) {
+        self.contents = contents
+    }
+}
+

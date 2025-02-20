@@ -1,30 +1,8 @@
 import Foundation
 import PotentCBOR
 
-protocol ProposalProcedureSerializable: PayloadJSONSerializable {
-    var type: String { get }
-    var description: String { get }
-}
 
-extension ProposalProcedureSerializable {
-    /// Serialize to JSON.
-    ///
-    /// The json output has three fields: "type", "description", and "cborHex".
-    /// - Returns: JSON representation
-    func toJSON() throws -> String? {
-        let jsonString = """
-        {
-            "type": "\(type)",
-            "description": "\(description)",
-            "cborHex": "\(payload.toHex)"
-        }
-        """
-        return jsonString
-    }
-}
-
-
-struct ProposalProcedure: ProposalProcedureSerializable {
+struct ProposalProcedure: PayloadJSONSerializable {
     var _payload: Data
     var _type: String
     var _description: String
@@ -97,7 +75,23 @@ struct ProposalProcedure: ProposalProcedureSerializable {
         try container.encode(govAction)
         try container.encode(anchor)
     }
+    
+    /// Serialize to JSON.
+    ///
+    /// The json output has three fields: "type", "description", and "cborHex".
+    /// - Returns: JSON representation
+    func toJSON() throws -> String? {
+        let jsonString = """
+        {
+            "type": "\(type)",
+            "description": "\(description)",
+            "cborHex": "\(payload.toHex)"
+        }
+        """
+        return jsonString
+    }
 }
+
 
 struct ProposalProcedures: Codable, Hashable, Equatable {
     var procedures: NonEmptyCBORSet<ProposalProcedure>

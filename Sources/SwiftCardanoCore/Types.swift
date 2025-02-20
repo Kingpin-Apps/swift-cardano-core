@@ -389,6 +389,8 @@ extension SetTaggable {
     }
     
     static var TAG: UInt64 { 258 }
+    
+    var count: Int { return elements.count }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
@@ -435,6 +437,10 @@ extension SetTaggable {
             throw CardanoCoreError.valueError("Invalid CBOR format for SetWrapper")
         }
     }
+    
+    func contains(_ element: Element) -> Bool {
+        return elements.contains(element)
+    }
 }
 
 struct CBORSet<T: Codable & Hashable>: SetTaggable {
@@ -463,6 +469,11 @@ struct CBORSet<T: Codable & Hashable>: SetTaggable {
 struct NonEmptyCBORSet<T: Codable & Hashable>: SetTaggable {
     typealias Element = T
     var elements: Set<Element> = Set()
+    
+    init(_ elements: [Element]) {
+        precondition(!elements.isEmpty, "NonEmptyCBORSet must contain at least one element")
+        self.elements = Set(elements)
+    }
 
     init(tag: UInt64 = Self.TAG, value: AnyValue) {
         precondition(
