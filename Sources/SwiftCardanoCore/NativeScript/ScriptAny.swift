@@ -28,7 +28,7 @@ struct ScriptAny: NativeScript {
             var container = try decoder.unkeyedContainer()
             let code = try container.decode(Int.self)
             
-            guard code == 1 else {
+            guard code == Self.type.rawValue else {
                 throw CardanoCoreError.decodingError("Invalid ScriptAny type: \(code)")
             }
             scripts = try container.decode([NativeScripts].self)
