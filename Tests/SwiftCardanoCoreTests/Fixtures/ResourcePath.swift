@@ -245,7 +245,7 @@ let scriptHashFilePath = (
     inDirectory: "data"
 )
 
-// MARK: - Pool Metadata Paths
+// MARK: - Stake Pool Paths
 let poolMetadataJSONFilePath = (
     forResource: "poolMetadata",
     ofType: "json",
@@ -255,5 +255,17 @@ let poolMetadataJSONFilePath = (
 let poolMetadataHashFilePath = (
     forResource: "poolMetadataHash",
     ofType: "txt",
+    inDirectory: "data"
+)
+
+let poolIdFilePath = (
+    forResource: "pool",
+    ofType: "id",
+    inDirectory: "data"
+)
+
+let poolIdHexFilePath = (
+    forResource: "pool-hex",
+    ofType: "id",
     inDirectory: "data"
 )

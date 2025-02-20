@@ -120,37 +120,6 @@ enum Relay: Codable, Equatable, Hashable {
     }
 }
 
-//struct PoolOwners: Codable, Equatable, Hashable {
-//    let addressKeyHashes: Set<VerificationKeyHash>
-//    
-//    init(addressKeyHashes: Set<VerificationKeyHash>) {
-//        self.addressKeyHashes = addressKeyHashes
-//    }
-//    
-//    init(from decoder: Decoder) throws {
-//        let container = try decoder.singleValueContainer()
-//        let cborData = try container.decode(AnyValue.self)
-//        
-//        switch cborData {
-//            case .array(let array):
-//                var set = Set<VerificationKeyHash>()
-//                array.forEach {
-//                    if let data = $0.dataValue {
-//                        set.insert(VerificationKeyHash(payload: data))
-//                    }
-//                }
-//                addressKeyHashes = set
-//            default:
-//                throw CardanoCoreError.decodingError("Invalid PoolOwners data")
-//        }
-//    }
-//    
-//    func encode(to encoder: Encoder) throws {
-//        var container = encoder.singleValueContainer()
-//        try container.encode(addressKeyHashes)
-//    }
-//}
-
 struct PoolParams: Codable, Equatable, Hashable {
     let poolOperator: PoolKeyHash
     let vrfKeyHash: VrfKeyHash

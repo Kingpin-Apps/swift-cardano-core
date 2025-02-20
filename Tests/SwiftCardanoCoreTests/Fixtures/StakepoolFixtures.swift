@@ -28,3 +28,29 @@ var poolMetadataHash: String? {
         return nil
     }
 }
+
+var poolId: PoolId? {
+    do {
+        let filePath = try getFilePath(
+            forResource: poolIdFilePath.forResource,
+            ofType: poolIdFilePath.ofType,
+            inDirectory: poolIdFilePath.inDirectory
+        )
+        return try PoolId.load(from: filePath!)
+    } catch {
+        return nil
+    }
+}
+
+var poolIdHex: PoolId? {
+    do {
+        let filePath = try getFilePath(
+            forResource: poolIdHexFilePath.forResource,
+            ofType: poolIdHexFilePath.ofType,
+            inDirectory: poolIdHexFilePath.inDirectory
+        )
+        return try PoolId.load(from: filePath!)
+    } catch {
+        return nil
+    }
+}
