@@ -22,7 +22,8 @@ struct ScriptPubkey: NativeScript {
                 throw CardanoCoreError.decodingError("Invalid ScriptPubkey type string")
             }
             
-            keyHash = try container.decode(VerificationKeyHash.self, forKey: .keyHash)
+            let payload = try container.decode(String.self, forKey: .keyHash)
+            keyHash = VerificationKeyHash(payload: payload.hexStringToData)
         } else {
             var container = try decoder.unkeyedContainer()
             let code = try container.decode(Int.self)
@@ -43,7 +44,7 @@ struct ScriptPubkey: NativeScript {
         } else {
             var container = encoder.unkeyedContainer()
             try container.encode(Self.TYPE.rawValue)
-            try container.encode(keyHash.payload.toHex)
+            try container.encode(keyHash)
         }
     }
     

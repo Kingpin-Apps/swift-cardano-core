@@ -34,7 +34,6 @@ import PotentCBOR
 
         let encodedJSON = try encoder.encode(script)
         let decodedScript = try decoder.decode(ScriptPubkey.self, from: encodedJSON)
-
         #expect(decodedScript == script)
     }
 
