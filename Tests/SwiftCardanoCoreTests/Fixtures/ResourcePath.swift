@@ -245,6 +245,43 @@ let scriptHashFilePath = (
     inDirectory: "data"
 )
 
+// MARK: - Nativescript Paths
+let sigNativescriptFilePath = (
+    forResource: "sig",
+    ofType: "json",
+    inDirectory: "data/nativescripts"
+)
+
+let allNativescriptFilePath = (
+    forResource: "all",
+    ofType: "json",
+    inDirectory: "data/nativescripts"
+)
+
+let anyNativescriptFilePath = (
+    forResource: "any",
+    ofType: "json",
+    inDirectory: "data/nativescripts"
+)
+
+let atLeastNativescriptFilePath = (
+    forResource: "atLeast",
+    ofType: "json",
+    inDirectory: "data/nativescripts"
+)
+
+let afterNativescriptFilePath = (
+    forResource: "after",
+    ofType: "json",
+    inDirectory: "data/nativescripts"
+)
+
+let beforeNativescriptFilePath = (
+    forResource: "before",
+    ofType: "json",
+    inDirectory: "data/nativescripts"
+)
+
 // MARK: - Stake Pool Paths
 let poolMetadataJSONFilePath = (
     forResource: "poolMetadata",

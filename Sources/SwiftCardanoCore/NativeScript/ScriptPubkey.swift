@@ -1,7 +1,7 @@
 import Foundation
 
 struct ScriptPubkey: NativeScript {
-    static let type = NativeScriptType.scriptPubkey
+    static let TYPE = NativeScriptType.scriptPubkey
     let keyHash: VerificationKeyHash
     
     init(keyHash: VerificationKeyHash) {
@@ -14,11 +14,11 @@ struct ScriptPubkey: NativeScript {
     }
     
     init(from decoder: Swift.Decoder) throws {
-        if decoder is JSONDecoder {
+        if String(describing: type(of: decoder)).contains("JSONDecoder") {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             let typeString = try container.decode(String.self, forKey: .type)
             
-            guard typeString == Self.type.description() else {
+            guard typeString == Self.TYPE.description() else {
                 throw CardanoCoreError.decodingError("Invalid ScriptPubkey type string")
             }
             
@@ -27,7 +27,7 @@ struct ScriptPubkey: NativeScript {
             var container = try decoder.unkeyedContainer()
             let code = try container.decode(Int.self)
             
-            guard code == Self.type.rawValue else {
+            guard code == Self.TYPE.rawValue else {
                 throw CardanoCoreError.decodingError("Invalid ScriptPubkey type string")
             }
             
@@ -36,14 +36,35 @@ struct ScriptPubkey: NativeScript {
     }
 
     func encode(to encoder: Swift.Encoder) throws {
-        if encoder is JSONEncoder {
+        if String(describing: type(of: encoder)).contains("JSONEncoder") {
             var container = encoder.container(keyedBy: CodingKeys.self)
-            try container.encode(Self.type.description(), forKey: .type)
-            try container.encode(keyHash, forKey: .keyHash)
+            try container.encode(Self.TYPE.description(), forKey: .type)
+            try container.encode(keyHash.payload.toHex, forKey: .keyHash)
         } else {
             var container = encoder.unkeyedContainer()
-            try container.encode(Self.type.rawValue)
-            try container.encode(keyHash)
+            try container.encode(Self.TYPE.rawValue)
+            try container.encode(keyHash.payload.toHex)
         }
+    }
+    
+    static func fromJSON(_ json: String) throws -> Self {
+        let data = json.data(using: .utf8)!
+        return try JSONDecoder().decode(Self.self, from: data)
+    }
+    
+    static func fromDict(_ dict: Dictionary<AnyHashable, Any>) throws -> ScriptPubkey {
+        guard let keyHashDict = dict["keyHash"] as? String else {
+            throw CardanoCoreError.decodingError("Invalid ScriptPubkey keyHash")
+        }
+        
+        guard let keyHashData = Data(hexString: keyHashDict) else {
+            throw CardanoCoreError.decodingError("Invalid hex string for keyHash")
+        }
+        
+        let keyHash = VerificationKeyHash(
+            payload: keyHashData
+        )
+        
+        return ScriptPubkey(keyHash: keyHash)
     }
 }

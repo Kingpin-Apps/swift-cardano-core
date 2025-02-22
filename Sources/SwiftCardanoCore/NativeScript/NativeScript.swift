@@ -22,6 +22,33 @@ enum NativeScripts: Codable, Equatable, Hashable {
             case .invalidHereAfter(let script): return try script.hash()
         }
     }
+    
+    func toJSON() -> String? {
+        switch self {
+            case .scriptPubkey(let script): return script.toJSON()
+            case .scriptAll(let script): return script.toJSON()
+            case .scriptAny(let script): return script.toJSON()
+            case .scriptNofK(let script): return script.toJSON()
+            case .invalidBefore(let script): return script.toJSON()
+            case .invalidHereAfter(let script): return script.toJSON()
+        }
+    }
+    
+    static func fromDict(_ dict: Dictionary<AnyHashable, Any>) throws -> NativeScripts {
+        guard let type = dict["type"] as? String else {
+            throw CardanoCoreError.decodingError("Missing type for NativeScript")
+        }
+        
+        switch type {
+            case "sig": return .scriptPubkey(try ScriptPubkey.fromDict(dict))
+            case "all": return .scriptAll(try ScriptAll.fromDict(dict))
+            case "any": return .scriptAny(try ScriptAny.fromDict(dict))
+            case "atLeast": return .scriptNofK(try ScriptNofK.fromDict(dict))
+            case "before": return .invalidBefore(try BeforeScript.fromDict(dict))
+            case "after": return .invalidHereAfter(try AfterScript.fromDict(dict))
+            default: throw CardanoCoreError.decodingError("Unknown NativeScript type: \(type)")
+        }
+    }
 }
 
 // MARK: - NativeScriptType
@@ -47,12 +74,17 @@ enum NativeScriptType: Int {
 
 // MARK: - NativeScript Protocol
 /// The metadata for a native script.
-protocol NativeScript: Codable, Hashable, Equatable {
-    static var type: NativeScriptType { get }
+protocol NativeScript: JSONSerializable {
+    static var TYPE: NativeScriptType { get }
 }
 
 // Extend the protocol for JSON encoding
 extension NativeScript {
+    static func fromJSON(_ json: String) throws -> Self {
+        let data = json.data(using: .utf8)!
+        return try JSONDecoder().decode(Self.self, from: data)
+    }
+    
     func toJSON() -> String? {
         let encoder = JSONEncoder()
         encoder.outputFormatting = .prettyPrinted
