@@ -48,11 +48,6 @@ struct ScriptPubkey: NativeScript {
         }
     }
     
-    static func fromJSON(_ json: String) throws -> Self {
-        let data = json.data(using: .utf8)!
-        return try JSONDecoder().decode(Self.self, from: data)
-    }
-    
     static func fromDict(_ dict: Dictionary<AnyHashable, Any>) throws -> ScriptPubkey {
         guard let keyHashDict = dict["keyHash"] as? String else {
             throw CardanoCoreError.decodingError("Invalid ScriptPubkey keyHash")
