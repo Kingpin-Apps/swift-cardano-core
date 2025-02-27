@@ -10,8 +10,11 @@ import PotentCBOR
     @Test("Test ScriptPubkey Initialization")
     func testInitialization() async throws {
         let script = ScriptPubkey(keyHash: testKeyHash)
+        let expectedScript = sigNativescript!
         
         #expect(script.keyHash == testKeyHash)
+        #expect(expectedScript.keyHash == script.keyHash)
+        
         #expect(ScriptPubkey.TYPE == NativeScriptType.scriptPubkey)
     }
 
@@ -40,7 +43,7 @@ import PotentCBOR
     @Test("Test ScriptPubkey Hashing")
     func testScriptPubkeyHashing() async throws {
         let computedHash = try ScriptPubkey(keyHash: testKeyHash).hash()
-        let expectedHash = try ScriptPubkey(keyHash: testKeyHash).hash()
+        let expectedHash = try sigNativescript!.hash()
 
         #expect(computedHash == expectedHash)
     }

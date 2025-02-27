@@ -33,8 +33,11 @@ extension JSONSerializable {
     static func fromJSON(_ json: String) throws -> Self {
         if let data = json.data(using: .utf8) {
             do {
-                let dict = try JSONSerialization.jsonObject(with: data) as! [AnyHashable: Any]
-                return try fromDict(dict)
+                if let dict = try JSONSerialization.jsonObject(with: data) as? [AnyHashable: Any] {
+                    return try fromDict(dict)
+                } else {
+                    throw CardanoCoreError.valueError("Invalid JSON")
+                }
             } catch {
                 throw CardanoCoreError.valueError("Error: \(error)")
             }
