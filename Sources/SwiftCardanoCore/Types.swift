@@ -586,3 +586,15 @@ struct NonEmptyOrderedCBORSet<T: Codable & Hashable>: SetTaggable  {
         }
     }
 }
+
+
+// MARK: - Era Enum
+public enum Era: String, Codable, Equatable {
+    case byron
+    case shelley
+    case allegra
+    case mary
+    case alonzo
+    case babbage
+    case conway
+}

@@ -1,6 +1,6 @@
 import Foundation
 
-public struct Topology: ConfigFile {
+public struct Topology: JSONLoadable {
     public let bootstrapPeers: [BootstrapPeer]
     public let localRoots: [LocalRoot]
     public let publicRoots: [PublicRoot]

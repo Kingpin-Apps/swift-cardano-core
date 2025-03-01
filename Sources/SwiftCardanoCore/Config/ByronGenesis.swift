@@ -1,7 +1,7 @@
 import Foundation
 
 /// Represents the Byron genesis configuration
-struct ByronGenesis: ConfigFile {
+public struct ByronGenesis: JSONLoadable {
     /// Distribution of Ada vouchers
     let avvmDistr: [String: String]
     /// Block version data configuration

@@ -1,6 +1,6 @@
 import Foundation
 
-public struct NodeConfig: ConfigFile {
+public struct NodeConfig: JSONLoadable {
     public let alonzoGenesisFile: String
     public let alonzoGenesisHash: String
     public let byronGenesisFile: String

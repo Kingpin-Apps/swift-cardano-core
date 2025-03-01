@@ -1,7 +1,7 @@
 import Foundation
 
 // MARK: - AlonzoGenesis
-public struct AlonzoGenesis: ConfigFile {
+public struct AlonzoGenesis: JSONLoadable {
     let lovelacePerUTxOWord: Int
     let executionPrices: ExecutionPrices
     let maxTxExUnits: AlonzoGenesisExUnits

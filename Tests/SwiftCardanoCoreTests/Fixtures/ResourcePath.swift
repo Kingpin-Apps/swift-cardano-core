@@ -343,3 +343,10 @@ let topologyJSONFilePath = (
     ofType: "json",
     inDirectory: "data/config/mainnet"
 )
+
+// MARK: - Protocol Parameters Path
+let protocolParametersJSONFilePath = (
+    forResource: "protocol-parameters",
+    ofType: "json",
+    inDirectory: "data"
+)

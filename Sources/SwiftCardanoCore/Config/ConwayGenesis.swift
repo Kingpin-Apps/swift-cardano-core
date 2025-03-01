@@ -1,6 +1,6 @@
 import Foundation
 
-struct ConwayGenesis: ConfigFile {
+public struct ConwayGenesis: JSONLoadable {
     let poolVotingThresholds: ConwayGenesisPoolVotingThresholds
     let dRepVotingThresholds: ConwayGenesisDRepVotingThresholds
     let committeeMinSize: Int

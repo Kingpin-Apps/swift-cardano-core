@@ -1,8 +1,8 @@
 import Foundation
 
-protocol ConfigFile: Codable, Hashable, Equatable {}
+protocol JSONLoadable: Codable, Hashable, Equatable {}
 
-extension ConfigFile {
+extension JSONLoadable {
     /// Save the JSON representation to a file.
     /// - Parameter path: The file path.
     func save(to path: String) throws {

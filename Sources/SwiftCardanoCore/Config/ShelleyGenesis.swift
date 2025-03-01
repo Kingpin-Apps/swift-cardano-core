@@ -1,6 +1,6 @@
 import Foundation
 
-public struct ShelleyGenesis: ConfigFile {
+public struct ShelleyGenesis: JSONLoadable {
     public let activeSlotsCoeff: Double
     public let protocolParams: ProtocolParams
     public let genDelegs: [String: GenDelegation]
