@@ -15,7 +15,7 @@ typealias EpochInterval = UInt32
 typealias EpochNumber = UInt64
 
 // MARK: - PositiveCoin
-struct PositiveCoin: Codable {
+public struct PositiveCoin: Codable {
     let value: UInt
     
     init(_ value: UInt) {
@@ -25,7 +25,7 @@ struct PositiveCoin: Codable {
 }
 
 // MARK: - NonEmptySet
-struct NonEmptySet<Element> {
+public struct NonEmptySet<Element> {
     var elements: [Element]
     
     init(elements: [Element]) {
@@ -35,22 +35,22 @@ struct NonEmptySet<Element> {
 }
 
 // MARK: - ExUnitPrices
-struct ExUnitPrices: Codable, Hashable, Equatable {
+public struct ExUnitPrices: Codable, Hashable, Equatable {
     var memPrice: NonNegativeInterval
     var stepPrice: NonNegativeInterval
     
-    init(memPrice: NonNegativeInterval, stepPrice: NonNegativeInterval) {
+    public init(memPrice: NonNegativeInterval, stepPrice: NonNegativeInterval) {
         self.memPrice = memPrice
         self.stepPrice = stepPrice
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         memPrice = try container.decode(NonNegativeInterval.self)
         stepPrice = try container.decode(NonNegativeInterval.self)
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(memPrice)
         try container.encode(stepPrice)
@@ -58,22 +58,22 @@ struct ExUnitPrices: Codable, Hashable, Equatable {
 }
 
 // MARK: - ExUnits
-struct ExUnits: Codable, Hashable, Equatable {
+public struct ExUnits: Codable, Hashable, Equatable {
     var mem: UInt
     var steps: UInt
     
-    init(mem: UInt, steps: UInt) {
+    public init(mem: UInt, steps: UInt) {
         self.mem = mem
         self.steps = steps
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         mem = try container.decode(UInt.self)
         steps = try container.decode(UInt.self)
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(mem)
         try container.encode(steps)
@@ -81,22 +81,22 @@ struct ExUnits: Codable, Hashable, Equatable {
 }
 
 // MARK: - ProtocolVersion
-struct ProtocolVersion: Codable, Hashable, Equatable {
+public struct ProtocolVersion: Codable, Hashable, Equatable {
     var major: Int?
     var minor: Int?
     
-    init(major: Int, minor: Int) {
+    public init(major: Int, minor: Int) {
         self.major = major
         self.minor = minor
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         major = try container.decode(Int.self)
         minor = try container.decode(Int.self)
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(major)
         try container.encode(minor)
@@ -104,23 +104,23 @@ struct ProtocolVersion: Codable, Hashable, Equatable {
 }
 
 // MARK: - NonNegativeInterval
-struct NonNegativeInterval: Codable, Hashable, Equatable {
+public struct NonNegativeInterval: Codable, Hashable, Equatable {
     var lowerBound: UInt
     var upperBound: UInt64
     
-    init(lowerBound: UInt, upperBound: UInt64) {
+    public init(lowerBound: UInt, upperBound: UInt64) {
         precondition(lowerBound <= upperBound, "Lower bound must be less than or equal to upper bound")
         self.lowerBound = lowerBound
         self.upperBound = upperBound
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         lowerBound = try container.decode(UInt.self)
         upperBound = try container.decode(UInt64.self)
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(lowerBound)
         try container.encode(upperBound)
@@ -129,20 +129,20 @@ struct NonNegativeInterval: Codable, Hashable, Equatable {
 
 // MARK: - UnitInterval
 /// A unit interval is a number in the range between 0 and 1
-struct UnitInterval: Codable, Equatable, Hashable {
+public struct UnitInterval: Codable, Equatable, Hashable {
     let numerator: UInt
     let denominator: UInt
     
     static let tag = 30
     
-    init(numerator: UInt, denominator: UInt) {
+    public init(numerator: UInt, denominator: UInt) {
         precondition(numerator <= denominator, "Numerator must be less than or equal to denominator")
         precondition(denominator > 0, "Denominator must be greater than zero")
         self.numerator = numerator
         self.denominator = denominator
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         
         let cborData = try container.decode(CBOR.self)
@@ -169,7 +169,7 @@ struct UnitInterval: Codable, Equatable, Hashable {
         }
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         
         let cborData: CBOR = .tagged(
@@ -185,14 +185,14 @@ struct UnitInterval: Codable, Equatable, Hashable {
 }
 
 // MARK: - Url
-struct Url: Codable, Hashable {
+public struct Url: Codable, Hashable {
     let value: URL
     
     var absoluteString: String {
         return value.absoluteString
     }
     
-    init(_ value: String) throws {
+    public init(_ value: String) throws {
         guard value.count <= 128 else {
             throw CardanoCoreError.valueError("URL exceeds the maximum length of 128 characters.")
         }
@@ -206,16 +206,16 @@ struct Url: Codable, Hashable {
 }
 
 // MARK: - Anchor
-struct Anchor: Codable, Hashable {
+public struct Anchor: Codable, Hashable {
     let anchorUrl: Url
     let anchorDataHash: AnchorDataHash
     
-    init(anchorUrl: Url, anchorDataHash: AnchorDataHash) {
+    public init(anchorUrl: Url, anchorDataHash: AnchorDataHash) {
         self.anchorUrl = anchorUrl
         self.anchorDataHash = anchorDataHash
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         let url = try container.decode(String.self)
         let dataHash = try container.decode(Data.self)
@@ -224,7 +224,7 @@ struct Anchor: Codable, Hashable {
         self.anchorDataHash =  AnchorDataHash(payload: dataHash)
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(anchorUrl.value.absoluteString)
         try container.encode(anchorDataHash.payload)
@@ -240,7 +240,7 @@ protocol CBORTaggable: Codable, Equatable, Hashable {
 }
 
 extension CBORTaggable {
-    func toCBOR() -> CBOR {
+    public func toCBOR() -> CBOR {
         let cborData = try! CBOREncoder().encode(value).toCBOR
         return .tagged(
             CBOR.Tag(rawValue: tag),
@@ -248,7 +248,7 @@ extension CBORTaggable {
         )
     }
     
-    func fromCBOR(_ cbor: CBOR) throws -> Self {
+    public func fromCBOR(_ cbor: CBOR) throws -> Self {
         guard case let .tagged(tag, value) = cbor else {
             throw CardanoCoreError.valueError("CBOR value is not tagged")
         }
@@ -258,7 +258,7 @@ extension CBORTaggable {
         )
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let cborData = try container.decode(CBOR.self)
         
@@ -271,38 +271,38 @@ extension CBORTaggable {
         }
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         try container.encode(toCBOR())
     }
     
-    static func == (lhs: any CBORTaggable, rhs: any CBORTaggable) -> Bool {
+    public static func == (lhs: any CBORTaggable, rhs: any CBORTaggable) -> Bool {
         return lhs.tag == rhs.tag && lhs.value == rhs.value
     }
 }
 
-struct CBORTag: CBORTaggable {
+public struct CBORTag: CBORTaggable {
     var tag: UInt64
     var value: AnyValue
 }
 
 // MARK: - ByteString
-struct ByteString: Hashable {
+public struct ByteString: Hashable {
     let value: Data
 
     init(value: Data) {
         self.value = value
     }
 
-    static func == (lhs: ByteString, rhs: ByteString) -> Bool {
+    public static func == (lhs: ByteString, rhs: ByteString) -> Bool {
         return lhs.value == rhs.value
     }
 
-    func hash(into hasher: inout Hasher) {
+    public func hash(into hasher: inout Hasher) {
         hasher.combine(value)
     }
 
-    func isEqual(to other: Any) -> Bool {
+    public func isEqual(to other: Any) -> Bool {
         if let otherByteString = other as? ByteString {
             return self.value == otherByteString.value
         } else if let otherData = other as? Data {
@@ -314,7 +314,7 @@ struct ByteString: Hashable {
 }
 
 // MARK: - IndefiniteList
-struct IndefiniteList<T>: Codable, Equatable where T: Hashable, T:Codable {
+public struct IndefiniteList<T>: Codable, Hashable, Equatable where T: Hashable, T:Codable {
     private var items: [T]
     
     init(_ items: [T] = []) {
@@ -358,7 +358,7 @@ struct IndefiniteList<T>: Codable, Equatable where T: Hashable, T:Codable {
         return "IndefiniteList: \(items)"
     }
     
-    static func == (lhs: IndefiniteList<T>, rhs: IndefiniteList<T>) -> Bool {
+    public static func == (lhs: IndefiniteList<T>, rhs: IndefiniteList<T>) -> Bool {
         return lhs.items == rhs.items
     }
 }
@@ -388,11 +388,11 @@ extension SetTaggable {
         }
     }
     
-    static var TAG: UInt64 { 258 }
+    public static var TAG: UInt64 { 258 }
     
     var count: Int { return elements.count }
 
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let cborData = try container.decode(CBOR.self)
 
@@ -438,23 +438,23 @@ extension SetTaggable {
         }
     }
     
-    func contains(_ element: Element) -> Bool {
+    public func contains(_ element: Element) -> Bool {
         return elements.contains(element)
     }
 }
 
-struct CBORSet<T: Codable & Hashable>: SetTaggable {
-    typealias Element = T
-    var elements: Set<Element> = Set()
+public struct CBORSet<T: Codable & Hashable>: SetTaggable {
+    public typealias Element = T
+    public var elements: Set<Element> = Set()
     
-    init(tag: UInt64 = Self.TAG, value: AnyValue) {
+    public init(tag: UInt64 = 258, value: AnyValue) {
         guard tag == Self.TAG else {
             fatalError("Invalid CBOR tag: expected \(Self.TAG) but found \(tag)")
         }
         self.value = value
     }
     
-    init(_ elements: Set<Element>) {
+    public init(_ elements: Set<Element>) {
         self.init(
             tag: Self.TAG,
             value: AnyValue
@@ -466,16 +466,16 @@ struct CBORSet<T: Codable & Hashable>: SetTaggable {
     }
 }
 
-struct NonEmptyCBORSet<T: Codable & Hashable>: SetTaggable {
-    typealias Element = T
-    var elements: Set<Element> = Set()
+public struct NonEmptyCBORSet<T: Codable & Hashable>: SetTaggable {
+    public typealias Element = T
+    public var elements: Set<Element> = Set()
     
-    init(_ elements: [Element]) {
+    public init(_ elements: [Element]) {
         precondition(!elements.isEmpty, "NonEmptyCBORSet must contain at least one element")
         self.elements = Set(elements)
     }
 
-    init(tag: UInt64 = Self.TAG, value: AnyValue) {
+    public init(tag: UInt64 = 258, value: AnyValue) {
         precondition(
             (value.isEmpty == nil) || (value.isEmpty == false),
             "NonEmptySet must contain at least one element"
@@ -486,7 +486,7 @@ struct NonEmptyCBORSet<T: Codable & Hashable>: SetTaggable {
         self.value = value
     }
 
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let cborData = try container.decode(CBOR.self)
 

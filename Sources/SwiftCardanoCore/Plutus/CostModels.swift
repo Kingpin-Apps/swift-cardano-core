@@ -2,39 +2,13 @@ import Foundation
 import PotentCBOR
 
 
-struct CostModels: Codable, Hashable {
+public struct CostModels: Codable, Hashable {
     typealias KEY_TYPE = Int
     typealias VALUE_TYPE = Dictionary<String, Int>
     
-    var plutusV1: Dictionary<String, Int>?
-    var plutusV2: Dictionary<String, Int>?
-    var plutusV3: Dictionary<String, Int>?
-    
-        
-//    var data: [KEY_TYPE: VALUE_TYPE] {
-//        get {
-//            _data
-//        }
-//        set {
-//            _data = newValue
-//        }
-//    }
-//    private var _data: [KEY_TYPE: VALUE_TYPE] = [:]
-//    
-//    subscript(key: KEY_TYPE) -> VALUE_TYPE? {
-//        get {
-//            return _data[key]
-//        }
-//        set {
-//            _data[key] = newValue
-//        }
-//    }
-    
-//    enum CodingKeys: String, CodingKey {
-//        case plutusV1 = "plutus_v1"
-//        case plutusV2 = "plutus_v2"
-//        case plutusV3 = "plutus_v3"
-//    }
+    public let plutusV1: Dictionary<String, Int>?
+    public let plutusV2: Dictionary<String, Int>?
+    public let plutusV3: Dictionary<String, Int>?
     
     enum CodingKeys: Int, CodingKey {
         case plutusV1 = 0
@@ -42,64 +16,37 @@ struct CostModels: Codable, Hashable {
         case plutusV3 = 2
     }
     
-    init(_ data: [AnyHashable: AnyHashable]) throws {
-//        try super.init(data as! [KEY_TYPE: VALUE_TYPE])
+    public init(_ data: [AnyHashable: AnyHashable]) throws {
         plutusV1 = data[0] as? VALUE_TYPE
         plutusV2 = data[1] as? VALUE_TYPE
         plutusV3 = data[2] as? VALUE_TYPE
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         plutusV1 = try container.decodeIfPresent(VALUE_TYPE.self, forKey: .plutusV1)
         plutusV2 = try container.decodeIfPresent(VALUE_TYPE.self, forKey: .plutusV2)
         plutusV3 = try container.decodeIfPresent(VALUE_TYPE.self, forKey: .plutusV3)
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encodeIfPresent(plutusV1, forKey: .plutusV1)
         try container.encodeIfPresent(plutusV2, forKey: .plutusV2)
         try container.encodeIfPresent(plutusV3, forKey: .plutusV3)
     }
 
-    static func fromStaticData() throws -> CostModels {
+    public static func fromStaticData() throws -> CostModels {
         return try CostModels([
             0: PLUTUS_V1_COST_MODEL,
             1: PLUTUS_V2_COST_MODEL,
             2: PLUTUS_V3_COST_MODEL
         ])
     }
-
-//    override func toShallowPrimitive() throws -> Any {
-//        guard let data = data as? [KEY_TYPE: VALUE_TYPE] else {
-//            throw CardanoCoreError.valueError("Invalid data type for CostModels")
-//        }
-//            
-//        var result: [AnyHashable:Any] = [:]
-//        
-//        for (language, costModel) in data.sorted(by: { $0.key < $1.key }) {
-//            if language == 0 {
-//                // Due to a bug in the Haskell implementation of ledger, we need to serialize the cost models twice.
-//                // See [here](https://github.com/input-output-hk/cardano-ledger/blob/c9512ec56cd9b9ea20adea567649410289da0acc/eras/alonzo/test-suite/cddl-files/alonzo.cddl#L111-L115)
-//                // and [here](https://github.com/input-output-hk/cardano-ledger/issues/2512)
-//                let l_cbor = CBOR.unsignedInt(UInt64(language))
-//                let cm = IndefiniteList(costModel.sorted(by: { $0.key < $1.key }).map { $0.value })
-//                result[l_cbor] = CBOR.fromAny(cm)
-//            } else {
-//                result[language] = costModel.sorted(by: { $0.key < $1.key }).map { $0.value }
-//            }
-//        }
-//        return result
-//    }
-//
-//    override class func fromPrimitive<T>(_ value: Any) throws -> T {
-//        throw CardanoCoreError.decodingError("Deserialization of cost model is impossible, because some information is lost during serialization.")
-//    }
 }
 
 
-let PLUTUS_V1_COST_MODEL = [
+public let PLUTUS_V1_COST_MODEL = [
     "addInteger-cpu-arguments-intercept": 100788,
     "addInteger-cpu-arguments-slope": 420,
     "addInteger-memory-arguments-intercept": 1,
@@ -268,7 +215,7 @@ let PLUTUS_V1_COST_MODEL = [
     "verifyEd25519Signature-memory-arguments": 10
   ]
 
-let PLUTUS_V2_COST_MODEL = [
+public let PLUTUS_V2_COST_MODEL = [
     "addInteger-cpu-arguments-intercept": 100788,
     "addInteger-cpu-arguments-slope": 420,
     "addInteger-memory-arguments-intercept": 1,
@@ -446,7 +393,7 @@ let PLUTUS_V2_COST_MODEL = [
     "verifySchnorrSecp256k1Signature-memory-arguments": 10
 ]
 
-let PLUTUS_V3_COST_MODEL = [
+public let PLUTUS_V3_COST_MODEL = [
       "addInteger-cpu-arguments-intercept": 100788,
       "addInteger-cpu-arguments-slope": 420,
       "addInteger-memory-arguments-intercept": 1,

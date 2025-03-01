@@ -1,7 +1,7 @@
 import Foundation
 import PotentCBOR
 
-struct ExecutionUnits: Codable {
+struct ExecutionUnits: Codable, Equatable, Hashable {
 
     var mem: Int
     var steps: Int

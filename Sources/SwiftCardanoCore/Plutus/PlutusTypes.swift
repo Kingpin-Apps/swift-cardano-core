@@ -38,7 +38,7 @@ enum ScriptType: Codable, Equatable, Hashable {
 }
 
 // MARK: - RawDatum
-enum RawDatum: Codable, Equatable, Hashable {
+public enum RawDatum: Codable, Equatable, Hashable {
     case plutusData(PlutusData)
     case dict(Dictionary<AnyValue, AnyValue>)
     case int(Int)
@@ -47,7 +47,7 @@ enum RawDatum: Codable, Equatable, Hashable {
     case cbor(CBOR)
     case cborTag(CBORTag)
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         if let plutusData = try? container.decode(PlutusData.self) {
             self = .plutusData(plutusData)
@@ -76,7 +76,7 @@ enum RawDatum: Codable, Equatable, Hashable {
         }
     }
 
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         switch self {
             case .plutusData(let plutusData):
@@ -96,11 +96,7 @@ enum RawDatum: Codable, Equatable, Hashable {
         }
     }
     
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(self)
-    }
-    
-    static func == (lhs: RawDatum, rhs: RawDatum) -> Bool {
+    public static func == (lhs: RawDatum, rhs: RawDatum) -> Bool {
         switch (lhs, rhs) {
             case (.plutusData(let lhs), .plutusData(let rhs)):
                 return lhs == rhs
@@ -177,35 +173,6 @@ enum Datum: Codable, Equatable, Hashable {
                 try container.encode(rawPlutusData)
         }
     }
-    
-//    func toCBOR() throws -> Data {
-//        switch self {
-//            case .plutusData(let plutusData):
-//                return try plutusData.toCBOR()
-//            case .dict(let dict):
-//                return try CBORSerialization.data(
-//                    from: CBOR.fromAny(dict)
-//                )
-//            case .int(let int):
-//                return try CBORSerialization.data(
-//                    from: CBOR.unsignedInt(UInt64(int))
-//                )
-//            case .bytes(let bytes):
-//                return try CBORSerialization.data(
-//                    from: CBOR.byteString(bytes)
-//                )
-//            case .indefiniteList(let list):
-//                return try CBORSerialization.data(
-//                    from: CBOR.array(list.getAll().map { CBOR.fromAny($0) })
-//                )
-//            case .cbor(let cbor):
-//                return try CBORSerialization.data(
-//                    from: cbor
-//                )
-//            case .rawPlutusData(let rawPlutusData):
-//                return try rawPlutusData.data.toCBOR()
-//        }
-//    }
     
     static func == (lhs: Datum, rhs: Datum) -> Bool {
         switch (lhs, rhs) {

@@ -28,7 +28,7 @@ protocol ConstrainedBytes: Codable, Equatable, Hashable, CustomStringConvertible
 }
 
 extension ConstrainedBytes {
-    var payload: Data {
+    public var payload: Data {
         get { return self.payload }
         set {
             guard newValue.count <= Self.maxSize, newValue.count >= Self.minSize else {
@@ -39,22 +39,23 @@ extension ConstrainedBytes {
             payload = newValue
         }
     }
-    func encode(to encoder: Encoder) throws {
+    
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         try container.encode(payload)
     }
 
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let payload = try container.decode(Data.self)
         try self.init(payload: payload)
     }
     
-    func hash(into hasher: inout Hasher) {
+    public func hash(into hasher: inout Hasher) {
         hasher.combine(payload)
     }
     
-    static func == (lhs: Self, rhs: Self) -> Bool {
+    public static func == (lhs: Self, rhs: Self) -> Bool {
         return lhs.payload == rhs.payload
     }
     
@@ -68,14 +69,14 @@ extension ConstrainedBytes {
 }
 
 /// Hash of a Cardano verification key.
-struct VerificationKeyHash: ConstrainedBytes {
+public struct VerificationKeyHash: ConstrainedBytes {
     var payload: Data
     static var maxSize: Int { VERIFICATION_KEY_HASH_SIZE }
     static var minSize: Int { VERIFICATION_KEY_HASH_SIZE }
 }
 
 /// Hash of a policy/plutus script.
-struct ScriptHash: ConstrainedBytes {
+public struct ScriptHash: ConstrainedBytes {
     var payload: Data
     static var maxSize: Int { SCRIPT_HASH_SIZE }
     static var minSize: Int { SCRIPT_HASH_SIZE }
@@ -86,84 +87,84 @@ typealias PolicyHash = ScriptHash
 
 /// Hash of script data.
 /// See: [alonzo.cddl](https://github.com/input-output-hk/cardano-ledger/blob/525844be05adae151e82069dcd0000f3301ca0d0/eras/alonzo/test-suite/cddl-files/alonzo.cddl#L79-L86)
-struct ScriptDataHash: ConstrainedBytes {
+public struct ScriptDataHash: ConstrainedBytes {
     var payload: Data
     static var maxSize: Int { SCRIPT_DATA_HASH_SIZE }
     static var minSize: Int { SCRIPT_DATA_HASH_SIZE }
 }
 
 /// Hash of a transaction.
-struct TransactionId: ConstrainedBytes {
+public struct TransactionId: ConstrainedBytes {
     var payload: Data
     static var maxSize: Int { TRANSACTION_HASH_SIZE }
     static var minSize: Int { TRANSACTION_HASH_SIZE }
 }
 
 /// Hash of a datum.
-struct DatumHash: ConstrainedBytes {
+public struct DatumHash: ConstrainedBytes {
     var payload: Data
     static var maxSize: Int { DATUM_HASH_SIZE }
     static var minSize: Int { DATUM_HASH_SIZE }
 }
 
 /// Hash of auxiliary data.
-struct AuxiliaryDataHash: ConstrainedBytes {
+public struct AuxiliaryDataHash: ConstrainedBytes {
     var payload: Data
     static var maxSize: Int { AUXILIARY_DATA_HASH_SIZE }
     static var minSize: Int { AUXILIARY_DATA_HASH_SIZE }
 }
 
 /// Hash of a stake pool.
-struct PoolKeyHash: ConstrainedBytes {
+public struct PoolKeyHash: ConstrainedBytes {
     var payload: Data
     static var maxSize: Int { POOL_KEY_HASH_SIZE }
     static var minSize: Int { POOL_KEY_HASH_SIZE }
 }
 
 /// Hash of a stake pool metadata.
-struct PoolMetadataHash: ConstrainedBytes {
+public struct PoolMetadataHash: ConstrainedBytes {
     var payload: Data
     static var maxSize: Int { POOL_METADATA_HASH_SIZE }
     static var minSize: Int { POOL_METADATA_HASH_SIZE }
 }
 
 /// Hash of a Cardano VRF key.
-struct VrfKeyHash: ConstrainedBytes {
+public struct VrfKeyHash: ConstrainedBytes {
     var payload: Data
     static var maxSize: Int { VRF_KEY_HASH_SIZE }
     static var minSize: Int { VRF_KEY_HASH_SIZE }
 }
 
 /// Hash of a Cardano VRF key.
-struct RewardAccountHash: ConstrainedBytes {
+public struct RewardAccountHash: ConstrainedBytes {
     var payload: Data
     static var maxSize: Int { REWARD_ACCOUNT_HASH_SIZE }
     static var minSize: Int { REWARD_ACCOUNT_HASH_SIZE }
 }
 
 /// Hash of a genesis key.
-struct GenesisHash: ConstrainedBytes {
+public struct GenesisHash: ConstrainedBytes {
     var payload: Data
     static var maxSize: Int { GENESIS_HASH_SIZE }
     static var minSize: Int { GENESIS_HASH_SIZE }
 }
 
 /// Hash of a genesis delegate key.
-struct GenesisDelegateHash: ConstrainedBytes {
+public struct GenesisDelegateHash: ConstrainedBytes {
     var payload: Data
     static var maxSize: Int { GENESIS_DELEGATE_HASH_SIZE }
     static var minSize: Int { GENESIS_DELEGATE_HASH_SIZE }
 }
 
 /// Hash of a genesis delegate key.
-struct AddressKeyHash: ConstrainedBytes {
+public struct AddressKeyHash: ConstrainedBytes {
     var payload: Data
     static var maxSize: Int { ADDRESS_KEY_HASH_SIZE }
     static var minSize: Int { ADDRESS_KEY_HASH_SIZE }
 }
 
 /// Hash of a genesis delegate key.
-struct AnchorDataHash: ConstrainedBytes {
+public struct AnchorDataHash: ConstrainedBytes {
     var payload: Data
     static var maxSize: Int { ANCHOR_DATA_HASH_SIZE }
     static var minSize: Int { ANCHOR_DATA_HASH_SIZE }

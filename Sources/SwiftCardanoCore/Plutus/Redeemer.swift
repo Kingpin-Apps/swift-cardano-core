@@ -40,26 +40,4 @@ struct Redeemer: Codable {
         try container.encode(data)
         try container.encode(exUnits)
     }
-    
-//    static func fromPrimitive<T>(_ value: Any) throws -> T {
-//        guard var values = value as? [Any], values.count == 4 else {
-//            throw CardanoCoreError.valueError("Invalid Redeemer values")
-//        }
-//        
-//        if case CBOR.tagged(_, _) = values[2] {
-//            values[2] = try RawPlutusData.fromPrimitive(values[2])
-//        }
-//        
-//        let redeemer: Redeemer = try Redeemer.fromPrimitive([values[2], values[3]])
-//        
-//        let tag: RedeemerTag = try RedeemerTag.fromPrimitive(values[0])
-//        let index = values[1] as! Int
-//        redeemer.tag = tag
-//        redeemer.index = index
-//        return redeemer as! T
-//    }
-//
-//    func toCBOR() -> [Any] {
-//        return [tag?.rawValue ?? 0, index, data, exUnits?.toCBOR() ?? []]
-//    }
 }
