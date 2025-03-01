@@ -306,3 +306,40 @@ let poolIdHexFilePath = (
     ofType: "id",
     inDirectory: "data"
 )
+
+// MARK: - Config Paths
+let alonzoGenesisJSONFilePath = (
+    forResource: "alonzo-genesis",
+    ofType: "json",
+    inDirectory: "data/config/mainnet"
+)
+
+let byronGenesisJSONFilePath = (
+    forResource: "byron-genesis",
+    ofType: "json",
+    inDirectory: "data/config/mainnet"
+)
+
+let conwayGenesisJSONFilePath = (
+    forResource: "conway-genesis",
+    ofType: "json",
+    inDirectory: "data/config/mainnet"
+)
+
+let shelleyGenesisJSONFilePath = (
+    forResource: "shelley-genesis",
+    ofType: "json",
+    inDirectory: "data/config/mainnet"
+)
+
+let nodeConfigJSONFilePath = (
+    forResource: "config",
+    ofType: "json",
+    inDirectory: "data/config/mainnet"
+)
+
+let topologyJSONFilePath = (
+    forResource: "topology",
+    ofType: "json",
+    inDirectory: "data/config/mainnet"
+)
