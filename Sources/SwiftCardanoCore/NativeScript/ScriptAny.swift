@@ -14,7 +14,7 @@ struct ScriptAny: NativeScript {
     }
     
     init(from decoder: Swift.Decoder) throws {
-        if decoder is JSONDecoder {
+        if String(describing: type(of: decoder)).contains("JSONDecoder") {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             let typeString = try container.decode(String.self, forKey: .type)
             
@@ -36,7 +36,7 @@ struct ScriptAny: NativeScript {
     }
 
     func encode(to encoder: Swift.Encoder) throws {
-        if encoder is JSONEncoder {
+        if String(describing: type(of: encoder)).contains("JSONEncoder") {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(Self.TYPE.description(), forKey: .type)
             try container.encode(scripts, forKey: .scripts)
@@ -48,11 +48,12 @@ struct ScriptAny: NativeScript {
     }
     
     static func fromDict(_ dict: Dictionary<AnyHashable, Any>) throws -> ScriptAny {
-        guard let scripts = dict["scripts"] as? [NativeScripts] else {
-            throw CardanoCoreError.decodingError("Invalid ScriptAny scripts")
+        guard let scripts = dict["scripts"] as? [Dictionary<AnyHashable, Any>] else {
+            throw CardanoCoreError.decodingError("Invalid ScriptAll scripts")
         }
         
-        return ScriptAny(scripts: scripts)
+        let nativeScripts = try scripts.map { try NativeScripts.fromDict($0) }
+        return ScriptAny(scripts: nativeScripts)
     }
 
 }

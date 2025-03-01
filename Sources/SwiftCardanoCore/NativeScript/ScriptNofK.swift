@@ -17,7 +17,7 @@ struct ScriptNofK: NativeScript {
     }
     
     init(from decoder: Swift.Decoder) throws {
-        if decoder is JSONDecoder {
+        if String(describing: type(of: decoder)).contains("JSONDecoder") {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             let typeString = try container.decode(String.self, forKey: .type)
             
@@ -41,7 +41,7 @@ struct ScriptNofK: NativeScript {
     }
 
     func encode(to encoder: Swift.Encoder) throws {
-        if encoder is JSONEncoder {
+        if String(describing: type(of: encoder)).contains("JSONEncoder") {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(Self.TYPE.description(), forKey: .type)
             try container.encode(required, forKey: .required)
@@ -59,11 +59,13 @@ struct ScriptNofK: NativeScript {
             throw CardanoCoreError.decodingError("Invalid required value")
         }
         
-        guard let scripts = dict["scripts"] as? [NativeScripts] else {
-            throw CardanoCoreError.decodingError("Invalid scripts value")
+        guard let scripts = dict["scripts"] as? [Dictionary<AnyHashable, Any>] else {
+            throw CardanoCoreError.decodingError("Invalid ScriptAll scripts")
         }
         
-        return ScriptNofK(required: required, scripts: scripts)
+        let nativeScripts = try scripts.map { try NativeScripts.fromDict($0) }
+        
+        return ScriptNofK(required: required, scripts: nativeScripts)
     }
 
 }

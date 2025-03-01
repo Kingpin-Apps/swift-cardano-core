@@ -14,7 +14,7 @@ struct ScriptAll: NativeScript {
     }
     
     init(from decoder: Swift.Decoder) throws {
-        if decoder is JSONDecoder {
+        if String(describing: type(of: decoder)).contains("JSONDecoder") {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             let typeString = try container.decode(String.self, forKey: .type)
             
@@ -35,7 +35,7 @@ struct ScriptAll: NativeScript {
     }
 
     func encode(to encoder: Swift.Encoder) throws {
-        if encoder is JSONEncoder {
+        if String(describing: type(of: encoder)).contains("JSONEncoder") {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(Self.TYPE.description(), forKey: .type)
             try container.encode(scripts, forKey: .scripts)
@@ -51,10 +51,7 @@ struct ScriptAll: NativeScript {
             throw CardanoCoreError.decodingError("Invalid ScriptAll scripts")
         }
         
-        var nativeScripts = [NativeScripts]()
-        for script in scripts {
-            nativeScripts.append(try NativeScripts.fromDict(script))
-        }
+        let nativeScripts = try scripts.map { try NativeScripts.fromDict($0) }
         
         return ScriptAll(scripts: nativeScripts)
     }

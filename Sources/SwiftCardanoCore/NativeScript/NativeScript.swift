@@ -12,6 +12,10 @@ enum NativeScripts: Codable, Equatable, Hashable {
     case invalidBefore(BeforeScript)
     case invalidHereAfter(AfterScript)
     
+    enum CodingKeys: String, CodingKey {
+        case type
+    }
+    
     func scriptHash() throws -> ScriptHash {
         switch self {
             case .scriptPubkey(let script): return try script.hash()
@@ -23,14 +27,89 @@ enum NativeScripts: Codable, Equatable, Hashable {
         }
     }
     
-    func toJSON() -> String? {
-        switch self {
-            case .scriptPubkey(let script): return script.toJSON()
-            case .scriptAll(let script): return script.toJSON()
-            case .scriptAny(let script): return script.toJSON()
-            case .scriptNofK(let script): return script.toJSON()
-            case .invalidBefore(let script): return script.toJSON()
-            case .invalidHereAfter(let script): return script.toJSON()
+    init(from decoder: Swift.Decoder) throws {
+        if String(describing: type(of: decoder)).contains("JSONDecoder") {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            let typeString = try container.decode(String.self, forKey: .type)
+            
+            switch typeString {
+                case ScriptPubkey.TYPE.description():
+                    self = .scriptPubkey(try ScriptPubkey(from: decoder))
+                case ScriptAll.TYPE.description():
+                    self = .scriptAll(try ScriptAll(from: decoder))
+                case ScriptAny.TYPE.description():
+                    self = .scriptAny(try ScriptAny(from: decoder))
+                case ScriptNofK.TYPE.description():
+                    self = .scriptNofK(try ScriptNofK(from: decoder))
+                case BeforeScript.TYPE.description():
+                    self = .invalidBefore(try BeforeScript(from: decoder))
+                case AfterScript.TYPE.description():
+                    self = .invalidHereAfter(try AfterScript(from: decoder))
+                default:
+                    throw CardanoCoreError.decodingError("Invalid NativeScripts type: \(typeString)")
+            }
+            
+        } else {
+            var container = try decoder.unkeyedContainer()
+            let code = try container.decode(Int.self)
+            
+            switch code {
+                case ScriptPubkey.TYPE.rawValue:
+                    self = .scriptPubkey(try ScriptPubkey(from: decoder))
+                case ScriptAll.TYPE.rawValue:
+                    self = .scriptAll(try ScriptAll(from: decoder))
+                case ScriptAny.TYPE.rawValue:
+                    self = .scriptAny(try ScriptAny(from: decoder))
+                case ScriptNofK.TYPE.rawValue:
+                    self = .scriptNofK(try ScriptNofK(from: decoder))
+                case BeforeScript.TYPE.rawValue:
+                    self = .invalidBefore(try BeforeScript(from: decoder))
+                case AfterScript.TYPE.rawValue:
+                    self = .invalidHereAfter(try AfterScript(from: decoder))
+                default:
+                    throw CardanoCoreError.decodingError("Invalid NativeScripts type: \(code)")
+            }
+        }
+    }
+    
+    func encode(to encoder: Swift.Encoder) throws {
+        if String(describing: type(of: encoder)).contains("JSONEncoder") {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            switch self {
+                case .scriptPubkey(let script):
+                    try container.encode(ScriptPubkey.TYPE.description(), forKey: .type)
+                    try script.encode(to: encoder)
+                case .scriptAll(let script):
+                    try container.encode(ScriptAll.TYPE.description(), forKey: .type)
+                    try script.encode(to: encoder)
+                case .scriptAny(let script):
+                    try container.encode(ScriptAny.TYPE.description(), forKey: .type)
+                    try script.encode(to: encoder)
+                case .scriptNofK(let script):
+                    try container.encode(ScriptNofK.TYPE.description(), forKey: .type)
+                    try script.encode(to: encoder)
+                case .invalidBefore(let script):
+                    try container.encode(BeforeScript.TYPE.description(), forKey: .type)
+                    try script.encode(to: encoder)
+                case .invalidHereAfter(let script):
+                    try container.encode(AfterScript.TYPE.description(), forKey: .type)
+                    try script.encode(to: encoder)
+            }
+        } else {
+            switch self {
+                case .scriptPubkey(let script):
+                    try script.encode(to: encoder)
+                case .scriptAll(let script):
+                    try script.encode(to: encoder)
+                case .scriptAny(let script):
+                    try script.encode(to: encoder)
+                case .scriptNofK(let script):
+                    try script.encode(to: encoder)
+                case .invalidBefore(let script):
+                    try script.encode(to: encoder)
+                case .invalidHereAfter(let script):
+                    try script.encode(to: encoder)
+            }
         }
     }
     
