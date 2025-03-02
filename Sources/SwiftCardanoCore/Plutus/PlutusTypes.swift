@@ -4,12 +4,12 @@ import PotentCodables
 import PotentCBOR
 
 // MARK: - PlutusScript
-typealias PlutusV1Script = Data
-typealias PlutusV2Script = Data
-typealias PlutusV3Script = Data
+public typealias PlutusV1Script = Data
+public typealias PlutusV2Script = Data
+public typealias PlutusV3Script = Data
 
 // MARK: - ScriptType
-enum ScriptType: Codable, Equatable, Hashable {
+public enum ScriptType: Codable, Equatable, Hashable {
     
 //    case bytes(Data)
     case nativeScript(NativeScripts)
@@ -17,7 +17,7 @@ enum ScriptType: Codable, Equatable, Hashable {
     case plutusV2Script(PlutusV2Script)
     case plutusV3Script(PlutusV3Script)
     
-    static func == (lhs: ScriptType, rhs: ScriptType) -> Bool {
+    public static func == (lhs: ScriptType, rhs: ScriptType) -> Bool {
         switch (lhs, rhs) {
             case (.nativeScript(let a), .nativeScript(let b)):
                 return a == b
@@ -32,7 +32,7 @@ enum ScriptType: Codable, Equatable, Hashable {
         }
     }
     
-    func hash(into hasher: inout Hasher) {
+    public func hash(into hasher: inout Hasher) {
         hasher.combine(self)
     }
 }

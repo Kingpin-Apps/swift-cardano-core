@@ -1,23 +1,23 @@
 import Foundation
 
-enum PaymentPart: Sendable {
+public enum PaymentPart: Sendable {
     case verificationKeyHash(VerificationKeyHash)
     case scriptHash(ScriptHash)
 }
 
-enum StakingPart: Sendable {
+public enum StakingPart: Sendable {
     case verificationKeyHash(VerificationKeyHash)
     case scriptHash(ScriptHash)
     case pointerAddress(PointerAddress)
 }
 
-enum AddressFromPrimitiveData {
+public enum AddressFromPrimitiveData {
     case bytes(Data)
     case string(String)
 }
 
 /// Address type definition.
-enum AddressType: Int {
+public enum AddressType: Int {
     
     /// Byron address
     case byron = 0b1000
@@ -54,7 +54,7 @@ enum AddressType: Int {
 }
 
 extension AddressType: CustomStringConvertible {
-    var description: String {
+    public var description: String {
         switch self {
         case .byron:
             return "byron"

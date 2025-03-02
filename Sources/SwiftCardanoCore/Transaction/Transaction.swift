@@ -3,7 +3,7 @@ import Foundation
 let _MAX_INT64: Int64 = (1 << 63) - 1
 let _MIN_INT64: Int64 = -(1 << 63)
 
-struct Transaction: Codable {
+public struct Transaction: Codable {
     var transactionBody: TransactionBody
     var transactionWitnessSet: TransactionWitnessSet
     var valid: Bool = true
@@ -13,7 +13,19 @@ struct Transaction: Codable {
         return transactionBody.id
     }
     
-    init(from decoder: Decoder) throws {
+    public init(
+        transactionBody: TransactionBody,
+        transactionWitnessSet: TransactionWitnessSet,
+        valid: Bool = true,
+        auxiliaryData: AuxiliaryData? = nil
+    ) {
+        self.transactionBody = transactionBody
+        self.transactionWitnessSet = transactionWitnessSet
+        self.valid = valid
+        self.auxiliaryData = auxiliaryData
+    }
+    
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         transactionBody = try container.decode(TransactionBody.self)
         transactionWitnessSet = try container.decode(TransactionWitnessSet.self)
@@ -21,7 +33,7 @@ struct Transaction: Codable {
         auxiliaryData = try container.decodeIfPresent(AuxiliaryData.self)
     }
 
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(transactionBody)
         try container.encode(transactionWitnessSet)
@@ -33,11 +45,8 @@ struct Transaction: Codable {
 /// A disctionary of reward addresses to reward withdrawal amount.
 ///
 /// Key is address bytes, value is an integer.
-class Withdrawals: Codable {
-    typealias KEY_TYPE = RewardAccount
-    typealias VALUE_TYPE = Coin
-    
-    var data: [KEY_TYPE: VALUE_TYPE] {
+public struct Withdrawals: Codable {
+    public var data: [RewardAccount: Coin] {
         get {
             _data
         }
@@ -45,10 +54,10 @@ class Withdrawals: Codable {
             _data = newValue
         }
     }
-    private var _data: [KEY_TYPE: VALUE_TYPE] = [:]
+    private var _data: [RewardAccount: Coin] = [:]
     
     // Subscript for easier key-value access
-    subscript(key: KEY_TYPE) -> VALUE_TYPE? {
+    public subscript(key: RewardAccount) -> Coin? {
         get {
             return _data[key]
         }

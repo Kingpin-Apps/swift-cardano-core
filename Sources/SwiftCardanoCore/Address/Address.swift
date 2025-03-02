@@ -8,7 +8,7 @@ import Foundation
 ///  - paymentPart: The payment part of the address.
 ///  - stakingPart: The staking part of the address.
 ///  - network: Type of network the address belongs to.
-struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
+public struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
     public var paymentPart: PaymentPart? { get { return _paymentPart } }
     private let _paymentPart: PaymentPart?
     
@@ -27,7 +27,7 @@ struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
     public var hrp: String { get { return _hrp } }
     private let _hrp: String
     
-    init(paymentPart: PaymentPart? = nil, stakingPart: StakingPart? = nil, network: Network = .mainnet) throws {
+    public init(paymentPart: PaymentPart? = nil, stakingPart: StakingPart? = nil, network: Network = .mainnet) throws {
         _paymentPart = paymentPart
         _stakingPart = stakingPart
         _network = network
@@ -36,13 +36,13 @@ struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
         _hrp = Address.computeHrp(addressType: _addressType, network: _network)
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let data = try container.decode(Data.self)
         self = try Address.fromPrimitive(data: data)
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         try container.encode(toBytes())
     }
@@ -100,13 +100,13 @@ struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
     ///   - addressType: Type of address.
     ///   - network: Type of network
     /// - Returns: The human-readable prefix.
-    static func computeHrp(addressType: AddressType, network: Network) -> String {
+    public static func computeHrp(addressType: AddressType, network: Network) -> String {
         let prefix = (addressType == .noneKey || addressType == .noneScript) ? "stake" : "addr"
         let suffix = (network == .mainnet) ? "" : "_test"
         return prefix + suffix
     }
     
-    var description: String {
+    public var description: String {
         do {
             return try self.toBech32()
         } catch {
@@ -115,7 +115,7 @@ struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
         
     }
     
-    func toBytes() -> Data {
+    public func toBytes() -> Data {
         let paymentData: Data
         if let paymentPart = paymentPart {
             switch paymentPart {
@@ -145,7 +145,7 @@ struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
         return headerByte + paymentData + stakingData
     }
     
-    static func == (lhs: Address, rhs: Address) -> Bool {
+    public static func == (lhs: Address, rhs: Address) -> Bool {
         // Check if paymentPart is the same
         let paymentCheck: Bool
         switch (lhs.paymentPart, rhs.paymentPart) {
@@ -216,7 +216,7 @@ struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
         return try self.fromPrimitive(data: data) as! T
     }
     
-    static func fromPrimitive(data: Data) throws -> Address {
+    public static func fromPrimitive(data: Data) throws -> Address {
         let header = data[0]
         let payload = data.dropFirst()
         
@@ -348,11 +348,11 @@ struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
         
     }
     
-    func hash(into hasher: inout Hasher) {
+    public func hash(into hasher: inout Hasher) {
         hasher.combine(toBytes())
     }
     
-    func save(to path: String) throws {
+    public func save(to path: String) throws {
         if FileManager.default.fileExists(atPath: path) {
             throw CardanoCoreError.ioError("File already exists: \(path)")
         }
@@ -361,7 +361,7 @@ struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
         try bech32String.write(toFile: path, atomically: true, encoding: .utf8)
     }
     
-    static func load(from path: String) throws -> Address {
+    public static func load(from path: String) throws -> Address {
         guard FileManager.default.fileExists(atPath: path) else {
             throw CardanoCoreError.ioError("File not found: \(path)")
         }

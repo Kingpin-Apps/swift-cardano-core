@@ -1,11 +1,11 @@
 import Foundation
 
 /// Network ID
-enum Network: Int, Codable, CaseIterable {
+public enum Network: Int, Codable, CaseIterable, Sendable {
     case testnet = 0
     case mainnet = 1
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let value = try container.decode(Int.self)
         
@@ -15,7 +15,7 @@ enum Network: Int, Codable, CaseIterable {
         self = network
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         try container.encode(self.rawValue)
     }

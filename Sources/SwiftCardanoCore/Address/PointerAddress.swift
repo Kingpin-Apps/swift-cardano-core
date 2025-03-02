@@ -9,7 +9,7 @@ import Foundation
 ///  - slot: Slot in which the staking certificate was posted.
 ///  - txIndex: The transaction index (within that slot).
 ///  - certIndex: A (delegation) certificate index (within that transaction).
-struct PointerAddress: Codable, Equatable {
+public struct PointerAddress: Codable, Equatable, Sendable {
     public var slot: Int { get { return _slot } }
     private let _slot: Int
     
@@ -19,7 +19,7 @@ struct PointerAddress: Codable, Equatable {
     public var certIndex: Int { get { return _certIndex } }
     private let _certIndex: Int
 
-    init(slot: Int, txIndex: Int, certIndex: Int) {
+    public init(slot: Int, txIndex: Int, certIndex: Int) {
         self._slot = slot
         self._txIndex = txIndex
         self._certIndex = certIndex
@@ -41,14 +41,14 @@ struct PointerAddress: Codable, Equatable {
     ///
     /// The encoding follows [CIP-0019#Pointers](https://github.com/cardano-foundation/CIPs/tree/master/CIP-0019#pointers).
     /// - Returns: Encoded bytes.
-    func encode() -> Data {
+    public func encode() -> Data {
         return encodeInt(slot) + encodeInt(txIndex) + encodeInt(certIndex)
     }
     
     /// Decode bytes into a PointerAddress.
     /// - Parameter data: The data to be decoded.
     /// - Returns: Decoded pointer address.
-    static func decode(_ data: Data) throws -> PointerAddress {
+    public static func decode(_ data: Data) throws -> PointerAddress {
         var ints = [Int]()
         var curInt = 0
         for byte in data {
@@ -70,7 +70,7 @@ struct PointerAddress: Codable, Equatable {
 
     // MARK: - Equatable
 
-    static func == (lhs: PointerAddress, rhs: PointerAddress) -> Bool {
+    public static func == (lhs: PointerAddress, rhs: PointerAddress) -> Bool {
         return lhs.slot == rhs.slot &&
                lhs.txIndex == rhs.txIndex &&
                lhs.certIndex == rhs.certIndex

@@ -4,7 +4,7 @@ import PotentCBOR
 
 
 // MARK: - MetadataType
-enum NativeScripts: Codable, Equatable, Hashable {
+public enum NativeScripts: Codable, Equatable, Hashable {
     case scriptPubkey(ScriptPubkey)
     case scriptAll(ScriptAll)
     case scriptAny(ScriptAny)
@@ -16,7 +16,7 @@ enum NativeScripts: Codable, Equatable, Hashable {
         case type
     }
     
-    func scriptHash() throws -> ScriptHash {
+    public func scriptHash() throws -> ScriptHash {
         switch self {
             case .scriptPubkey(let script): return try script.hash()
             case .scriptAll(let script): return try script.hash()
@@ -27,7 +27,7 @@ enum NativeScripts: Codable, Equatable, Hashable {
         }
     }
     
-    init(from decoder: Swift.Decoder) throws {
+    public init(from decoder: Swift.Decoder) throws {
         if String(describing: type(of: decoder)).contains("JSONDecoder") {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             let typeString = try container.decode(String.self, forKey: .type)
@@ -72,7 +72,7 @@ enum NativeScripts: Codable, Equatable, Hashable {
         }
     }
     
-    func encode(to encoder: Swift.Encoder) throws {
+    public func encode(to encoder: Swift.Encoder) throws {
         if String(describing: type(of: encoder)).contains("JSONEncoder") {
             var container = encoder.container(keyedBy: CodingKeys.self)
             switch self {
@@ -113,7 +113,7 @@ enum NativeScripts: Codable, Equatable, Hashable {
         }
     }
     
-    static func fromDict(_ dict: Dictionary<AnyHashable, Any>) throws -> NativeScripts {
+    public static func fromDict(_ dict: Dictionary<AnyHashable, Any>) throws -> NativeScripts {
         guard let type = dict["type"] as? String else {
             throw CardanoCoreError.decodingError("Missing type for NativeScript")
         }
@@ -131,7 +131,7 @@ enum NativeScripts: Codable, Equatable, Hashable {
 }
 
 // MARK: - NativeScriptType
-enum NativeScriptType: Int {
+public enum NativeScriptType: Int, Sendable {
     case scriptPubkey = 0
     case scriptAll = 1
     case scriptAny = 2
@@ -139,7 +139,7 @@ enum NativeScriptType: Int {
     case invalidBefore = 4
     case invalidHereAfter = 5
     
-    func description() -> String {
+    public func description() -> String {
         switch self {
             case .scriptPubkey: return "sig"
             case .scriptAll: return "all"
@@ -159,12 +159,12 @@ protocol NativeScript: JSONSerializable {
 
 // Extend the protocol for JSON encoding
 extension NativeScript {
-    static func fromJSON(_ json: String) throws -> Self {
+    public static func fromJSON(_ json: String) throws -> Self {
         let data = json.data(using: .utf8)!
         return try JSONDecoder().decode(Self.self, from: data)
     }
     
-    func toJSON() -> String? {
+    public func toJSON() -> String? {
         let encoder = JSONEncoder()
         encoder.outputFormatting = .prettyPrinted
         if let data = try? encoder.encode(self) {
@@ -173,12 +173,12 @@ extension NativeScript {
         return nil
     }
     
-    func toCBOR() throws -> Data {
+    public func toCBOR() throws -> Data {
         let cborEncoder = CBOREncoder()
         return try cborEncoder.encode(self)
     }
     
-    func hash() throws -> ScriptHash {
+    public func hash() throws -> ScriptHash {
         let cbor = try! CBOREncoder().encode(self)
         let hash = try Hash().blake2b(
             data: Data([0x01]) + cbor,
@@ -190,7 +190,7 @@ extension NativeScript {
         )
     }
     
-    func hash(into hasher: inout Hasher) {
+    public func hash(into hasher: inout Hasher) {
         hasher.combine(self)
     }
 }

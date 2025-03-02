@@ -51,6 +51,10 @@ extension ConstrainedBytes {
         try self.init(payload: payload)
     }
     
+    public init(from primitive: String) throws {
+        try self.init(payload: primitive.toData)
+    }
+    
     public func hash(into hasher: inout Hasher) {
         hasher.combine(payload)
     }

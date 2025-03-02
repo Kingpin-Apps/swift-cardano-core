@@ -50,7 +50,7 @@ struct VerificationKeyWitness: Codable {
     }
 }
 
-struct TransactionWitnessSet: Codable {
+public struct TransactionWitnessSet: Codable {
 
     var vkeyWitnesses: [VerificationKeyWitness]?
     var nativeScripts: [NativeScripts]?
@@ -90,7 +90,7 @@ struct TransactionWitnessSet: Codable {
         case plutusV3Script = 7
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         vkeyWitnesses = try container.decodeIfPresent([VerificationKeyWitness].self, forKey: .vkeyWitnesses)
         nativeScripts = try container.decodeIfPresent([NativeScripts].self, forKey: .nativeScripts)
@@ -102,7 +102,7 @@ struct TransactionWitnessSet: Codable {
         plutusV3Script = try container.decodeIfPresent([PlutusV3Script].self, forKey: .plutusV3Script)
     }
 
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encodeIfPresent(vkeyWitnesses, forKey: .vkeyWitnesses)
         try container.encodeIfPresent(nativeScripts, forKey: .nativeScripts)

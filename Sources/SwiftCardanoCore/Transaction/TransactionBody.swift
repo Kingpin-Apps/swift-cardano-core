@@ -2,7 +2,7 @@ import Foundation
 import SwiftNcal
 import PotentCBOR
 
-struct TransactionBody: Codable {
+public struct TransactionBody: Codable {
     var inputs: [TransactionInput] = []
     var outputs: [TransactionOutput] = []
     var fee: Coin
@@ -49,7 +49,7 @@ struct TransactionBody: Codable {
         case treasuryDonation = 22
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         inputs = try container.decode([TransactionInput].self, forKey: .inputs)
         outputs = try container.decode([TransactionOutput].self, forKey: .outputs)
@@ -74,7 +74,7 @@ struct TransactionBody: Codable {
         treasuryDonation = try container.decodeIfPresent(PositiveCoin.self, forKey: .treasuryDonation)
     }
 
-    func encode(to encoder: Swift.Encoder) throws {
+    public func encode(to encoder: Swift.Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(inputs, forKey: .inputs)
         try container.encode(outputs, forKey: .outputs)
@@ -99,18 +99,18 @@ struct TransactionBody: Codable {
         try container.encodeIfPresent(treasuryDonation, forKey: .treasuryDonation)
     }
 
-    func validate() throws {
+    public func validate() throws {
         if let mint = mint, try mint
             .count(criteria: { _, _, v in v < _MIN_INT64 || v > _MAX_INT64 }) > 0 {
             throw CardanoCoreError.invalidArgument("Invalid mint amount: \(mint)")
         }
     }
 
-    var id: TransactionId {
+    public var id: TransactionId {
         return TransactionId(payload: hash())
     }
     
-    func hash() -> Data {
+    public func hash() -> Data {
         return try! Hash().blake2b(
             data: try CBOREncoder().encode(self),
             digestSize: TRANSACTION_HASH_SIZE,

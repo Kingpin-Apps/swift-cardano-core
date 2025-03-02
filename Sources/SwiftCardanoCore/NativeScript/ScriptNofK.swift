@@ -1,9 +1,9 @@
 import Foundation
 
-struct ScriptNofK: NativeScript {
-    static let TYPE = NativeScriptType.scriptNofK
-    let required: Int
-    let scripts: [NativeScripts]
+public struct ScriptNofK: NativeScript {
+    public static let TYPE = NativeScriptType.scriptNofK
+    public let required: Int
+    public let scripts: [NativeScripts]
     
     enum CodingKeys: String, CodingKey {
         case type
@@ -11,12 +11,12 @@ struct ScriptNofK: NativeScript {
         case scripts
     }
     
-    init (required: Int, scripts: [NativeScripts]) {
+    public init (required: Int, scripts: [NativeScripts]) {
         self.required = required
         self.scripts = scripts
     }
     
-    init(from decoder: Swift.Decoder) throws {
+    public init(from decoder: Swift.Decoder) throws {
         if String(describing: type(of: decoder)).contains("JSONDecoder") {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             let typeString = try container.decode(String.self, forKey: .type)
@@ -40,7 +40,7 @@ struct ScriptNofK: NativeScript {
         }
     }
 
-    func encode(to encoder: Swift.Encoder) throws {
+    public func encode(to encoder: Swift.Encoder) throws {
         if String(describing: type(of: encoder)).contains("JSONEncoder") {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(Self.TYPE.description(), forKey: .type)
@@ -54,7 +54,7 @@ struct ScriptNofK: NativeScript {
         }
     }
     
-    static func fromDict(_ dict: Dictionary<AnyHashable, Any>) throws -> ScriptNofK {
+    public static func fromDict(_ dict: Dictionary<AnyHashable, Any>) throws -> ScriptNofK {
         guard let required = dict["required"] as? Int else {
             throw CardanoCoreError.decodingError("Invalid required value")
         }

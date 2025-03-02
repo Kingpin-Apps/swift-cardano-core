@@ -1,10 +1,10 @@
 import Foundation
 
-struct ScriptPubkey: NativeScript {
-    static let TYPE = NativeScriptType.scriptPubkey
-    let keyHash: VerificationKeyHash
+public struct ScriptPubkey: NativeScript {
+    public static let TYPE = NativeScriptType.scriptPubkey
+    public let keyHash: VerificationKeyHash
     
-    init(keyHash: VerificationKeyHash) {
+    public init(keyHash: VerificationKeyHash) {
         self.keyHash = keyHash
     }
     
@@ -13,7 +13,7 @@ struct ScriptPubkey: NativeScript {
         case keyHash
     }
     
-    init(from decoder: Swift.Decoder) throws {
+    public init(from decoder: Swift.Decoder) throws {
         if String(describing: type(of: decoder)).contains("JSONDecoder") {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             let typeString = try container.decode(String.self, forKey: .type)
@@ -36,7 +36,7 @@ struct ScriptPubkey: NativeScript {
         }
     }
 
-    func encode(to encoder: Swift.Encoder) throws {
+    public func encode(to encoder: Swift.Encoder) throws {
         if String(describing: type(of: encoder)).contains("JSONEncoder") {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(Self.TYPE.description(), forKey: .type)
@@ -48,7 +48,7 @@ struct ScriptPubkey: NativeScript {
         }
     }
     
-    static func fromDict(_ dict: Dictionary<AnyHashable, Any>) throws -> ScriptPubkey {
+    public static func fromDict(_ dict: Dictionary<AnyHashable, Any>) throws -> ScriptPubkey {
         guard let keyHashDict = dict["keyHash"] as? String else {
             throw CardanoCoreError.decodingError("Invalid ScriptPubkey keyHash")
         }

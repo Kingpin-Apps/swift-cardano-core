@@ -15,14 +15,14 @@ enum TransactionMetadatum: Codable, Hashable {
 }
 
 // MARK: - MetadataType
-enum MetadataType: Codable, Hashable, Equatable {
+public enum MetadataType: Codable, Hashable, Equatable {
     case metadata(Metadata)
     case shelleyMaryMetadata(ShelleyMaryMetadata)
     case alonzoMetadata(AlonzoMetadata)
 }
 
 // MARK: - Metadata
-struct Metadata: Codable, Hashable, Equatable {
+public struct Metadata: Codable, Hashable, Equatable {
     typealias KEY_TYPE = TransactionMetadatumLabel
     typealias VALUE_TYPE = TransactionMetadatum
     
@@ -61,12 +61,12 @@ struct Metadata: Codable, Hashable, Equatable {
         self.data = metadata
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         data = try container.decode([KEY_TYPE: VALUE_TYPE].self)
     }
 
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         try container.encode(data)
     }
@@ -95,7 +95,7 @@ struct Metadata: Codable, Hashable, Equatable {
 }
 
 // MARK: - ShelleyMaryMetadata
-struct ShelleyMaryMetadata: Codable, Hashable, Equatable {
+public struct ShelleyMaryMetadata: Codable, Hashable, Equatable {
     var metadata: Metadata
     var nativeScripts: [NativeScripts]?
     
@@ -104,13 +104,13 @@ struct ShelleyMaryMetadata: Codable, Hashable, Equatable {
         self.nativeScripts = nativeScripts
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         metadata = try container.decode(Metadata.self)
         nativeScripts = try container.decodeIfPresent([NativeScripts].self)
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(metadata)
         try container.encode(nativeScripts)
@@ -118,7 +118,7 @@ struct ShelleyMaryMetadata: Codable, Hashable, Equatable {
 }
 
 // MARK: - AlonzoMetadata
-struct AlonzoMetadata: Codable, Hashable, Equatable {
+public struct AlonzoMetadata: Codable, Hashable, Equatable {
     static let TAG: UInt64 = 259
     
     var metadata: Metadata?
@@ -148,7 +148,7 @@ struct AlonzoMetadata: Codable, Hashable, Equatable {
         self.plutusV3Script = plutusV3Script
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         let tag = try container.decode(Int.self)
         
@@ -193,7 +193,7 @@ struct AlonzoMetadata: Codable, Hashable, Equatable {
         }
     }
 
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var cbor: [Int:Data] = [:]
         
         if metadata != nil {
@@ -224,24 +224,24 @@ struct AlonzoMetadata: Codable, Hashable, Equatable {
 }
 
 // MARK: - AuxiliaryData
-struct AuxiliaryData: Codable {
+public struct AuxiliaryData: Codable {
     var data: MetadataType
     
-    init(data: MetadataType) {
+    public init(data: MetadataType) {
         self.data = data
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         data = try container.decode(MetadataType.self)
     }
 
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         try container.encode(data)
     }
         
-    func hash() -> Data {
+    public func hash() -> Data {
         let cborData = try! CBOREncoder().encode(data)
         return Data(SHA256.hash(data: cborData))
     }

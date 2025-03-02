@@ -1,64 +1,72 @@
 import Foundation
 import CryptoKit
+import PotentCBOR
+import PotentCodables
 
-struct AssetName: ConstrainedBytes {
-
-    var payload: Data
+public struct AssetName: ConstrainedBytes {
+    public var payload: Data
     static var maxSize: Int { 32 }
     static var minSize: Int { 0 }
+    
+    init(payload: Data) throws {
+        self.payload = payload
+    }
+    
+    public init(from name: String) {
+        self.payload = name.data(using: .utf8)!
+    }
 
-    var description: String {
-        return "AssetName(\(payload))"
+    public var description: String {
+        return "AssetName(\(String(describing: self.payload.toString)))"
     }
 }
 
-struct Asset: Codable, Comparable, Hashable, Equatable, AdditiveArithmetic {
-
-    static var zero: Asset {
+public struct Asset: Codable, Comparable, Hashable, Equatable, AdditiveArithmetic {
+    public static var zero: Asset {
         return Asset([:])
     }
-
-    typealias KEY_TYPE = AssetName
-    typealias VALUE_TYPE = Int
     
-    var data: [KEY_TYPE: VALUE_TYPE] {
-        get {
-            _data
-        }
-        set {
-            _data = newValue
-        }
+    public var data: [AssetName: Int] {
+        get { _data }
+        set { _data = newValue }
     }
-    private var _data: [KEY_TYPE: VALUE_TYPE] = [:]
+    private var _data: [AssetName: Int] = [:]
     
-    subscript(key: KEY_TYPE) -> VALUE_TYPE? {
-        get {
-            return _data[key]
-        }
-        set {
-            _data[key] = newValue
-        }
+    public subscript(key: AssetName) -> Int? {
+        get { return _data[key] }
+        set { _data[key] = newValue }
     }
     
-    init(_ data: [AnyHashable: AnyHashable]) {
-        self.data = data as! [KEY_TYPE: VALUE_TYPE]
+    public var count: Int {
+        return data.count
     }
     
-    init(from decoder: Decoder) throws {
+    public init(_ data: [AnyHashable: AnyHashable]) {
+        self.data = data as! [AssetName: Int]
+    }
+    
+    public init(from primitive: [String: Int]) {
+        self.data = [:]
+        for (key, value) in primitive {
+            self.data[AssetName(from: key)] = value
+        }
+    }
+    
+    public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
-        data = try container.decode([KEY_TYPE: VALUE_TYPE].self)
+        data = try container.decode([AssetName: Int].self)
     }
 
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.unkeyedContainer()
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
         try container.encode(data)
     }
 
-    func union(_ other: Asset) -> Asset {
+    public func union(_ other: Asset) -> Asset {
         return self + other
     }
     
-    static func + (lhs: Asset, rhs: Asset) -> Asset {
+    public static func + (lhs: Asset, rhs: Asset) -> Asset {
         var result = lhs
         for (key, value) in rhs.data {
             result[key] = (result[key] ?? 0) + value
@@ -74,7 +82,7 @@ struct Asset: Codable, Comparable, Hashable, Equatable, AdditiveArithmetic {
         return result
     }
     
-    static func - (lhs: Asset, rhs: Asset) -> Asset {
+    public static func - (lhs: Asset, rhs: Asset) -> Asset {
         var result = lhs
         for (key, value) in rhs.data {
             result[key] = (result[key] ?? 0) - value
@@ -90,7 +98,7 @@ struct Asset: Codable, Comparable, Hashable, Equatable, AdditiveArithmetic {
         return result
     }
 
-    static func < (lhs: Asset, rhs: Asset) -> Bool {
+    public static func < (lhs: Asset, rhs: Asset) -> Bool {
         for (key, value) in rhs.data {
             if (rhs.data[key]!) < (value ) {
                 return false

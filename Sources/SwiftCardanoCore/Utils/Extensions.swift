@@ -122,6 +122,10 @@ extension Data {
         return map { String(format: "%02hhx", $0) }.joined()
     }
     
+    var toString: String {
+        return String(data: self, encoding: .utf8)!
+    }
+    
     var toCBOR: CBOR {
         return try! CBORSerialization.cbor(from: self)
     }

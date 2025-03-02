@@ -2,11 +2,11 @@ import Foundation
 import PotentCBOR
 import PotentCodables
 
-struct DatumOption: Codable {
+public struct DatumOption: Codable {
     var type: Int
     var datum: Any
 
-    init(datum: Any) {
+    public init(datum: Any) {
         self.datum = datum
         if datum is DatumHash {
             self.type = 0
@@ -20,7 +20,7 @@ struct DatumOption: Codable {
         case datum
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         type = try container.decode(Int.self)
         if type == 0 {
@@ -30,7 +30,7 @@ struct DatumOption: Codable {
         }
     }
 
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(type)
         if type == 1 {
@@ -42,11 +42,11 @@ struct DatumOption: Codable {
     }
 }
 
-struct Script: Codable {
+public struct Script: Codable {
     var type: Int
     var script: ScriptType
 
-    init(script: ScriptType) {
+    public init(script: ScriptType) {
         self.script = script
         switch script {
             case .nativeScript:
@@ -60,7 +60,7 @@ struct Script: Codable {
         }
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         type = try container.decode(Int.self)
         
@@ -79,7 +79,7 @@ struct Script: Codable {
         }
     }
 
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(type)
         switch script {
@@ -95,14 +95,14 @@ struct Script: Codable {
     }
 }
 
-struct ScriptRef: Codable {
-    var script: Script
+public struct ScriptRef: Codable {
+    public var script: Script
 
-    init(script: Script) {
+    public init(script: Script) {
         self.script = script
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         let tag = try container.decode(CBORTag.self)
         
@@ -114,7 +114,7 @@ struct ScriptRef: Codable {
         script = try container.decode(Script.self)
     }
 
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         let cborTag = CBORTag(
             tag: 24,
             value: AnyValue.data(try CBOREncoder().encode(script))

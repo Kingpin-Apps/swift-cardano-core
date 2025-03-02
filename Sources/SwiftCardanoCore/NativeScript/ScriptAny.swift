@@ -1,19 +1,19 @@
 import Foundation
 
-struct ScriptAny: NativeScript {
-    static let TYPE = NativeScriptType.scriptAny
-    let scripts: [NativeScripts]
+public struct ScriptAny: NativeScript {
+    public static let TYPE = NativeScriptType.scriptAny
+    public let scripts: [NativeScripts]
     
     enum CodingKeys: String, CodingKey {
         case type
         case scripts
     }
     
-    init (scripts: [NativeScripts]) {
+    public init (scripts: [NativeScripts]) {
         self.scripts = scripts
     }
     
-    init(from decoder: Swift.Decoder) throws {
+    public init(from decoder: Swift.Decoder) throws {
         if String(describing: type(of: decoder)).contains("JSONDecoder") {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             let typeString = try container.decode(String.self, forKey: .type)
@@ -35,7 +35,7 @@ struct ScriptAny: NativeScript {
         }
     }
 
-    func encode(to encoder: Swift.Encoder) throws {
+    public func encode(to encoder: Swift.Encoder) throws {
         if String(describing: type(of: encoder)).contains("JSONEncoder") {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(Self.TYPE.description(), forKey: .type)
@@ -47,7 +47,7 @@ struct ScriptAny: NativeScript {
         }
     }
     
-    static func fromDict(_ dict: Dictionary<AnyHashable, Any>) throws -> ScriptAny {
+    public static func fromDict(_ dict: Dictionary<AnyHashable, Any>) throws -> ScriptAny {
         guard let scripts = dict["scripts"] as? [Dictionary<AnyHashable, Any>] else {
             throw CardanoCoreError.decodingError("Invalid ScriptAll scripts")
         }
