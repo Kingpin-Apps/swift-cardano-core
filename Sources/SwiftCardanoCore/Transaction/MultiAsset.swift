@@ -15,8 +15,8 @@ public struct MultiAsset: Codable, Hashable, Equatable {
         set { _data[key] = newValue }
     }
     
-    public init(_ data: [AnyHashable: AnyHashable]) {
-        self.data = data as! [ScriptHash: Asset]
+    public init(_ data: [ScriptHash: Asset]) {
+        self.data = data
     }
     
     public init(from primitive: [String: [String: Int]]) throws {

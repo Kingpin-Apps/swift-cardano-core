@@ -120,7 +120,7 @@ public enum RawDatum: Codable, Equatable, Hashable {
 
 // MARK: - Datum
 /// Plutus Datum type. A Union type that contains all valid datum types.
-enum Datum: Codable, Equatable, Hashable {
+public enum Datum: Codable, Equatable, Hashable {
 
     case plutusData(PlutusData)
     case dict(Dictionary<AnyValue, AnyValue>)
@@ -130,7 +130,7 @@ enum Datum: Codable, Equatable, Hashable {
     case cbor(CBOR)
     case rawPlutusData(RawPlutusData)
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         if let plutusData = try? container.decode(PlutusData.self) {
             self = .plutusData(plutusData)
@@ -154,7 +154,7 @@ enum Datum: Codable, Equatable, Hashable {
         
     }
 
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         switch self {
             case .plutusData(let plutusData):
@@ -174,7 +174,7 @@ enum Datum: Codable, Equatable, Hashable {
         }
     }
     
-    static func == (lhs: Datum, rhs: Datum) -> Bool {
+    public static func == (lhs: Datum, rhs: Datum) -> Bool {
         switch (lhs, rhs) {
             case (.plutusData(let a), .plutusData(let b)):
                 let hash1 = try! a.hash()
@@ -203,7 +203,7 @@ enum Datum: Codable, Equatable, Hashable {
         }
     }
     
-    func hash(into hasher: inout Hasher) {
+    public func hash(into hasher: inout Hasher) {
         hasher.combine(self)
     }
 }

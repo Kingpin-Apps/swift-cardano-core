@@ -1,18 +1,43 @@
 import Foundation
 
-struct TransactionOutput: Codable, Hashable, Equatable {
-    var address: Address
-    var amount: Value
-    var datumHash: DatumHash?
-    var datum: Datum?
-    var script: ScriptType?
-    var postAlonzo: Bool = true
+public struct TransactionOutput: Codable, Hashable, Equatable {
+    public var address: Address
+    public var amount: Value
+    public var datumHash: DatumHash?
+    public var datum: Datum?
+    public var script: ScriptType?
+    public var postAlonzo: Bool = true
 
-    var lovelace: Int {
+    public var lovelace: Int {
         return amount.coin
     }
     
-    init(from decoder: Decoder) throws {
+    public init(address: Address, amount: Value, datumHash: DatumHash? = nil, datum: Datum? = nil, script: ScriptType? = nil, postAlonzo: Bool = true) {
+        self.address = address
+        self.amount = amount
+        self.datumHash = datumHash
+        self.datum = datum
+        self.script = script
+        self.postAlonzo = postAlonzo
+    }
+    
+    public init(from
+                address: String,
+                amount: Int,
+                datumHash: String? = nil,
+                datum: Datum? = nil,
+                script: ScriptType? = nil,
+                postAlonzo: Bool = true
+    ) throws {
+        self.address = try Address(from: address)
+        self.amount = Value(coin: amount)
+        self.datumHash = try datumHash.map { try DatumHash(from: $0) }
+        self.datum = datum
+        self.script = script
+        self.postAlonzo = postAlonzo
+    }
+    
+    public init(from decoder: Decoder) throws {
         if let keyedContainer = try? decoder.container(
             keyedBy: BabbageTransactionOutput.CodingKeys.self
         ) {
@@ -31,7 +56,7 @@ struct TransactionOutput: Codable, Hashable, Equatable {
         }
     }
 
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         if postAlonzo {
             var keyedContainer = encoder.container(
                 keyedBy: BabbageTransactionOutput.CodingKeys.self
@@ -48,7 +73,7 @@ struct TransactionOutput: Codable, Hashable, Equatable {
         }
     }
 
-    func validate() throws {
+    public func validate() throws {
         if amount.coin < 0 {
             throw CardanoCoreError.invalidArgument("Transaction output cannot have negative amount of ADA: \(amount)")
         }
@@ -57,7 +82,7 @@ struct TransactionOutput: Codable, Hashable, Equatable {
         }
     }
     
-    static func == (lhs: TransactionOutput, rhs: TransactionOutput) -> Bool {
+    public static func == (lhs: TransactionOutput, rhs: TransactionOutput) -> Bool {
         return lhs.address == rhs.address &&
         lhs.amount == rhs.amount &&
         lhs.datumHash == rhs.datumHash &&
@@ -66,7 +91,7 @@ struct TransactionOutput: Codable, Hashable, Equatable {
         lhs.postAlonzo == rhs.postAlonzo
     }
     
-    func hash(into hasher: inout Hasher) {
+    public func hash(into hasher: inout Hasher) {
         hasher.combine(address)
         hasher.combine(amount)
         hasher.combine(datumHash)
