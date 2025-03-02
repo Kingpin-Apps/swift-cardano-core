@@ -30,49 +30,11 @@ public struct MultiAsset: Codable, Hashable, Equatable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         data = try container.decode([ScriptHash: Asset].self)
-        
-//        if let container = try? decoder.singleValueContainer(),
-//           let cborData = try? container.decode(CBOR.self) {
-//            // Handle CBOR decoding
-//            guard case let .map(cborMap) = cborData else {
-//                throw DecodingError.dataCorruptedError(in: container, debugDescription: "Expected CBOR map")
-//            }
-//            
-//            var decodedData: [ScriptHash: Asset] = [:]
-//            for (key, value) in cborMap {
-//                guard case let .byteString(policyIdData) = key,
-//                      let policyId = try? ScriptHash(payload: policyIdData),
-//                      case let .map(assetMap) = value else {
-//                    continue
-//                }
-//                decodedData[policyId] = try Asset(from: assetMap)
-//            }
-//            self.data = decodedData
-//        } else {
-//            // Fallback to regular decoding
-//            let container = try decoder.singleValueContainer()
-//            data = try container.decode([ScriptHash: Asset].self)
-//        }
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         try container.encode(data)
-        
-//        if encoder is CBOREncoder {
-//            var container = encoder.singleValueContainer()
-//            var cborMap: CBOR.Map = [:]
-//            
-//            for (policyId, asset) in data {
-//                let assetCbor = try CBOREncoder().encode(asset)
-//                cborMap[.byteString(policyId.payload)] = assetCbor.toCBOR
-//            }
-//            
-//            try container.encode(CBOR.map(cborMap))
-//        } else {
-//            var container = encoder.singleValueContainer()
-//            try container.encode(data)
-//        }
     }
 
     public func union(_ other: MultiAsset) -> MultiAsset {
@@ -107,7 +69,7 @@ public struct MultiAsset: Codable, Hashable, Equatable {
 
     public static func <= (lhs: MultiAsset, rhs: MultiAsset) -> Bool {
         for (key, value) in lhs.data {
-            if (rhs.data[key]!) < (value ) {
+            if (rhs.data[key]!) <= value {
                 return false
             }
         }
