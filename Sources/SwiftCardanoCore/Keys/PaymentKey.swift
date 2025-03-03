@@ -1,15 +1,15 @@
 import Foundation
 import PotentCBOR
 
-struct PaymentSigningKey: SigningKey {
-    var _payload: Data
-    var _type: String
-    var _description: String
+public struct PaymentSigningKey: SigningKey {
+    public var _payload: Data
+    public var _type: String
+    public var _description: String
 
-    static var TYPE: String { "PaymentSigningKeyShelley_ed25519" }
-    static var DESCRIPTION: String { "Payment Signing Key" }
+    public static var TYPE: String { "PaymentSigningKeyShelley_ed25519" }
+    public static var DESCRIPTION: String { "Payment Signing Key" }
     
-    init(payload: Data, type: String?, description: String?) {
+    public init(payload: Data, type: String?, description: String?) {
         if let payloadData = try? CBORDecoder().decode(Data.self, from: payload) {
             self._payload = payloadData
         } else {
@@ -21,15 +21,15 @@ struct PaymentSigningKey: SigningKey {
     }
 }
 
-struct PaymentVerificationKey: VerificationKey {
-    var _payload: Data
-    var _type: String
-    var _description: String
+public struct PaymentVerificationKey: VerificationKey {
+    public var _payload: Data
+    public var _type: String
+    public var _description: String
 
-    static var TYPE: String { "PaymentVerificationKeyShelley_ed25519" }
-    static var DESCRIPTION: String { "Payment Verification Key" }
+    public static var TYPE: String { "PaymentVerificationKeyShelley_ed25519" }
+    public static var DESCRIPTION: String { "Payment Verification Key" }
     
-    init(payload: Data, type: String?, description: String?) {
+    public init(payload: Data, type: String?, description: String?) {
         if let payloadData = try? CBORDecoder().decode(Data.self, from: payload) {
             self._payload = payloadData
         } else {
@@ -41,15 +41,15 @@ struct PaymentVerificationKey: VerificationKey {
     }
 }
 
-struct PaymentExtendedSigningKey: ExtendedSigningKey {
-    var _payload: Data
-    var _type: String
-    var _description: String
+public struct PaymentExtendedSigningKey: ExtendedSigningKey {
+    public var _payload: Data
+    public var _type: String
+    public var _description: String
 
-    static var TYPE: String { "PaymentExtendedSigningKeyShelley_ed25519_bip32" }
-    static var DESCRIPTION: String { "Payment Signing Key" }
+    public static var TYPE: String { "PaymentExtendedSigningKeyShelley_ed25519_bip32" }
+    public static var DESCRIPTION: String { "Payment Signing Key" }
     
-    init(payload: Data, type: String?, description: String?) {
+    public init(payload: Data, type: String?, description: String?) {
         if let payloadData = try? CBORDecoder().decode(Data.self, from: payload) {
             self._payload = payloadData
         } else {
@@ -61,15 +61,15 @@ struct PaymentExtendedSigningKey: ExtendedSigningKey {
     }
 }
 
-struct PaymentExtendedVerificationKey: ExtendedVerificationKey {
-    var _payload: Data
-    var _type: String
-    var _description: String
+public struct PaymentExtendedVerificationKey: ExtendedVerificationKey {
+    public var _payload: Data
+    public var _type: String
+    public var _description: String
 
-    static var TYPE: String { "PaymentExtendedVerificationKeyShelley_ed25519_bip32" }
-    static var DESCRIPTION: String { "Payment Verification Key" }
+    public static var TYPE: String { "PaymentExtendedVerificationKeyShelley_ed25519_bip32" }
+    public static var DESCRIPTION: String { "Payment Verification Key" }
     
-    init(payload: Data, type: String?, description: String?) {
+    public init(payload: Data, type: String?, description: String?) {
         if let payloadData = try? CBORDecoder().decode(Data.self, from: payload) {
             self._payload = payloadData
         } else {
@@ -81,23 +81,23 @@ struct PaymentExtendedVerificationKey: ExtendedVerificationKey {
     }
 }
 
-struct PaymentKeyPair {
-    let signingKey: PaymentSigningKey
-    let verificationKey: PaymentVerificationKey
+public struct PaymentKeyPair {
+    public let signingKey: PaymentSigningKey
+    public let verificationKey: PaymentVerificationKey
     
-    init(signingKey: PaymentSigningKey, verificationKey: PaymentVerificationKey) {
+    public init(signingKey: PaymentSigningKey, verificationKey: PaymentVerificationKey) {
         self.signingKey = signingKey
         self.verificationKey = verificationKey
     }
     
     // static method to generate a new PaymentKeyPair
-    static func generate() throws -> PaymentKeyPair {
+    public static func generate() throws -> PaymentKeyPair {
         let signingKey = try PaymentSigningKey.generate()
         return try fromSigningKey(signingKey)
     }
     
     // static a PaymentKeyPair from an existing signing key
-    static func fromSigningKey(_ signingKey: PaymentSigningKey) throws -> PaymentKeyPair {
+    public static func fromSigningKey(_ signingKey: PaymentSigningKey) throws -> PaymentKeyPair {
         let verificationKey: PaymentVerificationKey = try PaymentVerificationKey.fromSigningKey(signingKey)
         return PaymentKeyPair(
             signingKey: signingKey,
@@ -108,7 +108,7 @@ struct PaymentKeyPair {
 
 // Equatable Protocol for PaymentKeyPair
 extension PaymentKeyPair: Equatable {
-    static func == (lhs: PaymentKeyPair, rhs: PaymentKeyPair) -> Bool {
+    public static func == (lhs: PaymentKeyPair, rhs: PaymentKeyPair) -> Bool {
         return lhs.signingKey == rhs.signingKey &&
                lhs.verificationKey == rhs.verificationKey
     }
