@@ -1,18 +1,18 @@
 import Foundation
 
 
-struct NewConstitution: GovernanceAction {
-    static var code: GovActionCode { get { .newConstitution } }
+public struct NewConstitution: GovernanceAction {
+    public static var code: GovActionCode { get { .newConstitution } }
     
-    let id: GovActionID
-    let constitution: Constitution
+    public let id: GovActionID
+    public let constitution: Constitution
     
-    init(id: GovActionID, constitution: Constitution) {
+    public init(id: GovActionID, constitution: Constitution) {
         self.id = id
         self.constitution = constitution
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         let code = try container.decode(Int.self)
         
@@ -24,7 +24,7 @@ struct NewConstitution: GovernanceAction {
         constitution = try container.decode(Constitution.self)
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(Self.code)
         try container.encode(id)

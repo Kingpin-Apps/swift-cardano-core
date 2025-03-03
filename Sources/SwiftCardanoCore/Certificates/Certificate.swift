@@ -6,7 +6,7 @@ enum CertificateType: String, Codable {
     case conway = "CertificateConway"
 }
 
-enum CertificateCode: Int, Codable {
+public enum CertificateCode: Int, Codable {
     case stakeRegistration = 0
     case stakeDeregistration = 1
     case stakeDelegation = 2
@@ -49,7 +49,7 @@ enum CertificateDescription: String, Codable {
     case updateDRep = "DRep Update Certificate"
 }
 
-enum Certificate: Codable {
+public enum Certificate: Codable, Equatable, Hashable {
     case stakeRegistration(StakeRegistration)
     case stakeDeregistration(StakeDeregistration)
     case stakeDelegation(StakeDelegation)
@@ -71,14 +71,14 @@ enum Certificate: Codable {
     case updateDRep(UpdateDRep)
 }
 
-protocol CertificateSerializable: PayloadJSONSerializable {
+public protocol CertificateSerializable: PayloadJSONSerializable {
     static var CODE: CertificateCode { get }
     
     var type: String { get }
     var description: String { get }
 }
 
-extension CertificateSerializable {
+public extension CertificateSerializable {
     /// Serialize to JSON.
     ///
     /// The json output has three fields: "type", "description", and "cborHex".

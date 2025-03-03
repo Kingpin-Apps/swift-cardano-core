@@ -1,12 +1,12 @@
 import Foundation
 
 
-struct InfoAction: GovernanceAction {
-    static var code: GovActionCode { .infoAction }
+public struct InfoAction: GovernanceAction {
+    public static var code: GovActionCode { .infoAction }
     
-    init() {}
+    public init() {}
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let code = try container.decode(Int.self)
         
@@ -15,7 +15,7 @@ struct InfoAction: GovernanceAction {
         }
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         try container.encode(Self.code)
     }

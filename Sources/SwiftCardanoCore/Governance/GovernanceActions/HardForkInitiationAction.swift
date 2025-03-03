@@ -1,18 +1,18 @@
 import Foundation
 
 
-struct HardForkInitiationAction: GovernanceAction {
-    static var code: GovActionCode { get { .hardForkInitiationAction } }
+public struct HardForkInitiationAction: GovernanceAction {
+    public static var code: GovActionCode { get { .hardForkInitiationAction } }
     
-    let id: GovActionID?
-    let protocolVersion: ProtocolVersion
+    public let id: GovActionID?
+    public let protocolVersion: ProtocolVersion
     
-    init(id: GovActionID?, protocolVersion: ProtocolVersion) {
+    public init(id: GovActionID?, protocolVersion: ProtocolVersion) {
         self.id = id
         self.protocolVersion = protocolVersion
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         let code = try container.decode(Int.self)
         
@@ -24,7 +24,7 @@ struct HardForkInitiationAction: GovernanceAction {
         protocolVersion = try container.decode(ProtocolVersion.self)
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(Self.code)
         try container.encode(id)

@@ -15,7 +15,7 @@ public typealias EpochInterval = UInt32
 public typealias EpochNumber = UInt64
 
 // MARK: - PositiveCoin
-public struct PositiveCoin: Codable {
+public struct PositiveCoin: Codable, Equatable, Hashable {
     let value: UInt
     
     init(_ value: UInt) {

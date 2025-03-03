@@ -1,26 +1,26 @@
 import Foundation
 import PotentCBOR
 
-struct UpdateDRep: CertificateSerializable {
-    var _payload: Data
-    var _type: String
-    var _description: String
+public struct UpdateDRep: CertificateSerializable {
+    public var _payload: Data
+    public var _type: String
+    public var _description: String
     
-    var type: String { get { return UpdateDRep.TYPE } }
-    var description: String { get { return UpdateDRep.DESCRIPTION } }
+    public var type: String { get { return UpdateDRep.TYPE } }
+    public var description: String { get { return UpdateDRep.DESCRIPTION } }
 
-    static var TYPE: String { CertificateType.conway.rawValue }
-    static var DESCRIPTION: String { CertificateDescription.updateDRep.rawValue }
-    static var CODE: CertificateCode { get { return .updateDRep } }
+    public static var TYPE: String { CertificateType.conway.rawValue }
+    public static var DESCRIPTION: String { CertificateDescription.updateDRep.rawValue }
+    public static var CODE: CertificateCode { get { return .updateDRep } }
     
-    let drepCredential: DRepCredential
-    let anchor: Anchor?
+    public let drepCredential: DRepCredential
+    public let anchor: Anchor?
     
     /// Initialize a new `UpdateDRep` certificate
     /// - Parameters:
     ///  - drepCredential: The DRep credential
     ///  - anchor: The anchor
-    init(drepCredential: DRepCredential, anchor: Anchor? = nil) {
+    public init(drepCredential: DRepCredential, anchor: Anchor? = nil) {
         self.drepCredential = drepCredential
         self.anchor = anchor
         
@@ -42,7 +42,7 @@ struct UpdateDRep: CertificateSerializable {
     ///  - payload: The CBOR representation of the certificate
     ///  - type: The type of the certificate
     ///  - description: The description of the certificate
-    init(payload: Data, type: String?, description: String?) {
+    public init(payload: Data, type: String?, description: String?) {
         self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
@@ -55,7 +55,7 @@ struct UpdateDRep: CertificateSerializable {
     
     /// Initialize a new `UpdateDRep` certificate from its CBOR representation
     /// - Parameter decoder: The decoder
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         let code = try container.decode(Int.self)
         
@@ -71,7 +71,7 @@ struct UpdateDRep: CertificateSerializable {
     
     /// Encode the `UpdateDRep` certificate to the given encoder
     /// - Parameter encoder: The encoder
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(Self.CODE.rawValue)
         try container.encode(drepCredential)

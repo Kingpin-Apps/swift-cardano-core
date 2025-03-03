@@ -224,7 +224,7 @@ public struct AlonzoMetadata: Codable, Hashable, Equatable {
 }
 
 // MARK: - AuxiliaryData
-public struct AuxiliaryData: Codable {
+public struct AuxiliaryData: Codable, Equatable, Hashable {
     var data: MetadataType
     
     public init(data: MetadataType) {

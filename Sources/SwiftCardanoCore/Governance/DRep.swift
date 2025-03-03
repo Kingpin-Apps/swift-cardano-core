@@ -1,6 +1,6 @@
 import Foundation
 
-enum DRepType: Codable, Hashable {
+public enum DRepType: Codable, Hashable, Sendable {
     case verificationKeyHash(VerificationKeyHash)
     case scriptHash(ScriptHash)
     case alwaysAbstain
@@ -10,9 +10,9 @@ enum DRepType: Codable, Hashable {
 /// Represents a Delegate Representative (DRep) in the Cardano governance system.
 ///
 /// DReps are entities that can represent stake holders in governance decisions.
-struct DRep: Codable, Hashable {
+public struct DRep: Codable, Hashable, Sendable {
     
-    var id: String {
+    public var id: String {
         get throws {
             return try self.toBech32()
         }
@@ -39,13 +39,13 @@ struct DRep: Codable, Hashable {
         }
     }
     
-    let credential: DRepType
+    public let credential: DRepType
     
-    init(credential: DRepType) {
+    public init(credential: DRepType) {
         self.credential = credential
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         let code = try container.decode(Int.self)
         let credential: DRepType
@@ -70,7 +70,7 @@ struct DRep: Codable, Hashable {
         self.credential = credential
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(code)
         
@@ -84,7 +84,7 @@ struct DRep: Codable, Hashable {
         }
     }
     
-    var description: String {
+    public var description: String {
         do {
             return try self.toBech32()
         } catch {
@@ -93,7 +93,7 @@ struct DRep: Codable, Hashable {
         
     }
     
-    func toBytes() -> Data {
+    public func toBytes() -> Data {
         switch credential {
             case .verificationKeyHash(let verificationKeyHash):
                 return verificationKeyHash.payload
@@ -107,7 +107,7 @@ struct DRep: Codable, Hashable {
         }
     }
     
-    func toBech32() throws -> String {
+    public func toBech32() throws -> String {
         guard let encoded =  Bech32().encode(hrp: "drep", witprog: self.toBytes()) else {
             throw CardanoCoreError.encodingError("Error encoding data: \(self.toBytes())")
         }

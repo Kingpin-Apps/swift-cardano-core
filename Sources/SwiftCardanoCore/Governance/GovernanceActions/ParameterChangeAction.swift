@@ -1,19 +1,19 @@
 import Foundation
 
-struct ParameterChangeAction: GovernanceAction {
-    static var code: GovActionCode { get { .parameterChangeAction } }
+public struct ParameterChangeAction: GovernanceAction {
+    public static var code: GovActionCode { get { .parameterChangeAction } }
     
-    let id: GovActionID?
-    let protocolParamUpdate: ProtocolParamUpdate
-    let policyHash: PolicyHash?
+    public let id: GovActionID?
+    public let protocolParamUpdate: ProtocolParamUpdate
+    public let policyHash: PolicyHash?
     
-    init(id: GovActionID, protocolParamUpdate: ProtocolParamUpdate, policyHash: PolicyHash?) {
+    public init(id: GovActionID, protocolParamUpdate: ProtocolParamUpdate, policyHash: PolicyHash?) {
         self.id = id
         self.protocolParamUpdate = protocolParamUpdate
         self.policyHash = policyHash
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         let code = try container.decode(Int.self)
         
@@ -26,7 +26,7 @@ struct ParameterChangeAction: GovernanceAction {
         policyHash = try container.decode(PolicyHash.self)
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(Self.code)
         try container.encode(id)
@@ -35,45 +35,45 @@ struct ParameterChangeAction: GovernanceAction {
     }
 }
 
-struct ProtocolParamUpdate: Codable, Hashable, Equatable {
-    var minFeeA: Coin?
-    var minFeeB: Coin?
-    var maxBlockBodySize: UInt32?
-    var maxTransactionSize: UInt32?
-    var maxBlockHeaderSize: UInt16?
+public struct ProtocolParamUpdate: Codable, Hashable, Equatable {
+    public var minFeeA: Coin?
+    public var minFeeB: Coin?
+    public var maxBlockBodySize: UInt32?
+    public var maxTransactionSize: UInt32?
+    public var maxBlockHeaderSize: UInt16?
     
-    var keyDeposit: Coin?
-    var poolDeposit: Coin?
-    var maximumEpoch: EpochInterval?
-    var nOpt: UInt16?
-    var poolPledgeInfluence: NonNegativeInterval?
+    public var keyDeposit: Coin?
+    public var poolDeposit: Coin?
+    public var maximumEpoch: EpochInterval?
+    public var nOpt: UInt16?
+    public var poolPledgeInfluence: NonNegativeInterval?
     
-    var expansionRate: UnitInterval?
-    var treasuryGrowthRate: UnitInterval?
-    var decentralizationConstant: UnitInterval?
-    var extraEntropy: UInt32?
-    var protocolVersion: ProtocolVersion?
+    public var expansionRate: UnitInterval?
+    public var treasuryGrowthRate: UnitInterval?
+    public var decentralizationConstant: UnitInterval?
+    public var extraEntropy: UInt32?
+    public var protocolVersion: ProtocolVersion?
     
-    var minPoolCost: Coin?
-    var adaPerUtxoByte: Coin?
-    var costModels: CostModels?
-    var executionCosts: ExUnitPrices?
-    var maxTxExUnits: ExUnits?
-    var maxBlockExUnits: ExUnits?
-    var maxValueSize: UInt32?
-    var collateralPercentage: UInt16?
+    public var minPoolCost: Coin?
+    public var adaPerUtxoByte: Coin?
+    public var costModels: CostModels?
+    public var executionCosts: ExUnitPrices?
+    public var maxTxExUnits: ExUnits?
+    public var maxBlockExUnits: ExUnits?
+    public var maxValueSize: UInt32?
+    public var collateralPercentage: UInt16?
     
-    var maxCollateralInputs: UInt16?
-    var poolVotingThresholds: PoolVotingThresholds?
-    var drepVotingThresholds: DrepVotingThresholds?
-    var minCommitteeSize: UInt16?
-    var committeeTermLimit: EpochInterval?
+    public var maxCollateralInputs: UInt16?
+    public var poolVotingThresholds: PoolVotingThresholds?
+    public var drepVotingThresholds: DrepVotingThresholds?
+    public var minCommitteeSize: UInt16?
+    public var committeeTermLimit: EpochInterval?
     
-    var governanceActionValidityPeriod: EpochInterval?
-    var governanceActionDeposit: Coin?
-    var drepDeposit: Coin?
-    var drepInactivityPeriod: EpochInterval?
-    var minFeeRefScriptCoinsPerByte: NonNegativeInterval?
+    public var governanceActionValidityPeriod: EpochInterval?
+    public var governanceActionDeposit: Coin?
+    public var drepDeposit: Coin?
+    public var drepInactivityPeriod: EpochInterval?
+    public var minFeeRefScriptCoinsPerByte: NonNegativeInterval?
     
     enum CodingKeys: Int, CodingKey {
         case minFeeA = 0
@@ -117,7 +117,7 @@ struct ProtocolParamUpdate: Codable, Hashable, Equatable {
         case minFeeRefScriptCoinsPerByte = 33
     }
     
-    init(
+    public init(
         minFeeA: Coin? = nil,
         minFeeB: Coin? = nil,
         maxBlockBodySize: UInt32? = nil,
@@ -197,7 +197,7 @@ struct ProtocolParamUpdate: Codable, Hashable, Equatable {
         self.minFeeRefScriptCoinsPerByte = minFeeRefScriptCoinsPerByte
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         
         minFeeA = try container.decodeIfPresent(Coin.self, forKey: .minFeeA)
@@ -240,7 +240,7 @@ struct ProtocolParamUpdate: Codable, Hashable, Equatable {
         minFeeRefScriptCoinsPerByte = try container.decodeIfPresent(NonNegativeInterval.self, forKey: .minFeeRefScriptCoinsPerByte)
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         
         try container.encodeIfPresent(minFeeA, forKey: .minFeeA)

@@ -1,16 +1,16 @@
 import Foundation
 
 
-struct NoConfidence: GovernanceAction {
-    static var code: GovActionCode { get { .noConfidence } }
+public struct NoConfidence: GovernanceAction {
+    public static var code: GovActionCode { get { .noConfidence } }
     
-    let id: GovActionID
+    public let id: GovActionID
     
-    init (id: GovActionID) {
+    public init (id: GovActionID) {
         self.id = id
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         let code = try container.decode(Int.self)
         
@@ -21,7 +21,7 @@ struct NoConfidence: GovernanceAction {
         id = try container.decode(GovActionID.self)
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(Self.code)
         try container.encode(id)

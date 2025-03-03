@@ -2,13 +2,13 @@ import Foundation
 import PotentCBOR
 
 /// DRep registration certificate
-struct RegisterDRep: CertificateSerializable {
-    var _payload: Data
-    var _type: String
-    var _description: String
+public struct RegisterDRep: CertificateSerializable {
+    public var _payload: Data
+    public var _type: String
+    public var _description: String
 
-    var type: String { get { return RegisterDRep.TYPE } }
-    var description: String {
+    public var type: String { get { return RegisterDRep.TYPE } }
+    public var description: String {
         get {
             switch self.drepCredential.credential {
                 case .verificationKeyHash(_):
@@ -19,20 +19,20 @@ struct RegisterDRep: CertificateSerializable {
         }
     }
 
-    static var TYPE: String { CertificateType.conway.rawValue }
-    static var DESCRIPTION: String { CertificateDescription.registerDRep.rawValue }
-    static var CODE: CertificateCode { get { return .registerDRep } }
+    public static var TYPE: String { CertificateType.conway.rawValue }
+    public static var DESCRIPTION: String { CertificateDescription.registerDRep.rawValue }
+    public static var CODE: CertificateCode { get { return .registerDRep } }
     
-    let drepCredential: DRepCredential
-    let coin: Coin
-    let anchor: Anchor?
+    public let drepCredential: DRepCredential
+    public let coin: Coin
+    public let anchor: Anchor?
     
     /// Initialize a new `RegisterDRep` certificate
     /// - Parameters:
     ///  - drepCredential: The DRep credential
     ///  - coin: The coin
     ///  - anchor: The anchor
-    init(drepCredential: DRepCredential, coin: Coin, anchor: Anchor? = nil) {
+    public init(drepCredential: DRepCredential, coin: Coin, anchor: Anchor? = nil) {
         self.drepCredential = drepCredential
         self.coin = coin
         self.anchor = anchor
@@ -56,7 +56,7 @@ struct RegisterDRep: CertificateSerializable {
     ///  - payload: The CBOR representation of the certificate
     ///  - type: The type of the certificate
     ///  - description: The description of the certificate
-    init(payload: Data, type: String?, description: String?) {
+    public init(payload: Data, type: String?, description: String?) {
         self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
@@ -70,7 +70,7 @@ struct RegisterDRep: CertificateSerializable {
     
     /// Initialize a new `RegisterDRep` certificate from its CBOR representation
     /// - Parameter decoder: The decoder
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         let code = try container.decode(Int.self)
         
@@ -87,7 +87,7 @@ struct RegisterDRep: CertificateSerializable {
     
     /// Encode the `RegisterDRep` certificate
     /// - Parameter encoder: The encoder
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(Self.CODE.rawValue)
         try container.encode(drepCredential)

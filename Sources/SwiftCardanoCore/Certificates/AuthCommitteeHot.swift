@@ -3,26 +3,26 @@ import PotentCBOR
 
 
 /// Auth Committee Hot Key Registration Certificate
-struct AuthCommitteeHot: CertificateSerializable {
-    var _payload: Data
-    var _type: String
-    var _description: String
+public struct AuthCommitteeHot: CertificateSerializable {
+    public var _payload: Data
+    public var _type: String
+    public var _description: String
 
-    var type: String { get { return AuthCommitteeHot.TYPE } }
-    var description: String { get { return AuthCommitteeHot.DESCRIPTION } }
+    public var type: String { get { return AuthCommitteeHot.TYPE } }
+    public var description: String { get { return AuthCommitteeHot.DESCRIPTION } }
 
-    static var TYPE: String { CertificateType.conway.rawValue }
-    static var DESCRIPTION: String { CertificateDescription.authCommitteeHot.rawValue }
-    static var CODE: CertificateCode { get { return .authCommitteeHot } }
+    public static var TYPE: String { CertificateType.conway.rawValue }
+    public static var DESCRIPTION: String { CertificateDescription.authCommitteeHot.rawValue }
+    public static var CODE: CertificateCode { get { return .authCommitteeHot } }
     
-    let committeeColdCredential: CommitteeColdCredential
-    let committeeHotCredential: CommitteeHotCredential
+    public let committeeColdCredential: CommitteeColdCredential
+    public let committeeHotCredential: CommitteeHotCredential
     
     /// Initialize AuthCommitteeHot from committeeColdCredential and committeeHotCredential
     /// - Parameters:
     ///   - committeeColdCredential: The cold key credential of the committee
     ///   - committeeHotCredential: The hot key credential of the committee
-    init(committeeColdCredential: CommitteeColdCredential,
+    public init(committeeColdCredential: CommitteeColdCredential,
          committeeHotCredential: CommitteeHotCredential) {
         self.committeeColdCredential = committeeColdCredential
         self.committeeHotCredential = committeeHotCredential
@@ -45,7 +45,7 @@ struct AuthCommitteeHot: CertificateSerializable {
     ///   - payload: The payload of the certificate
     ///   - type: The type of the certificate
     ///   - description: The description of the certificate
-    init(payload: Data, type: String?, description: String?) {
+    public init(payload: Data, type: String?, description: String?) {
         self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
@@ -59,7 +59,7 @@ struct AuthCommitteeHot: CertificateSerializable {
     
     /// Initialize AuthCommitteeHot certificate from CBOR
     /// - Parameter decoder: The decoder to use
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         let code = try container.decode(Int.self)
         
@@ -78,7 +78,7 @@ struct AuthCommitteeHot: CertificateSerializable {
     
     /// Encode AuthCommitteeHot to CBOR
     /// - Parameter encoder: The encoder to use
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(Self.CODE.rawValue)
         try container.encode(committeeColdCredential)

@@ -2,20 +2,20 @@ import Foundation
 import PotentCBOR
 
 
-struct ProposalProcedure: PayloadJSONSerializable {
-    var _payload: Data
-    var _type: String
-    var _description: String
+public struct ProposalProcedure: PayloadJSONSerializable {
+    public var _payload: Data
+    public var _type: String
+    public var _description: String
     
-    static var TYPE: String { "Governance proposal" }
-    static var DESCRIPTION: String { "New constitutional committee and/or threshold and/or terms proposal" }
+    public static var TYPE: String { "Governance proposal" }
+    public static var DESCRIPTION: String { "New constitutional committee and/or threshold and/or terms proposal" }
 
-    let deposit: Coin
-    let rewardAccount: RewardAccount
-    let govAction: GovAction
-    let anchor: Anchor
+    public let deposit: Coin
+    public let rewardAccount: RewardAccount
+    public let govAction: GovAction
+    public let anchor: Anchor
     
-    init(
+    public init(
         deposit: Coin,
         rewardAccount: RewardAccount,
         govAction: GovAction,
@@ -40,7 +40,7 @@ struct ProposalProcedure: PayloadJSONSerializable {
         self._description = Self.DESCRIPTION
     }
     
-    init(payload: Data, type: String?, description: String?) {
+    public init(payload: Data, type: String?, description: String?) {
         self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
@@ -53,7 +53,7 @@ struct ProposalProcedure: PayloadJSONSerializable {
         self.anchor = cbor.anchor
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         let deposit = try container.decode(Coin.self)
         let rewardAccount = try container.decode(RewardAccount.self)
@@ -68,7 +68,7 @@ struct ProposalProcedure: PayloadJSONSerializable {
         )
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(deposit)
         try container.encode(rewardAccount)
@@ -93,6 +93,6 @@ struct ProposalProcedure: PayloadJSONSerializable {
 }
 
 
-struct ProposalProcedures: Codable, Hashable, Equatable {
+public struct ProposalProcedures: Codable, Hashable, Equatable {
     var procedures: NonEmptyCBORSet<ProposalProcedure>
 }

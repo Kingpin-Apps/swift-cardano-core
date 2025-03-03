@@ -1,9 +1,6 @@
 import Foundation
 
-let _MAX_INT64: Int64 = (1 << 63) - 1
-let _MIN_INT64: Int64 = -(1 << 63)
-
-public struct Transaction: Codable {
+public struct Transaction: Codable, Equatable, Hashable {
     var transactionBody: TransactionBody
     var transactionWitnessSet: TransactionWitnessSet
     var valid: Bool = true

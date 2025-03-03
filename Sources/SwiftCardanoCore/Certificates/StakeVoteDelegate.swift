@@ -3,28 +3,28 @@ import PotentCBOR
 
 
 /// Stake and Vote Delegation Certificate
-struct StakeVoteDelegate: CertificateSerializable {
-    var _payload: Data
-    var _type: String
-    var _description: String
+public struct StakeVoteDelegate: CertificateSerializable {
+    public var _payload: Data
+    public var _type: String
+    public var _description: String
     
-    var type: String { get { return StakeVoteDelegate.TYPE } }
-    var description: String { get { return StakeVoteDelegate.DESCRIPTION } }
+    public var type: String { get { return StakeVoteDelegate.TYPE } }
+    public var description: String { get { return StakeVoteDelegate.DESCRIPTION } }
 
-    static var TYPE: String { CertificateType.conway.rawValue }
-    static var DESCRIPTION: String { CertificateDescription.stakeVoteDelegate.rawValue }
-    static var CODE: CertificateCode { get { return .stakeVoteDelegate } }
+    public static var TYPE: String { CertificateType.conway.rawValue }
+    public static var DESCRIPTION: String { CertificateDescription.stakeVoteDelegate.rawValue }
+    public static var CODE: CertificateCode { get { return .stakeVoteDelegate } }
     
-    let stakeCredential: StakeCredential
-    let poolKeyHash: PoolKeyHash
-    let drep: DRep
+    public let stakeCredential: StakeCredential
+    public let poolKeyHash: PoolKeyHash
+    public let drep: DRep
     
     /// Initialize a new `StakeVoteDelegate` certificate
     /// - Parameters:
     ///   - stakeCredential: The stake credential
     ///   - poolKeyHash: The pool key hash
     ///   - drep: The DRep
-    init(stakeCredential: StakeCredential, poolKeyHash: PoolKeyHash, drep: DRep) {
+    public init(stakeCredential: StakeCredential, poolKeyHash: PoolKeyHash, drep: DRep) {
         self.stakeCredential = stakeCredential
         self.poolKeyHash = poolKeyHash
         self.drep = drep
@@ -49,7 +49,7 @@ struct StakeVoteDelegate: CertificateSerializable {
     ///   - payload: The payload of the certificate
     ///   - type: The type of the certificate
     ///   - description: The description of the certificate
-    init(payload: Data, type: String?, description: String?) {
+    public init(payload: Data, type: String?, description: String?) {
         self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
@@ -63,7 +63,7 @@ struct StakeVoteDelegate: CertificateSerializable {
     
     /// Initialize a new `StakeVoteDelegate` certificate from its Text Envelope representation
     /// - Parameter decoder: The decoder
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         let code = try container.decode(Int.self)
         
@@ -80,7 +80,7 @@ struct StakeVoteDelegate: CertificateSerializable {
     
     /// Encode the `StakeVoteDelegate` certificate
     /// - Parameter encoder: The encoder
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(Self.CODE.rawValue)
         try container.encode(stakeCredential)

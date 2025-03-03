@@ -2,9 +2,9 @@ import Foundation
 import SwiftNcal
 import PotentCBOR
 
-public struct TransactionBody: Codable {
-    var inputs: [TransactionInput] = []
-    var outputs: [TransactionOutput] = []
+public struct TransactionBody: Codable, Equatable, Hashable {
+    var inputs: [TransactionInput]
+    var outputs: [TransactionOutput]
     var fee: Coin
     var ttl: Int?
     var certificates: [Certificate]?
@@ -47,6 +47,52 @@ public struct TransactionBody: Codable {
         case proposalProcedures = 20
         case currentTreasuryAmount = 21
         case treasuryDonation = 22
+    }
+    
+    public init(
+        inputs: [TransactionInput],
+        outputs: [TransactionOutput],
+        fee: Coin,
+        ttl: Int? = nil,
+        certificates: [Certificate]? = nil,
+        withdrawals: Withdrawals? = nil,
+        update: Update? = nil,
+        auxiliaryDataHash: AuxiliaryDataHash? = nil,
+        validityStart: Int? = nil,
+        mint: MultiAsset? = nil,
+        scriptDataHash: ScriptDataHash? = nil,
+        collateral: [TransactionInput]? = nil,
+        requiredSigners: [VerificationKeyHash]? = nil,
+        networkId: Int? = nil,
+        collateralReturn: TransactionOutput? = nil,
+        totalCollateral: Coin? = nil,
+        referenceInputs: [TransactionInput]? = nil,
+        votingProcedures: VotingProcedure? = nil,
+        proposalProcedures: ProposalProcedure? = nil,
+        currentTreasuryAmount: Coin? = nil,
+        treasuryDonation: PositiveCoin? = nil
+    ) {
+        self.inputs = inputs
+        self.outputs = outputs
+        self.fee = fee
+        self.ttl = ttl
+        self.certificates = certificates
+        self.withdrawals = withdrawals
+        self.update = update
+        self.auxiliaryDataHash = auxiliaryDataHash
+        self.validityStart = validityStart
+        self.mint = mint
+        self.scriptDataHash = scriptDataHash
+        self.collateral = collateral
+        self.requiredSigners = requiredSigners
+        self.networkId = networkId
+        self.collateralReturn = collateralReturn
+        self.totalCollateral = totalCollateral
+        self.referenceInputs = referenceInputs
+        self.votingProcedures = votingProcedures
+        self.proposalProcedures = proposalProcedures
+        self.currentTreasuryAmount = currentTreasuryAmount
+        self.treasuryDonation = treasuryDonation
     }
     
     public init(from decoder: Decoder) throws {
@@ -101,7 +147,7 @@ public struct TransactionBody: Codable {
 
     public func validate() throws {
         if let mint = mint, try mint
-            .count(criteria: { _, _, v in v < _MIN_INT64 || v > _MAX_INT64 }) > 0 {
+            .count(criteria: { _, _, v in v < Int64.min || v > Int64.max }) > 0 {
             throw CardanoCoreError.invalidArgument("Invalid mint amount: \(mint)")
         }
     }

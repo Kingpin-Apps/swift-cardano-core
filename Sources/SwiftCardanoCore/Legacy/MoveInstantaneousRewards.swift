@@ -1,38 +1,38 @@
 import Foundation
 import PotentCBOR
 
-enum MoveInstantaneousRewardSource: Int, Codable {
+public enum MoveInstantaneousRewardSource: Int, Codable {
     case reserves = 0
     case treasury = 1
 }
 
-struct DeltaCoin: Codable {
-    let deltaCoin: Int
+public struct DeltaCoin: Codable {
+    public let deltaCoin: Int
 }
 
-struct MoveInstantaneousReward: Codable {
-    let source: MoveInstantaneousRewardSource
-    let rewards: [String: DeltaCoin]?
-    let coin: UInt64?
+public struct MoveInstantaneousReward: Codable {
+    public let source: MoveInstantaneousRewardSource
+    public let rewards: [String: DeltaCoin]?
+    public let coin: UInt64?
 }
 
-struct MoveInstantaneousRewards: CertificateSerializable {
-    var _payload: Data
-    var _type: String
-    var _description: String
+public struct MoveInstantaneousRewards: CertificateSerializable {
+    public var _payload: Data
+    public var _type: String
+    public var _description: String
     
-    var type: String { get { return MoveInstantaneousRewards.TYPE } }
-    var description: String { get { return MoveInstantaneousRewards.DESCRIPTION } }
+    public var type: String { get { return MoveInstantaneousRewards.TYPE } }
+    public var description: String { get { return MoveInstantaneousRewards.DESCRIPTION } }
 
-    static var TYPE: String { CertificateType.shelley.rawValue }
-    static var DESCRIPTION: String { CertificateDescription.moveInstantaneousRewards.rawValue }
-    static var CODE: CertificateCode { get { return .moveInstantaneousRewards } }
+    public static var TYPE: String { CertificateType.shelley.rawValue }
+    public static var DESCRIPTION: String { CertificateDescription.moveInstantaneousRewards.rawValue }
+    public static var CODE: CertificateCode { get { return .moveInstantaneousRewards } }
     
-    let moveInstantaneousRewards: MoveInstantaneousReward
+    public let moveInstantaneousRewards: MoveInstantaneousReward
     
     /// Initialize a new `MoveInstantaneousRewards` certificate
     /// - Parameter moveInstantaneousRewards: The move instantaneous rewards
-    init(moveInstantaneousRewards: MoveInstantaneousReward) {
+    public init(moveInstantaneousRewards: MoveInstantaneousReward) {
         self.moveInstantaneousRewards = moveInstantaneousRewards
         
         self._payload =  try! CBORSerialization.data(from:
@@ -52,7 +52,7 @@ struct MoveInstantaneousRewards: CertificateSerializable {
     ///  - payload: The CBOR representation of the certificate
     ///  - type: The type of the certificate
     ///  - description: The description of the certificate
-    init(payload: Data, type: String?, description: String?) {
+    public init(payload: Data, type: String?, description: String?) {
         self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
@@ -65,7 +65,7 @@ struct MoveInstantaneousRewards: CertificateSerializable {
     
     /// Initialize a new `MoveInstantaneousRewards` certificate from its CBOR representation
     /// - Parameter decoder: The decoder
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         let code = try container.decode(Int.self)
         
@@ -80,7 +80,7 @@ struct MoveInstantaneousRewards: CertificateSerializable {
     
     /// Encode the `MoveInstantaneousRewards` certificate to the given encoder
     /// - Parameter encoder: The encoder
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(Self.CODE.rawValue)
         try container.encode(moveInstantaneousRewards)

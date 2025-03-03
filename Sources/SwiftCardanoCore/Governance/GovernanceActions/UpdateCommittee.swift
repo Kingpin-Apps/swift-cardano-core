@@ -1,21 +1,21 @@
 import Foundation
 
-struct UpdateCommittee: GovernanceAction {
-    static var code: GovActionCode { get { .updateCommittee } }
+public struct UpdateCommittee: GovernanceAction {
+    public static var code: GovActionCode { get { .updateCommittee } }
     
-    let id: GovActionID?
-    let coldCredentials: Set<CommitteeColdCredential>
-    let credentialEpochs: [CommitteeColdCredential: UInt64] // committee_cold_credential => epoch_no
-    let interval: UnitInterval
+    public let id: GovActionID?
+    public let coldCredentials: Set<CommitteeColdCredential>
+    public let credentialEpochs: [CommitteeColdCredential: UInt64] // committee_cold_credential => epoch_no
+    public let interval: UnitInterval
     
-    init(id: GovActionID?, coldCredentials: Set<CommitteeColdCredential>, credentialEpochs: [CommitteeColdCredential: UInt64], interval: UnitInterval) {
+    public init(id: GovActionID?, coldCredentials: Set<CommitteeColdCredential>, credentialEpochs: [CommitteeColdCredential: UInt64], interval: UnitInterval) {
         self.id = id
         self.coldCredentials = coldCredentials
         self.credentialEpochs = credentialEpochs
         self.interval = interval
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         let code = try container.decode(Int.self)
         
@@ -29,7 +29,7 @@ struct UpdateCommittee: GovernanceAction {
         interval = try container.decode(UnitInterval.self)
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(Self.code)
         try container.encode(id)

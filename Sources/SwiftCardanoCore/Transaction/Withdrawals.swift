@@ -3,7 +3,7 @@ import Foundation
 /// A disctionary of reward addresses to reward withdrawal amount.
 ///
 /// Key is address bytes, value is an integer.
-public struct Withdrawals: Codable {
+public struct Withdrawals: Codable, Equatable, Hashable {
     public var data: [RewardAccount: Coin] {
         get { _data }
         set { _data = newValue }

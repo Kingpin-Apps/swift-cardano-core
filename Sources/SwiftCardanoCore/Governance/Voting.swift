@@ -1,12 +1,12 @@
 import Foundation
 
-enum Vote: Int, Codable {
+public enum Vote: Int, Codable {
     case no = 0
     case yes = 1
     case abstain = 2
 }
 
-enum VoterType: Codable, Equatable, Hashable {
+public enum VoterType: Codable, Equatable, Hashable {
     case constitutionalCommitteeHotKeyhash(AddressKeyHash)
     case constitutionalCommitteeHotScriptHash(ScriptHash)
     case drepKeyhash(AddressKeyHash)
@@ -14,29 +14,29 @@ enum VoterType: Codable, Equatable, Hashable {
     case stakePoolKeyhash(AddressKeyHash)
 }
 
-struct VotingProcedure: Codable, Equatable, Hashable {
-    let vote: Vote
-    let anchor: Anchor?
+public struct VotingProcedure: Codable, Equatable, Hashable {
+    public let vote: Vote
+    public let anchor: Anchor?
     
-    init(vote: Vote, anchor: Anchor? = nil) {
+    public init(vote: Vote, anchor: Anchor? = nil) {
         self.vote = vote
         self.anchor = anchor
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         vote = try container.decode(Vote.self)
         anchor = try container.decode(Anchor.self)
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(vote)
         try container.encode(anchor)
     }
 }
 
-struct Voter: Codable, Equatable, Hashable {
+public struct Voter: Codable, Equatable, Hashable {
     public var code: Int {
         get {
             switch credential {
@@ -53,42 +53,42 @@ struct Voter: Codable, Equatable, Hashable {
             }
         }
     }
-    let credential: VoterType
+    public let credential: VoterType
     
-    init(credential: VoterType) {
+    public init(credential: VoterType) {
         self.credential = credential
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         _ = try container.decode(Int.self)
         credential = try container.decode(VoterType.self)
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(code)
         try container.encode(credential)
     }
     
-    static func == (lhs: Voter, rhs: Voter) -> Bool {
+    public static func == (lhs: Voter, rhs: Voter) -> Bool {
         return lhs.credential == rhs.credential
     }
 }
 
-struct VotingProcedures: Codable, Equatable, Hashable  {
-    let procedures: [Voter: [GovActionID: VotingProcedure]]
+public struct VotingProcedures: Codable, Equatable, Hashable  {
+    public let procedures: [Voter: [GovActionID: VotingProcedure]]
     
-    init(procedures: [Voter: [GovActionID: VotingProcedure]]) {
+    public init(procedures: [Voter: [GovActionID: VotingProcedure]]) {
         self.procedures = procedures
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         procedures = try container.decode([Voter: [GovActionID: VotingProcedure]].self)
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         try container.encode(procedures)
     }

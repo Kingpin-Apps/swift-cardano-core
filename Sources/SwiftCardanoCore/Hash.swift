@@ -86,8 +86,8 @@ public struct ScriptHash: ConstrainedBytes {
     static var minSize: Int { SCRIPT_HASH_SIZE }
 }
 
-typealias PolicyID = ScriptHash
-typealias PolicyHash = ScriptHash
+public typealias PolicyID = ScriptHash
+public typealias PolicyHash = ScriptHash
 
 /// Hash of script data.
 /// See: [alonzo.cddl](https://github.com/input-output-hk/cardano-ledger/blob/525844be05adae151e82069dcd0000f3301ca0d0/eras/alonzo/test-suite/cddl-files/alonzo.cddl#L79-L86)

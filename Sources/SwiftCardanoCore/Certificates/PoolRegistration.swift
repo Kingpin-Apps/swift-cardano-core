@@ -3,23 +3,23 @@ import PotentCBOR
 import FractionNumber
 
 /// Stake Pool Registration Certificate
-struct PoolRegistration: CertificateSerializable {
-    var _payload: Data
-    var _type: String
-    var _description: String
+public struct PoolRegistration: CertificateSerializable {
+    public var _payload: Data
+    public var _type: String
+    public var _description: String
 
-    var type: String { get { return PoolRegistration.TYPE } }
-    var description: String { get { return PoolRegistration.DESCRIPTION } }
+    public var type: String { get { return PoolRegistration.TYPE } }
+    public  var description: String { get { return PoolRegistration.DESCRIPTION } }
 
-    static var TYPE: String { CertificateType.conway.rawValue }
-    static var DESCRIPTION: String { CertificateDescription.poolRegistration.rawValue }
-    static var CODE: CertificateCode { get { return .poolRegistration } }
+    public static var TYPE: String { CertificateType.conway.rawValue }
+    public static var DESCRIPTION: String { CertificateDescription.poolRegistration.rawValue }
+    public static var CODE: CertificateCode { get { return .poolRegistration } }
     
-    let poolParams: PoolParams
+    public let poolParams: PoolParams
     
     /// Initialize a new PoolRegistration certificate
     /// - Parameter poolParams: The pool parameters
-    init(poolParams: PoolParams) {
+    public init(poolParams: PoolParams) {
         self.poolParams = poolParams
         
         self._payload =  try! CBORSerialization.data(from:
@@ -39,7 +39,7 @@ struct PoolRegistration: CertificateSerializable {
     ///   - payload: The payload
     ///   - type: The type
     ///   - description: The description
-    init(payload: Data, type: String?, description: String?) {
+    public init(payload: Data, type: String?, description: String?) {
         self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
@@ -50,7 +50,7 @@ struct PoolRegistration: CertificateSerializable {
     
     /// Initialize a new PoolRegistration certificate from CBOR
     /// - Parameter decoder: The decoder
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         let code = try container.decode(Int.self)
         
@@ -82,7 +82,7 @@ struct PoolRegistration: CertificateSerializable {
     
     /// The encode function
     /// - Parameter encoder: The encoder
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(Self.CODE.rawValue)
         

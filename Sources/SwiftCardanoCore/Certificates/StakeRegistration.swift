@@ -3,21 +3,21 @@ import PotentCBOR
 
 
 /// Stake Address Registration Certificate
-struct StakeRegistration: CertificateSerializable {
-    var _payload: Data
-    var _type: String
-    var _description: String
+public struct StakeRegistration: CertificateSerializable {
+    public var _payload: Data
+    public var _type: String
+    public var _description: String
     
-    var type: String { get { return StakeRegistration.TYPE } }
-    var description: String { get { return StakeRegistration.DESCRIPTION } }
+    public var type: String { get { return StakeRegistration.TYPE } }
+    public var description: String { get { return StakeRegistration.DESCRIPTION } }
 
-    static var TYPE: String { CertificateType.shelley.rawValue }
-    static var DESCRIPTION: String { CertificateDescription.stakeRegistration.rawValue }
-    static var CODE: CertificateCode { get { return .stakeRegistration } }
+    public static var TYPE: String { CertificateType.shelley.rawValue }
+    public static var DESCRIPTION: String { CertificateDescription.stakeRegistration.rawValue }
+    public static var CODE: CertificateCode { get { return .stakeRegistration } }
 
-    let stakeCredential: StakeCredential
+    public let stakeCredential: StakeCredential
     
-    init(stakeCredential: StakeCredential) {
+    public init(stakeCredential: StakeCredential) {
         self.stakeCredential = stakeCredential
         
         self._payload =  try! CBORSerialization.data(from:
@@ -37,7 +37,7 @@ struct StakeRegistration: CertificateSerializable {
     ///   - payload: The payload of the certificate
     ///   - type: The type of the certificate
     ///   - description: The description of the certificate
-    init(payload: Data, type: String?, description: String?) {
+    public init(payload: Data, type: String?, description: String?) {
         self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
@@ -49,7 +49,7 @@ struct StakeRegistration: CertificateSerializable {
 
     /// Initialize StakeRegistration from CBOR
     /// - Parameter decoder: The decoder to use
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         let code = try container.decode(Int.self)
         
@@ -63,7 +63,7 @@ struct StakeRegistration: CertificateSerializable {
     
     /// Encode StakeRegistration to CBOR
     /// - Parameter encoder: The encoder to use
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(Self.CODE.rawValue)
         try container.encode(stakeCredential)

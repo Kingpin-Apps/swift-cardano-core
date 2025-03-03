@@ -1,28 +1,28 @@
 import Foundation
 import PotentCBOR
 
-struct GenesisKeyDelegation: CertificateSerializable {
-    var _payload: Data
-    var _type: String
-    var _description: String
+public struct GenesisKeyDelegation: CertificateSerializable {
+    public var _payload: Data
+    public var _type: String
+    public var _description: String
     
-    var type: String { get { return GenesisKeyDelegation.TYPE } }
-    var description: String { get { return GenesisKeyDelegation.DESCRIPTION } }
+    public var type: String { get { return GenesisKeyDelegation.TYPE } }
+    public var description: String { get { return GenesisKeyDelegation.DESCRIPTION } }
 
-    static var TYPE: String { CertificateType.shelley.rawValue }
-    static var DESCRIPTION: String { CertificateDescription.genesisKeyDelegation.rawValue }
-    static var CODE: CertificateCode { get { return .genesisKeyDelegation } }
+    public static var TYPE: String { CertificateType.shelley.rawValue }
+    public static var DESCRIPTION: String { CertificateDescription.genesisKeyDelegation.rawValue }
+    public static var CODE: CertificateCode { get { return .genesisKeyDelegation } }
     
-    let genesisHash: GenesisHash
-    let genesisDelegateHash: GenesisDelegateHash
-    let vrfKeyHash: VrfKeyHash
+    public let genesisHash: GenesisHash
+    public let genesisDelegateHash: GenesisDelegateHash
+    public let vrfKeyHash: VrfKeyHash
     
     /// Initialize a new `GenesisKeyDelegation` certificate
     /// - Parameters:
     ///  - genesisHash: The DRep credential
     ///  - genesisDelegateHash: The anchor
     ///  - vrfKeyHash: The anchor
-    init(genesisHash: GenesisHash, genesisDelegateHash: GenesisDelegateHash, vrfKeyHash: VrfKeyHash) {
+    public init(genesisHash: GenesisHash, genesisDelegateHash: GenesisDelegateHash, vrfKeyHash: VrfKeyHash) {
         self.genesisHash = genesisHash
         self.genesisDelegateHash = genesisDelegateHash
         self.vrfKeyHash = vrfKeyHash
@@ -46,7 +46,7 @@ struct GenesisKeyDelegation: CertificateSerializable {
     ///  - payload: The CBOR representation of the certificate
     ///  - type: The type of the certificate
     ///  - description: The description of the certificate
-    init(payload: Data, type: String?, description: String?) {
+    public init(payload: Data, type: String?, description: String?) {
         self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
@@ -60,7 +60,7 @@ struct GenesisKeyDelegation: CertificateSerializable {
     
     /// Initialize a new `GenesisKeyDelegation` certificate from its CBOR representation
     /// - Parameter decoder: The decoder
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         let code = try container.decode(Int.self)
         
@@ -75,7 +75,7 @@ struct GenesisKeyDelegation: CertificateSerializable {
         self.init(genesisHash: genesisHash, genesisDelegateHash: genesisDelegateHash, vrfKeyHash: vrfKeyHash)
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(Self.CODE.rawValue)
         try container.encode(genesisHash)

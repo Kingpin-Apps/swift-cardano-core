@@ -2,26 +2,26 @@ import Foundation
 import PotentCBOR
 
 /// Resign Committee Cold certificate
-struct ResignCommitteeCold: CertificateSerializable {
-    var _payload: Data
-    var _type: String
-    var _description: String
+public struct ResignCommitteeCold: CertificateSerializable {
+    public var _payload: Data
+    public var _type: String
+    public var _description: String
 
-    var type: String { get { return ResignCommitteeCold.TYPE } }
-    var description: String { get { return ResignCommitteeCold.DESCRIPTION } }
+    public var type: String { get { return ResignCommitteeCold.TYPE } }
+    public var description: String { get { return ResignCommitteeCold.DESCRIPTION } }
 
-    static var TYPE: String { CertificateType.conway.rawValue }
-    static var DESCRIPTION: String { CertificateDescription.resignCommitteeCold.rawValue }
-    static var CODE: CertificateCode { get { return .resignCommitteeCold } }
+    public static var TYPE: String { CertificateType.conway.rawValue }
+    public static var DESCRIPTION: String { CertificateDescription.resignCommitteeCold.rawValue }
+    public static var CODE: CertificateCode { get { return .resignCommitteeCold } }
     
-    let committeeColdCredential: CommitteeColdCredential
-    let anchor: Anchor?
+    public let committeeColdCredential: CommitteeColdCredential
+    public let anchor: Anchor?
     
     /// Initialize a new `ResignCommitteeCold` certificate
     /// - Parameters:
     ///   - committeeColdCredential: The committee cold credential
     ///   - anchor: The anchor
-    init(committeeColdCredential: CommitteeColdCredential, anchor: Anchor? = nil) {
+    public init(committeeColdCredential: CommitteeColdCredential, anchor: Anchor? = nil) {
         self.committeeColdCredential = committeeColdCredential
         self.anchor = anchor
         
@@ -43,7 +43,7 @@ struct ResignCommitteeCold: CertificateSerializable {
     ///   - payload: The payload of the certificate
     ///   - type: The type of the certificate
     ///   - description: The description of the certificate
-    init(payload: Data, type: String?, description: String?) {
+    public init(payload: Data, type: String?, description: String?) {
         self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
@@ -56,7 +56,7 @@ struct ResignCommitteeCold: CertificateSerializable {
 
     /// Initialize ResignCommitteeCold certificate from CBOR
     /// - Parameter decoder: The decoder to use
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         let code = try container.decode(Int.self)
         
@@ -72,7 +72,7 @@ struct ResignCommitteeCold: CertificateSerializable {
     
     /// Encode ResignCommitteeCold certificate to CBOR
     /// - Parameter encoder: The encoder to use
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(Self.CODE.rawValue)
         try container.encode(committeeColdCredential)

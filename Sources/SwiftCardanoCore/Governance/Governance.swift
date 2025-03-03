@@ -1,6 +1,6 @@
 import Foundation
 
-enum GovActionCode: Int, Codable {
+public enum GovActionCode: Int, Codable {
     case parameterChangeAction = 0
     case hardForkInitiationAction = 1
     case treasuryWithdrawalsAction = 2
@@ -10,11 +10,11 @@ enum GovActionCode: Int, Codable {
     case infoAction = 6
 }
 
-protocol GovernanceAction: Codable, Hashable, Equatable {
+public protocol GovernanceAction: Codable, Hashable, Equatable {
     static var code: GovActionCode { get }
 }
 
-enum GovAction: Codable, Hashable, Equatable {
+public enum GovAction: Codable, Hashable, Equatable {
     case parameterChangeAction(ParameterChangeAction)
     case hardForkInitiationAction(HardForkInitiationAction)
     case treasuryWithdrawalsAction(TreasuryWithdrawalsAction)
@@ -24,34 +24,34 @@ enum GovAction: Codable, Hashable, Equatable {
     case infoAction(InfoAction)
 }
 
-struct GovActionID: Codable, Hashable, Equatable {
-    let transactionID: TransactionId
-    let govActionIndex: UInt16
+public struct GovActionID: Codable, Hashable, Equatable {
+    public let transactionID: TransactionId
+    public let govActionIndex: UInt16
     
-    init(transactionID: TransactionId, govActionIndex: UInt16) {
+    public init(transactionID: TransactionId, govActionIndex: UInt16) {
         self.transactionID = transactionID
         self.govActionIndex = govActionIndex
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         transactionID = try container.decode(TransactionId.self)
         govActionIndex = try container.decode(UInt16.self)
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(transactionID)
         try container.encode(govActionIndex)
     }
 }
 
-struct PoolVotingThresholds: Codable, Hashable, Equatable {
-    var committeeNoConfidence: UnitInterval?
-    var committeeNormal: UnitInterval?
-    var hardForkInitiation: UnitInterval?
-    var motionNoConfidence: UnitInterval?
-    var ppSecurityGroup: UnitInterval?
+public struct PoolVotingThresholds: Codable, Hashable, Equatable {
+    public var committeeNoConfidence: UnitInterval?
+    public var committeeNormal: UnitInterval?
+    public var hardForkInitiation: UnitInterval?
+    public var motionNoConfidence: UnitInterval?
+    public var ppSecurityGroup: UnitInterval?
     
     enum CodingKeys: String, CodingKey {
         case committeeNoConfidence = "committee_no_confidence"
@@ -61,9 +61,9 @@ struct PoolVotingThresholds: Codable, Hashable, Equatable {
         case ppSecurityGroup = "pp_security_group"
     }
     
-    var thresholds: [UnitInterval]
+    public var thresholds: [UnitInterval]
     
-    init(committeeNoConfidence: UnitInterval, committeeNormal: UnitInterval, hardForkInitiation: UnitInterval, motionNoConfidence: UnitInterval, ppSecurityGroup: UnitInterval) {
+    public init(committeeNoConfidence: UnitInterval, committeeNormal: UnitInterval, hardForkInitiation: UnitInterval, motionNoConfidence: UnitInterval, ppSecurityGroup: UnitInterval) {
         self.committeeNoConfidence = committeeNoConfidence
         self.committeeNormal = committeeNormal
         self.hardForkInitiation = hardForkInitiation
@@ -80,12 +80,12 @@ struct PoolVotingThresholds: Codable, Hashable, Equatable {
     }
         
 
-    init(from thresholds: [UnitInterval]) {
+    public init(from thresholds: [UnitInterval]) {
         precondition(thresholds.count == 5, "There must be exactly 5 unit intervals")
         self.thresholds = thresholds
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         committeeNoConfidence = try container.decodeIfPresent(UnitInterval.self)
         committeeNormal = try container.decodeIfPresent(UnitInterval.self)
@@ -102,7 +102,7 @@ struct PoolVotingThresholds: Codable, Hashable, Equatable {
         ]
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(committeeNoConfidence)
         try container.encode(committeeNormal)
@@ -112,41 +112,41 @@ struct PoolVotingThresholds: Codable, Hashable, Equatable {
     }
 }
 
-struct DrepVotingThresholds: Codable, Hashable, Equatable  {
-    var thresholds: [UnitInterval]
+public struct DrepVotingThresholds: Codable, Hashable, Equatable  {
+    public var thresholds: [UnitInterval]
 
-    init(thresholds: [UnitInterval]) {
+    public init(thresholds: [UnitInterval]) {
         precondition(thresholds.count == 10, "There must be exactly 10 unit intervals")
         self.thresholds = thresholds
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         thresholds = try container.decode([UnitInterval].self)
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try thresholds.forEach { try container.encode($0) }
     }
 }
 
-struct Constitution: Codable, Hashable, Equatable {
-    let anchor: Anchor
-    let scriptHash: ScriptHash?
+public struct Constitution: Codable, Hashable, Equatable {
+    public let anchor: Anchor
+    public let scriptHash: ScriptHash?
     
-    init(anchor: Anchor, scriptHash: ScriptHash?) {
+    public init(anchor: Anchor, scriptHash: ScriptHash?) {
         self.anchor = anchor
         self.scriptHash = scriptHash
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         anchor = try container.decode(Anchor.self)
         scriptHash = try container.decode(ScriptHash.self)
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(anchor)
         try container.encode(scriptHash)

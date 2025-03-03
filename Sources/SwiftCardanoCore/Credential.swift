@@ -1,18 +1,18 @@
 import Foundation
 
-typealias StakeCredential = Credential
-typealias DRepCredential = Credential
-typealias CommitteeColdCredential = Credential
-typealias CommitteeHotCredential = Credential
+public typealias StakeCredential = Credential
+public typealias DRepCredential = Credential
+public typealias CommitteeColdCredential = Credential
+public typealias CommitteeHotCredential = Credential
 
 /// Enum representing the different types of credentials.
-enum CredentialType: Codable, Hashable {
+public enum CredentialType: Codable, Hashable, Sendable {
     case verificationKeyHash(VerificationKeyHash)
     case scriptHash(ScriptHash)
 }
 
 /// The credential can be  a verification key hash or a script hash.
-struct Credential: Codable, Hashable {
+public struct Credential: Codable, Hashable, Sendable {
     public var code: Int {
         get {
             switch credential {
@@ -23,13 +23,13 @@ struct Credential: Codable, Hashable {
             }
         }
     }
-    let credential: CredentialType
+    public let credential: CredentialType
     
-    init(credential: CredentialType) {
+    public init(credential: CredentialType) {
         self.credential = credential
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         let code = try container.decode(Int.self)
         let credential: CredentialType
@@ -50,7 +50,7 @@ struct Credential: Codable, Hashable {
         self.credential = credential
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(code)
         
@@ -62,7 +62,7 @@ struct Credential: Codable, Hashable {
         }
     }
     
-    static func == (lhs: Credential, rhs: Credential) -> Bool {
+    public static func == (lhs: Credential, rhs: Credential) -> Bool {
         return lhs.credential == rhs.credential
     }
 }

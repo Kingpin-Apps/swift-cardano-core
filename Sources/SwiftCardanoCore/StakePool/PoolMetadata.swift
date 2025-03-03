@@ -4,14 +4,14 @@ import PotentCBOR
 import OrderedCollections
 import SwiftNcal
 
-struct PoolMetadata: JSONSerializable {
-    let name: String?
-    let description: String?
-    let ticker: String?
-    let homepage: Url?
+public struct PoolMetadata: JSONSerializable {
+    public let name: String?
+    public let description: String?
+    public let ticker: String?
+    public let homepage: Url?
     
-    let url: Url?
-    let poolMetadataHash: PoolMetadataHash?
+    public let url: Url?
+    public let poolMetadataHash: PoolMetadataHash?
     
     enum CodingKeys: String, CodingKey {
         case name
@@ -20,7 +20,7 @@ struct PoolMetadata: JSONSerializable {
         case homepage
     }
     
-    init(
+    public init(
         name: String? = nil,
         description: String? = nil,
         ticker: String? = nil,
@@ -55,7 +55,7 @@ struct PoolMetadata: JSONSerializable {
         self.poolMetadataHash = poolMetadataHash
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         if let container = try? decoder.container(keyedBy: CodingKeys.self) {
             let name = try container.decodeIfPresent(String.self, forKey: .name)
             let description = try container.decodeIfPresent(String.self, forKey: .description)
@@ -85,7 +85,7 @@ struct PoolMetadata: JSONSerializable {
         }
     }
     
-    func encode(to encoder: Swift.Encoder) throws {
+    public func encode(to encoder: Swift.Encoder) throws {
         if String(describing: type(of: encoder)).contains("JSONEncoder") {
             var container = encoder.container(keyedBy: CodingKeys.self)
             
@@ -101,7 +101,7 @@ struct PoolMetadata: JSONSerializable {
         }
     }
     
-    func hash() throws -> String {
+    public func hash() throws -> String {
         let json = try toJSON()!
         let jsonData = json.data(using: .utf8)!
         
@@ -118,14 +118,14 @@ struct PoolMetadata: JSONSerializable {
         return hash.toHex
     }
     
-    func hash(into hasher: inout Hasher) {
+    public func hash(into hasher: inout Hasher) {
         hasher.combine(name)
         hasher.combine(description)
         hasher.combine(ticker)
         hasher.combine(homepage)
     }
     
-    func toJSON() throws -> String? {        
+    public func toJSON() throws -> String? {
         let jsonString = """
         {
             "name": "\(name ?? "")",
@@ -139,7 +139,7 @@ struct PoolMetadata: JSONSerializable {
         return jsonString
     }
 
-    static func fromDict(_ dict: Dictionary<AnyHashable, Any>) throws -> PoolMetadata {
+    public static func fromDict(_ dict: Dictionary<AnyHashable, Any>) throws -> PoolMetadata {
         let name = dict["name"] as? String
         let description = dict["description"] as? String
         let ticker = dict["ticker"] as? String

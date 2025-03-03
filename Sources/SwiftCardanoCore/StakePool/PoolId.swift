@@ -1,6 +1,6 @@
 import Foundation
 
-func isBech32CardanoPoolId(_ poolId: String?) -> Bool {
+public func isBech32CardanoPoolId(_ poolId: String?) -> Bool {
     guard let poolId = poolId, poolId.hasPrefix("pool") else {
         return false
     }
@@ -8,24 +8,24 @@ func isBech32CardanoPoolId(_ poolId: String?) -> Bool {
     return decoded != nil
 }
 
-struct PoolId: Codable, CustomStringConvertible, CustomDebugStringConvertible, Equatable, Hashable {
+public struct PoolId: Codable, CustomStringConvertible, CustomDebugStringConvertible, Equatable, Hashable {
 
-    var description: String { return bech32 }
+    public var description: String { return bech32 }
 
-    var debugDescription: String { return bech32 }
+    public var debugDescription: String { return bech32 }
 
-    var hex: String { Bech32().decode(addr: bech32)!.toHex }
+    public var hex: String { Bech32().decode(addr: bech32)!.toHex }
 
-    let bech32: String
+    public let bech32: String
     
-    init(from bech32: String) throws {
+    public init(from bech32: String) throws {
         guard isBech32CardanoPoolId(bech32) else {
             throw CardanoCoreError.valueError("Invalid PoolId format. The PoolId should be a valid Cardano stake pool ID in bech32 format.")
         }
         self.bech32 = bech32
     }
     
-    init(from hex: Data) throws {
+    public init(from hex: Data) throws {
         let hexData = Bech32().encode(hrp: "pool", witprog: hex)
         
         if hexData == nil {
@@ -35,13 +35,13 @@ struct PoolId: Codable, CustomStringConvertible, CustomDebugStringConvertible, E
         try self.init(from: hexData!)
     }
 
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let bech32 = try container.decode(String.self)
         try self.init(from: bech32)
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         try container.encode(bech32)
     }
@@ -49,7 +49,7 @@ struct PoolId: Codable, CustomStringConvertible, CustomDebugStringConvertible, E
     /// Load file contents from a given path
     /// - Parameter path: The path to the file
     /// - Returns: An instance of the conforming type
-    static func load(from path: String) throws -> Self {
+    public static func load(from path: String) throws -> Self {
         let id = try String(contentsOfFile: path).trimmingCharacters(in: .newlines)
         
         if id.hasPrefix("pool") {

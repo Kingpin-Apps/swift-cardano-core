@@ -2,26 +2,26 @@ import Foundation
 import PotentCBOR
 
 /// Delegate stake to a `DRep`
-struct VoteDelegate: CertificateSerializable {
-    var _payload: Data
-    var _type: String
-    var _description: String
+public struct VoteDelegate: CertificateSerializable, Sendable {
+    public var _payload: Data
+    public var _type: String
+    public var _description: String
     
-    var type: String { get { return VoteDelegate.TYPE } }
-    var description: String { get { return VoteDelegate.DESCRIPTION } }
+    public var type: String { get { return VoteDelegate.TYPE } }
+    public var description: String { get { return VoteDelegate.DESCRIPTION } }
 
-    static var TYPE: String { CertificateType.conway.rawValue }
-    static var DESCRIPTION: String { CertificateDescription.voteDelegate.rawValue }
-    static var CODE: CertificateCode { get { return .voteDelegate } }
+    public static var TYPE: String { CertificateType.conway.rawValue }
+    public static var DESCRIPTION: String { CertificateDescription.voteDelegate.rawValue }
+    public static var CODE: CertificateCode { get { return .voteDelegate } }
     
-    let stakeCredential: StakeCredential
-    let drep: DRep
+    public let stakeCredential: StakeCredential
+    public let drep: DRep
     
     /// Initialize a new `VoteDelegate` certificate
     /// - Parameters:
     ///   - stakeCredential: The stake credential
     ///   - drep: The DRep
-    init(stakeCredential: StakeCredential, drep: DRep) {
+    public init(stakeCredential: StakeCredential, drep: DRep) {
         self.stakeCredential = stakeCredential
         self.drep = drep
         
@@ -44,7 +44,7 @@ struct VoteDelegate: CertificateSerializable {
     ///   - payload: The payload of the certificate
     ///   - type: The type of the certificate
     ///   - description: The description of the certificate
-    init(payload: Data, type: String?, description: String?) {
+    public init(payload: Data, type: String?, description: String?) {
         self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
@@ -57,7 +57,7 @@ struct VoteDelegate: CertificateSerializable {
     
     /// Initialize a new `VoteDelegate` certificate from its Text Envelope representation
     /// - Parameter decoder: The decoder
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         let code = try container.decode(Int.self)
         
@@ -73,7 +73,7 @@ struct VoteDelegate: CertificateSerializable {
     
     /// Encode the VoteDelegate certificate
     /// - Parameter encoder: The encoder
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(Self.CODE.rawValue)
         try container.encode(stakeCredential)

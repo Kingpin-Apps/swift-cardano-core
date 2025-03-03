@@ -5,20 +5,20 @@ import FractionNumber
 import Network
 
 
-struct SingleHostAddr: Codable, Equatable, Hashable {
+public struct SingleHostAddr: Codable, Equatable, Hashable {
     public var code: Int { get { return 0 } }
 
-    let port: Int?
-    let ipv4: IPv4Address?
-    let ipv6: IPv6Address?
+    public let port: Int?
+    public let ipv4: IPv4Address?
+    public let ipv6: IPv6Address?
     
-    init(port: Int?, ipv4: IPv4Address?, ipv6: IPv6Address?) {
+    public init(port: Int?, ipv4: IPv4Address?, ipv6: IPv6Address?) {
         self.port = port
         self.ipv4 = ipv4
         self.ipv6 = ipv6
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         let code = try container.decode(Int.self)
         
@@ -31,7 +31,7 @@ struct SingleHostAddr: Codable, Equatable, Hashable {
         ipv6 = try container.decodeIfPresent(IPv6Address.self)
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(code)
         try container.encode(port)
@@ -40,18 +40,18 @@ struct SingleHostAddr: Codable, Equatable, Hashable {
     }
 }
 
-struct SingleHostName: Codable, Equatable, Hashable {
+public struct SingleHostName: Codable, Equatable, Hashable {
     public var code: Int { get { return 1 } }
     
-    let port: Int?
-    let dnsName: String?
+    public let port: Int?
+    public let dnsName: String?
     
-    init(port: Int?, dnsName: String?) {
+    public init(port: Int?, dnsName: String?) {
         self.port = port
         self.dnsName = dnsName
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         let code = try container.decode(Int.self)
         
@@ -63,7 +63,7 @@ struct SingleHostName: Codable, Equatable, Hashable {
         dnsName = try container.decodeIfPresent(String.self)
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(code)
         try container.encode(port)
@@ -71,15 +71,15 @@ struct SingleHostName: Codable, Equatable, Hashable {
     }
 }
 
-struct MultiHostName: Codable, Equatable, Hashable {
+public struct MultiHostName: Codable, Equatable, Hashable {
     public var code: Int { get { return 2 } }
-    let dnsName: String?
+    public let dnsName: String?
     
-    init(dnsName: String?) {
+    public init(dnsName: String?) {
         self.dnsName = dnsName
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         let code = try container.decode(Int.self)
         
@@ -90,19 +90,19 @@ struct MultiHostName: Codable, Equatable, Hashable {
         dnsName = try container.decodeIfPresent(String.self)
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(code)
         try container.encode(dnsName)
     }
 }
 
-enum Relay: Codable, Equatable, Hashable {
+public enum Relay: Codable, Equatable, Hashable {
     case singleHostAddr(SingleHostAddr)
     case singleHostName(SingleHostName)
     case multiHostName(MultiHostName)
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         let code = try container.decode(Int.self)
         
@@ -118,7 +118,7 @@ enum Relay: Codable, Equatable, Hashable {
         }
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         switch self {
             case .singleHostAddr(let value):
                 try value.encode(to: encoder)
@@ -130,19 +130,19 @@ enum Relay: Codable, Equatable, Hashable {
     }
 }
 
-struct PoolParams: Codable, Equatable, Hashable {
-    let poolOperator: PoolKeyHash
-    let vrfKeyHash: VrfKeyHash
-    let pledge: Int
-    let cost: Int
-    let margin: UnitInterval
-    let rewardAccount: RewardAccountHash
-    let poolOwners: CBORSet<VerificationKeyHash>
-    let relays: [Relay]?
-    let poolMetadata: PoolMetadata?
-    let id: PoolId?
+public struct PoolParams: Codable, Equatable, Hashable {
+    public let poolOperator: PoolKeyHash
+    public let vrfKeyHash: VrfKeyHash
+    public let pledge: Int
+    public let cost: Int
+    public let margin: UnitInterval
+    public let rewardAccount: RewardAccountHash
+    public let poolOwners: CBORSet<VerificationKeyHash>
+    public let relays: [Relay]?
+    public let poolMetadata: PoolMetadata?
+    public let id: PoolId?
     
-    init(
+    public init(
         poolOperator: PoolKeyHash,
         vrfKeyHash: VrfKeyHash,
         pledge: Int,
@@ -166,7 +166,7 @@ struct PoolParams: Codable, Equatable, Hashable {
         self.id = id
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         
         poolOperator = try container.decode(PoolKeyHash.self)
@@ -181,7 +181,7 @@ struct PoolParams: Codable, Equatable, Hashable {
         id = nil
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(poolOperator)
         try container.encode(vrfKeyHash)
