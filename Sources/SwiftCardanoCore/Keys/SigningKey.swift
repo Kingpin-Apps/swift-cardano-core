@@ -2,10 +2,10 @@ import Foundation
 import CryptoKit
 import SwiftNcal
 
-protocol SigningKey: PayloadCBORSerializable {}
-protocol ExtendedSigningKey: PayloadCBORSerializable {}
+public protocol SigningKey: PayloadCBORSerializable {}
+public protocol ExtendedSigningKey: PayloadCBORSerializable {}
 
-extension SigningKey {
+public extension SigningKey {
     func sign(data: Data) throws -> Data {
         let signingKey = try SwiftNcal.SigningKey(seed: payload)
         let signedMessage = try signingKey.sign(message: data)
@@ -13,7 +13,7 @@ extension SigningKey {
     }
     
     
-    func toVerificationKey<T>() throws -> T where T: VerificationKey {        
+    func toVerificationKey<T>() throws -> T where T: VerificationKey {
         let signingKey = try SwiftNcal.SigningKey(seed: payload)
         var vkey =  T(
             payload: signingKey.verifyKey.bytes,
@@ -33,7 +33,7 @@ extension SigningKey {
     }
 }
 
-extension ExtendedSigningKey {
+public extension ExtendedSigningKey {
     
     func sign(data: Data) throws -> Data {
         guard payload.count >= 160 else {

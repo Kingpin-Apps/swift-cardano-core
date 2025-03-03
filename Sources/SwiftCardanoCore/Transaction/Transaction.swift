@@ -41,28 +41,3 @@ public struct Transaction: Codable {
         try container.encode(auxiliaryData)
     }
 }
-
-/// A disctionary of reward addresses to reward withdrawal amount.
-///
-/// Key is address bytes, value is an integer.
-public struct Withdrawals: Codable {
-    public var data: [RewardAccount: Coin] {
-        get {
-            _data
-        }
-        set {
-            _data = newValue
-        }
-    }
-    private var _data: [RewardAccount: Coin] = [:]
-    
-    // Subscript for easier key-value access
-    public subscript(key: RewardAccount) -> Coin? {
-        get {
-            return _data[key]
-        }
-        set {
-            _data[key] = newValue
-        }
-    }
-}

@@ -8,7 +8,7 @@ public struct TransactionBody: Codable {
     var fee: Coin
     var ttl: Int?
     var certificates: [Certificate]?
-    var withdraws: Withdrawals?
+    var withdrawals: Withdrawals?
     var update: Update?
     var auxiliaryDataHash: AuxiliaryDataHash?
     var validityStart: Int?
@@ -31,7 +31,7 @@ public struct TransactionBody: Codable {
         case fee = 2
         case ttl = 3
         case certificates = 4
-        case withdraws = 5
+        case withdrawals = 5
         case update = 6
         case auxiliaryDataHash = 7
         case validityStart = 8
@@ -57,7 +57,7 @@ public struct TransactionBody: Codable {
         ttl = try container.decodeIfPresent(Int.self, forKey: .ttl)
         certificates = try container.decodeIfPresent([Certificate].self, forKey: .certificates)
         update = try container.decodeIfPresent(Update.self, forKey: .update)
-        withdraws = try container.decodeIfPresent(Withdrawals.self, forKey: .withdraws)
+        withdrawals = try container.decodeIfPresent(Withdrawals.self, forKey: .withdrawals)
         auxiliaryDataHash = try container.decodeIfPresent(AuxiliaryDataHash.self, forKey: .auxiliaryDataHash)
         validityStart = try container.decodeIfPresent(Int.self, forKey: .validityStart)
         mint = try container.decodeIfPresent(MultiAsset.self, forKey: .mint)
@@ -82,7 +82,7 @@ public struct TransactionBody: Codable {
         try container.encodeIfPresent(ttl, forKey: .ttl)
         try container.encodeIfPresent(certificates, forKey: .certificates)
         try container.encodeIfPresent(update, forKey: .update)
-        try container.encodeIfPresent(withdraws, forKey: .withdraws)
+        try container.encodeIfPresent(withdrawals, forKey: .withdrawals)
         try container.encodeIfPresent(auxiliaryDataHash, forKey: .auxiliaryDataHash)
         try container.encodeIfPresent(validityStart, forKey: .validityStart)
         try container.encodeIfPresent(mint, forKey: .mint)

@@ -2,10 +2,10 @@ import Foundation
 import CryptoKit
 import SwiftNcal
 
-protocol VerificationKey: PayloadCBORSerializable {}
-protocol ExtendedVerificationKey: PayloadCBORSerializable {}
+public protocol VerificationKey: PayloadCBORSerializable {}
+public protocol ExtendedVerificationKey: PayloadCBORSerializable {}
 
-extension VerificationKey {
+public extension VerificationKey {
     /// Compute a blake2b hash from the key
     /// - Returns: Hash output in bytes.
     func hash() throws -> VerificationKeyHash {
@@ -23,7 +23,7 @@ extension VerificationKey {
     }
 }
 
-extension ExtendedVerificationKey {
+public extension ExtendedVerificationKey {
     /// Compute a blake2b hash from the key, excluding chain code
     /// - Returns: VerificationKeyHash as the hash output in bytes
     func hash<T: VerificationKey>() throws -> (VerificationKeyHash, T) {

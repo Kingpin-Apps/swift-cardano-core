@@ -1,10 +1,11 @@
 import Foundation
 
-enum VerificationKeyType: Codable {
+public enum VerificationKeyType: Codable, Equatable, Hashable {
+
     case extendedVerificationKey(any ExtendedVerificationKey)
     case verificationKey(any VerificationKey)
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let data = try container.decode(Data.self)
         if data.count == 64 {
@@ -14,7 +15,7 @@ enum VerificationKeyType: Codable {
         }
     }
 
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         
         switch self {
@@ -24,19 +25,54 @@ enum VerificationKeyType: Codable {
                 try container.encode(key)
         }
     }
+    
+    public func hash(into hasher: inout Hasher) {
+        switch self {
+            case .extendedVerificationKey(let key):
+                hasher.combine(key)
+            case .verificationKey(let key):
+                hasher.combine(key)
+        }
+    }
+    
+    public static func == (lhs: VerificationKeyType, rhs: VerificationKeyType) -> Bool {
+        let lhsData: Data
+        let rhsData: Data
+        
+        switch lhs {
+            case .extendedVerificationKey(let key):
+                lhsData = key.payload
+            case .verificationKey(let key):
+                lhsData = key.payload
+        }
+        
+        switch rhs {
+            case .extendedVerificationKey(let key):
+                rhsData = key.payload
+            case .verificationKey(let key):
+                rhsData = key.payload
+        }
+        
+        return lhsData == rhsData
+    }
 }
 
-struct VerificationKeyWitness: Codable {
-    var vkey: VerificationKeyType
-    var signature: Data
+public struct VerificationKeyWitness: Codable, Equatable, Hashable {
+    public var vkey: VerificationKeyType
+    public var signature: Data
     
-    init(from decoder: Decoder) throws {
+    public init(vkey: VerificationKeyType, signature: Data) {
+        self.vkey = vkey
+        self.signature = signature
+    }
+    
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         vkey = try container.decode(VerificationKeyType.self)
         signature = try container.decode(Data.self)
     }
 
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         
         switch vkey {
@@ -50,25 +86,25 @@ struct VerificationKeyWitness: Codable {
     }
 }
 
-public struct TransactionWitnessSet: Codable {
+public struct TransactionWitnessSet: Codable, Equatable, Hashable {
+    public let vkeyWitnesses: [VerificationKeyWitness]?
+    public let nativeScripts: [NativeScripts]?
+    public let bootstrapWitness: [BootstrapWitness]?
+    public let plutusV1Script: [PlutusV1Script]?
+    public let plutusData: [RawPlutusData]?
+    public let redeemers: [Redeemer]?
+    public let plutusV2Script: [PlutusV2Script]?
+    public let plutusV3Script: [PlutusV3Script]?
 
-    var vkeyWitnesses: [VerificationKeyWitness]?
-    var nativeScripts: [NativeScripts]?
-    var bootstrapWitness: [BootstrapWitness]?
-    var plutusV1Script: [PlutusV1Script]?
-    var plutusData: [RawPlutusData]?
-    var redeemers: [Redeemer]?
-    var plutusV2Script: [PlutusV2Script]?
-    var plutusV3Script: [PlutusV3Script]?
-
-    init(
+    public init(
         vkeyWitnesses: [VerificationKeyWitness]? = nil,
         nativeScripts: [NativeScripts]? = nil,
         bootstrapWitness: [BootstrapWitness]? = nil,
         plutusV1Script: [PlutusV1Script]? = nil,
         plutusV2Script: [PlutusV2Script]? = nil,
         plutusData: [RawPlutusData]? = nil,
-        redeemers: [Redeemer]? = nil
+        redeemers: [Redeemer]? = nil,
+        plutusV3Script: [PlutusV3Script]? = nil
     ) {
         self.vkeyWitnesses = vkeyWitnesses
         self.nativeScripts = nativeScripts
@@ -77,6 +113,7 @@ public struct TransactionWitnessSet: Codable {
         self.plutusV2Script = plutusV2Script
         self.plutusData = plutusData
         self.redeemers = redeemers
+        self.plutusV3Script = plutusV3Script
     }
 
     enum CodingKeys: Int, CodingKey {

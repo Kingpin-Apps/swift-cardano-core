@@ -1,21 +1,21 @@
 import Foundation
 import PotentCBOR
 
-protocol Payloadable {
+public protocol Payloadable {
     var _payload: Data { get set }
     var _type: String { get set }
     var _description: String { get set }
 }
 
 
-extension Payloadable {
+public extension Payloadable {
     var payload: Data { get { return _payload } }
     var type: String { get { return _type } }
     var description: String { get { return _description } }
 }
 
 
-protocol PayloadSerializable: Payloadable, Codable, Hashable, Equatable {
+public protocol PayloadSerializable: Payloadable, Codable, Hashable, Equatable {
     static var TYPE: String { get }
     static var DESCRIPTION: String { get }
     
@@ -23,11 +23,11 @@ protocol PayloadSerializable: Payloadable, Codable, Hashable, Equatable {
     init(payload: Data, type: String?, description: String?)
 }
 
-protocol PayloadJSONSerializable: PayloadSerializable {}
+public protocol PayloadJSONSerializable: PayloadSerializable {}
 
-protocol PayloadCBORSerializable: PayloadJSONSerializable {}
+public protocol PayloadCBORSerializable: PayloadJSONSerializable {}
 
-extension PayloadSerializable {
+public extension PayloadSerializable {
     init(payload: Data) {
         self.init(payload: payload, type: Self.TYPE, description: Self.DESCRIPTION)
     }
@@ -51,7 +51,7 @@ extension PayloadSerializable {
     }
 }
 
-extension PayloadJSONSerializable {
+public extension PayloadJSONSerializable {
     /// Serialize to JSON.
     ///
     /// The json output has three fields: "type", "description", and "cborHex".
@@ -130,7 +130,7 @@ extension PayloadJSONSerializable {
     }
 }
 
-extension PayloadCBORSerializable where Self: Codable {
+public extension PayloadCBORSerializable where Self: Codable {
     
     /// Deserialize from CBOR.
     /// - Parameter decoder: The decoder.
