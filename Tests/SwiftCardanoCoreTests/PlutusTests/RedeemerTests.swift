@@ -1,13 +1,13 @@
 import Foundation
-@testable import SwiftCardanoCore
 import Testing
+@testable import SwiftCardanoCore
 
 @Suite("Redeemer Tests")
 struct RedeemerTests {
     
     @Test("Test Redeemer initialization")
     func testRedeemerInit() async throws {
-        let plutusData = try PlutusData(fields: [42])
+        let plutusData = PlutusData.boundedBytes(Data(repeating: 0x01, count: 32))
         let exUnits = ExecutionUnits(mem: 1000, steps: 2000)
         
         let redeemer = Redeemer(data: plutusData, exUnits: exUnits)
@@ -30,7 +30,7 @@ struct RedeemerTests {
     
     @Test("Test Redeemer encoding and decoding")
     func testRedeemerCoding() async throws {
-        let plutusData = try PlutusData(fields: [42])
+        let plutusData = PlutusData.boundedBytes(Data(repeating: 0x01, count: 32))
         let exUnits = ExecutionUnits(mem: 1000, steps: 2000)
         var redeemer = Redeemer(data: plutusData, exUnits: exUnits)
         redeemer.tag = .spend

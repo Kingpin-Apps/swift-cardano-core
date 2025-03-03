@@ -13,6 +13,16 @@ public struct BabbageTransactionOutput: Codable {
         case scriptRef = 3
     }
     
+    public init(address: Address,
+                amount: Value,
+                datum: DatumOption? = nil,
+                scriptRef: ScriptRef? = nil) {
+        self.address = address
+        self.amount = amount
+        self.datum = datum
+        self.scriptRef = scriptRef
+    }
+    
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         address = try container.decode(Address.self, forKey: .address)

@@ -2,6 +2,7 @@ import Foundation
 import CryptoKit
 import PotentCodables
 import PotentCBOR
+import BigInt
 
 
 protocol PlutusDataProtocol: Codable, Equatable, Hashable {
@@ -77,7 +78,7 @@ extension PlutusDataProtocol {
     
     func hash() throws -> DatumHash {
         return try datumHash(
-            datum: .plutusData(PlutusData(fields: [self.properties]))
+            datum: .plutusData(self as! PlutusData)
         )
     }
     
@@ -242,26 +243,34 @@ extension PlutusDataProtocol {
 //    }
 }
 
-public struct PlutusData: PlutusDataProtocol {
-    var properties: [String : PotentCodables.AnyValue]
-
-    /// Constructor ID of this plutus data.
-    /// It is primarily used by Plutus core to reconstruct a data structure from serialized CBOR bytes.
-    /// The default implementation is an almost unique, deterministic constructor ID in the range 1 - 2^32 based
-    /// on class attributes, types and class name.
-    static var CONSTR_ID: Any {
-        let k = "_CONSTR_ID_\(String(describing: self))"
-        
-        _ = Mirror(reflecting: self)
-        if !hasAttribute(self, propertyName: k) {
-            let detString = try! idMap(cls: self, skipConstructor: true)
-            let detHash = SHA256.hash(data: Data(detString.utf8)).map { String(format: "%02x", $0) }.joined()
-            let _ = setAttribute(self, propertyName: k, value: Int(detHash, radix: 16)! % (1 << 32))
-        }
-        
-        return getAttribute(self, propertyName: k)!
-    }
+public enum PlutusData: Codable, Equatable, Hashable {
+    case constr([PlutusData])
+    case map([PlutusData: PlutusData])
+    case array([PlutusData])
+    case bigInt(BigInt)
+    case boundedBytes(Data)
 }
+
+//public struct PlutusData: PlutusDataProtocol {
+//    var properties: [String : PotentCodables.AnyValue]
+//
+//    /// Constructor ID of this plutus data.
+//    /// It is primarily used by Plutus core to reconstruct a data structure from serialized CBOR bytes.
+//    /// The default implementation is an almost unique, deterministic constructor ID in the range 1 - 2^32 based
+//    /// on class attributes, types and class name.
+//    static var CONSTR_ID: Any {
+//        let k = "_CONSTR_ID_\(String(describing: self))"
+//        
+//        _ = Mirror(reflecting: self)
+//        if !hasAttribute(self, propertyName: k) {
+//            let detString = try! idMap(cls: self, skipConstructor: true)
+//            let detHash = SHA256.hash(data: Data(detString.utf8)).map { String(format: "%02x", $0) }.joined()
+//            let _ = setAttribute(self, propertyName: k, value: Int(detHash, radix: 16)! % (1 << 32))
+//        }
+//        
+//        return getAttribute(self, propertyName: k)!
+//    }
+//}
 
 
 // MARK: - Unit

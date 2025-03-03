@@ -1,18 +1,24 @@
 import Foundation
 
-struct ShelleyTransactionOutput: Codable {
-    var address: Address
-    var amount: Value
-    var datumHash: DatumHash?
+public struct ShelleyTransactionOutput: Codable, Equatable, Hashable {
+    public var address: Address
+    public var amount: Value
+    public var datumHash: DatumHash?
     
-    init(from decoder: Decoder) throws {
+    public init(address: Address, amount: Value, datumHash: DatumHash?) {
+        self.address = address
+        self.amount = amount
+        self.datumHash = datumHash
+    }
+    
+    public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         address = try container.decode(Address.self)
         amount = try container.decode(Value.self)
-        datumHash = try container.decode(DatumHash.self)
+        datumHash = try container.decodeIfPresent(DatumHash.self)
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(address)
         try container.encode(amount)

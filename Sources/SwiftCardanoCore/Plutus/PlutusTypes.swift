@@ -32,9 +32,9 @@ public enum ScriptType: Codable, Equatable, Hashable {
         }
     }
     
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(self)
-    }
+//    public func hash(into hasher: inout Hasher) {
+//        hasher.combine(self)
+//    }
 }
 
 // MARK: - RawDatum
@@ -177,9 +177,7 @@ public enum Datum: Codable, Equatable, Hashable {
     public static func == (lhs: Datum, rhs: Datum) -> Bool {
         switch (lhs, rhs) {
             case (.plutusData(let a), .plutusData(let b)):
-                let hash1 = try! a.hash()
-                let hash2 = try! b.hash()
-                return hash1 == hash2
+                return a == b
             case (.dict(let a), .dict(let b)):
                 guard a.count == b.count else { return false }
                 for (key, value1) in a {

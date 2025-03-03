@@ -236,7 +236,7 @@ protocol CBORTaggable: Codable, Equatable, Hashable {
     var tag: UInt64 { get }
     var value: AnyValue { get set }
     
-    init(tag: UInt64, value: AnyValue)
+    init(tag: UInt64, value: AnyValue) throws
 }
 
 extension CBORTaggable {
@@ -252,7 +252,7 @@ extension CBORTaggable {
         guard case let .tagged(tag, value) = cbor else {
             throw CardanoCoreError.valueError("CBOR value is not tagged")
         }
-        return Self(
+        return try Self(
             tag: tag.rawValue,
             value: try AnyValue.wrapped(value.unwrapped)
         )
@@ -265,7 +265,7 @@ extension CBORTaggable {
         if case let .tagged(tag, cborData) = cborData {
             let tag = tag.rawValue
             let value = try AnyValue.wrapped(cborData.unwrapped)
-            self.init(tag: tag, value: value)
+            try self.init(tag: tag, value: value)
         } else {
             throw CardanoCoreError.valueError("CBORTag must be tagged")
         }
@@ -414,7 +414,7 @@ extension SetTaggable {
                 return element
             }
             let elements = Set(decodedElements)
-            self.init(
+            try self.init(
                 tag: tag.rawValue,
                 value: AnyValue.array(
                     elements.map {
@@ -428,7 +428,7 @@ extension SetTaggable {
                 try CBOR.Decoder.default.decode(Element.self, from: $0.unwrapped as! Data)
             }
             let elements = Set(decodedElements)
-            self.init(
+            try self.init(
                 tag: Self.TAG,
                 value: AnyValue
                     .array(elements.map { try! AnyValue.wrapped($0) })

@@ -189,8 +189,4 @@ extension NativeScript {
             payload: hash
         )
     }
-    
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(self)
-    }
 }

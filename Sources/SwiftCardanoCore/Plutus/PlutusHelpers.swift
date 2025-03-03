@@ -96,48 +96,48 @@ func getConstructorIDAndFields(value: CBOR) throws -> (Int, [Any]) {
 ///   - skipConstructor: Whether to skip the constructor ID.
 /// - Throws: CardanoException if the type is not supported.
 /// - Returns: A unique representation of the PlutusData type.
-func idMap(cls: Any, skipConstructor: Bool = false) throws -> String {
-    if ((cls as? Data) != nil) || ((cls as? [UInt8]) != nil) {
-        return "bytes"
-    } else if cls as? any Any.Type == Int.self || cls is any BinaryInteger.Type {
-        return "int"
-    } else if cls as? any Any.Type == CBOR.self || cls as? any Any.Type == RawPlutusData.self || cls as? any Any.Type == Datum.self {
-        return "any"
-    } else if cls as? any Any.Type == IndefiniteList<AnyValue>.self {
-        return "list"
-    }
-    
-    // Handle parameterized types
-//    if let genericType = cls as? ParameterizedType.Type {
-//        let baseType = genericType.baseType
-//        let parameterDescriptions = try genericType.parameterTypes.map { try idMap(cls: $0) }.joined(separator: ",")
-//        
-//        if baseType == List.self {
-//            return "list<\(parameterDescriptions)>"
-//        } else if baseType == Map.self {
-//            return "map<\(parameterDescriptions)>"
-//        } else if baseType == Union.self {
-//            return "union<\(parameterDescriptions)>"
-//        } else {
-//            throw NSError(
-//                domain: "Unexpected parameterized type for automatic constructor generation: \(cls)",
-//                code: 0,
-//                userInfo: nil
-//            )
-//        }
+//func idMap(cls: Any, skipConstructor: Bool = false) throws -> String {
+//    if ((cls as? Data) != nil) || ((cls as? [UInt8]) != nil) {
+//        return "bytes"
+//    } else if cls as? any Any.Type == Int.self || cls is any BinaryInteger.Type {
+//        return "int"
+//    } else if cls as? any Any.Type == CBOR.self || cls as? any Any.Type == RawPlutusData.self || cls as? any Any.Type == Datum.self {
+//        return "any"
+//    } else if cls as? any Any.Type == IndefiniteList<AnyValue>.self {
+//        return "list"
 //    }
-    
-    // Handle PlutusData types
-    if let plutusType = cls as? PlutusData.Type {
-        
-        let mirror = Mirror(reflecting: plutusType)
-        let fieldsDescription = try mirror.children.map {
-            "\($0.label ?? ""):\(try idMap(cls: $0.value.self as! AnyClass))"
-        }.joined(separator: ",")
-        
-        return "cons[\(String(describing: plutusType))](\(skipConstructor ? "_" : plutusType.CONSTR_ID);\(fieldsDescription))"
-    }
-    
-    // Unexpected type
-    throw CardanoCoreError.typeError("Unexpected type for automatic constructor generation: \(cls)")
-}
+//    
+//    // Handle parameterized types
+////    if let genericType = cls as? ParameterizedType.Type {
+////        let baseType = genericType.baseType
+////        let parameterDescriptions = try genericType.parameterTypes.map { try idMap(cls: $0) }.joined(separator: ",")
+////        
+////        if baseType == List.self {
+////            return "list<\(parameterDescriptions)>"
+////        } else if baseType == Map.self {
+////            return "map<\(parameterDescriptions)>"
+////        } else if baseType == Union.self {
+////            return "union<\(parameterDescriptions)>"
+////        } else {
+////            throw NSError(
+////                domain: "Unexpected parameterized type for automatic constructor generation: \(cls)",
+////                code: 0,
+////                userInfo: nil
+////            )
+////        }
+////    }
+//    
+//    // Handle PlutusData types
+//    if let plutusType = cls as? PlutusData.Type {
+//        
+//        let mirror = Mirror(reflecting: plutusType)
+//        let fieldsDescription = try mirror.children.map {
+//            "\($0.label ?? ""):\(try idMap(cls: $0.value.self as! AnyClass))"
+//        }.joined(separator: ",")
+//        
+//        return "cons[\(String(describing: plutusType))](\(skipConstructor ? "_" : plutusType.CONSTR_ID);\(fieldsDescription))"
+//    }
+//    
+//    // Unexpected type
+//    throw CardanoCoreError.typeError("Unexpected type for automatic constructor generation: \(cls)")
+//}

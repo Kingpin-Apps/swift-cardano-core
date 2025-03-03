@@ -1,18 +1,35 @@
 import Foundation
+import CryptoSwift
 import PotentCBOR
 import PotentCodables
 
+public enum DatumType: Codable, Equatable, Hashable {
+    case datumHash(DatumHash)
+    case plutusData(PlutusData)
+}
+
 public struct DatumOption: Codable {
     var type: Int
-    var datum: Any
+    var datum: DatumType
 
-    public init(datum: Any) {
+    public init(datum: DatumType) {
         self.datum = datum
-        if datum is DatumHash {
-            self.type = 0
-        } else {
-            self.type = 1
+        switch datum {
+            case .datumHash(_):
+                self.type = 0
+            case .plutusData(_):
+                self.type = 1
         }
+    }
+
+    public init(datum: DatumHash) {
+        self.datum = .datumHash(datum)
+        self.type = 0
+    }
+    
+    public init(datum: PlutusData) {
+        self.datum = .plutusData(datum)
+        self.type = 1
     }
 
     enum CodingKeys: String, CodingKey {
@@ -23,26 +40,17 @@ public struct DatumOption: Codable {
     public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         type = try container.decode(Int.self)
-        if type == 0 {
-            datum = try container.decode(DatumHash.self)
-        } else {
-            datum = try container.decode(RawPlutusData.self)
-        }
+        datum = try container.decode(DatumType.self)
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(type)
-        if type == 1 {
-            let cborTag = CBORTag(tag: 24, value: datum as! AnyValue)
-            try container.encode(cborTag)
-        } else {
-            try container.encode(datum as! DatumOption)
-        }
+        try container.encode(datum)
     }
 }
 
-public struct Script: Codable {
+public struct Script: Codable, Equatable, Hashable {
     var type: Int
     var script: ScriptType
 
@@ -95,23 +103,36 @@ public struct Script: Codable {
     }
 }
 
-public struct ScriptRef: Codable {
-    public var script: Script
+public struct ScriptRef: CBORTaggable {
+    var tag: UInt64 = 24
+    var value: PotentCodables.AnyValue
 
-    public init(script: Script) {
+    public var script: Script
+    
+    init(tag: UInt64 = 24, value: PotentCodables.AnyValue) throws {
+        guard let script = value.unwrapped as? Data else {
+            throw CardanoCoreError
+                .valueError("Invalid ScriptRef value")
+        }
+        self.value = value
+        self.script = try CBORDecoder().decode(Script.self, from: script)
+    }
+
+    public init(script: Script) throws {
         self.script = script
+        self.value = AnyValue.data(try CBOREncoder().encode(script))
     }
     
     public init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        let tag = try container.decode(CBORTag.self)
+        let container = try decoder.singleValueContainer()
+        let cborData = try container.decode(CBORTag.self)
         
-        guard tag.tag == 24 else {
+        guard cborData.tag == 24 else {
             throw CardanoCoreError
-                .valueError("Invalid ScriptRef tag: \(tag.tag)")
+                .valueError("Invalid ScriptRef tag: \(cborData.tag)")
         }
         
-        script = try container.decode(Script.self)
+        try self.init(value: cborData.value)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -120,7 +141,11 @@ public struct ScriptRef: Codable {
             value: AnyValue.data(try CBOREncoder().encode(script))
         )
         
-        var container = encoder.unkeyedContainer()
+        var container = encoder.singleValueContainer()
         try container.encode(cborTag)
+    }
+    
+    public static func == (lhs: ScriptRef, rhs: ScriptRef) -> Bool {
+        return lhs.tag == rhs.tag && lhs.script == rhs.script
     }
 }
