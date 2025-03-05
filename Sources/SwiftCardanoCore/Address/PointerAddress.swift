@@ -10,15 +10,23 @@ import Foundation
 ///  - txIndex: The transaction index (within that slot).
 ///  - certIndex: A (delegation) certificate index (within that transaction).
 public struct PointerAddress: Codable, Equatable, Sendable {
+    /// The slot in which the staking certificate was posted.
     public var slot: Int { get { return _slot } }
     private let _slot: Int
     
+    /// The transaction index (within that slot).
     public var txIndex: Int { get { return _txIndex } }
     private let _txIndex: Int
     
+    /// The delegation certificate index (within that transaction).
     public var certIndex: Int { get { return _certIndex } }
     private let _certIndex: Int
-
+    
+    /// Initialize a new PointerAddress.
+    /// - Parameters:
+    ///   - slot: The slot in which the staking certificate was posted.
+    ///   - txIndex: The transaction index (within that slot).
+    ///   - certIndex: The delegation certificate index (within that transaction). 
     public init(slot: Int, txIndex: Int, certIndex: Int) {
         self._slot = slot
         self._txIndex = txIndex

@@ -1,6 +1,8 @@
 import Foundation
 import PotentCBOR
 
+
+/// A PaymentSigningKey is a type of ``SigningKey`` 
 public struct PaymentSigningKey: SigningKey {
     public var _payload: Data
     public var _type: String
@@ -21,6 +23,7 @@ public struct PaymentSigningKey: SigningKey {
     }
 }
 
+/// A PaymentVerificationKey is a type of ``VerificationKey``
 public struct PaymentVerificationKey: VerificationKey {
     public var _payload: Data
     public var _type: String

@@ -1,6 +1,7 @@
 import Foundation
 import PotentCBOR
 
+/// Holds a cryptographic key and some metadata for a verification key.
 public struct VKey: VerificationKey {
     public var _payload: Data
     public var _type: String
@@ -20,6 +21,7 @@ public struct VKey: VerificationKey {
     }
 }
 
+/// Holds a cryptographic key and some metadata for a signing key.
 public struct SKey: SigningKey {
     public var _payload: Data
     public var _type: String
@@ -41,6 +43,7 @@ public struct SKey: SigningKey {
 }
 
 
+/// Holds a cryptographic key and some metadata for an extended verification key.
 public struct ExtendedVKey: ExtendedVerificationKey {
     public var _payload: Data
     public var _type: String
@@ -61,6 +64,7 @@ public struct ExtendedVKey: ExtendedVerificationKey {
     }
 }
 
+/// Holds a cryptographic key and some metadata for an extended signing key.
 public struct ExtendedSKey: ExtendedSigningKey {
     public var _payload: Data
     public var _type: String

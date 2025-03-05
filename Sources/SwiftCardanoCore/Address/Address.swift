@@ -9,24 +9,45 @@ import Foundation
 ///  - stakingPart: The staking part of the address.
 ///  - network: Type of network the address belongs to.
 public struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
+    /// The payment part of the address.
     public var paymentPart: PaymentPart? { get { return _paymentPart } }
     private let _paymentPart: PaymentPart?
     
+    /// The staking part of the address.
     public var stakingPart: StakingPart? { get { return _stakingPart } }
     private let _stakingPart: StakingPart?
     
+    /// The network the address belongs to.
     public var network: Network { get { return _network } }
     private let _network: Network
     
+    /// The type of the address.
     public var addressType: AddressType? { get { return _addressType } }
     private let _addressType: AddressType
     
+    /// The header byte of the address.
     public var headerByte: Data { get { return _headerByte } }
     private let _headerByte: Data
     
+    /// The human-readable prefix of the address.
     public var hrp: String { get { return _hrp } }
     private let _hrp: String
     
+    /// Initialize a shelley address from its parts.
+    ///
+    /// The address type is inferred from the payment part and staking part. If the address type cannot be inferred, an error is thrown.
+    ///
+    ///  ```swift
+    ///  let paymentPart = PaymentPart.verificationKeyHash(VerificationKeyHash(payload: Data(repeating: 0, count: VERIFICATION_KEY_HASH_SIZE)))
+    ///  let stakingPart = StakingPart.verificationKeyHash(VerificationKeyHash(payload: Data(repeating: 0, count: VERIFICATION_KEY_HASH_SIZE)))
+    ///  let address = try Address(paymentPart: paymentPart, stakingPart: stakingPart, network: .testnet)
+    ///  ```
+    ///
+    /// - Parameters:
+    ///   - paymentPart: The payment part of the address.
+    ///   - stakingPart: The staking part of the address.
+    ///   - network: Type of network the address belongs to.
+    /// - Throws: `CardanoCoreError.invalidAddressInputError` when the address type cannot be inferred from the ``PaymentPart`` and ``StakingPart``.
     public init(paymentPart: PaymentPart? = nil, stakingPart: StakingPart? = nil, network: Network = .mainnet) throws {
         _paymentPart = paymentPart
         _stakingPart = stakingPart
@@ -36,6 +57,15 @@ public struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
         _hrp = Address.computeHrp(addressType: _addressType, network: _network)
     }
     
+    /// Initialize a shelley address from its bytes or bech32 string.
+    ///
+    /// The address type is inferred from the bytes. If the address type cannot be inferred, an error is thrown.
+    /// ```swift
+    /// let address = try Address(from: "addr_test1vr2p8st5t5cxqglyjky7vk98k7jtfhdpvhl4e97cezuhn0cqcexl7")
+    /// ```
+    /// - Parameter primitive: The bytes or bech32 string.
+    /// - Throws: `CardanoCoreError.decodingError` when the input is not a valid Shelley Address.
+    /// - Throws: `CardanoCoreError.valueError` when the input is not a `Data` or `String`.
     public init(from primitive: Any) throws {
         let data: Data
         if let value = primitive as? String {
@@ -178,17 +208,26 @@ public struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
         }
     }
     
+    /// Codable implementation to decode the address.
+    /// - Parameter decoder: The decoder.
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let data = try container.decode(Data.self)
         self = try Address(from: data)
     }
     
+    /// Codable implementation to encode the address.
+    /// - Parameter encoder: The encoder.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         try container.encode(toBytes())
     }
     
+    /// Infer the address type from the payment part and staking part.
+    /// - Parameters:
+    ///   - paymentPart: The payment part of the address.
+    ///   - stakingPart: The staking part of the address.
+    /// - Returns: The inferred address type.
     static func inferAddressType(paymentPart: PaymentPart?, stakingPart: StakingPart?) throws -> AddressType {
         switch paymentPart {
             case .verificationKeyHash:
@@ -230,6 +269,11 @@ public struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
             "Cannot construct a shelley address from a combination of payment part: \(String(describing: paymentPart)) and stake part: \(String(describing: stakingPart))")
     }
     
+    /// Compute the header byte for the address.
+    /// - Parameters:
+    ///   - addressType: Type of address.
+    ///   - network: Type of network.
+    /// - Returns: Data containing the header byte.
     static func computeHeaderByte(addressType: AddressType, network: Network) -> Data {
         let header = (addressType.rawValue << 4 | network.rawValue)
         return Data([UInt8(header)])
@@ -248,6 +292,7 @@ public struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
         return prefix + suffix
     }
     
+    /// The human-readable description of the address.
     public var description: String {
         do {
             return try self.toBech32()
@@ -257,6 +302,8 @@ public struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
         
     }
     
+    /// Convert the address to bytes.
+    /// - Returns: The bytes of the address.
     public func toBytes() -> Data {
         let paymentData: Data
         if let paymentPart = paymentPart {
@@ -287,6 +334,11 @@ public struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
         return headerByte + paymentData + stakingData
     }
     
+    /// Equatable implementation for Address.
+    /// - Parameters:
+    ///   - lhs: The left-hand side address.
+    ///   - rhs: The right-hand side address.
+    /// - Returns: True if the addresses are equal, false otherwise.
     public static func == (lhs: Address, rhs: Address) -> Bool {
         // Check if paymentPart is the same
         let paymentCheck: Bool
@@ -341,11 +393,16 @@ public struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
     static func fromBech32(_ data: String) throws -> Address {
         return try Address(from: data)
     }
-
+    
+    /// Hashable implementation for Address.
+    /// - Parameter hasher: The hasher.
     public func hash(into hasher: inout Hasher) {
         hasher.combine(toBytes())
     }
     
+    /// Save the address to a file.
+    /// - Parameter path: The file path.
+    /// - Throws: `CardanoCoreError.ioError` when the file already exists.
     public func save(to path: String) throws {
         if FileManager.default.fileExists(atPath: path) {
             throw CardanoCoreError.ioError("File already exists: \(path)")
@@ -355,6 +412,10 @@ public struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
         try bech32String.write(toFile: path, atomically: true, encoding: .utf8)
     }
     
+    /// Load the address from a file.
+    /// - Parameter path: The file path.
+    /// - Returns: The address restored from the file.
+    /// - Throws: `CardanoCoreError.ioError` when the file does not exist.
     public static func load(from path: String) throws -> Address {
         guard FileManager.default.fileExists(atPath: path) else {
             throw CardanoCoreError.ioError("File not found: \(path)")

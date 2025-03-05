@@ -1,10 +1,12 @@
 import Foundation
 
+/// The payment part of an address.
 public enum PaymentPart: Sendable {
     case verificationKeyHash(VerificationKeyHash)
     case scriptHash(ScriptHash)
 }
 
+/// The staking part of an address.
 public enum StakingPart: Sendable {
     case verificationKeyHash(VerificationKeyHash)
     case scriptHash(ScriptHash)
