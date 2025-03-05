@@ -33,6 +33,11 @@ let certificate = try Certificate.stakeRegistration(stakeRegistration)
 ```
 
 
+## Documentation
+
+- <doc:Address>
+- <doc:Keys>
+
 ## Topics
 
 - <!--@START_MENU_TOKEN@-->``Symbol``<!--@END_MENU_TOKEN@-->
