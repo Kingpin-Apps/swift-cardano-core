@@ -12,8 +12,20 @@ Then, to use it in your source code, add:
 ```swift
 import SwiftCardanoCore
 
-let skey = try PaymentSigningKey.generate()
-let vkey: PaymentVerificationKey = try PaymentVerificationKey.fromSigningKey(sk)
+let paymentSKey = try PaymentSigningKey.generate()
+paymentSKey.save(to: "payment.skey")
+
+let paymentVKey: PaymentVerificationKey = try PaymentVerificationKey.fromSigningKey(sk)
+paymentVKey.save(to: "payment.vkey")
+
+let stakeSKey = try StakeSigningKey.generate()
+stakeSKey.save(to: "stake.skey")
+
+let stakeVKey: StakeVerificationKey = try StakeVerificationKey.fromSigningKey(sk)
+stakeVKey.save(to: "stake.vkey")
+
+let address = try Address(paymentPart: .verificationKeyHash(try paymentVKey.hash()), stakePart: .verificationKeyHash(try stakeVKey.hash()), network: .testnet)
+address.save(to: "address.addr")
 ```
 
 
