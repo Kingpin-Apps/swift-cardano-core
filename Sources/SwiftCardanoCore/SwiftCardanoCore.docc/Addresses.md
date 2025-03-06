@@ -1,4 +1,4 @@
-# Address
+# Addresses
 
 The `Address` module provides types and functions for working with Cardano addresses.
 

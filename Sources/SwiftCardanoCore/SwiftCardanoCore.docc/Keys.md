@@ -29,3 +29,21 @@ let paymentKeyPair = PaymentKeyPair.generate()
 let sk = paymentKeyPair.signingKey
 let vk = paymentKeyPair.verificationKey
 ```
+
+### Stake Keys
+
+```swift
+import SwiftCardanoCore
+
+let sk = try StakeSigningKey.generate()
+let vk: StakeVerificationKey = try StakeVerificationKey.fromSigningKey(sk)
+```
+
+```swift
+import SwiftCardanoCore
+
+let stakeKeyPair = StakeKeyPair.generate()
+
+let sk = stakeKeyPair.signingKey
+let vk = stakeKeyPair.verificationKey
+```
