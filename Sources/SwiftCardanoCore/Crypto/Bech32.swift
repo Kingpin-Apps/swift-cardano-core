@@ -198,7 +198,7 @@ public class Bech32 {
         return ret
     }
 
-    func decode(addr: String) -> Data? {
+    public func decode(addr: String) -> Data? {
         do {
             let (_, data, _) = try bech32Decode(addr)
             return convertBits(data: data, fromBits: 5, toBits: 8, pad: false)
@@ -208,7 +208,7 @@ public class Bech32 {
         
     }
 
-    func encode(hrp: String, witprog: Data) -> String? {
+    public func encode(hrp: String, witprog: Data) -> String? {
         guard let data = convertBits(data: witprog, fromBits: 8, toBits: 5) else {
             return nil
         }
