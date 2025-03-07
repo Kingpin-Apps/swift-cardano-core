@@ -1,3 +1,9 @@
+## 0.1.4 (2025-03-06)
+
+### Fix
+
+- add enum type for SigningKey and VerificationKey
+
 ## 0.1.3 (2025-03-06)
 
 ### Fix
