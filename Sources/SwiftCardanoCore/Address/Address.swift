@@ -228,7 +228,7 @@ public struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
     ///   - paymentPart: The payment part of the address.
     ///   - stakingPart: The staking part of the address.
     /// - Returns: The inferred address type.
-    static func inferAddressType(paymentPart: PaymentPart?, stakingPart: StakingPart?) throws -> AddressType {
+    public static func inferAddressType(paymentPart: PaymentPart?, stakingPart: StakingPart?) throws -> AddressType {
         switch paymentPart {
             case .verificationKeyHash:
                 switch stakingPart {
@@ -274,7 +274,7 @@ public struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
     ///   - addressType: Type of address.
     ///   - network: Type of network.
     /// - Returns: Data containing the header byte.
-    static func computeHeaderByte(addressType: AddressType, network: Network) -> Data {
+    public static func computeHeaderByte(addressType: AddressType, network: Network) -> Data {
         let header = (addressType.rawValue << 4 | network.rawValue)
         return Data([UInt8(header)])
     }
@@ -379,7 +379,7 @@ public struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
     /// More info about Bech32 (here)[https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki#Bech32].
 
     /// - Returns: Encoded address in Bech32.
-    func toBech32() throws -> String {
+    public func toBech32() throws -> String {
         guard let encoded =  Bech32().encode(hrp: self.hrp, witprog: self.toBytes()) else {
             throw CardanoCoreError.encodingError("Error encoding data: \(self.toBytes())")
         }
@@ -390,7 +390,7 @@ public struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
     /// - Parameter data: Bech32-encoded string.
     /// - Returns: Decoded address.
     /// - Throws: CardanoException when the input string is not a valid Shelley address.
-    static func fromBech32(_ data: String) throws -> Address {
+    public static func fromBech32(_ data: String) throws -> Address {
         return try Address(from: data)
     }
     
