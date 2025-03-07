@@ -44,3 +44,60 @@ public extension ExtendedVerificationKey {
         return T(payload: payload.prefix(32))
     }
 }
+
+public enum VerificationKeyType: Codable, Equatable, Hashable {
+
+    case extendedVerificationKey(any ExtendedVerificationKey)
+    case verificationKey(any VerificationKey)
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let data = try container.decode(Data.self)
+        if data.count == 64 {
+            self = .verificationKey(VKey(payload: data))
+        } else {
+            self = .extendedVerificationKey(ExtendedVKey(payload: data))
+        }
+    }
+
+    public func encode(to encoder: Swift.Encoder) throws {
+        var container = encoder.singleValueContainer()
+        
+        switch self {
+            case .extendedVerificationKey(let key):
+                try container.encode(key)
+            case .verificationKey(let key):
+                try container.encode(key)
+        }
+    }
+    
+    public func hash(into hasher: inout Hasher) {
+        switch self {
+            case .extendedVerificationKey(let key):
+                hasher.combine(key)
+            case .verificationKey(let key):
+                hasher.combine(key)
+        }
+    }
+    
+    public static func == (lhs: VerificationKeyType, rhs: VerificationKeyType) -> Bool {
+        let lhsData: Data
+        let rhsData: Data
+        
+        switch lhs {
+            case .extendedVerificationKey(let key):
+                lhsData = key.payload
+            case .verificationKey(let key):
+                lhsData = key.payload
+        }
+        
+        switch rhs {
+            case .extendedVerificationKey(let key):
+                rhsData = key.payload
+            case .verificationKey(let key):
+                rhsData = key.payload
+        }
+        
+        return lhsData == rhsData
+    }
+}

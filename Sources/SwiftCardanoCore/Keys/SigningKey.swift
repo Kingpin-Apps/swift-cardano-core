@@ -67,3 +67,60 @@ public extension ExtendedSigningKey {
         )
     }
 }
+
+public enum SigningKeyType: Codable, Equatable, Hashable {
+
+    case extendedSigningKey(any ExtendedSigningKey)
+    case signingKey(any SigningKey)
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let data = try container.decode(Data.self)
+        if data.count == 64 {
+            self = .signingKey(SKey(payload: data))
+        } else {
+            self = .extendedSigningKey(ExtendedSKey(payload: data))
+        }
+    }
+
+    public func encode(to encoder: Swift.Encoder) throws {
+        var container = encoder.singleValueContainer()
+        
+        switch self {
+            case .extendedSigningKey(let key):
+                try container.encode(key)
+            case .signingKey(let key):
+                try container.encode(key)
+        }
+    }
+    
+    public func hash(into hasher: inout Hasher) {
+        switch self {
+            case .extendedSigningKey(let key):
+                hasher.combine(key)
+            case .signingKey(let key):
+                hasher.combine(key)
+        }
+    }
+    
+    public static func == (lhs: SigningKeyType, rhs: SigningKeyType) -> Bool {
+        let lhsData: Data
+        let rhsData: Data
+        
+        switch lhs {
+            case .extendedSigningKey(let key):
+                lhsData = key.payload
+            case .signingKey(let key):
+                lhsData = key.payload
+        }
+        
+        switch rhs {
+            case .extendedSigningKey(let key):
+                rhsData = key.payload
+            case .signingKey(let key):
+                rhsData = key.payload
+        }
+        
+        return lhsData == rhsData
+    }
+}
