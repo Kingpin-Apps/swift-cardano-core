@@ -12,7 +12,7 @@ import CryptoKit
 import BigInt
 import SwiftMnemonic
 
-let SUPPORTED_MNEMONIC_LANGS = [
+public let SUPPORTED_MNEMONIC_LANGS = [
     "english",
     "french",
     "italian",
@@ -23,14 +23,14 @@ let SUPPORTED_MNEMONIC_LANGS = [
     "spanish",
 ]
 
-enum BIP32Error: Error, Equatable {
+public enum BIP32Error: Error, Equatable {
     case invalidMnemonic(String)
     case invalidEntropy(String)
     case invalidPath(String)
     case derivationFailed(String)
 }
 
-class BIP32ED25519PrivateKey {
+public class BIP32ED25519PrivateKey {
     var privateKey: Data
     var chainCode: Data
     var publicKey: Data
@@ -39,7 +39,7 @@ class BIP32ED25519PrivateKey {
 
     private let sodium = Sodium()
 
-    init(privateKey: Data, chainCode: Data) throws {
+    public init(privateKey: Data, chainCode: Data) throws {
         self.privateKey = privateKey
         self.chainCode = chainCode
         self.left = privateKey.prefix(32)
@@ -47,7 +47,7 @@ class BIP32ED25519PrivateKey {
         self.publicKey = try sodium.cryptoScalarmult.ed25519BaseNoclamp(n: self.left)
     }
 
-    func sign(message: Data) throws -> Data {
+    public func sign(message: Data) throws -> Data {
         let hash = Hash()
 
         let r = try sodium.cryptoCore.ed25519ScalarReduce(
@@ -69,29 +69,29 @@ class BIP32ED25519PrivateKey {
     }
 }
 
-class BIP32ED25519PublicKey {
-    var publicKey: Data
-    var chainCode: Data
+public class BIP32ED25519PublicKey {
+    public var publicKey: Data
+    public var chainCode: Data
 
     private let sodium = Sodium()
 
-    init(publicKey: Data, chainCode: Data) {
+    public init(publicKey: Data, chainCode: Data) {
         self.publicKey = publicKey
         self.chainCode = chainCode
     }
 
-    static func fromPrivateKey(privateKey: BIP32ED25519PrivateKey) -> BIP32ED25519PublicKey {
+    public static func fromPrivateKey(privateKey: BIP32ED25519PrivateKey) -> BIP32ED25519PublicKey {
         return BIP32ED25519PublicKey(
             publicKey: privateKey.publicKey, chainCode: privateKey.chainCode)
     }
 
-    func verify(signature: Data, message: Data) throws -> Data {
+    public func verify(signature: Data, message: Data) throws -> Data {
         return try sodium.cryptoSign
             .open(signed: signature + message, pk: self.publicKey)
     }
 }
 
-func Fk(message: Data, secret: Data) throws -> Data {
+public func Fk(message: Data, secret: Data) throws -> Data {
     return try Data(
         HMAC(
             key: secret.bytes,
@@ -101,17 +101,17 @@ func Fk(message: Data, secret: Data) throws -> Data {
 }
 
 public class HDWallet {
-    var rootXPrivateKey: Data
-    var rootPublicKey: Data
-    var rootChainCode: Data
-    var xPrivateKey: Data
-    var publicKey: Data
-    var chainCode: Data
-    var path: String
-    var seed: Data?
-    var mnemonic: String?
-    var passphrase: String?
-    var entropy: String?
+    public var rootXPrivateKey: Data
+    public var rootPublicKey: Data
+    public var rootChainCode: Data
+    public var xPrivateKey: Data
+    public var publicKey: Data
+    public var chainCode: Data
+    public var path: String
+    public var seed: Data?
+    public var mnemonic: String?
+    public var passphrase: String?
+    public var entropy: String?
     
     private let sodium = Sodium()
 
@@ -194,7 +194,7 @@ public class HDWallet {
         ).calculate())
     }
 
-    static func tweakBits(seed: Data) -> Data {
+    public static func tweakBits(seed: Data) -> Data {
         var seedArray = seed.bytes
         seedArray[0] &= 0b11111000
         seedArray[31] &= 0b00011111

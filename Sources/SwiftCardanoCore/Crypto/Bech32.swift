@@ -38,6 +38,8 @@ public class Bech32 {
     /// Bech32m Constant
     private let bech32mConst: UInt32 = 0x2BC830A3
     
+    public init() {}
+    
     /// Find the polynomial with value coefficients mod the generator as 30-bit.
     private func polymod(_ values: Data) -> UInt32 {
         var chk: UInt32 = 1
