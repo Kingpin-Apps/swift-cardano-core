@@ -1,7 +1,7 @@
 import Foundation
 import PotentCBOR
 
-let VERIFICATION_KEY_HASH_SIZE = 28,
+public let VERIFICATION_KEY_HASH_SIZE = 28,
 SCRIPT_HASH_SIZE = 28,
 SCRIPT_DATA_HASH_SIZE = 32,
 TRANSACTION_HASH_SIZE = 32,
@@ -18,7 +18,7 @@ ADDRESS_KEY_HASH_SIZE = 28,
 ANCHOR_DATA_HASH_SIZE = 32
 
 /// A protocol for byte arrays with constraints on their size.
-protocol ConstrainedBytes: Codable, Equatable, Hashable, CustomStringConvertible, CustomDebugStringConvertible, Sendable {
+public protocol ConstrainedBytes: Codable, Equatable, Hashable, CustomStringConvertible, CustomDebugStringConvertible, Sendable {
     
     var payload: Data { get set }
     static var maxSize: Int { get }
@@ -74,16 +74,24 @@ extension ConstrainedBytes {
 
 /// Hash of a Cardano verification key.
 public struct VerificationKeyHash: ConstrainedBytes {
-    var payload: Data
-    static var maxSize: Int { VERIFICATION_KEY_HASH_SIZE }
-    static var minSize: Int { VERIFICATION_KEY_HASH_SIZE }
+    public var payload: Data
+    public static var maxSize: Int { VERIFICATION_KEY_HASH_SIZE }
+    public static var minSize: Int { VERIFICATION_KEY_HASH_SIZE }
+    
+    public init(payload: Data) {
+        self.payload = payload
+    }
 }
 
 /// Hash of a policy/plutus script.
 public struct ScriptHash: ConstrainedBytes {
-    var payload: Data
-    static var maxSize: Int { SCRIPT_HASH_SIZE }
-    static var minSize: Int { SCRIPT_HASH_SIZE }
+    public var payload: Data
+    public static var maxSize: Int { SCRIPT_HASH_SIZE }
+    public static var minSize: Int { SCRIPT_HASH_SIZE }
+    
+    public init(payload: Data) {
+        self.payload = payload
+    }
 }
 
 public typealias PolicyID = ScriptHash
@@ -92,84 +100,132 @@ public typealias PolicyHash = ScriptHash
 /// Hash of script data.
 /// See: [alonzo.cddl](https://github.com/input-output-hk/cardano-ledger/blob/525844be05adae151e82069dcd0000f3301ca0d0/eras/alonzo/test-suite/cddl-files/alonzo.cddl#L79-L86)
 public struct ScriptDataHash: ConstrainedBytes {
-    var payload: Data
-    static var maxSize: Int { SCRIPT_DATA_HASH_SIZE }
-    static var minSize: Int { SCRIPT_DATA_HASH_SIZE }
+    public var payload: Data
+    public static var maxSize: Int { SCRIPT_DATA_HASH_SIZE }
+    public static var minSize: Int { SCRIPT_DATA_HASH_SIZE }
+    
+    public init(payload: Data) {
+        self.payload = payload
+    }
 }
 
 /// Hash of a transaction.
 public struct TransactionId: ConstrainedBytes {
-    var payload: Data
-    static var maxSize: Int { TRANSACTION_HASH_SIZE }
-    static var minSize: Int { TRANSACTION_HASH_SIZE }
+    public var payload: Data
+    public static var maxSize: Int { TRANSACTION_HASH_SIZE }
+    public static var minSize: Int { TRANSACTION_HASH_SIZE }
+    
+    public init(payload: Data) {
+        self.payload = payload
+    }
 }
 
 /// Hash of a datum.
 public struct DatumHash: ConstrainedBytes {
-    var payload: Data
-    static var maxSize: Int { DATUM_HASH_SIZE }
-    static var minSize: Int { DATUM_HASH_SIZE }
+    public var payload: Data
+    public static var maxSize: Int { DATUM_HASH_SIZE }
+    public static var minSize: Int { DATUM_HASH_SIZE }
+    
+    public init(payload: Data) {
+        self.payload = payload
+    }
 }
 
 /// Hash of auxiliary data.
 public struct AuxiliaryDataHash: ConstrainedBytes {
-    var payload: Data
-    static var maxSize: Int { AUXILIARY_DATA_HASH_SIZE }
-    static var minSize: Int { AUXILIARY_DATA_HASH_SIZE }
+    public var payload: Data
+    public static var maxSize: Int { AUXILIARY_DATA_HASH_SIZE }
+    public static var minSize: Int { AUXILIARY_DATA_HASH_SIZE }
+    
+    public init(payload: Data) {
+        self.payload = payload
+    }
 }
 
 /// Hash of a stake pool.
 public struct PoolKeyHash: ConstrainedBytes {
-    var payload: Data
-    static var maxSize: Int { POOL_KEY_HASH_SIZE }
-    static var minSize: Int { POOL_KEY_HASH_SIZE }
+    public var payload: Data
+    public static var maxSize: Int { POOL_KEY_HASH_SIZE }
+    public static var minSize: Int { POOL_KEY_HASH_SIZE }
+    
+    public init(payload: Data) {
+        self.payload = payload
+    }
 }
 
 /// Hash of a stake pool metadata.
 public struct PoolMetadataHash: ConstrainedBytes {
-    var payload: Data
-    static var maxSize: Int { POOL_METADATA_HASH_SIZE }
-    static var minSize: Int { POOL_METADATA_HASH_SIZE }
+    public var payload: Data
+    public static var maxSize: Int { POOL_METADATA_HASH_SIZE }
+    public static var minSize: Int { POOL_METADATA_HASH_SIZE }
+    
+    public init(payload: Data) {
+        self.payload = payload
+    }
 }
 
 /// Hash of a Cardano VRF key.
 public struct VrfKeyHash: ConstrainedBytes {
-    var payload: Data
-    static var maxSize: Int { VRF_KEY_HASH_SIZE }
-    static var minSize: Int { VRF_KEY_HASH_SIZE }
+    public var payload: Data
+    public static var maxSize: Int { VRF_KEY_HASH_SIZE }
+    public static var minSize: Int { VRF_KEY_HASH_SIZE }
+    
+    public init(payload: Data) {
+        self.payload = payload
+    }
 }
 
 /// Hash of a Cardano VRF key.
 public struct RewardAccountHash: ConstrainedBytes {
-    var payload: Data
-    static var maxSize: Int { REWARD_ACCOUNT_HASH_SIZE }
-    static var minSize: Int { REWARD_ACCOUNT_HASH_SIZE }
+    public var payload: Data
+    public static var maxSize: Int { REWARD_ACCOUNT_HASH_SIZE }
+    public static var minSize: Int { REWARD_ACCOUNT_HASH_SIZE }
+    
+    public init(payload: Data) {
+        self.payload = payload
+    }
 }
 
 /// Hash of a genesis key.
 public struct GenesisHash: ConstrainedBytes {
-    var payload: Data
-    static var maxSize: Int { GENESIS_HASH_SIZE }
-    static var minSize: Int { GENESIS_HASH_SIZE }
+    public var payload: Data
+    public static var maxSize: Int { GENESIS_HASH_SIZE }
+    public static var minSize: Int { GENESIS_HASH_SIZE }
+    
+    public init(payload: Data) {
+        self.payload = payload
+    }
 }
 
 /// Hash of a genesis delegate key.
 public struct GenesisDelegateHash: ConstrainedBytes {
-    var payload: Data
-    static var maxSize: Int { GENESIS_DELEGATE_HASH_SIZE }
-    static var minSize: Int { GENESIS_DELEGATE_HASH_SIZE }
+    public var payload: Data
+    public static var maxSize: Int { GENESIS_DELEGATE_HASH_SIZE }
+    public static var minSize: Int { GENESIS_DELEGATE_HASH_SIZE }
+    
+    public init(payload: Data) {
+        self.payload = payload
+    }
 }
 
 /// Hash of a genesis delegate key.
 public struct AddressKeyHash: ConstrainedBytes {
-    var payload: Data
-    static var maxSize: Int { ADDRESS_KEY_HASH_SIZE }
-    static var minSize: Int { ADDRESS_KEY_HASH_SIZE }
+    public var payload: Data
+    public static var maxSize: Int { ADDRESS_KEY_HASH_SIZE }
+    public static var minSize: Int { ADDRESS_KEY_HASH_SIZE }
+    
+    public init(payload: Data) {
+        self.payload = payload
+    }
 }
 
 /// Hash of a genesis delegate key.
 public struct AnchorDataHash: ConstrainedBytes {
-    var payload: Data
-    static var maxSize: Int { ANCHOR_DATA_HASH_SIZE }
-    static var minSize: Int { ANCHOR_DATA_HASH_SIZE }
+    public var payload: Data
+    public static var maxSize: Int { ANCHOR_DATA_HASH_SIZE }
+    public static var minSize: Int { ANCHOR_DATA_HASH_SIZE }
+    
+    public init(payload: Data) {
+        self.payload = payload
+    }
 }

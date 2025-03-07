@@ -5,10 +5,10 @@ import PotentCodables
 
 public struct AssetName: ConstrainedBytes {
     public var payload: Data
-    static var maxSize: Int { 32 }
-    static var minSize: Int { 0 }
+    public static var maxSize: Int { 32 }
+    public static var minSize: Int { 0 }
     
-    init(payload: Data) throws {
+    public init(payload: Data) throws {
         self.payload = payload
     }
     
