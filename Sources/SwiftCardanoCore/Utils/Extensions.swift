@@ -60,7 +60,7 @@ extension CBOR: Codable {
 }
 
 extension CBOR {
-    static func fromAny(_ value: Any) -> CBOR {        
+    public static func fromAny(_ value: Any) -> CBOR {
         if let anyValue = value as? AnyValue {
             let unwrapped = anyValue.unwrapped!
             return CBOR.fromAny(unwrapped)
@@ -114,23 +114,23 @@ extension CBOR {
 
 // MARK: - Data Extensions
 extension Data {
-    var toBytes: [UInt8] {
+    public var toBytes: [UInt8] {
         return [UInt8](self)
     }
     
-    var toHex: String {
+    public var toHex: String {
         return map { String(format: "%02hhx", $0) }.joined()
     }
     
-    var toString: String {
+    public var toString: String {
         return String(data: self, encoding: .utf8)!
     }
     
-    var toCBOR: CBOR {
+    public var toCBOR: CBOR {
         return try! CBORSerialization.cbor(from: self)
     }
     
-    static func randomBytes(count: Int) -> Data {
+    public static func randomBytes(count: Int) -> Data {
         var data = Data(count: count)
         _ = data.withUnsafeMutableBytes {
             SecRandomCopyBytes(kSecRandomDefault, count, $0.baseAddress!)
@@ -138,7 +138,7 @@ extension Data {
         return data
     }
     
-    init?(hexString: String) {
+    public init?(hexString: String) {
         let length = hexString.count / 2
         var data = Data(capacity: length)
         var index = hexString.startIndex
@@ -158,7 +158,7 @@ extension Data {
 
 // MARK: - Dictionary Extensions
 extension Dictionary where Key == AnyHashable, Value == Any {
-    var mapKeysToCbor: OrderedDictionary<CBOR, CBOR> {
+    public var mapKeysToCbor: OrderedDictionary<CBOR, CBOR> {
         return self.reduce(into: [:]) { result, element in
             result[CBOR.fromAny(element.key)] = CBOR.fromAny(element.value)
         }
@@ -167,11 +167,11 @@ extension Dictionary where Key == AnyHashable, Value == Any {
 
 // MARK: - String Extensions
 extension String {
-    var toData: Data {
+    public var toData: Data {
         return Data(self.utf8)
     }
     
-    var hexStringToData: Data {
+    public var hexStringToData: Data {
         var tempHex = self
         
         // Ensure string length is even
