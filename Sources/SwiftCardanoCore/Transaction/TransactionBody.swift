@@ -3,27 +3,27 @@ import SwiftNcal
 import PotentCBOR
 
 public struct TransactionBody: Codable, Equatable, Hashable {
-    var inputs: [TransactionInput]
-    var outputs: [TransactionOutput]
-    var fee: Coin
-    var ttl: Int?
-    var certificates: [Certificate]?
-    var withdrawals: Withdrawals?
-    var update: Update?
-    var auxiliaryDataHash: AuxiliaryDataHash?
-    var validityStart: Int?
-    var mint: MultiAsset?
-    var scriptDataHash: ScriptDataHash?
-    var collateral: [TransactionInput]?
-    var requiredSigners: [VerificationKeyHash]?
-    var networkId: Int?
-    var collateralReturn: TransactionOutput?
-    var totalCollateral: Coin?
-    var referenceInputs: [TransactionInput]?
-    var votingProcedures: VotingProcedure?
-    var proposalProcedures: ProposalProcedure?
-    var currentTreasuryAmount: Coin?
-    var treasuryDonation: PositiveCoin?
+    public var inputs: [TransactionInput]
+    public var outputs: [TransactionOutput]
+    public var fee: Coin
+    public var ttl: Int?
+    public var certificates: [Certificate]?
+    public var withdrawals: Withdrawals?
+    public var update: Update?
+    public var auxiliaryDataHash: AuxiliaryDataHash?
+    public var validityStart: Int?
+    public var mint: MultiAsset?
+    public var scriptDataHash: ScriptDataHash?
+    public var collateral: [TransactionInput]?
+    public var requiredSigners: [VerificationKeyHash]?
+    public var networkId: Int?
+    public var collateralReturn: TransactionOutput?
+    public var totalCollateral: Coin?
+    public var referenceInputs: [TransactionInput]?
+    public var votingProcedures: VotingProcedure?
+    public var proposalProcedures: ProposalProcedure?
+    public var currentTreasuryAmount: Coin?
+    public var treasuryDonation: PositiveCoin?
     
     enum CodingKeys: Int, CodingKey {
         case inputs = 0

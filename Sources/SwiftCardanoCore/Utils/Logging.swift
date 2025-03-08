@@ -9,11 +9,11 @@ public func setupLogging() {
     }
 }
 
-protocol Loggable {
+public protocol Loggable {
     func logState()
 }
 
-extension Loggable {
+public extension Loggable {
     func logState() {
         let mirror = Mirror(reflecting: self)
         let properties = mirror.children.map { "\($0.label ?? "unknown"): \($0.value)" }.joined(separator: "\n")

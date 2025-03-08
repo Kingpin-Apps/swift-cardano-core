@@ -3,7 +3,7 @@ import PotentCBOR
 import PotentCodables
 
 public struct MultiAsset: Codable, Hashable, Equatable {
-    var data: [ScriptHash: Asset] {
+    public var data: [ScriptHash: Asset] {
         get { _data }
         set { _data = newValue }
     }

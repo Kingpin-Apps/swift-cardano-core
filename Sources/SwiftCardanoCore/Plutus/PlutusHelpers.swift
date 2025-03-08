@@ -5,7 +5,7 @@ import PotentCodables
 import SwiftNcal
 
 
-func datumHash(datum: Datum) throws -> DatumHash {
+public func datumHash(datum: Datum) throws -> DatumHash {
     let cborBytes = try CBOREncoder().encode(datum)
     let hash = try Hash().blake2b(
         data: cborBytes,
@@ -15,13 +15,13 @@ func datumHash(datum: Datum) throws -> DatumHash {
     return DatumHash(payload: hash)
 }
 
-func plutusScriptHash(script: ScriptType) throws -> ScriptHash {
+public func plutusScriptHash(script: ScriptType) throws -> ScriptHash {
     return try scriptHash(script: script)
 }
 
 /// Calculates the hash of a script, which could be either native script or plutus script.
 /// - Parameter script: The script to hash.
-func scriptHash(script: ScriptType) throws -> ScriptHash {
+public func scriptHash(script: ScriptType) throws -> ScriptHash {
     switch script {
         case .nativeScript(let nativeScript):
             return try nativeScript.scriptHash()
@@ -52,7 +52,7 @@ func scriptHash(script: ScriptType) throws -> ScriptHash {
     }
 }
 
-func getTag(constrID: Int) -> Int? {
+public func getTag(constrID: Int) -> Int? {
     if 0 <= constrID && constrID < 7 {
         return 121 + constrID
     } else if 7 <= constrID && constrID < 128 {
@@ -62,7 +62,7 @@ func getTag(constrID: Int) -> Int? {
     }
 }
 
-func getConstructorIDAndFields(value: CBOR) throws -> (Int, [Any]) {
+public func getConstructorIDAndFields(value: CBOR) throws -> (Int, [Any]) {
     guard case let CBOR.tagged(tag, innerValue) = value else {
         throw CardanoCoreError.deserializeError("Value does not match the data schema of AlonzoMetadata.")
     }

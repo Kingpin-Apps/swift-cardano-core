@@ -3,10 +3,10 @@ import PotentCBOR
 import PotentCodables
 import CryptoKit
 
-typealias TransactionMetadatumLabel = UInt64
+public typealias TransactionMetadatumLabel = UInt64
 
 // Define an enum for TransactionMetadatum
-enum TransactionMetadatum: Codable, Hashable {
+public enum TransactionMetadatum: Codable, Hashable, Sendable {
     case map([TransactionMetadatum: TransactionMetadatum])
     case list([TransactionMetadatum])
     case int(Int)
@@ -23,12 +23,12 @@ public enum MetadataType: Codable, Hashable, Equatable {
 
 // MARK: - Metadata
 public struct Metadata: Codable, Hashable, Equatable {
-    typealias KEY_TYPE = TransactionMetadatumLabel
-    typealias VALUE_TYPE = TransactionMetadatum
+    public typealias KEY_TYPE = TransactionMetadatumLabel
+    public typealias VALUE_TYPE = TransactionMetadatum
     
-    static let MAX_ITEM_SIZE = 64
+    public static let MAX_ITEM_SIZE = 64
     
-    var data: [KEY_TYPE: VALUE_TYPE] {
+    public var data: [KEY_TYPE: VALUE_TYPE] {
         get {
             _data
         }
@@ -38,7 +38,7 @@ public struct Metadata: Codable, Hashable, Equatable {
     }
     private var _data: [KEY_TYPE: VALUE_TYPE] = [:]
     
-    subscript(key: KEY_TYPE) -> VALUE_TYPE? {
+    public subscript(key: KEY_TYPE) -> VALUE_TYPE? {
         get {
             return _data[key]
         }
@@ -47,7 +47,7 @@ public struct Metadata: Codable, Hashable, Equatable {
         }
     }
 
-    init(_ data: [KEY_TYPE: VALUE_TYPE]) throws {
+    public init(_ data: [KEY_TYPE: VALUE_TYPE]) throws {
         try validate()
         
         var metadata = [KEY_TYPE: VALUE_TYPE]()
@@ -96,10 +96,10 @@ public struct Metadata: Codable, Hashable, Equatable {
 
 // MARK: - ShelleyMaryMetadata
 public struct ShelleyMaryMetadata: Codable, Hashable, Equatable {
-    var metadata: Metadata
-    var nativeScripts: [NativeScripts]?
+    public var metadata: Metadata
+    public var nativeScripts: [NativeScripts]?
     
-    init(metadata: Metadata, nativeScripts: [NativeScripts]?) {
+    public init(metadata: Metadata, nativeScripts: [NativeScripts]?) {
         self.metadata = metadata
         self.nativeScripts = nativeScripts
     }
@@ -119,13 +119,13 @@ public struct ShelleyMaryMetadata: Codable, Hashable, Equatable {
 
 // MARK: - AlonzoMetadata
 public struct AlonzoMetadata: Codable, Hashable, Equatable {
-    static let TAG: UInt64 = 259
+    public static let TAG: UInt64 = 259
     
-    var metadata: Metadata?
-    var nativeScripts: [NativeScripts]?
-    var plutusV1Script: [PlutusV1Script]?
-    var plutusV2Script: [PlutusV2Script]?
-    var plutusV3Script: [PlutusV3Script]?
+    public var metadata: Metadata?
+    public var nativeScripts: [NativeScripts]?
+    public var plutusV1Script: [PlutusV1Script]?
+    public var plutusV2Script: [PlutusV2Script]?
+    public var plutusV3Script: [PlutusV3Script]?
     
     enum CodingKeys: Int, CodingKey {
         case metadata = 0
@@ -135,7 +135,7 @@ public struct AlonzoMetadata: Codable, Hashable, Equatable {
         case plutusV3Script = 4
     }
     
-    init(metadata: Metadata?,
+    public init(metadata: Metadata?,
          nativeScripts: [NativeScripts]?,
          plutusV1Script: [PlutusV1Script]?,
          plutusV2Script: [PlutusV2Script]?,
@@ -225,7 +225,7 @@ public struct AlonzoMetadata: Codable, Hashable, Equatable {
 
 // MARK: - AuxiliaryData
 public struct AuxiliaryData: Codable, Equatable, Hashable {
-    var data: MetadataType
+    public var data: MetadataType
     
     public init(data: MetadataType) {
         self.data = data

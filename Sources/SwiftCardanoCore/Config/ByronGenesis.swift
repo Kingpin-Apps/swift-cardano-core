@@ -3,77 +3,77 @@ import Foundation
 /// Represents the Byron genesis configuration
 public struct ByronGenesis: JSONLoadable {
     /// Distribution of Ada vouchers
-    let avvmDistr: [String: String]
+    public let avvmDistr: [String: String]
     /// Block version data configuration
-    let blockVersionData: BlockVersionData
+    public let blockVersionData: BlockVersionData
     /// FTS seed value
-    let ftsSeed: String
+    public let ftsSeed: String
     /// Protocol constants
-    let protocolConsts: ProtocolConsts
+    public let protocolConsts: ProtocolConsts
     /// Genesis start time
-    let startTime: Int
+    public let startTime: Int
     /// Boot stakeholders
-    let bootStakeholders: [String: Int]
+    public let bootStakeholders: [String: Int]
     /// Heavy delegation certificates
-    let heavyDelegation: [String: HeavyDelegation]
+    public let heavyDelegation: [String: HeavyDelegation]
     /// Non-AVVM balances
-    let nonAvvmBalances: [String: String]
+    public let nonAvvmBalances: [String: String]
     /// VSS certificates
-    let vssCerts: [String: VSSCert]
+    public let vssCerts: [String: VSSCert]
 }
 
 /// Block version data configuration
-struct BlockVersionData: Codable, Equatable, Hashable {
-    let heavyDelThd: String
-    let maxBlockSize: String
-    let maxHeaderSize: String
-    let maxProposalSize: String
-    let maxTxSize: String
-    let mpcThd: String
-    let scriptVersion: Int
-    let slotDuration: String
-    let softforkRule: SoftforkRule
-    let txFeePolicy: TxFeePolicy
-    let unlockStakeEpoch: String
-    let updateImplicit: String
-    let updateProposalThd: String
-    let updateVoteThd: String
+public struct BlockVersionData: Codable, Equatable, Hashable {
+    public let heavyDelThd: String
+    public let maxBlockSize: String
+    public let maxHeaderSize: String
+    public let maxProposalSize: String
+    public let maxTxSize: String
+    public let mpcThd: String
+    public let scriptVersion: Int
+    public let slotDuration: String
+    public let softforkRule: SoftforkRule
+    public let txFeePolicy: TxFeePolicy
+    public let unlockStakeEpoch: String
+    public let updateImplicit: String
+    public let updateProposalThd: String
+    public let updateVoteThd: String
 }
 
 /// Softfork rule configuration
-struct SoftforkRule: Codable, Equatable, Hashable {
-    let initThd: String
-    let minThd: String
-    let thdDecrement: String
+public struct SoftforkRule: Codable, Equatable, Hashable {
+    public let initThd: String
+    public let minThd: String
+    public let thdDecrement: String
 }
 
 /// Transaction fee policy
-struct TxFeePolicy: Codable, Equatable, Hashable {
-    let multiplier: String
-    let summand: String
+public struct TxFeePolicy: Codable, Equatable, Hashable {
+    public let multiplier: String
+    public let summand: String
 }
 
 /// Protocol constants
-struct ProtocolConsts: Codable, Equatable, Hashable {
-    let k: Int
-    let protocolMagic: Int
-    let vssMaxTTL: Int
-    let vssMinTTL: Int
+public struct ProtocolConsts: Codable, Equatable, Hashable {
+    public let k: Int
+    public let protocolMagic: Int
+    public let vssMaxTTL: Int
+    public let vssMinTTL: Int
 }
 
 /// Heavy delegation certificate
-struct HeavyDelegation: Codable, Equatable, Hashable {
-    let cert: String
-    let delegatePk: String
-    let issuerPk: String
-    let omega: Int
+public struct HeavyDelegation: Codable, Equatable, Hashable {
+    public let cert: String
+    public let delegatePk: String
+    public let issuerPk: String
+    public let omega: Int
 }
 
 /// VSS certificate
-struct VSSCert: Codable, Equatable, Hashable {
-    let expiryEpoch: Int
-    let signature: String
-    let signingKey: String
-    let vssKey: String
+public struct VSSCert: Codable, Equatable, Hashable {
+    public let expiryEpoch: Int
+    public let signature: String
+    public let signingKey: String
+    public let vssKey: String
 }
 

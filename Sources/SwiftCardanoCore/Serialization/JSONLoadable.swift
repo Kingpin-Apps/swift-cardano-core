@@ -1,8 +1,8 @@
 import Foundation
 
-protocol JSONLoadable: Codable, Hashable, Equatable {}
+public protocol JSONLoadable: Codable, Hashable, Equatable {}
 
-extension JSONLoadable {
+public extension JSONLoadable {
     /// Save the JSON representation to a file.
     /// - Parameter path: The file path.
     func save(to path: String) throws {

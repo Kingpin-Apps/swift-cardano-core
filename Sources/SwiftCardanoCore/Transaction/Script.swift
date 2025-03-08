@@ -9,8 +9,8 @@ public enum DatumType: Codable, Equatable, Hashable {
 }
 
 public struct DatumOption: Codable {
-    var type: Int
-    var datum: DatumType
+    public var type: Int
+    public var datum: DatumType
 
     public init(datum: DatumType) {
         self.datum = datum
@@ -51,8 +51,8 @@ public struct DatumOption: Codable {
 }
 
 public struct Script: Codable, Equatable, Hashable {
-    var type: Int
-    var script: ScriptType
+    public var type: Int
+    public var script: ScriptType
 
     public init(script: ScriptType) {
         self.script = script
@@ -104,12 +104,12 @@ public struct Script: Codable, Equatable, Hashable {
 }
 
 public struct ScriptRef: CBORTaggable {
-    var tag: UInt64 = 24
-    var value: PotentCodables.AnyValue
+    public var tag: UInt64 = 24
+    public var value: PotentCodables.AnyValue
 
     public var script: Script
     
-    init(tag: UInt64 = 24, value: PotentCodables.AnyValue) throws {
+    public init(tag: UInt64 = 24, value: PotentCodables.AnyValue) throws {
         guard let script = value.unwrapped as? Data else {
             throw CardanoCoreError
                 .valueError("Invalid ScriptRef value")

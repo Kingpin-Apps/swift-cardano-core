@@ -28,7 +28,7 @@ public enum CertificateCode: Int, Codable {
     case updateDRep = 18
 }
 
-enum CertificateDescription: String, Codable {
+public enum CertificateDescription: String, Codable {
     case stakeRegistration = "Stake Address Registration Certificate"
     case stakeDeregistration = "Stake Address Deregistration Certificate"
     case stakeDelegation = "Stake Delegation Certificate"

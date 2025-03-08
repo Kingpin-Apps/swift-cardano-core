@@ -5,7 +5,7 @@ import PotentCBOR
 import BigInt
 
 
-protocol PlutusDataProtocol: Codable, Equatable, Hashable {
+public protocol PlutusDataProtocol: Codable, Equatable, Hashable {
     static var CONSTR_ID: Any { get }
     var properties: [String: AnyValue] { get set }
     
@@ -19,7 +19,7 @@ protocol PlutusDataProtocol: Codable, Equatable, Hashable {
 /// It is not required to use this class to interact with Plutus scripts. However, wrapping datum in PlutusData
 /// class will reduce the complexity of serialization and deserialization tremendously.
 //@dynamicMemberLookup
-extension PlutusDataProtocol {
+public extension PlutusDataProtocol {
     static var MAX_BYTES_SIZE: Int { 64 }
     
     private var properties: [String: AnyValue] {
@@ -65,13 +65,13 @@ extension PlutusDataProtocol {
         self.init(properties: properties)
     }
     
-    public init(from decoder: Decoder) throws {
+    init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let properties = try container.decode([String: AnyValue].self)
         self.init(properties: properties)
     }
 
-    public func encode(to encoder: Encoder) throws {
+    func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         try container.encode(properties)
     }
@@ -234,7 +234,7 @@ extension PlutusDataProtocol {
 //        return try fromDict(dict)
 //    }
     
-    public func hash(into hasher: inout Hasher) {
+    func hash(into hasher: inout Hasher) {
         hasher.combine(self)
     }
     
@@ -276,7 +276,11 @@ public enum PlutusData: Codable, Equatable, Hashable {
 // MARK: - Unit
 /// The default "Unit type" with a 0 constructor ID
 public struct Unit: PlutusDataProtocol {
-    var properties: [String : PotentCodables.AnyValue]
+    public var properties: [String : PotentCodables.AnyValue]
 
-    static var CONSTR_ID: Any { return 0 }
+    public static var CONSTR_ID: Any { return 0 }
+    
+    public init(properties: [String : PotentCodables.AnyValue]) {
+        self.properties = properties
+    }
 }

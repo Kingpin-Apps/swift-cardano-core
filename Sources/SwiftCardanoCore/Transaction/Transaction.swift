@@ -1,12 +1,12 @@
 import Foundation
 
 public struct Transaction: Codable, Equatable, Hashable {
-    var transactionBody: TransactionBody
-    var transactionWitnessSet: TransactionWitnessSet
-    var valid: Bool = true
-    var auxiliaryData: AuxiliaryData? = nil
+    public var transactionBody: TransactionBody
+    public var transactionWitnessSet: TransactionWitnessSet
+    public var valid: Bool = true
+    public var auxiliaryData: AuxiliaryData? = nil
 
-    var id: TransactionId? {
+    public var id: TransactionId? {
         return transactionBody.id
     }
     

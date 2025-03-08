@@ -1,11 +1,11 @@
 import Foundation
 
-protocol JSONSerializable: Codable, Hashable, Equatable {
+public protocol JSONSerializable: Codable, Hashable, Equatable {
     func toJSON() throws -> String?
     static func fromDict(_ dict: Dictionary<AnyHashable, Any>) throws -> Self
 }
 
-extension JSONSerializable {
+public extension JSONSerializable {
     /// Save the JSON representation to a file.
     /// - Parameter path: The file path.
     func save(to path: String) throws {

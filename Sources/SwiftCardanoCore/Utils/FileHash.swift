@@ -5,14 +5,14 @@ import SwiftNcal
 /// - Requires `contents` property to be settable
 /// - Requires `HASH_SIZE` static property to be set
 /// - Requires `init(contents:)` initializer
-protocol FileHashable: Codable, Hashable, Equatable {
+public protocol FileHashable: Codable, Hashable, Equatable {
     var contents: String { get set }
     static var HASH_SIZE: Int { get }
     
     init(contents: String)
 }
 
-extension FileHashable {
+public extension FileHashable {
     /// Load file contents from a given path
     /// - Parameter path: The path to the file
     /// - Returns: An instance of the conforming type
@@ -34,11 +34,11 @@ extension FileHashable {
 }
 
 /// Hash of a file
-struct FileHash: FileHashable {
-    var contents: String
-    static var HASH_SIZE: Int { 32 }
+public struct FileHash: FileHashable {
+    public var contents: String
+    public static var HASH_SIZE: Int { 32 }
     
-    init(contents: String) {
+    public init(contents: String) {
         self.contents = contents
     }
 }

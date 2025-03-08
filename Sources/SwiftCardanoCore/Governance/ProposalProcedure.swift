@@ -80,7 +80,7 @@ public struct ProposalProcedure: PayloadJSONSerializable {
     ///
     /// The json output has three fields: "type", "description", and "cborHex".
     /// - Returns: JSON representation
-    func toJSON() throws -> String? {
+    public func toJSON() throws -> String? {
         let jsonString = """
         {
             "type": "\(type)",
@@ -94,5 +94,5 @@ public struct ProposalProcedure: PayloadJSONSerializable {
 
 
 public struct ProposalProcedures: Codable, Hashable, Equatable {
-    var procedures: NonEmptyCBORSet<ProposalProcedure>
+    public var procedures: NonEmptyCBORSet<ProposalProcedure>
 }
