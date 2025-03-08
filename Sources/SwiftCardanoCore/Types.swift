@@ -16,9 +16,9 @@ public typealias EpochNumber = UInt64
 
 // MARK: - PositiveCoin
 public struct PositiveCoin: Codable, Equatable, Hashable {
-    let value: UInt
+    public let value: UInt
     
-    init(_ value: UInt) {
+    public init(_ value: UInt) {
         precondition(value > 0, "PositiveCoin must be greater than 0")
         self.value = value
     }
@@ -26,9 +26,9 @@ public struct PositiveCoin: Codable, Equatable, Hashable {
 
 // MARK: - NonEmptySet
 public struct NonEmptySet<Element> {
-    var elements: [Element]
+    public var elements: [Element]
     
-    init(elements: [Element]) {
+    public init(elements: [Element]) {
         precondition(!elements.isEmpty, "NonEmptySet must contain at least one element")
         self.elements = elements
     }
@@ -36,8 +36,8 @@ public struct NonEmptySet<Element> {
 
 // MARK: - ExUnitPrices
 public struct ExUnitPrices: Codable, Hashable, Equatable {
-    var memPrice: NonNegativeInterval
-    var stepPrice: NonNegativeInterval
+    public var memPrice: NonNegativeInterval
+    public var stepPrice: NonNegativeInterval
     
     public init(memPrice: NonNegativeInterval, stepPrice: NonNegativeInterval) {
         self.memPrice = memPrice
@@ -59,8 +59,8 @@ public struct ExUnitPrices: Codable, Hashable, Equatable {
 
 // MARK: - ExUnits
 public struct ExUnits: Codable, Hashable, Equatable {
-    var mem: UInt
-    var steps: UInt
+    public var mem: UInt
+    public var steps: UInt
     
     public init(mem: UInt, steps: UInt) {
         self.mem = mem
@@ -82,8 +82,8 @@ public struct ExUnits: Codable, Hashable, Equatable {
 
 // MARK: - ProtocolVersion
 public struct ProtocolVersion: Codable, Hashable, Equatable {
-    var major: Int?
-    var minor: Int?
+    public var major: Int?
+    public var minor: Int?
     
     public init(major: Int, minor: Int) {
         self.major = major
@@ -105,8 +105,8 @@ public struct ProtocolVersion: Codable, Hashable, Equatable {
 
 // MARK: - NonNegativeInterval
 public struct NonNegativeInterval: Codable, Hashable, Equatable {
-    var lowerBound: UInt
-    var upperBound: UInt64
+    public var lowerBound: UInt
+    public var upperBound: UInt64
     
     public init(lowerBound: UInt, upperBound: UInt64) {
         precondition(lowerBound <= upperBound, "Lower bound must be less than or equal to upper bound")
@@ -130,10 +130,10 @@ public struct NonNegativeInterval: Codable, Hashable, Equatable {
 // MARK: - UnitInterval
 /// A unit interval is a number in the range between 0 and 1
 public struct UnitInterval: Codable, Equatable, Hashable {
-    let numerator: UInt
-    let denominator: UInt
+    public let numerator: UInt
+    public let denominator: UInt
     
-    static let tag = 30
+    public static let tag = 30
     
     public init(numerator: UInt, denominator: UInt) {
         precondition(numerator <= denominator, "Numerator must be less than or equal to denominator")
@@ -186,9 +186,9 @@ public struct UnitInterval: Codable, Equatable, Hashable {
 
 // MARK: - Url
 public struct Url: Codable, Hashable {
-    let value: URL
+    public let value: URL
     
-    var absoluteString: String {
+    public var absoluteString: String {
         return value.absoluteString
     }
     
@@ -207,8 +207,8 @@ public struct Url: Codable, Hashable {
 
 // MARK: - Anchor
 public struct Anchor: Codable, Hashable {
-    let anchorUrl: Url
-    let anchorDataHash: AnchorDataHash
+    public let anchorUrl: Url
+    public let anchorDataHash: AnchorDataHash
     
     public init(anchorUrl: Url, anchorDataHash: AnchorDataHash) {
         self.anchorUrl = anchorUrl
@@ -232,7 +232,7 @@ public struct Anchor: Codable, Hashable {
 }
 
 // MARK: - CBOR Tag
-protocol CBORTaggable: Codable, Equatable, Hashable {
+public protocol CBORTaggable: Codable, Equatable, Hashable {
     var tag: UInt64 { get }
     var value: AnyValue { get set }
     
@@ -282,15 +282,20 @@ extension CBORTaggable {
 }
 
 public struct CBORTag: CBORTaggable {
-    var tag: UInt64
-    var value: AnyValue
+    public var tag: UInt64
+    public var value: AnyValue
+    
+    public init(tag: UInt64, value: AnyValue) {
+        self.tag = tag
+        self.value = value
+    }
 }
 
 // MARK: - ByteString
 public struct ByteString: Hashable {
-    let value: Data
+    public let value: Data
 
-    init(value: Data) {
+    public init(value: Data) {
         self.value = value
     }
 
@@ -317,44 +322,44 @@ public struct ByteString: Hashable {
 public struct IndefiniteList<T>: Codable, Hashable, Equatable where T: Hashable, T:Codable {
     private var items: [T]
     
-    init(_ items: [T] = []) {
+    public init(_ items: [T] = []) {
         self.items = items
     }
     
     // Adds an item to the list
-    mutating func add(_ item: T) {
+    public mutating func add(_ item: T) {
         items.append(item)
     }
     
     // Returns the item at the specified index, or nil if out of bounds
-    func get(at index: Int) -> T? {
+    public func get(at index: Int) -> T? {
         guard index < items.count else { return nil }
         return items[index]
     }
     
     // Returns the entire list
-    func getAll() -> [T] {
+    public func getAll() -> [T] {
         return items
     }
     
     // Removes the item at the specified index
-    mutating func remove(at index: Int) {
+    public mutating func remove(at index: Int) {
         guard index < items.count else { return }
         items.remove(at: index)
     }
     
     // Returns the count of items in the list
-    var count: Int {
+    public var count: Int {
         return items.count
     }
     
     // Checks if the list is empty
-    var isEmpty: Bool {
+    public var isEmpty: Bool {
         return items.isEmpty
     }
     
     // Custom string description for easy debugging
-    var description: String {
+    public var description: String {
         return "IndefiniteList: \(items)"
     }
     
@@ -365,15 +370,15 @@ public struct IndefiniteList<T>: Codable, Hashable, Equatable where T: Hashable,
 
 
 // Generic wrapper for CBOR-tagged sets (tag 258)
-protocol SetTaggable<Element>: CBORTaggable {
+public protocol SetTaggable<Element>: CBORTaggable {
     associatedtype Element: Codable & Hashable
     
     var elements: Set<Element> { get set }
 }
 
 extension SetTaggable {
-    var tag: UInt64 { 258 }
-    var value: AnyValue {
+    public var tag: UInt64 { 258 }
+    public var value: AnyValue {
         get {
             return .array(
                 elements.map {
@@ -390,7 +395,7 @@ extension SetTaggable {
     
     public static var TAG: UInt64 { 258 }
     
-    var count: Int { return elements.count }
+    public var count: Int { return elements.count }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
@@ -526,12 +531,12 @@ public struct NonEmptyCBORSet<T: Codable & Hashable>: SetTaggable {
     }
 }
 
-struct NonEmptyOrderedCBORSet<T: Codable & Hashable>: SetTaggable  {
-    typealias Element = T
-    var elements: Set<Element> = Set()
-    var elementsOrdered: [Element] = []
+public struct NonEmptyOrderedCBORSet<T: Codable & Hashable>: SetTaggable  {
+    public typealias Element = T
+    public var elements: Set<Element> = Set()
+    public var elementsOrdered: [Element] = []
     
-    init(tag: UInt64 = Self.TAG, value: AnyValue) {
+    public init(tag: UInt64 = Self.TAG, value: AnyValue) {
         precondition(
             (value.isEmpty == nil) || (value.isEmpty == false),
             "NonEmptySet must contain at least one element"
@@ -542,13 +547,13 @@ struct NonEmptyOrderedCBORSet<T: Codable & Hashable>: SetTaggable  {
         self.value = value
     }
 
-    init(_ elements: [Element]) {
+    public init(_ elements: [Element]) {
         precondition(!elements.isEmpty, "NonEmptyOrderedSet must contain at least one element")
         self.elements = Set(elements)
         self.elementsOrdered = Array(Set(elements)) // Ensure uniqueness while preserving order
     }
 
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let cborData = try container.decode(CBOR.self)
 
