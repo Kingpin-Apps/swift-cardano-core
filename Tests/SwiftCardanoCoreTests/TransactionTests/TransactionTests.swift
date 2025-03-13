@@ -136,8 +136,8 @@ struct TransactionTests {
             auxiliaryData: auxiliaryData
         )
 
-        let encodedData = try CBOREncoder().encode(originalTransaction)
-        let decodedTransaction = try CBORDecoder().decode(Transaction.self, from: encodedData)
+        let encodedData = try originalTransaction.toCBOR()
+        let decodedTransaction = try Transaction.fromCBOR(data: encodedData)
 
         #expect(decodedTransaction == originalTransaction)
         #expect(decodedTransaction.transactionBody == originalTransaction.transactionBody)
