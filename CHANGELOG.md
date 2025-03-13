@@ -1,3 +1,9 @@
+## 0.1.13 (2025-03-13)
+
+### Fix
+
+- add CBORSerializable protocol and improve Transaction
+
 ## 0.1.12 (2025-03-12)
 
 ### Fix
