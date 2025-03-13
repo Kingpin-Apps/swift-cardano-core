@@ -117,8 +117,11 @@ let extendedPaymentVKey = [
     @Test func testPaymentSKey() async throws {
         let SK = extendedPaymentSigningKey!
         
-        let vkey: PaymentExtendedVerificationKey = SK.toVerificationKey()
+        let extendedVkey: PaymentExtendedVerificationKey = SK.toVerificationKey()
+        let vkey: PaymentVerificationKey = extendedVkey.toNonExtended()
         
         #expect(SK != nil)
+        #expect(extendedVkey != nil)
+        #expect(vkey != nil)
     }
 }
