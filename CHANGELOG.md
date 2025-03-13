@@ -1,3 +1,10 @@
+## 0.1.11 (2025-03-12)
+
+### Fix
+
+- add payload check and tests
+- handle extended keys and add tests
+
 ## 0.1.10 (2025-03-07)
 
 ### Fix
