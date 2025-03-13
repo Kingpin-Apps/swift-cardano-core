@@ -120,8 +120,13 @@ let extendedPaymentVKey = [
         let extendedVkey: PaymentExtendedVerificationKey = SK.toVerificationKey()
         let vkey: PaymentVerificationKey = extendedVkey.toNonExtended()
         
+        let message = "Pycardano is cool.".data(using: .utf8)!
+        
+        let data = try SK.sign(data: message)
+        
         #expect(SK != nil)
         #expect(extendedVkey != nil)
         #expect(vkey != nil)
+        #expect(data != nil)
     }
 }

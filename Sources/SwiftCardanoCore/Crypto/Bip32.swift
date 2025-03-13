@@ -48,16 +48,14 @@ public class BIP32ED25519PrivateKey {
     }
 
     public func sign(message: Data) throws -> Data {
-        let hash = Hash()
-
         let r = try sodium.cryptoCore.ed25519ScalarReduce(
-            hash.sha512(message: self.right + message)
+            Data(SHA512.hash(data: self.right + message))
         )
 
         let R = try sodium.cryptoScalarmult.ed25519BaseNoclamp(n: r)
 
         let hram = try sodium.cryptoCore.ed25519ScalarReduce(
-            hash.sha512(message: R + self.publicKey + message)
+            Data(SHA512.hash(data: R + self.publicKey + message))
         )
 
         let S = try sodium.cryptoCore.ed25519ScalarAdd(

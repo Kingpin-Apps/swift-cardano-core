@@ -36,9 +36,9 @@ public extension SigningKey {
 public extension ExtendedSigningKey {
     
     func sign(data: Data) throws -> Data {
-        guard payload.count >= 160 else {
-            throw CardanoCoreError.valueError("Invalid payload size for ExtendedSigningKey. Expected size >= 160, but got \(payload.count).")
-        }
+//        guard payload.count >= 160 else {
+//            throw CardanoCoreError.valueError("Invalid payload size for ExtendedSigningKey. Expected size >= 160, but got \(payload.count).")
+//        }
         
         let privateKey = try BIP32ED25519PrivateKey(
             privateKey: payload.prefix(64),  // First 64 bytes
