@@ -63,7 +63,7 @@ struct CBORTests {
         let value: Any = -5
         let cborValue = CBOR.fromAny(value)
         
-        #expect(cborValue == .negativeInt(5))
+        #expect(cborValue == CBOR(-5))
     }
 }
 

@@ -51,7 +51,7 @@ public extension ExtendedSigningKey {
 
     func toVerificationKey<T>() -> T where T: ExtendedVerificationKey {
         return T(
-            payload: payload[64...95],  // Bytes 64 to 95
+            payload: payload.suffix(from: 64),
             type: type.replacingOccurrences(of: "Signing", with: "Verification"),
             description: description.replacingOccurrences(of: "Signing", with: "Verification")
         )

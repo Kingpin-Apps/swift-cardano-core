@@ -27,6 +27,16 @@ let paymentSigningKeyFilePath = (
     ofType: "skey",
     inDirectory: "data/keys"
 )
+let extendedPaymentVerificationKeyFilePath = (
+    forResource: "test.extended-payment",
+    ofType: "vkey",
+    inDirectory: "data/keys"
+)
+let extendedPaymentSigningKeyFilePath = (
+    forResource: "test.extended-payment",
+    ofType: "skey",
+    inDirectory: "data/keys"
+)
 
 let stakeVerificationKeyFilePath = (
     forResource: "test.stake",

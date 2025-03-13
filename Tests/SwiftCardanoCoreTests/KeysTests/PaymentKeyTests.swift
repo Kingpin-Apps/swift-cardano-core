@@ -10,9 +10,19 @@ let paymentSKey = [
     "description": "Genesis Initial UTxO Signing Key",
     "cborHex": "5820093be5cd3987d0c9fd8854ef908f7746b69e2d73320db6dc0f780d81585b84c2"
 ]
-//let paymentSKeyJSON = try! JSONSerialization.data(withJSONObject: paymentSKey, options: .prettyPrinted)
 
 let paymentVKey = [
+    "type": "GenesisUTxOVerificationKey_ed25519",
+    "description": "Genesis Initial UTxO Verification Key",
+    "cborHex": "58208be8339e9f3addfa6810d59e2f072f85e64d4c024c087e0d24f8317c6544f62f"
+]
+let extendedPaymentSKey = [
+    "type": "PaymentExtendedSigningKeyShelley_ed25519_bip32",
+    "description": "Genesis Initial UTxO Signing Key",
+    "cborHex": "5820093be5cd3987d0c9fd8854ef908f7746b69e2d73320db6dc0f780d81585b84c2"
+]
+
+let extendedPaymentVKey = [
     "type": "GenesisUTxOVerificationKey_ed25519",
     "description": "Genesis Initial UTxO Verification Key",
     "cborHex": "58208be8339e9f3addfa6810d59e2f072f85e64d4c024c087e0d24f8317c6544f62f"
@@ -94,4 +104,21 @@ let paymentVKey = [
         try FileManager.default.removeItem(atPath: tempFileURL.path)
     }
     
+}
+
+@Suite struct PaymentExtendedKeyTests {
+    
+    @Test func testPaymentVKey() async throws {
+        let VK = extendedPaymentVerificationKey!
+        
+        #expect(VK != nil)
+    }
+    
+    @Test func testPaymentSKey() async throws {
+        let SK = extendedPaymentSigningKey!
+        
+        let vkey: PaymentExtendedVerificationKey = SK.toVerificationKey()
+        
+        #expect(SK != nil)
+    }
 }

@@ -73,7 +73,7 @@ public struct PaymentExtendedVerificationKey: ExtendedVerificationKey {
     public static var DESCRIPTION: String { "Payment Verification Key" }
     
     public init(payload: Data, type: String?, description: String?) {
-        if let payloadData = try? CBORDecoder().decode(Data.self, from: payload) {
+        if payload.count > 64, let payloadData = try? CBORDecoder().decode(Data.self, from: payload) {
             self._payload = payloadData
         } else {
             self._payload = payload

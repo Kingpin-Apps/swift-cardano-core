@@ -16,6 +16,46 @@ var paymentVerificationKey: PaymentVerificationKey? {
     }
 }
 
+var paymentSigningKey: PaymentSigningKey? {
+    do {
+        let keyPath = try getFilePath(
+            forResource: paymentSigningKeyFilePath.forResource,
+            ofType: paymentSigningKeyFilePath.ofType,
+            inDirectory: paymentSigningKeyFilePath.inDirectory
+        )
+        return try PaymentSigningKey.load(from: keyPath!)
+    } catch {
+        return nil
+    }
+}
+
+
+var extendedPaymentVerificationKey: PaymentExtendedVerificationKey? {
+    do {
+        let keyPath = try getFilePath(
+            forResource: extendedPaymentVerificationKeyFilePath.forResource,
+            ofType: extendedPaymentVerificationKeyFilePath.ofType,
+            inDirectory: extendedPaymentVerificationKeyFilePath.inDirectory
+        )
+        return try PaymentExtendedVerificationKey.load(from: keyPath!)
+    } catch {
+        return nil
+    }
+}
+
+var extendedPaymentSigningKey: PaymentExtendedSigningKey? {
+    do {
+        let keyPath = try getFilePath(
+            forResource: extendedPaymentSigningKeyFilePath.forResource,
+            ofType: extendedPaymentSigningKeyFilePath.ofType,
+            inDirectory: extendedPaymentSigningKeyFilePath.inDirectory
+        )
+        return try PaymentExtendedSigningKey.load(from: keyPath!)
+    } catch {
+        return nil
+    }
+}
+
 var stakeVerificationKey: StakeVerificationKey? {
     do {
         let keyPath = try getFilePath(

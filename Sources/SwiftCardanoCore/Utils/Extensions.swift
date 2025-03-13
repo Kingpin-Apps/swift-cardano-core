@@ -81,9 +81,10 @@ extension CBOR {
             return .double(doubleValue)
         }
         else if let intValue = value as? Int {
-            return intValue >= 0 ?
-                .unsignedInt(UInt64(intValue)) :
-                .negativeInt(UInt64(abs(intValue)))
+            return CBOR(intValue)
+//            return intValue >= 0 ?
+//                .unsignedInt(UInt64(intValue)) :
+//                .negativeInt(UInt64(abs(intValue)))
         }
         else if let arrayValue = value as? Array {
             return .array(arrayValue.map { CBOR.fromAny($0) })
