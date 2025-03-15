@@ -1,7 +1,8 @@
-## Unreleased
+## 0.1.14 (2025-03-15)
 
 ### Fix
 
+- improve Nativescripts and fix test
 - minor fixes
 
 ## 0.1.13 (2025-03-13)
