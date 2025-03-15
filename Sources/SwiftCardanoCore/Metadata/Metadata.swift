@@ -97,9 +97,9 @@ public struct Metadata: Codable, Hashable, Equatable {
 // MARK: - ShelleyMaryMetadata
 public struct ShelleyMaryMetadata: Codable, Hashable, Equatable {
     public var metadata: Metadata
-    public var nativeScripts: [NativeScripts]?
+    public var nativeScripts: [NativeScript]?
     
-    public init(metadata: Metadata, nativeScripts: [NativeScripts]?) {
+    public init(metadata: Metadata, nativeScripts: [NativeScript]?) {
         self.metadata = metadata
         self.nativeScripts = nativeScripts
     }
@@ -107,7 +107,7 @@ public struct ShelleyMaryMetadata: Codable, Hashable, Equatable {
     public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         metadata = try container.decode(Metadata.self)
-        nativeScripts = try container.decodeIfPresent([NativeScripts].self)
+        nativeScripts = try container.decodeIfPresent([NativeScript].self)
     }
     
     public func encode(to encoder: Encoder) throws {
@@ -122,7 +122,7 @@ public struct AlonzoMetadata: Codable, Hashable, Equatable {
     public static let TAG: UInt64 = 259
     
     public var metadata: Metadata?
-    public var nativeScripts: [NativeScripts]?
+    public var nativeScripts: [NativeScript]?
     public var plutusV1Script: [PlutusV1Script]?
     public var plutusV2Script: [PlutusV2Script]?
     public var plutusV3Script: [PlutusV3Script]?
@@ -136,7 +136,7 @@ public struct AlonzoMetadata: Codable, Hashable, Equatable {
     }
     
     public init(metadata: Metadata?,
-         nativeScripts: [NativeScripts]?,
+         nativeScripts: [NativeScript]?,
          plutusV1Script: [PlutusV1Script]?,
          plutusV2Script: [PlutusV2Script]?,
          plutusV3Script: [PlutusV3Script]?
@@ -169,7 +169,7 @@ public struct AlonzoMetadata: Codable, Hashable, Equatable {
         }
         
         if let nativeScriptsArray = cborData[1] {
-            nativeScripts = try CBORDecoder().decode([NativeScripts].self, from: nativeScriptsArray)
+            nativeScripts = try CBORDecoder().decode([NativeScript].self, from: nativeScriptsArray)
         } else {
             nativeScripts = nil
         }

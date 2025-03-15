@@ -18,7 +18,8 @@ let package = Package(
             targets: ["SwiftCardanoCore"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/outfoxx/PotentCodables.git", .upToNextMajor(from: "3.5.0")),
+//        .package(url: "https://github.com/outfoxx/PotentCodables.git", .upToNextMajor(from: "3.5.0")),
+        .package(url: "https://github.com/zunda-pixel/PotentCodables.git", branch: "update-library"),
         .package(url: "https://github.com/krzyzanowskim/CryptoSwift.git", .upToNextMajor(from: "1.8.2")),
         .package(url: "https://github.com/Kingpin-Apps/swift-ncal.git", .upToNextMinor(from: "0.1.4")),
         .package(url: "https://github.com/Kingpin-Apps/swift-mnemonic.git", .upToNextMinor(from: "0.1.3")),

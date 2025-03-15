@@ -8,33 +8,31 @@ public typealias PlutusV1Script = Data
 public typealias PlutusV2Script = Data
 public typealias PlutusV3Script = Data
 
-// MARK: - ScriptType
-public enum ScriptType: Codable, Equatable, Hashable {
-    
-//    case bytes(Data)
-    case nativeScript(NativeScripts)
+public enum PlutusScript: Codable, Equatable, Hashable {
     case plutusV1Script(PlutusV1Script)
     case plutusV2Script(PlutusV2Script)
     case plutusV3Script(PlutusV3Script)
     
-    public static func == (lhs: ScriptType, rhs: ScriptType) -> Bool {
-        switch (lhs, rhs) {
-            case (.nativeScript(let a), .nativeScript(let b)):
-                return a == b
-            case (.plutusV1Script(let a), .plutusV1Script(let b)):
-                return a == b
-            case (.plutusV2Script(let a), .plutusV2Script(let b)):
-                return a == b
-            case (.plutusV3Script(let a), .plutusV3Script(let b)):
-                return a == b
-            default:
-                return false
+    public var toScriptType: ScriptType {
+        switch self {
+            case .plutusV1Script(let data):
+                return .plutusV1Script(data)
+            case .plutusV2Script(let data):
+                return .plutusV2Script(data)
+            case .plutusV3Script(let data):
+                return .plutusV3Script(data)
         }
     }
+}
+
+// MARK: - ScriptType
+public enum ScriptType: Codable, Equatable, Hashable {
     
-//    public func hash(into hasher: inout Hasher) {
-//        hasher.combine(self)
-//    }
+//    case bytes(Data)
+    case nativeScript(NativeScript)
+    case plutusV1Script(PlutusV1Script)
+    case plutusV2Script(PlutusV2Script)
+    case plutusV3Script(PlutusV3Script)
 }
 
 // MARK: - RawDatum

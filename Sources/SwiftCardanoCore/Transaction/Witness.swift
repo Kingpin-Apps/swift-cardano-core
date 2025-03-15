@@ -31,7 +31,7 @@ public struct VerificationKeyWitness: Codable, Equatable, Hashable {
 
 public struct TransactionWitnessSet: Codable, Equatable, Hashable {
     public let vkeyWitnesses: [VerificationKeyWitness]?
-    public let nativeScripts: [NativeScripts]?
+    public let nativeScripts: [NativeScript]?
     public let bootstrapWitness: [BootstrapWitness]?
     public let plutusV1Script: [PlutusV1Script]?
     public let plutusData: [RawPlutusData]?
@@ -41,7 +41,7 @@ public struct TransactionWitnessSet: Codable, Equatable, Hashable {
 
     public init(
         vkeyWitnesses: [VerificationKeyWitness]? = nil,
-        nativeScripts: [NativeScripts]? = nil,
+        nativeScripts: [NativeScript]? = nil,
         bootstrapWitness: [BootstrapWitness]? = nil,
         plutusV1Script: [PlutusV1Script]? = nil,
         plutusV2Script: [PlutusV2Script]? = nil,
@@ -73,7 +73,7 @@ public struct TransactionWitnessSet: Codable, Equatable, Hashable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         vkeyWitnesses = try container.decodeIfPresent([VerificationKeyWitness].self, forKey: .vkeyWitnesses)
-        nativeScripts = try container.decodeIfPresent([NativeScripts].self, forKey: .nativeScripts)
+        nativeScripts = try container.decodeIfPresent([NativeScript].self, forKey: .nativeScripts)
         bootstrapWitness = try container.decodeIfPresent([BootstrapWitness].self, forKey: .bootstrapWitness)
         plutusV1Script = try container.decodeIfPresent([PlutusV1Script].self, forKey: .plutusV1Script)
         plutusData = try container.decodeIfPresent([RawPlutusData].self, forKey: .plutusData)

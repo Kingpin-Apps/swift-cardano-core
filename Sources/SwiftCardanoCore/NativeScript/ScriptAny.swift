@@ -1,15 +1,15 @@
 import Foundation
 
-public struct ScriptAny: NativeScript {
+public struct ScriptAny: NativeScriptable {
     public static let TYPE = NativeScriptType.scriptAny
-    public let scripts: [NativeScripts]
+    public let scripts: [NativeScript]
     
     enum CodingKeys: String, CodingKey {
         case type
         case scripts
     }
     
-    public init (scripts: [NativeScripts]) {
+    public init (scripts: [NativeScript]) {
         self.scripts = scripts
     }
     
@@ -23,7 +23,7 @@ public struct ScriptAny: NativeScript {
             }
             
             scripts = try container
-                .decode([NativeScripts].self, forKey: .scripts)
+                .decode([NativeScript].self, forKey: .scripts)
         } else {
             var container = try decoder.unkeyedContainer()
             let code = try container.decode(Int.self)
@@ -31,7 +31,7 @@ public struct ScriptAny: NativeScript {
             guard code == Self.TYPE.rawValue else {
                 throw CardanoCoreError.decodingError("Invalid ScriptAny type: \(code)")
             }
-            scripts = try container.decode([NativeScripts].self)
+            scripts = try container.decode([NativeScript].self)
         }
     }
 
@@ -52,7 +52,7 @@ public struct ScriptAny: NativeScript {
             throw CardanoCoreError.decodingError("Invalid ScriptAll scripts")
         }
         
-        let nativeScripts = try scripts.map { try NativeScripts.fromDict($0) }
+        let nativeScripts = try scripts.map { try NativeScript.fromDict($0) }
         return ScriptAny(scripts: nativeScripts)
     }
 

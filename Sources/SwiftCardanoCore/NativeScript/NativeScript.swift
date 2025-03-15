@@ -4,7 +4,7 @@ import PotentCBOR
 
 
 // MARK: - MetadataType
-public enum NativeScripts: Codable, Equatable, Hashable {
+public enum NativeScript: Codable, Equatable, Hashable {
     case scriptPubkey(ScriptPubkey)
     case scriptAll(ScriptAll)
     case scriptAny(ScriptAny)
@@ -113,7 +113,7 @@ public enum NativeScripts: Codable, Equatable, Hashable {
         }
     }
     
-    public static func fromDict(_ dict: Dictionary<AnyHashable, Any>) throws -> NativeScripts {
+    public static func fromDict(_ dict: Dictionary<AnyHashable, Any>) throws -> NativeScript {
         guard let type = dict["type"] as? String else {
             throw CardanoCoreError.decodingError("Missing type for NativeScript")
         }
@@ -153,12 +153,12 @@ public enum NativeScriptType: Int, Sendable {
 
 // MARK: - NativeScript Protocol
 /// The metadata for a native script.
-protocol NativeScript: JSONSerializable {
+public protocol NativeScriptable: JSONSerializable {
     static var TYPE: NativeScriptType { get }
 }
 
 // Extend the protocol for JSON encoding
-extension NativeScript {
+public extension NativeScriptable {
     public static func fromJSON(_ json: String) throws -> Self {
         let data = json.data(using: .utf8)!
         return try JSONDecoder().decode(Self.self, from: data)

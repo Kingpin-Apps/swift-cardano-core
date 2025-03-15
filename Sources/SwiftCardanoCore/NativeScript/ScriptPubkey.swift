@@ -1,6 +1,6 @@
 import Foundation
 
-public struct ScriptPubkey: NativeScript {
+public struct ScriptPubkey: NativeScriptable {
     public static let TYPE = NativeScriptType.scriptPubkey
     public let keyHash: VerificationKeyHash
     

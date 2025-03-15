@@ -37,7 +37,19 @@ public struct GenesisParameters: JSONLoadable {
         case updateQuorum
     }
     
-    init(nodeConfig: NodeConfig, era: Era = .conway, inDirectory: String? = nil) throws {
+    public init(nodeConfigFilePath: String, era: Era = .conway) throws {
+        let nodeConfig = try NodeConfig.load(from: nodeConfigFilePath)
+        
+        let url = URL(fileURLWithPath: nodeConfigFilePath)
+        let pathWithoutFilename = url.deletingLastPathComponent().path
+        
+        try self.init(
+            nodeConfig: nodeConfig,
+            inDirectory: pathWithoutFilename
+        )
+    }
+    
+    public init(nodeConfig: NodeConfig, era: Era = .conway, inDirectory: String? = nil) throws {
         let alonzoGenesis = try AlonzoGenesis.load(
             from: (inDirectory != nil) ? "\(inDirectory!)/\(nodeConfig.alonzoGenesisFile)" : nodeConfig.alonzoGenesisFile
         )
@@ -60,7 +72,7 @@ public struct GenesisParameters: JSONLoadable {
         )
     }
     
-    init(alonzoGenesis: AlonzoGenesis,
+    public init(alonzoGenesis: AlonzoGenesis,
          byronGenesis: ByronGenesis,
          conwayGenesis: ConwayGenesis,
          shelleyGenesis: ShelleyGenesis, era: Era = .conway) {
@@ -83,7 +95,7 @@ public struct GenesisParameters: JSONLoadable {
         self.updateQuorum = shelleyGenesis.updateQuorum
     }
     
-    init(activeSlotsCoefficient: Double,
+    public init(activeSlotsCoefficient: Double,
          epochLength: Int,
          maxKesEvolutions: Int,
          maxLovelaceSupply: Int,

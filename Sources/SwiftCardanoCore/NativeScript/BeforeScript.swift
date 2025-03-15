@@ -1,6 +1,6 @@
 import Foundation
 
-public struct BeforeScript: NativeScript {
+public struct BeforeScript: NativeScriptable {
     public static let TYPE = NativeScriptType.invalidBefore
     public let slot: Int
     

@@ -74,7 +74,7 @@ public struct Script: Codable, Equatable, Hashable {
         
         switch type {
             case 0:
-                script = .nativeScript(try container.decode(NativeScripts.self))
+                script = .nativeScript(try container.decode(NativeScript.self))
             case 1:
                 script = .plutusV1Script(try container.decode(Data.self))
             case 2:

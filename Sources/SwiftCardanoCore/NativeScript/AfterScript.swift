@@ -1,6 +1,6 @@
 import Foundation
 
-public struct AfterScript: NativeScript {
+public struct AfterScript: NativeScriptable {
     public static let TYPE = NativeScriptType.invalidHereAfter
     public let slot: Int
     
