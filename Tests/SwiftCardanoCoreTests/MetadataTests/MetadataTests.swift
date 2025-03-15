@@ -66,7 +66,7 @@ let validMetadata: [TransactionMetadatumLabel: TransactionMetadatum] = [
 
 @Suite struct ShelleyMaryMetadataTests {
     let sampleMetadata = try! Metadata(validMetadata)
-    let sampleNativeScripts: [NativeScripts] = [
+    let sampleNativeScripts: [NativeScript] = [
         .invalidHereAfter(AfterScript(slot: 100)),
     ]
     
@@ -97,7 +97,7 @@ let validMetadata: [TransactionMetadatumLabel: TransactionMetadatum] = [
 
 @Suite struct AlonzoMetadataTests {
     let sampleMetadata = try! Metadata(validMetadata)
-    let sampleNativeScripts: [NativeScripts] = [
+    let sampleNativeScripts: [NativeScript] = [
         .invalidHereAfter(AfterScript(slot: 100)),
     ]
     let samplePlutusScripts: [Data] = [

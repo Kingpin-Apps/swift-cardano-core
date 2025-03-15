@@ -81,7 +81,7 @@ struct BabbageTransactionOutputTests {
     func testScriptProperty() async throws {
         let address: Address = try! Address(from: "stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n")
         let amount = Value(coin: 1000000)
-        let nativeScript = NativeScripts.invalidBefore(BeforeScript(slot: 100))
+        let nativeScript = NativeScript.invalidBefore(BeforeScript(slot: 100))
         let scriptRef = try ScriptRef(
             script: Script(script: .nativeScript(nativeScript))
         )

@@ -16,7 +16,7 @@ import PotentCBOR
 
     @Test("Test NativeScripts Hashing")
     func testNativeScriptsHashing() async throws {
-        let nativeScripts: [(NativeScripts, ScriptHash)] = [
+        let nativeScripts: [(NativeScript, ScriptHash)] = [
             (.scriptPubkey(scriptPubkey), try scriptPubkey.hash()),
             (.scriptAll(scriptAll), try scriptAll.hash()),
             (.scriptAny(scriptAny), try scriptAny.hash()),
@@ -43,7 +43,7 @@ import PotentCBOR
 
     @Test("Test NativeScripts CBOR Encoding and Decoding")
     func testNativeScriptsCBORSerialization() async throws {
-        let nativeScripts: [NativeScripts] = [
+        let nativeScripts: [NativeScript] = [
             .scriptPubkey(scriptPubkey),
             .scriptAll(scriptAll),
             .scriptAny(scriptAny),
@@ -54,7 +54,7 @@ import PotentCBOR
 
         for nativeScript in nativeScripts {
             let encodedData = try CBOREncoder().encode(nativeScript)
-            let decodedScript = try CBORDecoder().decode(NativeScripts.self, from: encodedData)
+            let decodedScript = try CBORDecoder().decode(NativeScript.self, from: encodedData)
 
             #expect(decodedScript == nativeScript)
         }
