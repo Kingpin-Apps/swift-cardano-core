@@ -1,3 +1,9 @@
+## 0.1.16 (2025-03-15)
+
+### Fix
+
+- lock PotentCodables to revision
+
 ## 0.1.15 (2025-03-15)
 
 ### Fix
