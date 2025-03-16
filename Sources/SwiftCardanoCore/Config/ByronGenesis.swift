@@ -7,7 +7,7 @@ public struct ByronGenesis: JSONLoadable {
     /// Block version data configuration
     public let blockVersionData: BlockVersionData
     /// FTS seed value
-    public let ftsSeed: String
+    public let ftsSeed: String?
     /// Protocol constants
     public let protocolConsts: ProtocolConsts
     /// Genesis start time
@@ -19,7 +19,7 @@ public struct ByronGenesis: JSONLoadable {
     /// Non-AVVM balances
     public let nonAvvmBalances: [String: String]
     /// VSS certificates
-    public let vssCerts: [String: VSSCert]
+    public let vssCerts: [String: VSSCert]?
 }
 
 /// Block version data configuration
@@ -57,8 +57,8 @@ public struct TxFeePolicy: Codable, Equatable, Hashable {
 public struct ProtocolConsts: Codable, Equatable, Hashable {
     public let k: Int
     public let protocolMagic: Int
-    public let vssMaxTTL: Int
-    public let vssMinTTL: Int
+    public let vssMaxTTL: Int?
+    public let vssMinTTL: Int?
 }
 
 /// Heavy delegation certificate

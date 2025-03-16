@@ -11,7 +11,7 @@ public struct NodeConfig: JSONLoadable {
     public let lastKnownBlockVersionAlt: Int
     public let lastKnownBlockVersionMajor: Int
     public let lastKnownBlockVersionMinor: Int
-    public let maxKnownMajorProtocolVersion: Int
+    public let maxKnownMajorProtocolVersion: Int?
     public let minNodeVersion: String
     public let peerSharing: Bool
     public let _protocol: String
