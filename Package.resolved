@@ -1,5 +1,5 @@
 {
-  "originHash" : "f99d0ba70a984ed129bcffb23647603b4a695fda0f720db84357f72f00888fd3",
+  "originHash" : "299f04fa89d049bf3347515a8820a29429f0a3095c6a9e3095672361a4400a7a",
   "pins" : [
     {
       "identity" : "base32",
@@ -60,7 +60,6 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/zunda-pixel/PotentCodables.git",
       "state" : {
-        "branch" : "update-library",
         "revision" : "46b99b90b1538c0d682596dde9aa88f3cd339502"
       }
     },
