@@ -15,7 +15,7 @@ public extension Payloadable {
 }
 
 
-public protocol PayloadSerializable: Payloadable, Codable, Hashable, Equatable {
+public protocol PayloadSerializable: Payloadable, CBORSerializable, Hashable, Equatable {
     static var TYPE: String { get }
     static var DESCRIPTION: String { get }
     

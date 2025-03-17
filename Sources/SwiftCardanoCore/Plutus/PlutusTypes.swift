@@ -4,11 +4,13 @@ import PotentCodables
 import PotentCBOR
 
 // MARK: - PlutusScript
-public typealias PlutusV1Script = Data
-public typealias PlutusV2Script = Data
-public typealias PlutusV3Script = Data
+public protocol PlutusScriptable: CBORSerializable, Equatable, Hashable {
+    var data: Data { get set }
+    var version: Int { get }
+    func getScriptHashPrefix() -> Data
+}
 
-public enum PlutusScript: Codable, Equatable, Hashable {
+public enum PlutusScript: CBORSerializable, Equatable, Hashable {
     case plutusV1Script(PlutusV1Script)
     case plutusV2Script(PlutusV2Script)
     case plutusV3Script(PlutusV3Script)
@@ -23,10 +25,63 @@ public enum PlutusScript: Codable, Equatable, Hashable {
                 return .plutusV3Script(data)
         }
     }
+    
+    public static func fromVersion(_ version: Int, data: Data) -> PlutusScript {
+        switch version {
+            case 1:
+                return .plutusV1Script(PlutusV1Script(data: data))
+            case 2:
+                return .plutusV2Script(PlutusV2Script(data: data))
+            case 3:
+                return .plutusV3Script(PlutusV3Script(data: data))
+            default:
+                fatalError("Invalid PlutusScript version: \(version)")
+        }
+    }
 }
 
+public struct PlutusV1Script: PlutusScriptable {
+    public var data: Data
+    public var version: Int = 1
+    
+    public init(data: Data) {
+        self.data = data
+    }
+
+    public func getScriptHashPrefix() -> Data {
+        Data([0x01])
+    }
+}
+
+public struct PlutusV2Script: PlutusScriptable {
+    public var data: Data
+    public var version: Int = 2
+    
+    public init(data: Data) {
+        self.data = data
+    }
+
+    public func getScriptHashPrefix() -> Data {
+        Data([0x02])
+    }
+}
+
+public struct PlutusV3Script: PlutusScriptable {
+    public var data: Data
+    public var version: Int = 3
+    
+    public init(data: Data) {
+        self.data = data
+    }
+
+    public func getScriptHashPrefix() -> Data {
+        Data([0x03])
+    }
+}
+
+
 // MARK: - ScriptType
-public enum ScriptType: Codable, Equatable, Hashable {
+public enum ScriptType: CBORSerializable, Equatable, Hashable {
     
 //    case bytes(Data)
     case nativeScript(NativeScript)
@@ -36,7 +91,7 @@ public enum ScriptType: Codable, Equatable, Hashable {
 }
 
 // MARK: - RawDatum
-public enum RawDatum: Codable, Equatable, Hashable {
+public enum RawDatum: CBORSerializable, Equatable, Hashable {
     case plutusData(PlutusData)
     case dict(Dictionary<AnyValue, AnyValue>)
     case int(Int)
@@ -118,7 +173,7 @@ public enum RawDatum: Codable, Equatable, Hashable {
 
 // MARK: - Datum
 /// Plutus Datum type. A Union type that contains all valid datum types.
-public enum Datum: Codable, Equatable, Hashable {
+public enum Datum: CBORSerializable, Equatable, Hashable {
 
     case plutusData(PlutusData)
     case dict(Dictionary<AnyValue, AnyValue>)

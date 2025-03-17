@@ -18,7 +18,9 @@ public struct ProtocolParameters: JSONLoadable {
     public let maxTxExecutionUnits: ProtocolParametersExecutionUnits
     public let maxTxSize: Int
     public let maxValueSize: Int
-    public let minFeeRefScriptCostPerByte: Int
+    public let maxReferenceScriptsSize: Int?
+    public let minFeeReferenceScripts: MinReferenceScriptsSize?
+    public let minFeeRefScriptCostPerByte: Int?
     public let minPoolCost: Int
     public let monetaryExpansion: Double
     public let poolPledgeInfluence: Double
@@ -50,7 +52,9 @@ public struct ProtocolParameters: JSONLoadable {
                 maxTxExecutionUnits: ProtocolParametersExecutionUnits,
                 maxTxSize: Int,
                 maxValueSize: Int,
-                minFeeRefScriptCostPerByte: Int,
+                maxReferenceScriptsSize: Int? = nil,
+                minFeeReferenceScripts: MinReferenceScriptsSize? = nil,
+                minFeeRefScriptCostPerByte: Int? = nil,
                 minPoolCost: Int,
                 monetaryExpansion: Double,
                 poolPledgeInfluence: Double,
@@ -82,6 +86,8 @@ public struct ProtocolParameters: JSONLoadable {
         self.maxTxExecutionUnits = maxTxExecutionUnits
         self.maxTxSize = maxTxSize
         self.maxValueSize = maxValueSize
+        self.maxReferenceScriptsSize = maxReferenceScriptsSize
+        self.minFeeReferenceScripts = minFeeReferenceScripts
         self.minFeeRefScriptCostPerByte = minFeeRefScriptCostPerByte
         self.minPoolCost = minPoolCost
         self.monetaryExpansion = monetaryExpansion
@@ -109,6 +115,19 @@ public struct ProtocolParametersCostModels: Codable, Equatable, Hashable {
         self.PlutusV2 = PlutusV2
         self.PlutusV3 = PlutusV3
     }
+    
+    public func getVersion(_ version: Int) -> [Int]? {
+        switch version {
+            case 1:
+                return PlutusV1
+            case 2:
+                return PlutusV2
+            case 3:
+                return PlutusV3
+            default:
+                return nil
+        }
+    }
 }
 
 public struct DRepVotingThresholds: Codable, Equatable, Hashable {
@@ -134,6 +153,18 @@ public struct DRepVotingThresholds: Codable, Equatable, Hashable {
         self.ppTechnicalGroup = ppTechnicalGroup
         self.treasuryWithdrawal = treasuryWithdrawal
         self.updateToConstitution = updateToConstitution
+    }
+}
+
+public struct MinReferenceScriptsSize: Codable, Equatable, Hashable {
+    public let base: Double?
+    public let multiplier: Double?
+    public let range: Double?
+    
+    public init(base: Double?, multiplier: Double?, range: Double?) {
+        self.base = base
+        self.multiplier = multiplier
+        self.range = range
     }
 }
 

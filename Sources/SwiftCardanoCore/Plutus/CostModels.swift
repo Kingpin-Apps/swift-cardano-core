@@ -2,7 +2,7 @@ import Foundation
 import PotentCBOR
 
 
-public struct CostModels: Codable, Hashable {
+public struct CostModels: CBORSerializable, Hashable {
     typealias KEY_TYPE = Int
     typealias VALUE_TYPE = Dictionary<String, Int>
     

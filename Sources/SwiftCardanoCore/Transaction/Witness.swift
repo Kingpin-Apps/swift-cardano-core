@@ -1,6 +1,6 @@
 import Foundation
 
-public struct VerificationKeyWitness: Codable, Equatable, Hashable {
+public struct VerificationKeyWitness: CBORSerializable, Equatable, Hashable {
     public var vkey: VerificationKeyType
     public var signature: Data
     
@@ -29,25 +29,25 @@ public struct VerificationKeyWitness: Codable, Equatable, Hashable {
     }
 }
 
-public struct TransactionWitnessSet: Codable, Equatable, Hashable {
-    public let vkeyWitnesses: [VerificationKeyWitness]?
-    public let nativeScripts: [NativeScript]?
-    public let bootstrapWitness: [BootstrapWitness]?
-    public let plutusV1Script: [PlutusV1Script]?
-    public let plutusData: [RawPlutusData]?
-    public let redeemers: [Redeemer]?
-    public let plutusV2Script: [PlutusV2Script]?
-    public let plutusV3Script: [PlutusV3Script]?
+public struct TransactionWitnessSet: CBORSerializable, Equatable, Hashable {
+    public let vkeyWitnesses: NonEmptyOrderedCBORSet<VerificationKeyWitness>?
+    public let nativeScripts: NonEmptyOrderedCBORSet<NativeScript>?
+    public let bootstrapWitness: NonEmptyOrderedCBORSet<BootstrapWitness>?
+    public let plutusV1Script: NonEmptyOrderedCBORSet<PlutusV1Script>?
+    public let plutusData: NonEmptyOrderedCBORSet<RawPlutusData>?
+    public let redeemers: Redeemers?
+    public let plutusV2Script: NonEmptyOrderedCBORSet<PlutusV2Script>?
+    public let plutusV3Script: NonEmptyOrderedCBORSet<PlutusV3Script>?
 
     public init(
-        vkeyWitnesses: [VerificationKeyWitness]? = nil,
-        nativeScripts: [NativeScript]? = nil,
-        bootstrapWitness: [BootstrapWitness]? = nil,
-        plutusV1Script: [PlutusV1Script]? = nil,
-        plutusV2Script: [PlutusV2Script]? = nil,
-        plutusData: [RawPlutusData]? = nil,
-        redeemers: [Redeemer]? = nil,
-        plutusV3Script: [PlutusV3Script]? = nil
+        vkeyWitnesses: NonEmptyOrderedCBORSet<VerificationKeyWitness>? = nil,
+        nativeScripts: NonEmptyOrderedCBORSet<NativeScript>? = nil,
+        bootstrapWitness: NonEmptyOrderedCBORSet<BootstrapWitness>? = nil,
+        plutusV1Script: NonEmptyOrderedCBORSet<PlutusV1Script>? = nil,
+        plutusV2Script: NonEmptyOrderedCBORSet<PlutusV2Script>? = nil,
+        plutusData: NonEmptyOrderedCBORSet<RawPlutusData>? = nil,
+        redeemers: Redeemers? = nil,
+        plutusV3Script: NonEmptyOrderedCBORSet<PlutusV3Script>? = nil
     ) {
         self.vkeyWitnesses = vkeyWitnesses
         self.nativeScripts = nativeScripts
@@ -72,14 +72,28 @@ public struct TransactionWitnessSet: Codable, Equatable, Hashable {
     
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        vkeyWitnesses = try container.decodeIfPresent([VerificationKeyWitness].self, forKey: .vkeyWitnesses)
-        nativeScripts = try container.decodeIfPresent([NativeScript].self, forKey: .nativeScripts)
-        bootstrapWitness = try container.decodeIfPresent([BootstrapWitness].self, forKey: .bootstrapWitness)
-        plutusV1Script = try container.decodeIfPresent([PlutusV1Script].self, forKey: .plutusV1Script)
-        plutusData = try container.decodeIfPresent([RawPlutusData].self, forKey: .plutusData)
-        redeemers = try container.decodeIfPresent([Redeemer].self, forKey: .redeemers)
-        plutusV2Script = try container.decodeIfPresent([PlutusV2Script].self, forKey: .plutusV2Script)
-        plutusV3Script = try container.decodeIfPresent([PlutusV3Script].self, forKey: .plutusV3Script)
+        vkeyWitnesses = try container.decodeIfPresent(
+            NonEmptyOrderedCBORSet<VerificationKeyWitness>.self, forKey: .vkeyWitnesses
+        )
+        nativeScripts = try container.decodeIfPresent(
+            NonEmptyOrderedCBORSet<NativeScript>.self, forKey: .nativeScripts
+        )
+        bootstrapWitness = try container.decodeIfPresent(
+            NonEmptyOrderedCBORSet<BootstrapWitness>.self, forKey: .bootstrapWitness
+        )
+        plutusV1Script = try container.decodeIfPresent(
+            NonEmptyOrderedCBORSet<PlutusV1Script>.self, forKey: .plutusV1Script
+        )
+        plutusData = try container.decodeIfPresent(
+            NonEmptyOrderedCBORSet<RawPlutusData>.self, forKey: .plutusData
+        )
+        redeemers = try container.decodeIfPresent(Redeemers.self, forKey: .redeemers)
+        plutusV2Script = try container.decodeIfPresent(
+            NonEmptyOrderedCBORSet<PlutusV2Script>.self, forKey: .plutusV2Script
+        )
+        plutusV3Script = try container.decodeIfPresent(
+            NonEmptyOrderedCBORSet<PlutusV3Script>.self, forKey: .plutusV3Script
+        )
     }
 
     public func encode(to encoder: Encoder) throws {

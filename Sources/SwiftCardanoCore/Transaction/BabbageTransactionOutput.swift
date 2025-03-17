@@ -1,6 +1,6 @@
 import Foundation
 
-public struct BabbageTransactionOutput: Codable {
+public struct BabbageTransactionOutput: CBORSerializable, Hashable, Equatable {
     public var address: Address
     public var amount: Value
     public var datum: DatumOption?

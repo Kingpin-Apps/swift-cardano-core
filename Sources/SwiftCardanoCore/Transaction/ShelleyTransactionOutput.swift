@@ -1,6 +1,6 @@
 import Foundation
 
-public struct ShelleyTransactionOutput: Codable, Equatable, Hashable {
+public struct ShelleyTransactionOutput: CBORSerializable, Equatable, Hashable {
     public var address: Address
     public var amount: Value
     public var datumHash: DatumHash?

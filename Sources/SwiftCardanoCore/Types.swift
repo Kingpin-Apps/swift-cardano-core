@@ -448,7 +448,7 @@ extension SetTaggable {
     }
 }
 
-public struct CBORSet<T: Codable & Hashable>: SetTaggable {
+public struct CBORSet<T: CBORSerializable & Hashable>: SetTaggable {
     public typealias Element = T
     public var elements: Set<Element> = Set()
     
@@ -457,6 +457,10 @@ public struct CBORSet<T: Codable & Hashable>: SetTaggable {
             fatalError("Invalid CBOR tag: expected \(Self.TAG) but found \(tag)")
         }
         self.value = value
+        self.elements = Set(value.arrayValue!.map {
+            try! AnyValue.Decoder.default.decode(Element.self, from: $0)
+//            try! CBOR.Decoder.default.decode(Element.self, from: $0)
+        })
     }
     
     public init(_ elements: Set<Element>) {
@@ -471,7 +475,7 @@ public struct CBORSet<T: Codable & Hashable>: SetTaggable {
     }
 }
 
-public struct NonEmptyCBORSet<T: Codable & Hashable>: SetTaggable {
+public struct NonEmptyCBORSet<T: CBORSerializable & Hashable>: SetTaggable {
     public typealias Element = T
     public var elements: Set<Element> = Set()
     
@@ -489,6 +493,9 @@ public struct NonEmptyCBORSet<T: Codable & Hashable>: SetTaggable {
             fatalError("Invalid CBOR tag: expected \(Self.TAG) but found \(tag)")
         }
         self.value = value
+        self.elements = Set(value.arrayValue!.map {
+            try! CBOR.Decoder.default.decode(Element.self, from: $0.unwrapped as! Data)
+        })
     }
 
     public init(from decoder: Decoder) throws {
@@ -504,15 +511,14 @@ public struct NonEmptyCBORSet<T: Codable & Hashable>: SetTaggable {
                 throw CardanoCoreError.valueError("NonEmptySet must contain at least one element")
             }
             
-            let decodedElements = try arrayData.map {
-                try CBOR.Decoder.default.decode(Element.self, from: $0.unwrapped as! Data)
+            let decodedElements = arrayData.map {
+                $0.unwrapped
             }
             
-            let elements = Set(decodedElements)
             self.init(
                 tag: Self.TAG,
                 value: AnyValue
-                    .array(elements.map { try! AnyValue.wrapped($0) })
+                    .array(decodedElements.map { try! AnyValue.wrapped($0) })
             )
         } else if case let .array(arrayData) = cborData, !arrayData.isEmpty {
             let decodedElements = try arrayData.map {
@@ -531,10 +537,12 @@ public struct NonEmptyCBORSet<T: Codable & Hashable>: SetTaggable {
     }
 }
 
-public struct NonEmptyOrderedCBORSet<T: Codable & Hashable>: SetTaggable  {
+public struct NonEmptyOrderedCBORSet<T: CBORSerializable & Hashable>: SetTaggable  {
     public typealias Element = T
     public var elements: Set<Element> = Set()
-    public var elementsOrdered: [Element] = []
+    public var elementsOrdered: [Element] {
+        Array(Set(elements))
+    }
     
     public init(tag: UInt64 = Self.TAG, value: AnyValue) {
         precondition(
@@ -545,12 +553,14 @@ public struct NonEmptyOrderedCBORSet<T: Codable & Hashable>: SetTaggable  {
             fatalError("Invalid CBOR tag: expected \(Self.TAG) but found \(tag)")
         }
         self.value = value
+        self.elements = Set(value.arrayValue!.map {
+            try! AnyValue.Decoder.default.decode(Element.self, from: $0)
+        })
     }
 
     public init(_ elements: [Element]) {
         precondition(!elements.isEmpty, "NonEmptyOrderedSet must contain at least one element")
         self.elements = Set(elements)
-        self.elementsOrdered = Array(Set(elements)) // Ensure uniqueness while preserving order
     }
 
     public init(from decoder: Decoder) throws {
@@ -567,14 +577,13 @@ public struct NonEmptyOrderedCBORSet<T: Codable & Hashable>: SetTaggable  {
             }
 
             let decodedElements = arrayData.map {
-                $0.unwrapped as! Element
+                $0.unwrapped
             }
             
-            let elements = Array(Set(decodedElements))
             self.init(
                 tag: Self.TAG,
                 value: AnyValue
-                    .array(elements.map { try! AnyValue.wrapped($0) })
+                    .array(decodedElements.map { try! AnyValue.wrapped($0) })
             )
         } else if case let .array(arrayData) = cborData, !arrayData.isEmpty {
             let decodedElements = arrayData.map {

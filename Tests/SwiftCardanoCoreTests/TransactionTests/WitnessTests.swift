@@ -87,7 +87,9 @@ import PotentCBOR
         )
         
         let witnessSet = TransactionWitnessSet(
-            vkeyWitnesses: [vkeyWitness],
+            vkeyWitnesses: NonEmptyOrderedCBORSet<VerificationKeyWitness>(
+                [vkeyWitness]
+            ),
             nativeScripts: nil,
             bootstrapWitness: nil,
             plutusV1Script: nil,
@@ -97,7 +99,7 @@ import PotentCBOR
         )
         
         #expect(witnessSet.vkeyWitnesses?.count == 1)
-        #expect(witnessSet.vkeyWitnesses?.first == vkeyWitness)
+        #expect(witnessSet.vkeyWitnesses?.elements.first == vkeyWitness)
         #expect(witnessSet.nativeScripts == nil)
         #expect(witnessSet.bootstrapWitness == nil)
         #expect(witnessSet.plutusV1Script == nil)
@@ -113,7 +115,9 @@ import PotentCBOR
         )
         
         let witnessSet = TransactionWitnessSet(
-            vkeyWitnesses: [vkeyWitness],
+            vkeyWitnesses: NonEmptyOrderedCBORSet<VerificationKeyWitness>(
+                [vkeyWitness]
+            ),
             nativeScripts: nil,
             bootstrapWitness: nil,
             plutusV1Script: nil,

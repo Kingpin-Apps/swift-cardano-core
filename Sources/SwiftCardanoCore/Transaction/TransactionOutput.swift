@@ -1,6 +1,6 @@
 import Foundation
 
-public struct TransactionOutput: Codable, Hashable, Equatable {
+public struct TransactionOutput: CBORSerializable, Hashable, Equatable {
     public var address: Address
     public var amount: Value
     public var datumHash: DatumHash?

@@ -5,7 +5,7 @@ import PotentCBOR
 import BigInt
 
 
-public protocol PlutusDataProtocol: Codable, Equatable, Hashable {
+public protocol PlutusDataProtocol: CBORSerializable, Equatable, Hashable {
     static var CONSTR_ID: Any { get }
     var properties: [String: AnyValue] { get set }
     

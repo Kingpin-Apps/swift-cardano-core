@@ -18,7 +18,7 @@ ADDRESS_KEY_HASH_SIZE = 28,
 ANCHOR_DATA_HASH_SIZE = 32
 
 /// A protocol for byte arrays with constraints on their size.
-public protocol ConstrainedBytes: Codable, Equatable, Hashable, CustomStringConvertible, CustomDebugStringConvertible, Sendable {
+public protocol ConstrainedBytes: CBORSerializable, Equatable, Hashable, CustomStringConvertible, CustomDebugStringConvertible, Sendable {
     
     var payload: Data { get set }
     static var maxSize: Int { get }

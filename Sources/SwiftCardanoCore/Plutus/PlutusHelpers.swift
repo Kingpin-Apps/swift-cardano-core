@@ -26,25 +26,22 @@ public func scriptHash(script: ScriptType) throws -> ScriptHash {
         case .nativeScript(let nativeScript):
             return try nativeScript.scriptHash()
         case .plutusV1Script(let plutusScript):
-            let prefix = Data([0x01])
             let hash = try Hash().blake2b(
-                data: prefix + plutusScript,
+                data: plutusScript.getScriptHashPrefix() + plutusScript.data,
                 digestSize: SCRIPT_HASH_SIZE,
                 encoder: RawEncoder.self
             )
             return ScriptHash(payload: hash)
         case .plutusV2Script(let plutusScript):
-            let prefix = Data([0x02])
             let hash = try Hash().blake2b(
-                data: prefix + plutusScript,
+                data: plutusScript.getScriptHashPrefix() + plutusScript.data,
                 digestSize: SCRIPT_HASH_SIZE,
                 encoder: RawEncoder.self
             )
             return ScriptHash(payload: hash)
         case .plutusV3Script(let plutusScript):
-            let prefix = Data([0x03])
             let hash = try Hash().blake2b(
-                data: prefix + plutusScript,
+                data: plutusScript.getScriptHashPrefix() + plutusScript.data,
                 digestSize: SCRIPT_HASH_SIZE,
                 encoder: RawEncoder.self
             )

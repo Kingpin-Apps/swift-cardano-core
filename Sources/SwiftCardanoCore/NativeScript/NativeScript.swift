@@ -4,7 +4,7 @@ import PotentCBOR
 
 
 // MARK: - MetadataType
-public enum NativeScript: Codable, Equatable, Hashable {
+public enum NativeScript: CBORSerializable, Equatable, Hashable {
     case scriptPubkey(ScriptPubkey)
     case scriptAll(ScriptAll)
     case scriptAny(ScriptAny)
@@ -159,12 +159,12 @@ public protocol NativeScriptable: JSONSerializable {
 
 // Extend the protocol for JSON encoding
 public extension NativeScriptable {
-    public static func fromJSON(_ json: String) throws -> Self {
+    static func fromJSON(_ json: String) throws -> Self {
         let data = json.data(using: .utf8)!
         return try JSONDecoder().decode(Self.self, from: data)
     }
     
-    public func toJSON() -> String? {
+    func toJSON() -> String? {
         let encoder = JSONEncoder()
         encoder.outputFormatting = .prettyPrinted
         if let data = try? encoder.encode(self) {
@@ -173,12 +173,12 @@ public extension NativeScriptable {
         return nil
     }
     
-    public func toCBOR() throws -> Data {
+    func toCBOR() throws -> Data {
         let cborEncoder = CBOREncoder()
         return try cborEncoder.encode(self)
     }
     
-    public func hash() throws -> ScriptHash {
+    func hash() throws -> ScriptHash {
         let cbor = try! CBOREncoder().encode(self)
         let hash = try Hash().blake2b(
             data: Data([0x01]) + cbor,

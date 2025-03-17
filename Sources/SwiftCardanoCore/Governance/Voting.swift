@@ -77,7 +77,7 @@ public struct Voter: Codable, Equatable, Hashable {
 }
 
 public struct VotingProcedures: Codable, Equatable, Hashable  {
-    public let procedures: [Voter: [GovActionID: VotingProcedure]]
+    public var procedures: [Voter: [GovActionID: VotingProcedure]]
     
     public init(procedures: [Voter: [GovActionID: VotingProcedure]]) {
         self.procedures = procedures

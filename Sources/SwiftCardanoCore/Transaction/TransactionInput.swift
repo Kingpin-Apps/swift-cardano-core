@@ -1,6 +1,6 @@
 import Foundation
 
-public struct TransactionInput: Codable, Equatable, Hashable {
+public struct TransactionInput: CBORSerializable, Equatable, Hashable {
     public let transactionId: TransactionId
     public let index: UInt16
     

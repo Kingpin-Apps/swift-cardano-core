@@ -2,7 +2,7 @@ import Foundation
 import PotentCBOR
 import PotentCodables
 
-public struct RawPlutusData: Codable, Equatable, Hashable {
+public struct RawPlutusData: CBORSerializable, Equatable, Hashable {
     public let data: RawDatum
 
     public init(data: RawDatum) {

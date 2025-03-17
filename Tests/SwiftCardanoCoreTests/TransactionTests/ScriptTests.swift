@@ -60,17 +60,19 @@ struct ScriptTests {
         
         // Test Plutus V1 Script
         let plutusV1Data = Data([0x01, 0x02, 0x03])
-        let plutusV1Script = Script(script: .plutusV1Script(plutusV1Data))
+        let plutusV1Script = Script(
+            script: .plutusV1Script(PlutusV1Script(data: plutusV1Data))
+        )
         #expect(plutusV1Script.type == 1)
         
         // Test Plutus V2 Script
         let plutusV2Data = Data([0x04, 0x05, 0x06])
-        let plutusV2Script = Script(script: .plutusV2Script(plutusV2Data))
+        let plutusV2Script = Script(script: .plutusV2Script(PlutusV2Script(data: plutusV2Data)))
         #expect(plutusV2Script.type == 2)
         
         // Test Plutus V3 Script
         let plutusV3Data = Data([0x07, 0x08, 0x09])
-        let plutusV3Script = Script(script: .plutusV3Script(plutusV3Data))
+        let plutusV3Script = Script(script: .plutusV3Script(PlutusV3Script(data: plutusV3Data)))
         #expect(plutusV3Script.type == 3)
     }
     
@@ -86,7 +88,9 @@ struct ScriptTests {
         
         // Test Plutus V2 Script encoding/decoding
         let plutusV2Data = Data([0x01, 0x02, 0x03])
-        let plutusScript = Script(script: .plutusV2Script(plutusV2Data))
+        let plutusScript = Script(
+            script: .plutusV2Script(PlutusV2Script(data: plutusV2Data))
+        )
         encoded = try CBOREncoder().encode(plutusScript)
         decoded = try CBORDecoder().decode(Script.self, from: encoded)
         
@@ -107,7 +111,12 @@ struct ScriptTests {
         let nativeScript2 = Script(
             script: .nativeScript(.invalidBefore(BeforeScript(slot: 0)))
         )
-        let plutusScript = Script(script: .plutusV2Script(Data([0x01, 0x02, 0x03])))
+        let plutusScript = Script(
+            script:
+                    .plutusV2Script(
+                        PlutusV2Script(data: Data([0x01, 0x02, 0x03]))
+                    )
+        )
         
         #expect(nativeScript1 == nativeScript2)
         #expect(nativeScript1 != plutusScript)
@@ -154,7 +163,11 @@ struct ScriptRefTests {
         )
         let ref1 = try ScriptRef(script: script)
         let ref2 = try ScriptRef(script: script)
-        let ref3 = try ScriptRef(script: Script(script: .plutusV2Script(Data([0x01]))))
+        let ref3 = try ScriptRef(
+            script: Script(
+                script: .plutusV2Script(PlutusV2Script(data: Data([0x01])))
+            )
+        )
         
         #expect(ref1 == ref2)
         #expect(ref1 != ref3)

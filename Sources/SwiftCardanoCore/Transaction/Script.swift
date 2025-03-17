@@ -8,7 +8,7 @@ public enum DatumType: Codable, Equatable, Hashable {
     case plutusData(PlutusData)
 }
 
-public struct DatumOption: Codable {
+public struct DatumOption: Codable, Hashable, Equatable {
     public var type: Int
     public var datum: DatumType
 
@@ -76,11 +76,12 @@ public struct Script: Codable, Equatable, Hashable {
             case 0:
                 script = .nativeScript(try container.decode(NativeScript.self))
             case 1:
-                script = .plutusV1Script(try container.decode(Data.self))
+                script =
+                    .plutusV1Script(try container.decode(PlutusV1Script.self))
             case 2:
-                script = .plutusV2Script(try container.decode(Data.self))
+                script = .plutusV2Script(try container.decode(PlutusV2Script.self))
             case 3:
-                script = .plutusV3Script(try container.decode(Data.self))
+                script = .plutusV3Script(try container.decode(PlutusV3Script.self))
             default:
                 throw CardanoCoreError
                     .valueError("Invalid Script type: \(type)")

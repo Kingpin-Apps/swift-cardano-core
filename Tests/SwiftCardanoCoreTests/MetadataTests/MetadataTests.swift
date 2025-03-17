@@ -107,12 +107,16 @@ let validMetadata: [TransactionMetadatumLabel: TransactionMetadatum] = [
     
     @Test("Test Encoding and Decoding AlonzoMetadata")
     func testEncodingDecoding() async throws {
+        let plutusV1Script = samplePlutusScripts.compactMap { PlutusV1Script(data: $0) }
+        let plutusV2Script = samplePlutusScripts.compactMap { PlutusV2Script(data: $0) }
+        let plutusV3Script = samplePlutusScripts.compactMap { PlutusV3Script(data: $0) }
+        
         let alonzoMetadata = AlonzoMetadata(
             metadata: sampleMetadata,
             nativeScripts: sampleNativeScripts,
-            plutusV1Script: samplePlutusScripts,
-            plutusV2Script: samplePlutusScripts,
-            plutusV3Script: samplePlutusScripts
+            plutusV1Script: plutusV1Script,
+            plutusV2Script: plutusV2Script,
+            plutusV3Script: plutusV3Script
         )
         
         let encoded = try CBOREncoder().encode(alonzoMetadata)
@@ -120,9 +124,9 @@ let validMetadata: [TransactionMetadatumLabel: TransactionMetadatum] = [
         
         #expect(decoded.metadata?.data == sampleMetadata.data, "Decoded metadata should match the original")
         #expect(decoded.nativeScripts == sampleNativeScripts, "Decoded native scripts should match the original")
-        #expect(decoded.plutusV1Script == samplePlutusScripts, "Decoded Plutus scripts should match the original")
-        #expect(decoded.plutusV2Script == samplePlutusScripts, "Decoded Plutus scripts should match the original")
-        #expect(decoded.plutusV3Script == samplePlutusScripts, "Decoded Plutus scripts should match the original")
+        #expect(decoded.plutusV1Script == plutusV1Script, "Decoded Plutus scripts should match the original")
+        #expect(decoded.plutusV2Script == plutusV2Script, "Decoded Plutus scripts should match the original")
+        #expect(decoded.plutusV3Script == plutusV3Script, "Decoded Plutus scripts should match the original")
     }
     
     @Test("Test Encoding Without Plutus Scripts")

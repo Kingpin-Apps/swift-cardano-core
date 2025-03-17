@@ -15,6 +15,10 @@ public struct MultiAsset: Codable, Hashable, Equatable {
         set { _data[key] = newValue }
     }
     
+    public var count: Int { data.count }
+    
+    public var isEmpty: Bool { data.isEmpty }
+    
     public init(_ data: [ScriptHash: Asset]) {
         self.data = data
     }

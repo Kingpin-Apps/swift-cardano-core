@@ -2,7 +2,7 @@ import Foundation
 import SwiftNcal
 import PotentCBOR
 
-public struct TransactionBody: Codable, Equatable, Hashable {
+public struct TransactionBody: CBORSerializable, Equatable, Hashable {
     public var inputs: [TransactionInput]
     public var outputs: [TransactionOutput]
     public var fee: Coin

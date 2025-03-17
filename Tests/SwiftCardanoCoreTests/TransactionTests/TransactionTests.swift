@@ -34,7 +34,9 @@ struct TransactionTests {
         )
 
         let witnessSet = TransactionWitnessSet(
-            vkeyWitnesses: [vkeyWitness],
+            vkeyWitnesses: NonEmptyOrderedCBORSet<VerificationKeyWitness>(
+                [vkeyWitness]
+            ),
             nativeScripts: nil,
             bootstrapWitness: nil,
             plutusV1Script: nil,
@@ -73,7 +75,9 @@ struct TransactionTests {
         )
 
         let witnessSet = TransactionWitnessSet(
-            vkeyWitnesses: [vkeyWitness],
+            vkeyWitnesses: NonEmptyOrderedCBORSet<VerificationKeyWitness>(
+                [vkeyWitness]
+            ),
             nativeScripts: nil,
             bootstrapWitness: nil,
             plutusV1Script: nil,
@@ -116,7 +120,9 @@ struct TransactionTests {
         )
 
         let witnessSet = TransactionWitnessSet(
-            vkeyWitnesses: [vkeyWitness],
+            vkeyWitnesses: NonEmptyOrderedCBORSet<VerificationKeyWitness>(
+                [vkeyWitness]
+            ),
             nativeScripts: nil,
             bootstrapWitness: nil,
             plutusV1Script: nil,
@@ -166,7 +172,9 @@ struct TransactionTests {
         )
 
         let witnessSet = TransactionWitnessSet(
-            vkeyWitnesses: [vkeyWitness],
+            vkeyWitnesses: NonEmptyOrderedCBORSet<VerificationKeyWitness>(
+                [vkeyWitness]
+            ),
             nativeScripts: nil,
             bootstrapWitness: nil,
             plutusV1Script: nil,
