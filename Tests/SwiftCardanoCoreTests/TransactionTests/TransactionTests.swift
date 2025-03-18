@@ -23,7 +23,7 @@ struct TransactionTests {
         let fee = Coin(100000)
 
         let body = TransactionBody(
-            inputs: [input],
+            inputs: CBORSet([input]),
             outputs: [output],
             fee: fee
         )
@@ -64,7 +64,7 @@ struct TransactionTests {
         let fee = Coin(100000)
 
         let body = TransactionBody(
-            inputs: [input],
+            inputs: CBORSet([input]),
             outputs: [output],
             fee: fee
         )
@@ -109,7 +109,7 @@ struct TransactionTests {
         let fee = Coin(100000)
 
         let body = TransactionBody(
-            inputs: [input],
+            inputs: CBORSet([input]),
             outputs: [output],
             fee: fee
         )
@@ -161,7 +161,7 @@ struct TransactionTests {
         let fee = Coin(100000)
 
         let body = TransactionBody(
-            inputs: [input],
+            inputs: CBORSet([input]),
             outputs: [output],
             fee: fee
         )

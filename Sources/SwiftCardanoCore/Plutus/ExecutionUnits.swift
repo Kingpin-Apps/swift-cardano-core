@@ -3,8 +3,8 @@ import PotentCBOR
 
 public struct ExecutionUnits: Codable, Equatable, Hashable {
 
-    public let mem: Int
-    public let steps: Int
+    public var mem: Int
+    public var steps: Int
 
     public init(mem: Int, steps: Int) {
         self.mem = mem
@@ -25,6 +25,11 @@ public struct ExecutionUnits: Codable, Equatable, Hashable {
 
     public static func + (lhs: ExecutionUnits, rhs: ExecutionUnits) -> ExecutionUnits {
         return ExecutionUnits(mem: lhs.mem + rhs.mem, steps: lhs.steps + rhs.steps)
+    }
+
+    public static func += (lhs: inout ExecutionUnits, rhs: ExecutionUnits) {
+        lhs.mem += rhs.mem
+        lhs.steps += rhs.steps
     }
 
     public func isEmpty() -> Bool {

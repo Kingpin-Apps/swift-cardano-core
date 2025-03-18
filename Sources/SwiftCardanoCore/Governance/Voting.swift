@@ -7,11 +7,11 @@ public enum Vote: Int, Codable {
 }
 
 public enum VoterType: Codable, Equatable, Hashable {
-    case constitutionalCommitteeHotKeyhash(AddressKeyHash)
+    case constitutionalCommitteeHotKeyhash(VerificationKeyHash)
     case constitutionalCommitteeHotScriptHash(ScriptHash)
-    case drepKeyhash(AddressKeyHash)
+    case drepKeyhash(VerificationKeyHash)
     case drepScriptHash(ScriptHash)
-    case stakePoolKeyhash(AddressKeyHash)
+    case stakePoolKeyhash(VerificationKeyHash)
 }
 
 public struct VotingProcedure: Codable, Equatable, Hashable {
@@ -76,21 +76,4 @@ public struct Voter: Codable, Equatable, Hashable {
     }
 }
 
-public struct VotingProcedures: Codable, Equatable, Hashable  {
-    public var procedures: [Voter: [GovActionID: VotingProcedure]]
-    
-    public init(procedures: [Voter: [GovActionID: VotingProcedure]]) {
-        self.procedures = procedures
-    }
-    
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        procedures = try container.decode([Voter: [GovActionID: VotingProcedure]].self)
-    }
-    
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-        try container.encode(procedures)
-    }
-}
-
+public typealias VotingProcedures = [Voter: [GovActionID: VotingProcedure]]

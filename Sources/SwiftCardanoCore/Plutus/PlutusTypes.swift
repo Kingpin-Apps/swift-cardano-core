@@ -227,6 +227,25 @@ public enum Datum: CBORSerializable, Equatable, Hashable {
         }
     }
     
+    public func toRawDatum() throws -> RawDatum {
+        switch self {
+            case .plutusData(let data):
+                return .plutusData(data)
+            case .dict(let data):
+                return .dict(data)
+            case .int(let data):
+                return .int(data)
+            case .bytes(let data):
+                return .bytes(data)
+            case .indefiniteList(let data):
+                return .indefiniteList(data)
+            case .cbor(let data):
+                return .cbor(data)
+            case .rawPlutusData(let data):
+                return data.data
+        }
+    }
+    
     public static func == (lhs: Datum, rhs: Datum) -> Bool {
         switch (lhs, rhs) {
             case (.plutusData(let a), .plutusData(let b)):

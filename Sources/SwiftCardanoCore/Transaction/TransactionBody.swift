@@ -3,25 +3,25 @@ import SwiftNcal
 import PotentCBOR
 
 public struct TransactionBody: CBORSerializable, Equatable, Hashable {
-    public var inputs: [TransactionInput]
+    public var inputs: CBORSet<TransactionInput>
     public var outputs: [TransactionOutput]
     public var fee: Coin
     public var ttl: Int?
-    public var certificates: [Certificate]?
+    public var certificates: NonEmptyCBORSet<Certificate>?
     public var withdrawals: Withdrawals?
     public var update: Update?
     public var auxiliaryDataHash: AuxiliaryDataHash?
     public var validityStart: Int?
     public var mint: MultiAsset?
     public var scriptDataHash: ScriptDataHash?
-    public var collateral: [TransactionInput]?
-    public var requiredSigners: [VerificationKeyHash]?
+    public var collateral: NonEmptyCBORSet<TransactionInput>?
+    public var requiredSigners: NonEmptyCBORSet<VerificationKeyHash>?
     public var networkId: Int?
     public var collateralReturn: TransactionOutput?
     public var totalCollateral: Coin?
-    public var referenceInputs: [TransactionInput]?
-    public var votingProcedures: VotingProcedure?
-    public var proposalProcedures: ProposalProcedure?
+    public var referenceInputs: NonEmptyCBORSet<TransactionInput>?
+    public var votingProcedures: VotingProcedures?
+    public var proposalProcedures: ProposalProcedures?
     public var currentTreasuryAmount: Coin?
     public var treasuryDonation: PositiveCoin?
     
@@ -50,25 +50,25 @@ public struct TransactionBody: CBORSerializable, Equatable, Hashable {
     }
     
     public init(
-        inputs: [TransactionInput],
+        inputs: CBORSet<TransactionInput>,
         outputs: [TransactionOutput],
         fee: Coin,
         ttl: Int? = nil,
-        certificates: [Certificate]? = nil,
+        certificates: NonEmptyCBORSet<Certificate>? = nil,
         withdrawals: Withdrawals? = nil,
         update: Update? = nil,
         auxiliaryDataHash: AuxiliaryDataHash? = nil,
         validityStart: Int? = nil,
         mint: MultiAsset? = nil,
         scriptDataHash: ScriptDataHash? = nil,
-        collateral: [TransactionInput]? = nil,
-        requiredSigners: [VerificationKeyHash]? = nil,
+        collateral: NonEmptyCBORSet<TransactionInput>? = nil,
+        requiredSigners: NonEmptyCBORSet<VerificationKeyHash>? = nil,
         networkId: Int? = nil,
         collateralReturn: TransactionOutput? = nil,
         totalCollateral: Coin? = nil,
-        referenceInputs: [TransactionInput]? = nil,
-        votingProcedures: VotingProcedure? = nil,
-        proposalProcedures: ProposalProcedure? = nil,
+        referenceInputs: NonEmptyCBORSet<TransactionInput>? = nil,
+        votingProcedures: VotingProcedures? = nil,
+        proposalProcedures: ProposalProcedures? = nil,
         currentTreasuryAmount: Coin? = nil,
         treasuryDonation: PositiveCoin? = nil
     ) {
@@ -97,25 +97,25 @@ public struct TransactionBody: CBORSerializable, Equatable, Hashable {
     
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        inputs = try container.decode([TransactionInput].self, forKey: .inputs)
+        inputs = try container.decode(CBORSet<TransactionInput>.self, forKey: .inputs)
         outputs = try container.decode([TransactionOutput].self, forKey: .outputs)
         fee = try container.decode(Coin.self, forKey: .fee)
         ttl = try container.decodeIfPresent(Int.self, forKey: .ttl)
-        certificates = try container.decodeIfPresent([Certificate].self, forKey: .certificates)
+        certificates = try container.decodeIfPresent(NonEmptyCBORSet<Certificate>.self, forKey: .certificates)
         update = try container.decodeIfPresent(Update.self, forKey: .update)
         withdrawals = try container.decodeIfPresent(Withdrawals.self, forKey: .withdrawals)
         auxiliaryDataHash = try container.decodeIfPresent(AuxiliaryDataHash.self, forKey: .auxiliaryDataHash)
         validityStart = try container.decodeIfPresent(Int.self, forKey: .validityStart)
         mint = try container.decodeIfPresent(MultiAsset.self, forKey: .mint)
         scriptDataHash = try container.decodeIfPresent(ScriptDataHash.self, forKey: .scriptDataHash)
-        collateral = try container.decodeIfPresent([TransactionInput].self, forKey: .collateral)
-        requiredSigners = try container.decodeIfPresent([VerificationKeyHash].self, forKey: .requiredSigners)
+        collateral = try container.decodeIfPresent(NonEmptyCBORSet<TransactionInput>.self, forKey: .collateral)
+        requiredSigners = try container.decodeIfPresent(NonEmptyCBORSet<VerificationKeyHash>.self, forKey: .requiredSigners)
         networkId = try container.decodeIfPresent(Int.self, forKey: .networkId)
         collateralReturn = try container.decodeIfPresent(TransactionOutput.self, forKey: .collateralReturn)
         totalCollateral = try container.decodeIfPresent(Coin.self, forKey: .totalCollateral)
-        referenceInputs = try container.decodeIfPresent([TransactionInput].self, forKey: .referenceInputs)
-        votingProcedures = try container.decodeIfPresent(VotingProcedure.self, forKey: .votingProcedures)
-        proposalProcedures = try container.decodeIfPresent(ProposalProcedure.self, forKey: .proposalProcedures)
+        referenceInputs = try container.decodeIfPresent(NonEmptyCBORSet<TransactionInput>.self, forKey: .referenceInputs)
+        votingProcedures = try container.decodeIfPresent(VotingProcedures.self, forKey: .votingProcedures)
+        proposalProcedures = try container.decodeIfPresent(ProposalProcedures.self, forKey: .proposalProcedures)
         currentTreasuryAmount = try container.decodeIfPresent(Coin.self, forKey: .currentTreasuryAmount)
         treasuryDonation = try container.decodeIfPresent(PositiveCoin.self, forKey: .treasuryDonation)
     }

@@ -16,7 +16,14 @@ import PotentCBOR
         transactionID: TransactionId(payload: Data(repeating: 0x01, count: 32)),
         govActionIndex: 10
     )
-    let voter = Voter(credential: .drepKeyhash(AddressKeyHash(payload: Data(repeating: 0x03, count: 32))))
+    let voter = Voter(
+        credential:
+                .drepKeyhash(
+                    VerificationKeyHash(
+                        payload: Data(repeating: 0x03, count: 32)
+                    )
+                )
+    )
 
     @Test("Test Vote Enum Raw Values")
     func testVoteEnumValues() async throws {
@@ -48,18 +55,18 @@ import PotentCBOR
 
     @Test("Test Voter Initialization")
     func testVoterInitialization() async throws {
-        let voter = Voter(credential: .stakePoolKeyhash(AddressKeyHash(payload: Data(repeating: 0x04, count: 32))))
+        let voter = Voter(credential: .stakePoolKeyhash(VerificationKeyHash(payload: Data(repeating: 0x04, count: 32))))
 
-        #expect(voter.credential == .stakePoolKeyhash(AddressKeyHash(payload: Data(repeating: 0x04, count: 32))))
+        #expect(voter.credential == .stakePoolKeyhash(VerificationKeyHash(payload: Data(repeating: 0x04, count: 32))))
     }
 
     @Test("Test Voter Code Computation")
     func testVoterCodeComputation() async throws {
-        let constitutionalKeyVoter = Voter(credential: .constitutionalCommitteeHotKeyhash(AddressKeyHash(payload: Data())))
+        let constitutionalKeyVoter = Voter(credential: .constitutionalCommitteeHotKeyhash(VerificationKeyHash(payload: Data())))
         let constitutionalScriptVoter = Voter(credential: .constitutionalCommitteeHotScriptHash(ScriptHash(payload: Data())))
-        let drepKeyVoter = Voter(credential: .drepKeyhash(AddressKeyHash(payload: Data())))
+        let drepKeyVoter = Voter(credential: .drepKeyhash(VerificationKeyHash(payload: Data())))
         let drepScriptVoter = Voter(credential: .drepScriptHash(ScriptHash(payload: Data())))
-        let stakePoolVoter = Voter(credential: .stakePoolKeyhash(AddressKeyHash(payload: Data())))
+        let stakePoolVoter = Voter(credential: .stakePoolKeyhash(VerificationKeyHash(payload: Data())))
 
         #expect(constitutionalKeyVoter.code == 0)
         #expect(constitutionalScriptVoter.code == 1)
@@ -71,23 +78,18 @@ import PotentCBOR
     @Test("Test VotingProcedures Initialization")
     func testVotingProceduresInitialization() async throws {
         let votingProcedure = VotingProcedure(vote: voteYes, anchor: anchor)
-        let votingProcedures = VotingProcedures(
-            procedures: [voter: [govActionID: votingProcedure]]
-        )
+        let votingProcedures = [voter: [govActionID: votingProcedure]]
 
-        #expect(votingProcedures.procedures[voter] != nil)
-        #expect(votingProcedures.procedures[voter]![govActionID] == votingProcedure)
+        #expect(votingProcedures[voter] != nil)
+        #expect(votingProcedures[voter]![govActionID] == votingProcedure)
     }
 
     @Test("Test VotingProcedures CBOR Encoding and Decoding")
     func testVotingProceduresCBORSerialization() async throws {
         let votingProcedure = VotingProcedure(vote: voteYes, anchor: anchor)
-        let votingProcedures = VotingProcedures(
-            procedures: [voter: [govActionID: votingProcedure]]
-        )
+        let votingProcedures = [voter: [govActionID: votingProcedure]]
 
         let encoded = try CBOREncoder().encode(votingProcedures)
-        print(encoded.hexEncodedString())
         let decoded = try CBORDecoder().decode(VotingProcedures.self, from: encoded)
 
         #expect(decoded == votingProcedures)
@@ -95,9 +97,9 @@ import PotentCBOR
 
     @Test("Test Voter Equality")
     func testVoterEquality() async throws {
-        let voter1 = Voter(credential: .drepKeyhash(AddressKeyHash(payload: Data(repeating: 0x06, count: 32))))
-        let voter2 = Voter(credential: .drepKeyhash(AddressKeyHash(payload: Data(repeating: 0x06, count: 32))))
-        let voter3 = Voter(credential: .stakePoolKeyhash(AddressKeyHash(payload: Data(repeating: 0x07, count: 32))))
+        let voter1 = Voter(credential: .drepKeyhash(VerificationKeyHash(payload: Data(repeating: 0x06, count: 32))))
+        let voter2 = Voter(credential: .drepKeyhash(VerificationKeyHash(payload: Data(repeating: 0x06, count: 32))))
+        let voter3 = Voter(credential: .stakePoolKeyhash(VerificationKeyHash(payload: Data(repeating: 0x07, count: 32))))
 
         #expect(voter1 == voter2)
         #expect(voter1 != voter3)

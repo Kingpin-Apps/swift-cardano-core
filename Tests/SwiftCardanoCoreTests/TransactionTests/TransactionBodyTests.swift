@@ -85,7 +85,14 @@ struct TransactionBodyTests {
         minFeeRefScriptCoinsPerByte: NonNegativeInterval(lowerBound: 0, upperBound: 10)
     )
     
-    let voter = Voter(credential: .drepKeyhash(AddressKeyHash(payload: Data(repeating: 0x03, count: 32))))
+    let voter = Voter(
+        credential:
+                .drepKeyhash(
+                    VerificationKeyHash(
+                        payload: Data(repeating: 0x03, count: 32)
+                    )
+                )
+    )
 
     @Test("Test initialization with required parameters")
     func testRequiredParametersInitialization() throws {
@@ -94,12 +101,12 @@ struct TransactionBodyTests {
         let fee = Coin(100000)
         
         let body = TransactionBody(
-            inputs: [input],
+            inputs: CBORSet([input]),
             outputs: [output],
             fee: fee
         )
         
-        #expect(body.inputs == [input])
+        #expect(body.inputs == CBORSet([input]))
         #expect(body.outputs == [output])
         #expect(body.fee == fee)
         #expect(body.ttl == nil)
@@ -150,60 +157,73 @@ struct TransactionBodyTests {
         let collateralReturn = TransactionOutput(address: address, amount: amount)
         let totalCollateral = Coin(200000)
         let referenceInputs = [TransactionInput(transactionId: transactionId, index: 2)]
-        let votingProcedures: VotingProcedure = VotingProcedure(
-            vote: .yes,
-            anchor: anchor
+        
+        let voter: Voter = Voter(
+            credential: .drepKeyhash(try drepVerificationKey!.hash())
         )
-        let proposalProcedures: ProposalProcedure = ProposalProcedure(
-            deposit: deposit,
-            rewardAccount: rewardAccount,
-            govAction: govAction,
-            anchor: anchor
+        let anchor = Anchor(
+            anchorUrl: try! Url("https://example.com"),
+            anchorDataHash: AnchorDataHash(payload: Data(repeating: 0x02, count: 32))
+        )
+        let transactionID = TransactionId(payload: Data(repeating: 0x01, count: 32))
+        let originalID = GovActionID(transactionID: transactionID, govActionIndex: 10)
+        let votingProcedures: VotingProcedures = [
+            voter: [originalID: VotingProcedure(vote: .yes, anchor: anchor)]
+        ]
+        let proposalProcedures: ProposalProcedures = NonEmptyCBORSet(
+            [
+                ProposalProcedure(
+                    deposit: deposit,
+                    rewardAccount: rewardAccount,
+                    govAction: govAction,
+                    anchor: anchor
+                )
+            ]
         )
         let currentTreasuryAmount = Coin(300000)
         let treasuryDonation = PositiveCoin(400000)
         
         let body = TransactionBody(
-            inputs: [input],
+            inputs: CBORSet([input]),
             outputs: [output],
             fee: fee,
             ttl: ttl,
-            certificates: certificates,
+            certificates: NonEmptyCBORSet(certificates),
             withdrawals: withdrawals,
             update: update,
             auxiliaryDataHash: auxiliaryDataHash,
             validityStart: validityStart,
             mint: mint,
             scriptDataHash: scriptDataHash,
-            collateral: collateral,
-            requiredSigners: requiredSigners,
+            collateral: NonEmptyCBORSet(collateral),
+            requiredSigners: NonEmptyCBORSet(requiredSigners),
             networkId: networkId,
             collateralReturn: collateralReturn,
             totalCollateral: totalCollateral,
-            referenceInputs: referenceInputs,
+            referenceInputs: NonEmptyCBORSet(referenceInputs),
             votingProcedures: votingProcedures,
             proposalProcedures: proposalProcedures,
             currentTreasuryAmount: currentTreasuryAmount,
             treasuryDonation: treasuryDonation
         )
         
-        #expect(body.inputs == [input])
+        #expect(body.inputs == CBORSet([input]))
         #expect(body.outputs == [output])
         #expect(body.fee == fee)
         #expect(body.ttl == ttl)
-        #expect(body.certificates! == certificates)
+        #expect(body.certificates! == NonEmptyCBORSet(certificates))
         #expect(body.withdrawals! == withdrawals)
         #expect(body.update == update)
         #expect(body.auxiliaryDataHash == auxiliaryDataHash)
         #expect(body.validityStart == validityStart)
         #expect(body.mint == mint)
         #expect(body.scriptDataHash == scriptDataHash)
-        #expect(body.collateral == collateral)
-        #expect(body.requiredSigners == requiredSigners)
+        #expect(body.collateral == NonEmptyCBORSet(collateral))
+        #expect(body.requiredSigners == NonEmptyCBORSet(requiredSigners))
         #expect(body.networkId == networkId)
         #expect(body.collateralReturn == collateralReturn)
         #expect(body.totalCollateral == totalCollateral)
-        #expect(body.referenceInputs == referenceInputs)
+        #expect(body.referenceInputs == NonEmptyCBORSet(referenceInputs))
         #expect(body.votingProcedures == votingProcedures)
         #expect(body.proposalProcedures == proposalProcedures)
         #expect(body.currentTreasuryAmount == currentTreasuryAmount)
@@ -217,7 +237,7 @@ struct TransactionBodyTests {
         let fee = Coin(100000)
         
         let originalBody = TransactionBody(
-            inputs: [input],
+            inputs: CBORSet([input]),
             outputs: [output],
             fee: fee
         )
@@ -239,7 +259,7 @@ struct TransactionBodyTests {
         let mint = try MultiAsset(from: ["policyId": ["assetName": 5]])
         
         let body = TransactionBody(
-            inputs: [input],
+            inputs: CBORSet([input]),
             outputs: [output],
             fee: fee,
             mint: mint
@@ -255,7 +275,7 @@ struct TransactionBodyTests {
         let fee = Coin(100000)
         
         let body = TransactionBody(
-            inputs: [input],
+            inputs: CBORSet([input]),
             outputs: [output],
             fee: fee
         )
@@ -271,7 +291,7 @@ struct TransactionBodyTests {
         let fee = Coin(100000)
         
         let body = TransactionBody(
-            inputs: [input],
+            inputs: CBORSet([input]),
             outputs: [output],
             fee: fee
         )

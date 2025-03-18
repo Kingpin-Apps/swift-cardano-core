@@ -119,4 +119,126 @@ public enum SigningKeyType: Codable, Equatable, Hashable {
         
         return lhsData == rhsData
     }
+    
+    public func sign(data: Data) throws -> Data {
+        switch self {
+            case .extendedSigningKey(let key):
+                if let skey = key as? PaymentExtendedSigningKey {
+                    return try skey.sign(data: data)
+                } else if let skey = key as? StakeExtendedSigningKey {
+                    return try skey.sign(data: data)
+                } else if let skey = key as? ExtendedSKey {
+                    return try skey.sign(data: data)
+                } else {
+                    throw CardanoCoreError.invalidKeyTypeError("Invalid key type: \(key)")
+                }
+            case .signingKey(let key):
+                if let skey = key as? PaymentSigningKey {
+                    return try skey.sign(data: data)
+                } else if let skey = key as? StakeSigningKey {
+                    return try skey.sign(data: data)
+                } else if let skey = key as? CommitteeColdSigningKey {
+                    return try skey.sign(data: data)
+                } else if let skey = key as? DRepSigningKey {
+                    return try skey.sign(data: data)
+                } else if let skey = key as? StakePoolSigningKey {
+                    return try skey.sign(data: data)
+                } else if let skey = key as? VRFSigningKey {
+                    return try skey.sign(data: data)
+                } else if let skey = key as? SKey {
+                    return try skey.sign(data: data)
+                } else {
+                    throw CardanoCoreError.invalidKeyTypeError("Invalid key type: \(key)")
+                }
+        }
+    }
+    
+    public func toVerificationKey() throws -> any VerificationKey {
+        switch self {
+            case .extendedSigningKey(let key):
+                if let skey = key as? PaymentExtendedSigningKey {
+                    let evkey: PaymentExtendedVerificationKey = skey.toVerificationKey()
+                    let vkey: PaymentVerificationKey = evkey.toNonExtended()
+                    return vkey
+                } else if let skey = key as? StakeExtendedSigningKey {
+                    let evkey: StakeExtendedVerificationKey = skey.toVerificationKey()
+                    let vkey: StakeVerificationKey = evkey.toNonExtended()
+                    return vkey
+                } else if let skey = key as? ExtendedSKey {
+                    let evkey: ExtendedVKey = skey.toVerificationKey()
+                    let vkey: VKey = evkey.toNonExtended()
+                    return vkey
+                } else {
+                    throw CardanoCoreError.invalidKeyTypeError("Invalid key type: \(key)")
+                }
+            case .signingKey(let key):
+                if let skey = key as? PaymentSigningKey {
+                    let vkey: PaymentVerificationKey = try skey.toVerificationKey()
+                    return vkey
+                } else if let skey = key as? StakeSigningKey {
+                    let vkey: StakeVerificationKey = try skey.toVerificationKey()
+                    return vkey
+                } else if let skey = key as? CommitteeColdSigningKey {
+                    let vkey: CommitteeColdVerificationKey = try skey.toVerificationKey()
+                    return vkey
+                } else if let skey = key as? DRepSigningKey {
+                    let vkey: DRepVerificationKey = try skey.toVerificationKey()
+                    return vkey
+                } else if let skey = key as? StakePoolSigningKey {
+                    let vkey: StakePoolVerificationKey = try skey.toVerificationKey()
+                    return vkey
+                } else if let skey = key as? VRFSigningKey {
+                    let vkey: VRFVerificationKey = try skey.toVerificationKey()
+                    return vkey
+                } else if let skey = key as? SKey {
+                    let vkey: VKey = try skey.toVerificationKey()
+                    return vkey
+                } else {
+                    throw CardanoCoreError.invalidKeyTypeError("Invalid key type: \(key)")
+                }
+        }
+    }
+    
+    public func toVerificationKeyType() throws -> VerificationKeyType {
+        switch self {
+            case .extendedSigningKey(let key):
+                if let skey = key as? PaymentExtendedSigningKey {
+                    let evkey: PaymentExtendedVerificationKey = skey.toVerificationKey()
+                    return .extendedVerificationKey(evkey)
+                } else if let skey = key as? StakeExtendedSigningKey {
+                    let evkey: StakeExtendedVerificationKey = skey.toVerificationKey()
+                    return .extendedVerificationKey(evkey)
+                } else if let skey = key as? ExtendedSKey {
+                    let evkey: ExtendedVKey = skey.toVerificationKey()
+                    return .extendedVerificationKey(evkey)
+                } else {
+                    throw CardanoCoreError.invalidKeyTypeError("Invalid key type: \(key)")
+                }
+            case .signingKey(let key):
+                if let skey = key as? PaymentSigningKey {
+                    let vkey: PaymentVerificationKey = try skey.toVerificationKey()
+                    return .verificationKey(vkey)
+                } else if let skey = key as? StakeSigningKey {
+                    let vkey: StakeVerificationKey = try skey.toVerificationKey()
+                    return .verificationKey(vkey)
+                } else if let skey = key as? CommitteeColdSigningKey {
+                    let vkey: CommitteeColdVerificationKey = try skey.toVerificationKey()
+                    return .verificationKey(vkey)
+                } else if let skey = key as? DRepSigningKey {
+                    let vkey: DRepVerificationKey = try skey.toVerificationKey()
+                    return .verificationKey(vkey)
+                } else if let skey = key as? StakePoolSigningKey {
+                    let vkey: StakePoolVerificationKey = try skey.toVerificationKey()
+                    return .verificationKey(vkey)
+                } else if let skey = key as? VRFSigningKey {
+                    let vkey: VRFVerificationKey = try skey.toVerificationKey()
+                    return .verificationKey(vkey)
+                } else if let skey = key as? SKey {
+                    let vkey: VKey = try skey.toVerificationKey()
+                    return .verificationKey(vkey)
+                } else {
+                    throw CardanoCoreError.invalidKeyTypeError("Invalid key type: \(key)")
+                }
+        }
+    }
 }

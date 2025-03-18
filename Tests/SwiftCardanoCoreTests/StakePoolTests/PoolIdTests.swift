@@ -25,7 +25,6 @@ import PotentCBOR
     func testPoolIdBech32Decoding() async throws {
         let poolId = try PoolId(from: validPoolId)
         let decodedHex = poolId.hex
-        print("Decoded Hex: \(decodedHex)")
         #expect(!decodedHex.isEmpty)
     }
 

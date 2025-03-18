@@ -92,7 +92,4 @@ public struct ProposalProcedure: PayloadJSONSerializable {
     }
 }
 
-
-public struct ProposalProcedures: Codable, Hashable, Equatable {
-    public var procedures: NonEmptyCBORSet<ProposalProcedure>
-}
+public typealias ProposalProcedures = NonEmptyCBORSet<ProposalProcedure>

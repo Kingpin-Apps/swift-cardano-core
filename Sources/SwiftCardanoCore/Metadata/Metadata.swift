@@ -2,6 +2,7 @@ import Foundation
 import PotentCBOR
 import PotentCodables
 import CryptoKit
+import SwiftNcal
 
 public typealias TransactionMetadatumLabel = UInt64
 
@@ -66,7 +67,7 @@ public struct Metadata: Codable, Hashable, Equatable {
         data = try container.decode([KEY_TYPE: VALUE_TYPE].self)
     }
 
-    public func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Swift.Encoder) throws {
         var container = encoder.singleValueContainer()
         try container.encode(data)
     }
@@ -110,7 +111,7 @@ public struct ShelleyMaryMetadata: Codable, Hashable, Equatable {
         nativeScripts = try container.decodeIfPresent([NativeScript].self)
     }
     
-    public func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Swift.Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(metadata)
         try container.encode(nativeScripts)
@@ -193,7 +194,7 @@ public struct AlonzoMetadata: Codable, Hashable, Equatable {
         }
     }
 
-    public func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Swift.Encoder) throws {
         var cbor: [Int:Data] = [:]
         
         if metadata != nil {
@@ -224,7 +225,7 @@ public struct AlonzoMetadata: Codable, Hashable, Equatable {
 }
 
 // MARK: - AuxiliaryData
-public struct AuxiliaryData: Codable, Equatable, Hashable {
+public struct AuxiliaryData: CBORSerializable, Equatable, Hashable {
     public var data: MetadataType
     
     public init(data: MetadataType) {
@@ -236,13 +237,20 @@ public struct AuxiliaryData: Codable, Equatable, Hashable {
         data = try container.decode(MetadataType.self)
     }
 
-    public func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Swift.Encoder) throws {
         var container = encoder.singleValueContainer()
         try container.encode(data)
     }
-        
-    public func hash() -> Data {
-        let cborData = try! CBOREncoder().encode(data)
-        return Data(SHA256.hash(data: cborData))
+    
+    /// Compute a blake2b hash from the key
+    /// - Returns: Hash output in bytes.
+    public func hash() throws -> AuxiliaryDataHash {
+        return AuxiliaryDataHash(
+            payload: try SwiftNcal.Hash().blake2b(
+                data: self.toCBOR(),
+                digestSize: AUXILIARY_DATA_HASH_SIZE,
+                encoder: RawEncoder.self
+            )
+        )
     }
 }

@@ -1,6 +1,6 @@
 import Foundation
 
-public struct Value: Codable, Equatable, Hashable {
+public struct Value: CBORSerializable, Equatable, Hashable {
     
     /// Amount of ADA
     public var coin: Int
@@ -48,6 +48,10 @@ public struct Value: Codable, Equatable, Hashable {
 
     public static func += (lhs: inout Value, rhs: Value) {
         lhs = lhs + rhs
+    }
+
+    public static func -= (lhs: inout Value, rhs: Value) {
+        lhs = lhs - rhs
     }
 
     public static func - (lhs: Value, rhs: Value) -> Value {

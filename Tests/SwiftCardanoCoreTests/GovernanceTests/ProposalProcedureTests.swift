@@ -93,10 +93,10 @@ import PotentCBOR
             anchor: anchor
         )
 
-        let proposals = ProposalProcedures(procedures: NonEmptyCBORSet([proposal1, proposal2]))
+        let proposals = ProposalProcedures([proposal1, proposal2])
 
-        #expect(proposals.procedures.contains(proposal1))
-        #expect(proposals.procedures.contains(proposal2))
-        #expect(proposals.procedures.count == 2)
+        #expect(proposals.contains(proposal1))
+        #expect(proposals.contains(proposal2))
+        #expect(proposals.count == 2)
     }
 }

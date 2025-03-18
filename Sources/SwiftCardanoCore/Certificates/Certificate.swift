@@ -49,7 +49,7 @@ public enum CertificateDescription: String, Codable {
     case updateDRep = "DRep Update Certificate"
 }
 
-public enum Certificate: Codable, Equatable, Hashable {
+public enum Certificate: CBORSerializable, Equatable, Hashable {
     case stakeRegistration(StakeRegistration)
     case stakeDeregistration(StakeDeregistration)
     case stakeDelegation(StakeDelegation)
