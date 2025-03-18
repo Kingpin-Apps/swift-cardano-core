@@ -1,3 +1,9 @@
+## 0.1.17 (2025-03-17)
+
+### Fix
+
+- use CBORSerializable and other improvements
+
 ## 0.1.16 (2025-03-15)
 
 ### Fix
