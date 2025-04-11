@@ -52,7 +52,11 @@ extension ConstrainedBytes {
     }
     
     public init(from primitive: String) throws {
-        try self.init(payload: primitive.toData)
+        if !primitive.hexStringToData.isEmpty {
+            try self.init(payload: primitive.hexStringToData)
+        } else {
+            try self.init(payload: primitive.data(using: .utf8)!)
+        }
     }
     
     public func hash(into hasher: inout Hasher) {

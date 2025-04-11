@@ -26,7 +26,8 @@ public struct MultiAsset: CBORSerializable, Hashable, Equatable {
     public init(from primitive: [String: [String: Int]]) throws {
         var data: [ScriptHash: Asset] = [:]
         for (policyId, asset) in primitive {
-            data[try ScriptHash(from: policyId)] = Asset(from: asset)
+            let pid = try ScriptHash(from: policyId)
+            data[pid] = Asset(from: asset)
         }
         self.data = data
     }

@@ -13,7 +13,11 @@ public struct AssetName: ConstrainedBytes {
     }
     
     public init(from name: String) {
-        self.payload = name.data(using: .utf8)!
+        if !name.hexStringToData.isEmpty {
+            self.payload = name.hexStringToData
+        } else {
+            self.payload = name.data(using: .utf8)!
+        }
     }
 
     public var description: String {

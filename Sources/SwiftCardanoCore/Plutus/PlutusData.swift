@@ -1,286 +1,695 @@
-import Foundation
-import CryptoKit
-import PotentCodables
-import PotentCBOR
 import BigInt
+import CryptoKit
+import Foundation
+import OrderedCollections
+import PotentCBOR
+import PotentCodables
 
+// MARK: - PlutusDataClass
 
-public protocol PlutusDataProtocol: CBORSerializable, Equatable, Hashable {
-    static var CONSTR_ID: Any { get }
-    var properties: [String: AnyValue] { get set }
-    
-    init(properties: [String: AnyValue])
-}
-
-
-// MARK: - PlutusData
 /// PlutusData is a helper class that can serialize itself into a CBOR format, which could be intepreted as
 /// a data structure in Plutus scripts.
 /// It is not required to use this class to interact with Plutus scripts. However, wrapping datum in PlutusData
 /// class will reduce the complexity of serialization and deserialization tremendously.
-//@dynamicMemberLookup
-public extension PlutusDataProtocol {
-    static var MAX_BYTES_SIZE: Int { 64 }
-    
-    private var properties: [String: AnyValue] {
-        get { return self.properties }
-        set { self.properties = newValue }
+@dynamicMemberLookup
+open class PlutusData: CBORSerializable, Hashable, Codable, Equatable {
+    public static let MAX_BYTES_SIZE = 64
+
+    public var fields: [Any]
+
+    public subscript(dynamicMember member: String) -> Any {
+        get {
+            self.fields.first(where: { String(describing: $0) == member })!
+        }
+        set {
+            self.fields = self.fields.map { String(describing: $0) == member ? newValue : $0 }
+        }
     }
 
-    subscript(dynamicMember member: String) -> AnyValue? {
-        get { properties[member] }
-        set { properties[member] = newValue }
+    public required init() {
+        self.fields = []
     }
-    
-    init(fields: [Any]) throws {
+
+    public required init(fields: [Any]) throws {
         let validTypes: [Any.Type] = [
+            AnyValue.self,
             PlutusData.self,
-            Dictionary<AnyHashable, Any>.self,
-            IndefiniteList<AnyValue>.self,
+            Dictionary<AnyValue, AnyValue>.self,
+            OrderedDictionary<AnyValue, AnyValue>.self,
+            Array<AnyValue>.self,
             Int.self,
             ByteString.self,
-            Data.self
+            Data.self,
         ]
-        
+
         for field in fields {
             let fieldType = type(of: field)
-            
+
             // Check if the field type is valid
-            if !validTypes.contains(where: { $0 == fieldType }) {
-                throw CardanoCoreError.typeError("Invalid field type: \(fieldType). A field in PlutusData should be one of \(validTypes).")
+            if let fieldClass = fieldType as? AnyClass {
+                if !validTypes.contains(where: { valid in
+                    if let validClass = valid as? AnyClass {
+                        return fieldClass == validClass || fieldClass.isSubclass(of: validClass)
+                    }
+                    return false
+                }) {
+                    throw CardanoCoreError.typeError("Invalid field type: \(fieldClass)")
+                }
+            } else if !validTypes.contains(where: { $0 == fieldType }) {
+                throw CardanoCoreError.typeError(
+                    "Invalid field type: \(fieldType). A field in PlutusData should be one of \(validTypes)."
+                )
             }
-            
-//            let _ = setAttribute(self, propertyName: String(describing: field), value: field)
-//            _ = getAttribute(self, propertyName: String(describing: field))!
-            
+
+            //            let _ = setAttribute(self, propertyName: String(describing: field), value: field)
+            //            _ = getAttribute(self, propertyName: String(describing: field))!
+
             // Check if the data is a Data (byte array) and exceeds the allowed size
             if let data = field as? Data, data.count > Self.MAX_BYTES_SIZE {
-                throw CardanoCoreError.invalidArgument("The size of \(data) exceeds \(Self.MAX_BYTES_SIZE) bytes. Use ByteString for long bytes.")
+                throw CardanoCoreError.invalidArgument(
+                    "The size of \(data) exceeds \(Self.MAX_BYTES_SIZE) bytes. Use ByteString for long bytes."
+                )
             }
         }
-        
-        let properties = try fields.enumerated().reduce(into: [String: AnyValue]()) { (dict, pair) in
-            dict["\(pair.offset)"] = try AnyValue.wrapped(pair.element)
-        }
-        self.init(properties: properties)
-    }
-    
-    init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        let properties = try container.decode([String: AnyValue].self)
-        self.init(properties: properties)
+
+        self.fields = fields
     }
 
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-        try container.encode(properties)
+    open var constrID: Int {
+        let detString = try! idMap(cls: Self.self, skipConstructor: true)
+        let detHash = SHA256.hash(data: Data(detString.utf8)).map { String(format: "%02x", $0) }
+            .joined()
+        let num = BigInt(detHash, radix: 16)
+        let calc = num! % (1 << 32)
+
+        return Int(calc)
     }
-    
-    func hash() throws -> DatumHash {
-        return try datumHash(
-            datum: .plutusData(self as! PlutusData)
+
+    open class var CONSTR_ID: Int {
+        return Self().constrID
+    }
+
+    public func toAnyValue() -> AnyValue {
+        return AnyValue.array(
+            fields.map {
+                if let plutusData = $0 as? PlutusData {
+                    return plutusData.toAnyValue()
+                } else if let dict = $0 as? [AnyValue: AnyValue] {
+                    return AnyValue.dictionary(
+                        OrderedDictionary(
+                            uniqueKeysWithValues: dict.map {
+                                ($0.key, $0.value)
+                            }
+                        )
+                    )
+                } else if let array = $0 as? [AnyValue] {
+                    return AnyValue.array(array)
+                } else if let array = $0 as? [Any] {
+                    return AnyValue.array(array.map { try! AnyValue.wrapped($0) })
+                } else {
+                    return try! AnyValue.wrapped($0)
+                }
+            }
         )
     }
-    
+
+    public func toShallowPrimitive() throws -> CBORTag {
+
+        let mirror = Mirror(reflecting: self)
+
+        let primitives = try mirror.children.map { field -> AnyValue in
+            if let plutusData = field.value as? PlutusData {
+                return try AnyValue.Encoder().encode(plutusData.toShallowPrimitive().toCBOR())
+            } else if let codable = field.value as? Codable {
+                return try AnyValue.Encoder().encode(codable)
+            } else if let dict = field.value as? [AnyValue: AnyValue] {
+                return AnyValue.dictionary(
+                    OrderedDictionary(
+                        uniqueKeysWithValues: dict.map {
+                            ($0.key, $0.value)
+                        }
+                    )
+                )
+            } else {
+                return try AnyValue.wrapped(field.value)
+            }
+        }
+        let tag = getTag(constrID: Self.CONSTR_ID)
+
+        if let tag = tag {
+            return CBORTag(tag: UInt64(tag), value: AnyValue.array(primitives))
+        } else {
+            return CBORTag(
+                tag: 102,
+                value: .array([.int(Self.CONSTR_ID), .array(primitives)]))
+        }
+    }
+
+    public required convenience init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let value = try container.decode(CBOR.self)
+
+        guard case CBOR.tagged(_, _) = value else {
+            throw CardanoCoreError.deserializeError(
+                "Value does not match the data schema of PlutusData.")
+        }
+
+        let (constrID, fields) = try getConstructorIDAndFields(value: value)
+
+        if constrID != Self.CONSTR_ID {
+            throw CardanoCoreError.decodingError(
+                "Unexpected constructor ID for \(Self.self). Expect \(Self.CONSTR_ID), got \(constrID) instead."
+            )
+        }
+
+        try self.init(fields: fields)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+
+        let mirror = Mirror(reflecting: self)
+
+        let primitives = try mirror.children.map { field -> AnyHashable in
+
+            if let plutusData = field.value as? PlutusData {
+                return try plutusData.toShallowPrimitive()
+            } else if let mirror = Mirror(reflecting: field.value).displayStyle,
+                mirror == .dictionary
+            {
+                let orderedDict: OrderedDictionary<AnyHashable, AnyHashable>
+
+                // Handle any type of dictionary by converting it to OrderedDictionary<AnyHashable, AnyHashable>
+                if let dict = field.value as? [AnyHashable: AnyHashable] {
+                    orderedDict = OrderedDictionary(
+                        uniqueKeysWithValues: dict.map {
+                            ($0.key, $0.value)
+                        }
+                    )
+                } else if let dict = field.value as? OrderedDictionary<AnyHashable, AnyHashable> {
+                    orderedDict = OrderedDictionary(
+                        uniqueKeysWithValues: dict.map {
+                            ($0.key, $0.value)
+                        }
+                    )
+                } else {
+                    // For any other dictionary type, we'll convert it to OrderedDictionary<AnyHashable, AnyHashable>
+                    let mirror = Mirror(reflecting: field.value)
+                    var tempDict = OrderedDictionary<AnyHashable, AnyHashable>()
+
+                    for child in mirror.children {
+                        if let value = child.value as? (key: AnyHashable, value: AnyHashable) {
+                            tempDict[value.key] = value.value
+                        }
+                    }
+
+                    orderedDict = tempDict
+                }
+
+                return OrderedDictionary<AnyHashable, AnyHashable>(
+                    uniqueKeysWithValues: try orderedDict.map {
+
+                        let key: AnyHashable
+                        let value: AnyHashable
+
+                        if let intKey = $0.key as? Int {
+                            key = intKey
+                        } else if let stringKey = $0.key as? String {
+                            key = stringKey
+                        } else if let encodableKey = $0.key as? Encodable {
+                            key = try CBOREncoder().encode(encodableKey)
+                        } else {
+                            throw CardanoCoreError.encodingError(
+                                "Invalid key type: \($0.key)"
+                            )
+                        }
+
+                        if let plutusData = $0.value as? PlutusData {
+                            value = try plutusData.toShallowPrimitive()
+                        } else if let intValue = $0.value as? Int {
+                            value = intValue
+                        } else if let stringValue = $0.value as? String {
+                            value = stringValue
+                        } else if let codable = $0.value as? Codable {
+                            value = try CBOR.Encoder().encode(codable)
+                        } else if let dictValue = $0.value as? [AnyHashable: Any] {
+                            // Handle nested dictionaries
+                            value = try OrderedDictionary(
+                                uniqueKeysWithValues: dictValue.map { key, val in
+                                    (key, try AnyValue.wrapped(val))
+                                }
+                            )
+                        } else {
+                            value = try AnyValue.wrapped($0.value)
+                        }
+
+                        return (key, value)
+                    }
+                )
+            } else if let array = field.value as? [PlutusData] {
+                return try array.map { try $0.toShallowPrimitive() }
+            }else if let array = field.value as? [Any] {
+                return try array.map { try AnyValue.wrapped($0) }
+            } else if let int = field.value as? Int {
+                return AnyValue.int(int)
+            } else if let int = field.value as? Data {
+                return AnyValue.data(int)
+            } else if let codable = field.value as? Codable {
+                return try CBOR.Encoder().encode(codable).toCBOR
+            } else if isEnum(field.value), let info = extractEnumInfo((field.value)) {
+                if let codable = info.associatedValue as? Codable {
+                    return try CBOR.Encoder().encode(codable).toCBOR
+                } else {
+                    return try AnyValue.wrapped(info.associatedValue).toCBOR().toCBOR
+                }
+            } else {
+                return try AnyValue.wrapped(field.value).toCBOR().toCBOR
+            }
+        }
+        let tag = getTag(constrID: Self.CONSTR_ID)
+
+        let toEncode: CBOR
+        if primitives.isEmpty {
+            toEncode = .array([])
+        } else {
+            let indefiniteList = IndefiniteList<AnyHashable>(primitives)
+            toEncode = try indefiniteList.toCBOR().toCBOR
+        }
+
+        if let tag = tag {
+            try container.encode(
+                CBOR.tagged(
+                    CBOR.Tag(rawValue: UInt64(tag)),
+                    toEncode
+                )
+            )
+        } else {
+            try container.encode(
+                CBOR.tagged(
+                    CBOR.Tag(rawValue: 102),
+                    try! CBOREncoder().encode(
+                        CBOR.array([
+                            CBOR(Self.CONSTR_ID),
+                            toEncode,
+                        ])
+                    ).toCBOR
+                )
+            )
+        }
+    }
+
+    public func hash() throws -> DatumHash {
+        return try datumHash(datum: .plutusData(self))
+    }
+
+    /// Decodes a dictionary representation (potentially from JSON) back into the corresponding Swift value.
+    /// Handles primitives (int, bytes), lists, maps, and nested PlutusData objects.
+    /// NOTE: Decoding nested PlutusData objects (identified by "constructor" key) relies on
+    /// the static `PlutusData.fromDict` method, which in turn requires a mechanism
+    /// (like a hypothetical `PlutusRegistry`) to map constructor IDs to specific PlutusData subclass types.
+    private static func decodeValue(obj: Any) throws -> Any {
+        if let dict = obj as? [String: Any] {
+            
+            if let constructor = dict["constructor"] as? Int {
+
+                guard constructor == self.CONSTR_ID else {
+                    throw CardanoCoreError.decodingError(
+                        "Mismatch between constructors in \(self), expect: \(self.CONSTR_ID), got: \(constructor) instead."
+                    )
+                }
+
+                // Ensure fields exist and are an array
+                guard let fields = dict["fields"] as? [Any] else {
+                    throw CardanoCoreError.decodingError("Missing fields data.")
+                }
+
+                // Create an instance to inspect its fields
+                let instance = Self.init()
+                let mirror = Mirror(reflecting: instance)
+                var convertedFields = [] as [AnyValue]
+
+                // Process each field based on its type
+                for (field, value) in zip(mirror.children, fields) {
+                    if let plutusField = field.value as? PlutusData {
+                        // Handle PlutusData subclass fields
+                        let plutusType = Swift.type(
+                            of: plutusField
+                        )
+
+                        let decodedSubData = try plutusType.init(from: value as! [String: Any])
+                            .toAnyValue()
+                        convertedFields.append(decodedSubData)  // Append the decoded object
+                    } else if field.value is Datum {
+                        convertedFields.append(try AnyValue.wrapped(value))
+                        //                        convertedFields.append(
+                        //                            try RawPlutusData.fromDict(value as! [String: Any])).toAnyValue()
+                    } else if let mapValue = value as? [String: Any], mapValue["map"] != nil {
+                        
+                        let fieldValue: [AnyHashable: Any]
+                        let mapItems = mapValue["map"] as! [[String: Any]]
+                        var result = OrderedDictionary<AnyValue, AnyValue>()
+                        
+                        if let fv = field.value as? [AnyHashable: Any]? {
+                            fieldValue = fv!
+                        } else if isDictionary(field.value) {
+                            let mirror = Mirror(reflecting: field.value)
+                            
+                            fieldValue = Dictionary<AnyHashable, Any>(
+                                uniqueKeysWithValues: try mirror.children.map {
+                                    guard let pair = $0.value as? (key: AnyHashable, value: Any) else {
+                                        throw CardanoCoreError.typeError(
+                                            "Invalid field type: \(type(of: field.value)). Expected [AnyHashable: Any]."
+                                        )
+                                    }
+                                    return (pair.key, pair.value)
+                                }
+                            )
+                        }  else {
+                            throw CardanoCoreError.typeError(
+                                "Invalid field type: \(type(of: field.value)). Expected [AnyValue: AnyValue]."
+                            )
+                        }
+
+                        for item in mapItems {
+                            guard let k = item["k"], let v = item["v"] else {
+                                throw CardanoCoreError.decodingError(
+                                    "Invalid map entry: \(item)")
+                            }
+
+                            var key: AnyValue
+                            var value: AnyValue
+
+                            if let plutusField = fieldValue.keys.first as? PlutusData {
+                                let plutusType = Swift.type(of: plutusField)
+                                key = try plutusType.init(from: k as! [String: Any]).toAnyValue()
+                            } else {
+                                key = try AnyValue.wrapped(try decodeValue(obj: k))
+                            }
+
+                            if let plutusField = fieldValue.values.first as? PlutusData {
+                                let plutusType = type(
+                                    of: plutusField
+                                )
+
+                                let decodedNested = try plutusType.init(from: v as! [String: Any])
+                                value = decodedNested.toAnyValue()  // Use the decoded object
+                            } else {
+                                value = try AnyValue.wrapped(try decodeValue(obj: v))
+                            }
+
+                            result[key] = value
+                        }
+                        convertedFields.append(try AnyValue.wrapped(result))
+                    } else if let listValue = value as? [String: Any], listValue["list"] != nil {
+                        // Handle array types
+                        let items = listValue["list"] as! [Any]
+                        let convertedItems = try items.map {
+                            if field.value is [AnyValue] {
+                                return try decodeValue(obj: $0)
+                            } else if let plutusFields = field.value as? [PlutusData] {
+                                let plutusType = type(of: plutusFields.first!)
+                                return try plutusType.init(from: $0 as! [String: Any]).toAnyValue()
+                            } else {
+                                return try decodeValue(obj: $0)
+                            }
+                        }
+                        convertedFields.append(try AnyValue.wrapped(convertedItems))
+                    } else if let intValue = value as? [String: Any],
+                        let intVal = intValue["int"] as? Int
+                    {
+                        convertedFields.append(AnyValue(integerLiteral: intVal))
+                    } else if let bytesValue = value as? [String: Any],
+                        let bytesStr = bytesValue["bytes"] as? String
+                    {
+                        convertedFields.append(try AnyValue.wrapped(Data(hex: bytesStr)))
+                    } else if isEnum(field.value), let info = extractEnumInfo((field.value)) {
+                        if let plutusField = info.associatedValue as? PlutusData {
+                            let plutusType = type(of: plutusField)
+                            convertedFields.append(try plutusType.init(from: value as! [String: Any]).toAnyValue())
+                        } else {
+                            convertedFields.append(try decodeValue(obj: value) as! AnyValue)
+                        }
+                    } else {
+                        // Handle other types recursively
+                        convertedFields
+                            .append(try decodeValue(obj: value) as! AnyValue)
+                    }
+                }
+
+                //                return try Self.init(fields: convertedFields).toAnyValue()
+                return convertedFields
+
+            } else if let mapArray = dict["map"] as? [[String: Any]] {
+                var result = OrderedDictionary<AnyValue, AnyValue>()
+                for pair in mapArray {
+                    guard let k = pair["k"], let v = pair["v"] else {
+                        throw CardanoCoreError.decodingError("Invalid map entry: \(pair)")
+                    }
+                    let key = try decodeValue(obj: k)  // Recurse
+                    let value = try decodeValue(obj: v)  // Recurse
+                    // Wrap results in AnyValue for the dictionary
+                    result[try AnyValue.wrapped(key)] = try AnyValue.wrapped(value)
+                }
+                return result  // Return OrderedDictionary<AnyValue, AnyValue>
+            } else if let listArray = dict["list"] as? [Any] {
+                // Recursively decode list items and return as [Any]
+                return try listArray.map { try decodeValue(obj: $0) }
+            } else if let intVal = dict["int"] {
+                if let int = intVal as? Int { return int }
+                if let int64 = intVal as? Int64 { return int64 }
+                // Handle Doubles that might come from JSON parsing if they represent integers
+                if let dbl = intVal as? Double, dbl == floor(dbl) { return Int(dbl) }
+                throw CardanoCoreError.decodingError("Invalid int value: \(intVal)")
+            } else if let bytesStr = dict["bytes"] as? String {
+                return Data(hex: bytesStr)  // Return Data
+            } else {
+                throw CardanoCoreError.decodingError("Unexpected dictionary structure: \(dict)")
+            }
+        } else if let array = obj as? [Any] {
+            // Handle plain arrays potentially coming directly from JSON for list fields
+            return try array.map { try decodeValue(obj: $0) }
+        } else if obj is Int || obj is Int64 {
+            return obj  // Return primitive integers
+        } else if obj is Data {
+            return obj  // Return primitive data (less likely if source follows {"bytes":..} schema)
+        }
+        // Handle other JSON primitives if necessary, though Plutus schema is specific
+        else if obj is String || obj is Double || obj is Bool || obj is NSNull {
+            throw CardanoCoreError.decodingError(
+                "Unsupported primitive type \(type(of: obj)) found in dictionary representation. Expected int, bytes, list, map, or constructor."
+            )
+        } else {
+            throw CardanoCoreError.typeError(
+                "Unexpected data type during dict decode: \(type(of: obj)) for value \(obj)")
+        }
+    }
+
+    /// Initializes a PlutusData instance from a dictionary representation (e.g., obtained from `toJSON`).
+    ///
+    /// This initializer expects the dictionary to have a "constructor" key matching `Self.CONSTR_ID`
+    /// and a "fields" key containing an array of values representing the fields. It uses
+    /// a helper method (`decodeValue`) to convert the field values back into Swift types.
+    ///
+    /// - Parameter dict: A dictionary containing "constructor" and "fields" keys.
+    /// - Throws: `CardanoCoreError` if the dictionary format is invalid, constructor ID mismatches,
+    ///           or decoding of field values fails. Note that decoding nested PlutusData objects
+    ///           currently relies on the static `fromDict` method and may require a type registry.
+    public required convenience init(from dict: [String: Any]) throws {
+        let vals = try Self.decodeValue(obj: dict)
+        if let vals = vals as? AnyValue, let array = vals.arrayValue {
+            try self.init(fields: array)
+        } else if let vals = vals as? [Any] {
+            try self.init(fields: vals)
+        } else {
+            throw CardanoCoreError.decodingError(
+                "Invalid dictionary format for PlutusData: \(dict)"
+            )
+        }
+    }
+
     /// Convert to a dictionary.
     ///
     /// Reference of [Haskell's implementation](https://github.com/input-output-hk/cardano-node/blob/baa9b5e59c5d448d475f94cc88a31a5857c2bda5/cardano-api/src/Cardano/Api/ScriptData.hs#L449-L474)
     /// - Returns: A dictionary PlutusData that can be JSON encoded.
-//    func toDict() -> [String: Any] {
-//        func dfs(_ obj: Any) -> Any {
-//            // Check if the object is an Int
-//            if let intValue = obj as? Int {
-//                return ["int": intValue]
-//            }
-//            // Check if the object is Data (byte array)
-//            else if let byteArray = obj as? Data {
-//                return ["bytes": byteArray.map { String(format: "%02x", $0) }.joined()]
-//            }
-//            // Check if the object is a list or IndefiniteList
-//            else if let list = obj as? [Any] {
-//                return ["list": list.map { dfs($0) }]
-//            }
-//            // Check if the object is a dictionary
-//            else if let dict = obj as? [AnyHashable: Any] {
-//                return ["map": dict.map { ["k": dfs($0.key), "v": dfs($0.value)] }]
-//            }
-//            // Check if the object is of type PlutusData
-//            else if let plutusData = obj as? PlutusData {
-//                let mirror = Mirror(reflecting: plutusData)
-//                let fields = mirror.children.compactMap { child -> Any? in
-//                    if child.label != nil {
-//                        return dfs(child.value)
-//                    }
-//                    return nil
-//                }
-//                return [
-//                    "constructor": type(of: plutusData).CONSTR_ID,
-//                    "fields": fields
-//                ]
-//            }
-//            // Check if the object is of type RawPlutusData
-//            else if let rawPlutusData = obj as? RawPlutusData {
-//                return try! rawPlutusData.toDict()
-//            }
-//            // Check if the object is a RawCBOR
-//            else if let rawCBOR = obj as? CBOR {
-//                return try! RawPlutusData(data: .cbor(rawCBOR)).toDict()
-//            }
-//            // Raise an error for unexpected types
-//            else {
-//                fatalError("Unexpected type: \(type(of: obj))")
-//            }
-//        }
-//
-//        return dfs(self) as! [String: Any]
-//    }
-    
+    public func toDict() throws -> [String: Any] {
+        func dfs(_ anyObj: Any) throws -> Any {
+
+            var obj: Any = anyObj
+            if let anyValue = anyObj as? AnyValue {
+                obj = anyValue.unwrapped!
+            }
+            print("Type: \(type(of: obj))")
+
+            if let intValue = obj as? Int {
+                return ["int": intValue]
+            } else if let intValue = obj as? Int64 {
+                return ["int": intValue]
+            } else if let byteArray = obj as? Data {
+                return ["bytes": byteArray.map { String(format: "%02x", $0) }.joined()]
+            } else if let dict = obj as? [AnyHashable: Any] {
+                return [
+                    "map": try dict.map { ["k": try dfs($0.key.base), "v": try dfs($0.value)] }
+                ]
+            } else if let plutusData = obj as? PlutusData {
+                let mirror = Mirror(reflecting: obj)
+                return [
+                    "constructor": type(of: plutusData).CONSTR_ID,
+                    "fields": try mirror.children.map { try dfs($0.value) },
+                ]
+            } else if let rawPlutusData = obj as? RawPlutusData {
+                return ["raw": rawPlutusData.data]
+            } else if let rawCBOR = obj as? CBOR {
+                return ["cbor": rawCBOR]
+            } else if isDictionary(obj) {
+                var result: [[String: Any]] = []
+                
+                let mirror = Mirror(reflecting: obj)
+                for child in mirror.children {
+                    if let pair = child.value as? (key: Any, value: Any) {
+                        let k = try dfs(pair.key)
+                        let v = try dfs(pair.value)
+                        result.append(["k": k, "v": v])
+                    }
+                }
+                
+                return ["map": result]
+            } else if isEnum(obj), let info = extractEnumInfo((obj)) {
+                return  try dfs(info.associatedValue)
+            } else if let list = obj as? [Any] {
+                return  ["list": try list.map { try dfs($0) }]
+            } else {
+                throw
+                    CardanoCoreError
+                    .encodingError("Unexpected type: \(type(of: obj)) for \(obj)")
+            }
+        }
+
+        return try dfs(self) as! [String: Any]
+    }
+
     /// Convert to a json string
     /// - Returns: A JSON encoded PlutusData.
-//    func toJSON() -> String {
-//        let dict = self.toDict()
-//        let jsonData = try! JSONSerialization.data(withJSONObject: dict, options: [])
-//        return String(data: jsonData, encoding: .utf8)!
-//    }
-    
+    public func toJSON() throws -> String {
+        let dict = try self.toDict()
+        let jsonData = try JSONSerialization.data(
+            withJSONObject: dict,
+            options: [.sortedKeys]
+        )
+        return String(data: jsonData, encoding: .utf8)!
+    }
+
     /// Convert a dictionary to PlutusData
     /// - Parameter data: A dictionary representing the PlutusData.
     /// - Returns: Restored PlutusData.
-//    static func fromDict(_ data: [String: Any]) throws -> PlutusData {
-//        func dfs(_ obj: Any) throws -> Any {
-//            if let objDict = obj as? [String: Any] {
-//                if let constructor = objDict["constructor"] as? Int {
-//                    if constructor != (Self.CONSTR_ID as! Int) {
-//                        throw CardanoCoreError.decodingError(
-//                            "Mismatch between constructors in class \(Self.self), expect: \(Self.CONSTR_ID), got: \(constructor) instead."
-//                        )
-//                    }
-//
-//                    var convertedFields: [Any] = []
-//
-//                    // Assuming `fields()` is a method to retrieve field info.
-//                    // Replace `fields(cls)` logic with appropriate Swift implementation.
-//                    for fieldInfo in Mirror(reflecting: Self.self).children {
-//                        let fieldValue = objDict["fields"] as? [Any]
-//                        guard let f = fieldValue?[convertedFields.count] else {
-//                            throw CardanoCoreError.decodingError("Missing field data.")
-//                        }
-//
-//                        // Type-specific handling
-//                        if let fieldType = fieldInfo.value as? PlutusData.Type {
-//                            convertedFields.append(try fieldType.fromDict(f as! [String: Any]))
-//                        } else if fieldInfo.value is Datum.Type {
-//                            convertedFields
-//                                .append(
-//                                    try RawPlutusData
-//                                        .fromDict(f as! [String: AnyHashable])
-//                                )
-//                        } else if let fieldArray = f as? [Any] {
-//                            // List handling
-//                            convertedFields.append(try fieldArray.map { try dfs($0) })
-//                        } else if let fieldMap = f as? [[String: Any]] {
-//                            // Map handling
-//                            var convertedMap: [AnyHashable: Any] = [:]
-//                            for pair in fieldMap {
-//                                let key = try dfs(pair["k"]!)
-//                                let value = try dfs(pair["v"]!)
-//                                convertedMap[key as! AnyHashable] = value
-//                            }
-//                            convertedFields.append(convertedMap)
-//                        } else {
-//                            // Other types
-//                            convertedFields.append(try dfs(f))
-//                        }
-//                    }
-//
-//                    // Initialize the PlutusData instance
-//                    // Replace `init` logic with actual initialization as needed.
-//                    return try Self.init(fields: convertedFields)
-//                } else if let map = objDict["map"] as? [[String: Any]] {
-//                    var resultMap: [AnyHashable: Any] = [:]
-//                    for pair in map {
-//                        let key = try dfs(pair["k"]!)
-//                        let value = try dfs(pair["v"]!)
-//                        resultMap[key as! AnyHashable] = value
-//                    }
-//                    return resultMap
-//                } else if let intValue = objDict["int"] as? Int {
-//                    return intValue
-//                } else if let bytes = objDict["bytes"] as? String {
-//                    if bytes.count > 64 {
-//                        return  ByteString(value: Data(bytes.utf8))
-//                    } else {
-//                        return Data(Array(bytes.utf8))
-//                    }
-//                } else if let list = objDict["list"] as? [Any] {
-//                    return IndefiniteList(try list.map { try dfs($0) } as! [AnyValue])
-//                } else {
-//                    throw CardanoCoreError.decodingError("Unexpected data structure: \(objDict)")
-//                }
-//            } else {
-//                throw CardanoCoreError.decodingError("Unexpected data type: \(type(of: obj))")
-//            }
-//        }
-//
-//        return try dfs(data) as! PlutusData
-//    }
-    
+    public class func fromDict<T: PlutusData>(_ data: [String: Any]) throws -> T {
+        return try Self.init(from: data) as! T
+    }
+
     /// Restore a json encoded string to a PlutusData.
     /// - Parameter data: An encoded json string.
     /// - Returns: The restored PlutusData.
-//    static func fromJSON(_ data: String) throws -> PlutusData {
-//        let jsonData = data.data(using: .utf8)!
-//        let dict = try JSONSerialization.jsonObject(with: jsonData, options: []) as! [String: Any]
-//        return try fromDict(dict)
-//    }
-    
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(self)
+    public class func fromJSON(_ data: String) throws -> Self {
+        let jsonData = data.data(using: .utf8)!
+        let dict =
+            try JSONSerialization.jsonObject(with: jsonData, options: []) as! [String: Any]
+        return try Self.init(from: dict)
     }
-    
-//    static func == (lhs: PlutusData, rhs: PlutusData) -> Bool {
-//        return lhs === rhs
-//    }
+
+    public func hash(into hasher: inout Hasher) {
+        for field in fields {
+            if let hashable = field as? AnyHashable {
+                hasher.combine(hashable)
+            }
+        }
+    }
+
+    public static func == (lhs: PlutusData, rhs: PlutusData) -> Bool {
+        guard lhs.fields.count == rhs.fields.count else { return false }
+
+        for (lhsField, rhsField) in zip(lhs.fields, rhs.fields) {
+            if let lhsHashable = lhsField as? AnyHashable,
+                let rhsHashable = rhsField as? AnyHashable
+            {
+                if lhsHashable != rhsHashable {
+                    return false
+                }
+            } else {
+                return false
+            }
+        }
+
+        return true
+    }
+
+    /// Creates a PlutusData instance from a CBORTag primitive.
+    /// - Parameter value: The CBORTag value to deserialize from.
+    /// - Returns: A new PlutusData instance.
+    /// - Throws: CardanoCoreError if the deserialization fails.
+    public class func fromPrimitive(_ value: CBORTag) throws -> Self {
+        if value.tag == 102 {
+            guard let valueArray = value.value.arrayValue,
+                valueArray.count == 2,
+                let tag = valueArray[0].uintValue
+            else {
+                throw CardanoCoreError.deserializeError(
+                    "Invalid CBORTag format for PlutusData. Expected array of length 2 with integer tag."
+                )
+            }
+
+            if tag != Self.CONSTR_ID {
+                throw CardanoCoreError.decodingError(
+                    "Unexpected constructor ID for \(Self.self). Expect \(Self.CONSTR_ID), got \(tag) instead."
+                )
+            }
+
+            guard let fields = valueArray[1].arrayValue else {
+                throw CardanoCoreError.deserializeError("Expected array of fields.")
+            }
+
+            return try Self(
+                fields: fields.map {
+                    $0.unwrapped! as Any
+                })
+        } else {
+            let expectedTag = getTag(constrID: Self.CONSTR_ID)
+
+            if expectedTag != Int(value.tag) {
+                throw CardanoCoreError.decodingError(
+                    "Unexpected constructor ID for \(Self.self). Expect \(expectedTag ?? -1), got \(value.tag) instead."
+                )
+            }
+
+            guard let fields = value.value.arrayValue else {
+                throw CardanoCoreError.deserializeError("Expected array of fields.")
+            }
+
+            return try Self(
+                fields: fields.map {
+                    $0.unwrapped! as! any Codable
+                })
+        }
+    }
 }
 
-public enum PlutusData: Codable, Equatable, Hashable {
-    case constr([PlutusData])
-    case map([PlutusData: PlutusData])
-    case array([PlutusData])
-    case bigInt(BigInt)
-    case boundedBytes(Data)
-}
-
-//public struct PlutusData: PlutusDataProtocol {
-//    var properties: [String : PotentCodables.AnyValue]
-//
-//    /// Constructor ID of this plutus data.
-//    /// It is primarily used by Plutus core to reconstruct a data structure from serialized CBOR bytes.
-//    /// The default implementation is an almost unique, deterministic constructor ID in the range 1 - 2^32 based
-//    /// on class attributes, types and class name.
-//    static var CONSTR_ID: Any {
-//        let k = "_CONSTR_ID_\(String(describing: self))"
-//        
-//        _ = Mirror(reflecting: self)
-//        if !hasAttribute(self, propertyName: k) {
-//            let detString = try! idMap(cls: self, skipConstructor: true)
-//            let detHash = SHA256.hash(data: Data(detString.utf8)).map { String(format: "%02x", $0) }.joined()
-//            let _ = setAttribute(self, propertyName: k, value: Int(detHash, radix: 16)! % (1 << 32))
-//        }
-//        
-//        return getAttribute(self, propertyName: k)!
-//    }
+//public enum PlutusData: Codable, Equatable, Hashable {
+//    case constr([PlutusData])
+//    case map([PlutusData: PlutusData])
+//    case array([PlutusData])
+//    case bigInt(BigInt)
+//    case boundedBytes(Data)
 //}
 
-
 // MARK: - Unit
-/// The default "Unit type" with a 0 constructor ID
-public struct Unit: PlutusDataProtocol {
-    public var properties: [String : PotentCodables.AnyValue]
 
-    public static var CONSTR_ID: Any { return 0 }
-    
-    public init(properties: [String : PotentCodables.AnyValue]) {
-        self.properties = properties
+/// The default "Unit type" with a 0 constructor ID
+public final class Unit: PlutusData {
+    override public class var CONSTR_ID: Int { return 0 }
+
+    public required init() {
+        try! super.init(fields: [])
+    }
+
+    public required init(fields: [Any]) throws {
+        try super.init(fields: fields)
     }
 }

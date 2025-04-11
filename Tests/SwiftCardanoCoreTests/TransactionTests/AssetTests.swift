@@ -15,10 +15,13 @@ struct AssetNameTests {
     
     @Test("Asset initialization from primitive")
     func testInitializationFromPrimitive() throws {
-        let assetName = AssetName(from: "MY_NFT_1")
+        let assetName1 = AssetName(from: "MY_NFT_1")
+        let assetName2 = AssetName(from: "MY_NFT_1".data(using: .utf8)!.toHex)
         
-        #expect(assetName != nil)
-        #expect(assetName.description == "AssetName(MY_NFT_1)")
+        #expect(assetName1 != nil)
+        #expect(assetName1.description == "AssetName(MY_NFT_1)")
+        #expect(assetName2 != nil)
+        #expect(assetName2.description == "AssetName(MY_NFT_1)")
     }
 }
 

@@ -1,6 +1,7 @@
 import Foundation
 import CryptoKit
 import PotentCBOR
+import PotentCodables
 
 /// Redeemer tag, which indicates the type of redeemer.
 public enum RedeemerTag: Int, CBORSerializable {
@@ -13,23 +14,27 @@ public enum RedeemerTag: Int, CBORSerializable {
 }
 
 
-public struct Redeemer: CBORSerializable, Equatable, Hashable {
-
+public class Redeemer: CBORSerializable, Equatable, Hashable {
     public var tag: RedeemerTag?
     public var index: Int = 0
-    public var data: PlutusData
+    public var data: AnyValue
     public var exUnits: ExecutionUnits?
 
-    public init(data: PlutusData, exUnits: ExecutionUnits?) {
+    public init(tag: RedeemerTag? = nil,
+                index: Int = 0,
+                data: AnyValue,
+                exUnits: ExecutionUnits? = nil) {
+        self.tag = tag
+        self.index = index
         self.data = data
         self.exUnits = exUnits
     }
     
-    public init(from decoder: Decoder) throws {
+    required public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         tag = try container.decode(RedeemerTag.self)
         index = try container.decode(Int.self)
-        data = try container.decode(PlutusData.self)
+        data = try container.decode(AnyValue.self)
         exUnits = try container.decode(ExecutionUnits.self)
     }
 
@@ -39,6 +44,20 @@ public struct Redeemer: CBORSerializable, Equatable, Hashable {
         try container.encode(index)
         try container.encode(data)
         try container.encode(exUnits)
+    }
+    
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(tag)
+        hasher.combine(index)
+        hasher.combine(data)
+        hasher.combine(exUnits)
+    }
+    
+    public static func == (lhs: Redeemer, rhs: Redeemer) -> Bool {
+        return lhs.tag == rhs.tag &&
+            lhs.index == rhs.index &&
+            lhs.data == rhs.data &&
+            lhs.exUnits == rhs.exUnits
     }
 }
 
@@ -72,17 +91,17 @@ public struct RedeemerKey: CBORSerializable, Equatable, Hashable {
 
 /// Represents the value of a Redeemer, including data and execution units.
 public struct RedeemerValue: CBORSerializable, Equatable, Hashable {
-    public var data: PlutusData
+    public var data: AnyValue
     public var exUnits: ExecutionUnits
 
-    public init(data: PlutusData, exUnits: ExecutionUnits) {
+    public init(data: AnyValue, exUnits: ExecutionUnits) {
         self.data = data
         self.exUnits = exUnits
     }
 
     public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
-        data = try container.decode(PlutusData.self)
+        data = try container.decode(AnyValue.self)
         exUnits = try container.decode(ExecutionUnits.self)
     }
 

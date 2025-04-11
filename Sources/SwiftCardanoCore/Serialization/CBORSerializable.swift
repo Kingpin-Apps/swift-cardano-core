@@ -1,7 +1,7 @@
 import Foundation
 import PotentCBOR
 
-public protocol CBORSerializable: Codable {
+public protocol CBORSerializable: Codable, Hashable {
     func toCBOR() throws -> Data
     func toCBORHex() throws -> String
     static func fromCBOR(data: Data) throws -> Self
@@ -9,7 +9,9 @@ public protocol CBORSerializable: Codable {
 
 extension CBORSerializable {
     public func toCBOR() throws -> Data {
-        return try CBOREncoder().encode(self)
+        let cborEncoder = CBOREncoder()
+        cborEncoder.deterministic = true
+        return try cborEncoder.encode(self)
     }
     
     public func toCBORHex() throws -> String {

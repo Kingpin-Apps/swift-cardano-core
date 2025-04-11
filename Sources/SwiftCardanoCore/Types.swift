@@ -15,41 +15,31 @@ public typealias EpochInterval = UInt32
 public typealias EpochNumber = UInt64
 
 // MARK: - PositiveCoin
-public struct PositiveCoin: Codable, Equatable, Hashable {
+public struct PositiveCoin: CBORSerializable, Equatable, Hashable {
     public let value: UInt
-    
+
     public init(_ value: UInt) {
         precondition(value > 0, "PositiveCoin must be greater than 0")
         self.value = value
     }
 }
 
-// MARK: - NonEmptySet
-public struct NonEmptySet<Element> {
-    public var elements: [Element]
-    
-    public init(elements: [Element]) {
-        precondition(!elements.isEmpty, "NonEmptySet must contain at least one element")
-        self.elements = elements
-    }
-}
-
 // MARK: - ExUnitPrices
-public struct ExUnitPrices: Codable, Hashable, Equatable {
+public struct ExUnitPrices: CBORSerializable, Hashable, Equatable {
     public var memPrice: NonNegativeInterval
     public var stepPrice: NonNegativeInterval
-    
+
     public init(memPrice: NonNegativeInterval, stepPrice: NonNegativeInterval) {
         self.memPrice = memPrice
         self.stepPrice = stepPrice
     }
-    
+
     public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         memPrice = try container.decode(NonNegativeInterval.self)
         stepPrice = try container.decode(NonNegativeInterval.self)
     }
-    
+
     public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(memPrice)
@@ -58,21 +48,21 @@ public struct ExUnitPrices: Codable, Hashable, Equatable {
 }
 
 // MARK: - ExUnits
-public struct ExUnits: Codable, Hashable, Equatable {
+public struct ExUnits: CBORSerializable, Hashable, Equatable {
     public var mem: UInt
     public var steps: UInt
-    
+
     public init(mem: UInt, steps: UInt) {
         self.mem = mem
         self.steps = steps
     }
-    
+
     public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         mem = try container.decode(UInt.self)
         steps = try container.decode(UInt.self)
     }
-    
+
     public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(mem)
@@ -81,21 +71,21 @@ public struct ExUnits: Codable, Hashable, Equatable {
 }
 
 // MARK: - ProtocolVersion
-public struct ProtocolVersion: Codable, Hashable, Equatable {
+public struct ProtocolVersion: CBORSerializable, Hashable, Equatable {
     public var major: Int?
     public var minor: Int?
-    
+
     public init(major: Int, minor: Int) {
         self.major = major
         self.minor = minor
     }
-    
+
     public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         major = try container.decode(Int.self)
         minor = try container.decode(Int.self)
     }
-    
+
     public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(major)
@@ -104,22 +94,23 @@ public struct ProtocolVersion: Codable, Hashable, Equatable {
 }
 
 // MARK: - NonNegativeInterval
-public struct NonNegativeInterval: Codable, Hashable, Equatable {
+public struct NonNegativeInterval: CBORSerializable, Hashable, Equatable {
     public var lowerBound: UInt
     public var upperBound: UInt64
-    
+
     public init(lowerBound: UInt, upperBound: UInt64) {
-        precondition(lowerBound <= upperBound, "Lower bound must be less than or equal to upper bound")
+        precondition(
+            lowerBound <= upperBound, "Lower bound must be less than or equal to upper bound")
         self.lowerBound = lowerBound
         self.upperBound = upperBound
     }
-    
+
     public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         lowerBound = try container.decode(UInt.self)
         upperBound = try container.decode(UInt64.self)
     }
-    
+
     public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(lowerBound)
@@ -129,101 +120,104 @@ public struct NonNegativeInterval: Codable, Hashable, Equatable {
 
 // MARK: - UnitInterval
 /// A unit interval is a number in the range between 0 and 1
-public struct UnitInterval: Codable, Equatable, Hashable {
+public struct UnitInterval: CBORSerializable, Equatable, Hashable {
     public let numerator: UInt
     public let denominator: UInt
-    
+
     public static let tag = 30
-    
+
     public init(numerator: UInt, denominator: UInt) {
-        precondition(numerator <= denominator, "Numerator must be less than or equal to denominator")
+        precondition(
+            numerator <= denominator, "Numerator must be less than or equal to denominator")
         precondition(denominator > 0, "Denominator must be greater than zero")
         self.numerator = numerator
         self.denominator = denominator
     }
-    
+
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
-        
+
         let cborData = try container.decode(CBOR.self)
-        
+
         if case let .tagged(tag, cborData) = cborData {
             guard tag.rawValue == UInt64(UnitInterval.tag) else {
-                throw CardanoCoreError.valueError("UnitInterval must be tagged with tag \(UnitInterval.tag)")
+                throw CardanoCoreError.valueError(
+                    "UnitInterval must be tagged with tag \(UnitInterval.tag)")
             }
-            
+
             switch cborData {
-                case .array(let arrayData):
-                    guard arrayData.count == 2 else {
-                        throw CardanoCoreError.valueError("UnitInterval must contain exactly 2 elements")
-                    }
-                    self.init(
-                        numerator: arrayData[0].integerValue()!,
-                        denominator: arrayData[1].integerValue()!
-                    )
-                default:
-                    throw CardanoCoreError.valueError("UnitInterval must be an array")
+            case .array(let arrayData):
+                guard arrayData.count == 2 else {
+                    throw CardanoCoreError.valueError(
+                        "UnitInterval must contain exactly 2 elements")
+                }
+                self.init(
+                    numerator: arrayData[0].integerValue()!,
+                    denominator: arrayData[1].integerValue()!
+                )
+            default:
+                throw CardanoCoreError.valueError("UnitInterval must be an array")
             }
         } else {
             throw CardanoCoreError.valueError("UnitInterval must be tagged")
         }
     }
-    
+
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
-        
+
         let cborData: CBOR = .tagged(
             CBOR.Tag(rawValue: UInt64(UnitInterval.tag)),
             [
                 .unsignedInt(UInt64(numerator)),
-                .unsignedInt(UInt64(denominator))
+                .unsignedInt(UInt64(denominator)),
             ]
         )
-        
+
         try container.encode(cborData)
     }
 }
 
 // MARK: - Url
-public struct Url: Codable, Hashable {
+public struct Url: CBORSerializable, Hashable {
     public let value: URL
-    
+
     public var absoluteString: String {
         return value.absoluteString
     }
-    
+
     public init(_ value: String) throws {
         guard value.count <= 128 else {
             throw CardanoCoreError.valueError("URL exceeds the maximum length of 128 characters.")
         }
-        
+
         guard let url = URL(string: value) else {
             throw CardanoCoreError.valueError("Invalid URL format: \(value)")
         }
-        
+
         self.value = url
     }
 }
 
 // MARK: - Anchor
-public struct Anchor: Codable, Hashable {
+public struct Anchor: CBORSerializable, Hashable {
     public let anchorUrl: Url
     public let anchorDataHash: AnchorDataHash
-    
+
     public init(anchorUrl: Url, anchorDataHash: AnchorDataHash) {
         self.anchorUrl = anchorUrl
         self.anchorDataHash = anchorDataHash
     }
-    
+
     public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         let url = try container.decode(String.self)
         let dataHash = try container.decode(Data.self)
-        
+
         self.anchorUrl = try Url(url)
-        self.anchorDataHash =  AnchorDataHash(payload: dataHash)
+        self.anchorDataHash = AnchorDataHash(payload: dataHash)
     }
-    
+
     public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(anchorUrl.value.absoluteString)
@@ -232,22 +226,22 @@ public struct Anchor: Codable, Hashable {
 }
 
 // MARK: - CBOR Tag
-public protocol CBORTaggable: Codable, Equatable, Hashable {
+public protocol CBORTaggable: CBORSerializable, Equatable, Hashable {
     var tag: UInt64 { get }
     var value: AnyValue { get set }
-    
+
     init(tag: UInt64, value: AnyValue) throws
 }
 
 extension CBORTaggable {
-    public func toCBOR() -> CBOR {
+    public func taggedCBOR() -> CBOR {
         let cborData = try! CBOREncoder().encode(value).toCBOR
         return .tagged(
             CBOR.Tag(rawValue: tag),
             cborData
         )
     }
-    
+
     public func fromCBOR(_ cbor: CBOR) throws -> Self {
         guard case let .tagged(tag, value) = cbor else {
             throw CardanoCoreError.valueError("CBOR value is not tagged")
@@ -257,11 +251,11 @@ extension CBORTaggable {
             value: try AnyValue.wrapped(value.unwrapped)
         )
     }
-    
+
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let cborData = try container.decode(CBOR.self)
-        
+
         if case let .tagged(tag, cborData) = cborData {
             let tag = tag.rawValue
             let value = try AnyValue.wrapped(cborData.unwrapped)
@@ -270,21 +264,17 @@ extension CBORTaggable {
             throw CardanoCoreError.valueError("CBORTag must be tagged")
         }
     }
-    
+
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
-        try container.encode(toCBOR())
-    }
-    
-    public static func == (lhs: any CBORTaggable, rhs: any CBORTaggable) -> Bool {
-        return lhs.tag == rhs.tag && lhs.value == rhs.value
+        try container.encode(taggedCBOR())
     }
 }
 
 public struct CBORTag: CBORTaggable {
     public var tag: UInt64
     public var value: AnyValue
-    
+
     public init(tag: UInt64, value: AnyValue) {
         self.tag = tag
         self.value = value
@@ -292,7 +282,7 @@ public struct CBORTag: CBORTaggable {
 }
 
 // MARK: - ByteString
-public struct ByteString: Hashable {
+public struct ByteString: CBORSerializable, Hashable {
     public let value: Data
 
     public init(value: Data) {
@@ -318,61 +308,99 @@ public struct ByteString: Hashable {
     }
 }
 
-// MARK: - IndefiniteList
-public struct IndefiniteList<T>: Codable, Hashable, Equatable where T: Hashable, T:Codable {
-    private var items: [T]
+public struct RawBytesTransformer: ValueEncodingTransformer {
+    public typealias Source = Data
+    public typealias Target = Data
     
+    public func encode(_ value: Data) throws -> Data {
+        return value
+    }
+
+}
+
+// MARK: - IndefiniteList
+public struct IndefiniteList<T>: CBORSerializable, Hashable, Equatable where T: Hashable {
+    private var items: [T]
+
     public init(_ items: [T] = []) {
         self.items = items
     }
-    
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let cborData = try container.decode(CBOR.self)
+
+        switch cborData {
+        case .array(let arrayData):
+            self.items = arrayData.map { $0.unwrapped as! T }
+        default:
+            throw CardanoCoreError.valueError("IndefiniteList must be an array")
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        
+        let indefiniteArray: CBOR = .indefiniteArray(items.map { CBOR.fromAny($0) })
+
+        try container.encode(indefiniteArray)
+    }
+
+    public subscript(index: Int) -> T {
+        get {
+            return items[index]
+        }
+        set {
+            items[index] = newValue
+        }
+    }
+
     // Adds an item to the list
     public mutating func add(_ item: T) {
         items.append(item)
     }
-    
+
     // Returns the item at the specified index, or nil if out of bounds
     public func get(at index: Int) -> T? {
         guard index < items.count else { return nil }
         return items[index]
     }
-    
+
     // Returns the entire list
     public func getAll() -> [T] {
         return items
     }
-    
+
     // Removes the item at the specified index
     public mutating func remove(at index: Int) {
         guard index < items.count else { return }
         items.remove(at: index)
     }
-    
+
     // Returns the count of items in the list
     public var count: Int {
         return items.count
     }
-    
+
     // Checks if the list is empty
     public var isEmpty: Bool {
         return items.isEmpty
     }
-    
+
     // Custom string description for easy debugging
     public var description: String {
         return "IndefiniteList: \(items)"
     }
-    
+
     public static func == (lhs: IndefiniteList<T>, rhs: IndefiniteList<T>) -> Bool {
         return lhs.items == rhs.items
     }
 }
 
-
 // Generic wrapper for CBOR-tagged sets (tag 258)
 public protocol SetTaggable<Element>: CBORTaggable {
-    associatedtype Element: Codable & Hashable
-    
+    associatedtype Element: CBORSerializable & Hashable
+
     var elements: Set<Element> { get set }
 }
 
@@ -392,9 +420,9 @@ extension SetTaggable {
             }
         }
     }
-    
+
     public static var TAG: UInt64 { 258 }
-    
+
     public var count: Int { return elements.count }
 
     public init(from decoder: Decoder) throws {
@@ -402,8 +430,9 @@ extension SetTaggable {
         let cborData = try container.decode(CBOR.self)
 
         if case let .tagged(tag, value) = cborData {
-            guard tag.rawValue == Self.TAG  else {
-                throw CardanoCoreError.valueError("Invalid CBOR tag: expected \(Self.TAG ) but found \(tag.rawValue)")
+            guard tag.rawValue == Self.TAG else {
+                throw CardanoCoreError.valueError(
+                    "Invalid CBOR tag: expected \(Self.TAG ) but found \(tag.rawValue)")
             }
 
             guard case let .array(arrayData) = value else {
@@ -412,7 +441,7 @@ extension SetTaggable {
 
             let decodedElements = try arrayData.map {
                 let data = try CBORSerialization.data(from: $0)
-                let element =  try CBORDecoder().decode(
+                let element = try CBORDecoder().decode(
                     Element.self,
                     from: data
                 )
@@ -435,14 +464,15 @@ extension SetTaggable {
             let elements = Set(decodedElements)
             try self.init(
                 tag: Self.TAG,
-                value: AnyValue
+                value:
+                    AnyValue
                     .array(elements.map { try! AnyValue.wrapped($0) })
             )
-        }  else {
+        } else {
             throw CardanoCoreError.valueError("Invalid CBOR format for SetWrapper")
         }
     }
-    
+
     public func contains(_ element: Element) -> Bool {
         return elements.contains(element)
     }
@@ -451,25 +481,28 @@ extension SetTaggable {
 public struct CBORSet<T: CBORSerializable & Hashable>: SetTaggable {
     public typealias Element = T
     public var elements: Set<Element> = Set()
-    
+
     public init(tag: UInt64 = 258, value: AnyValue) {
         guard tag == Self.TAG else {
             fatalError("Invalid CBOR tag: expected \(Self.TAG) but found \(tag)")
         }
         self.value = value
-        self.elements = Set(value.arrayValue!.map {
-            try! AnyValue.Decoder.default.decode(Element.self, from: $0)
-//            try! CBOR.Decoder.default.decode(Element.self, from: $0)
-        })
+        self.elements = Set(
+            value.arrayValue!.map {
+                try! AnyValue.Decoder.default.decode(Element.self, from: $0)
+                //            try! CBOR.Decoder.default.decode(Element.self, from: $0)
+            })
     }
-    
+
     public init(_ elements: Set<Element>) {
         self.init(
             tag: Self.TAG,
-            value: AnyValue
-                .array(elements.map {
-                    try! AnyValue.Encoder.default.encode($0)
-                })
+            value:
+                AnyValue
+                .array(
+                    elements.map {
+                        try! AnyValue.Encoder.default.encode($0)
+                    })
         )
         self.elements = elements
     }
@@ -478,7 +511,7 @@ public struct CBORSet<T: CBORSerializable & Hashable>: SetTaggable {
 public struct NonEmptyCBORSet<T: CBORSerializable & Hashable>: SetTaggable {
     public typealias Element = T
     public var elements: Set<Element> = Set()
-    
+
     public init(_ elements: [Element]) {
         precondition(!elements.isEmpty, "NonEmptyCBORSet must contain at least one element")
         self.elements = Set(elements)
@@ -493,9 +526,10 @@ public struct NonEmptyCBORSet<T: CBORSerializable & Hashable>: SetTaggable {
             fatalError("Invalid CBOR tag: expected \(Self.TAG) but found \(tag)")
         }
         self.value = value
-        self.elements = Set(value.arrayValue!.map {
-            try! CBOR.Decoder.default.decode(Element.self, from: $0.unwrapped as! Data)
-        })
+        self.elements = Set(
+            value.arrayValue!.map {
+                try! CBOR.Decoder.default.decode(Element.self, from: $0.unwrapped as! Data)
+            })
     }
 
     public init(from decoder: Decoder) throws {
@@ -504,31 +538,34 @@ public struct NonEmptyCBORSet<T: CBORSerializable & Hashable>: SetTaggable {
 
         if case let .tagged(tag, value) = cborData {
             guard tag.rawValue == Self.TAG else {
-                throw CardanoCoreError.valueError("Invalid CBOR tag: expected 258 but found \(tag.rawValue)")
+                throw CardanoCoreError.valueError(
+                    "Invalid CBOR tag: expected 258 but found \(tag.rawValue)")
             }
 
             guard case let .array(arrayData) = value, !arrayData.isEmpty else {
                 throw CardanoCoreError.valueError("NonEmptySet must contain at least one element")
             }
-            
+
             let decodedElements = arrayData.map {
                 $0.unwrapped
             }
-            
+
             self.init(
                 tag: Self.TAG,
-                value: AnyValue
+                value:
+                    AnyValue
                     .array(decodedElements.map { try! AnyValue.wrapped($0) })
             )
         } else if case let .array(arrayData) = cborData, !arrayData.isEmpty {
             let decodedElements = try arrayData.map {
                 try CBOR.Decoder.default.decode(Element.self, from: $0.unwrapped as! Data)
             }
-            
+
             let elements = Set(decodedElements)
             self.init(
                 tag: Self.TAG,
-                value: AnyValue
+                value:
+                    AnyValue
                     .array(elements.map { try! AnyValue.wrapped($0) })
             )
         } else {
@@ -537,13 +574,13 @@ public struct NonEmptyCBORSet<T: CBORSerializable & Hashable>: SetTaggable {
     }
 }
 
-public struct NonEmptyOrderedCBORSet<T: CBORSerializable & Hashable>: SetTaggable  {
+public struct NonEmptyOrderedCBORSet<T: CBORSerializable & Hashable>: SetTaggable {
     public typealias Element = T
     public var elements: Set<Element> = Set()
     public var elementsOrdered: [Element] {
         Array(Set(elements))
     }
-    
+
     public init(tag: UInt64 = Self.TAG, value: AnyValue) {
         precondition(
             (value.isEmpty == nil) || (value.isEmpty == false),
@@ -553,9 +590,10 @@ public struct NonEmptyOrderedCBORSet<T: CBORSerializable & Hashable>: SetTaggabl
             fatalError("Invalid CBOR tag: expected \(Self.TAG) but found \(tag)")
         }
         self.value = value
-        self.elements = Set(value.arrayValue!.map {
-            try! AnyValue.Decoder.default.decode(Element.self, from: $0)
-        })
+        self.elements = Set(
+            value.arrayValue!.map {
+                try! AnyValue.Decoder.default.decode(Element.self, from: $0)
+            })
     }
 
     public init(_ elements: [Element]) {
@@ -569,20 +607,23 @@ public struct NonEmptyOrderedCBORSet<T: CBORSerializable & Hashable>: SetTaggabl
 
         if case let .tagged(tag, value) = cborData {
             guard tag.rawValue == Self.TAG else {
-                throw CardanoCoreError.valueError("Invalid CBOR tag: expected \(Self.TAG) but found \(tag.rawValue)")
+                throw CardanoCoreError.valueError(
+                    "Invalid CBOR tag: expected \(Self.TAG) but found \(tag.rawValue)")
             }
 
             guard case let .array(arrayData) = value, !arrayData.isEmpty else {
-                throw CardanoCoreError.valueError("NonEmptyOrderedSet must contain at least one element")
+                throw CardanoCoreError.valueError(
+                    "NonEmptyOrderedSet must contain at least one element")
             }
 
             let decodedElements = arrayData.map {
                 $0.unwrapped
             }
-            
+
             self.init(
                 tag: Self.TAG,
-                value: AnyValue
+                value:
+                    AnyValue
                     .array(decodedElements.map { try! AnyValue.wrapped($0) })
             )
         } else if case let .array(arrayData) = cborData, !arrayData.isEmpty {
@@ -592,7 +633,8 @@ public struct NonEmptyOrderedCBORSet<T: CBORSerializable & Hashable>: SetTaggabl
             let elements = Array(Set(decodedElements))
             self.init(
                 tag: Self.TAG,
-                value: AnyValue
+                value:
+                    AnyValue
                     .array(elements.map { try! AnyValue.wrapped($0) })
             )
         } else {
@@ -601,9 +643,8 @@ public struct NonEmptyOrderedCBORSet<T: CBORSerializable & Hashable>: SetTaggabl
     }
 }
 
-
 // MARK: - Era Enum
-public enum Era: String, Codable, Equatable {
+public enum Era: String, CBORSerializable, Equatable {
     case byron
     case shelley
     case allegra
@@ -611,4 +652,13 @@ public enum Era: String, Codable, Equatable {
     case alonzo
     case babbage
     case conway
+}
+
+public struct HashableKey<T: CBORSerializable & Hashable>: CBORSerializable, Equatable {
+    public typealias Element = T
+    public var value: Element
+
+    public init(_ value: Element) {
+        self.value = value
+    }
 }

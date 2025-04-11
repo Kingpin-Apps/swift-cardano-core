@@ -1,7 +1,24 @@
 import Foundation
 
+public let ALONZO_COINS_PER_UTXO_WORD = 34482
+
 public struct ProtocolParameters: JSONLoadable {
     public let collateralPercentage: Int
+    
+    private var _coinsPerUtxoWord: Int?
+    public var coinsPerUtxoWord: Int {
+        get {
+            if let coinsPerUtxoWord = _coinsPerUtxoWord {
+                return coinsPerUtxoWord
+            } else {
+                return ALONZO_COINS_PER_UTXO_WORD
+            }
+        }
+        set {
+            _coinsPerUtxoWord = newValue
+        }
+    }
+        
     public let committeeMaxTermLength: Int
     public let committeeMinSize: Int
     public let costModels: ProtocolParametersCostModels
@@ -36,6 +53,7 @@ public struct ProtocolParameters: JSONLoadable {
     public let utxoCostPerByte: Int
     
     public init(collateralPercentage: Int,
+                coinsPerUtxoWord: Int? = nil,
                 committeeMaxTermLength: Int,
                 committeeMinSize: Int,
                 costModels: ProtocolParametersCostModels,
@@ -70,6 +88,7 @@ public struct ProtocolParameters: JSONLoadable {
                 utxoCostPerByte: Int
     ) {
         self.collateralPercentage = collateralPercentage
+        self._coinsPerUtxoWord = coinsPerUtxoWord
         self.committeeMaxTermLength = committeeMaxTermLength
         self.committeeMinSize = committeeMinSize
         self.costModels = costModels

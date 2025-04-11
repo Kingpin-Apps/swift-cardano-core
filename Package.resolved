@@ -1,5 +1,5 @@
 {
-  "originHash" : "299f04fa89d049bf3347515a8820a29429f0a3095c6a9e3095672361a4400a7a",
+  "originHash" : "90420310adb8ad5a38ee69c67b10b91fc7d86a877d4b839b4aa623d8093b1027",
   "pins" : [
     {
       "identity" : "base32",
@@ -58,9 +58,9 @@
     {
       "identity" : "potentcodables",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/zunda-pixel/PotentCodables.git",
+      "location" : "https://github.com/KINGH242/PotentCodables.git",
       "state" : {
-        "revision" : "46b99b90b1538c0d682596dde9aa88f3cd339502"
+        "revision" : "5fc0820266db3b912db3f9db41aabe812d2fe0b9"
       }
     },
     {

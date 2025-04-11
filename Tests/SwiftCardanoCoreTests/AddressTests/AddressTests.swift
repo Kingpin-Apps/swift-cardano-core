@@ -42,7 +42,6 @@ struct AddressTests {
             let cborData = try CBOREncoder().encode(address)
             let decodedAddress = try CBORDecoder().decode(Address.self, from: cborData)
             
-            #expect(address != nil)
             #expect(address.addressType == addressType)
             #expect(address == decodedAddress)
         }
@@ -60,7 +59,6 @@ struct AddressTests {
         let data = "addr_test1vr2p8st5t5cxqglyjky7vk98k7jtfhdpvhl4e97cezuhn0cqcexl7"
         let address = try Address.fromBech32(data)
         let bech32 = try address.toBech32()
-        #expect(address != nil)
         #expect(bech32 == data)
     }
     
@@ -86,16 +84,14 @@ struct AddressTests {
     @Test func testFromPrimitiveData() async throws {
         let addr = "addr_test1vr2p8st5t5cxqglyjky7vk98k7jtfhdpvhl4e97cezuhn0cqcexl7"
         let address: Address = try Address(from: addr)
-        #expect(address != nil)
-        // Additional assertions can be added based on the actual primitive data
+        #expect(try address.toBech32() == addr)
     }
     
     @Test func testToPrimitiveData() async throws {
         let keyHash = VerificationKeyHash(payload: Data(repeating: 0, count: VERIFICATION_KEY_HASH_SIZE))
         let address = try Address(paymentPart: .verificationKeyHash(keyHash), stakingPart: .verificationKeyHash(keyHash), network: .mainnet)
         let primitiveData = address.toBytes()
-        #expect(primitiveData != nil)
-        // Additional assertions can be added based on the actual primitive data
+        #expect(primitiveData.count == 57)
     }
     
     @Test func testPaymentAddress() async throws {

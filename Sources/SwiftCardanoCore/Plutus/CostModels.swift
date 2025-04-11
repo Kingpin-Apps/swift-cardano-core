@@ -36,6 +36,12 @@ public struct CostModels: CBORSerializable, Hashable {
         try container.encodeIfPresent(plutusV3, forKey: .plutusV3)
     }
 
+    public static func forScriptDataHash() throws -> CostModels {
+        return try CostModels([
+            0: PLUTUS_V1_COST_MODEL,
+        ])
+    }
+
     public static func fromStaticData() throws -> CostModels {
         return try CostModels([
             0: PLUTUS_V1_COST_MODEL,
