@@ -1,3 +1,9 @@
+## 0.1.19 (2025-04-10)
+
+### Fix
+
+- handle plutus data serialization
+
 ## 0.1.18 (2025-03-18)
 
 ### Fix
