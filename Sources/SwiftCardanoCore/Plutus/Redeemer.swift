@@ -90,18 +90,18 @@ public struct RedeemerKey: CBORSerializable, Equatable, Hashable {
 }
 
 /// Represents the value of a Redeemer, including data and execution units.
-public struct RedeemerValue: CBORSerializable, Equatable, Hashable {
-    public var data: AnyValue
+public struct RedeemerValue<T: Codable & Hashable>: CBORSerializable, Equatable, Hashable {
+    public var data: T
     public var exUnits: ExecutionUnits
 
-    public init(data: AnyValue, exUnits: ExecutionUnits) {
+    public init(data: T, exUnits: ExecutionUnits) {
         self.data = data
         self.exUnits = exUnits
     }
 
     public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
-        data = try container.decode(AnyValue.self)
+        data = try container.decode(T.self)
         exUnits = try container.decode(ExecutionUnits.self)
     }
 
@@ -113,10 +113,10 @@ public struct RedeemerValue: CBORSerializable, Equatable, Hashable {
 }
 
 /// Represents a mapping of RedeemerKeys to RedeemerValues.
-public typealias RedeemerMap = [RedeemerKey: RedeemerValue]
+public typealias RedeemerMap<T: Codable & Hashable> = [RedeemerKey: RedeemerValue<T>]
 
 /// Redeemers can be a list of Redeemer objects or a map of Redeemer keys to values.
 public enum Redeemers<T: Codable & Hashable>: CBORSerializable, Equatable, Hashable {
     case list([Redeemer<T>])
-    case map(RedeemerMap)
+    case map(RedeemerMap<T>)
 }
