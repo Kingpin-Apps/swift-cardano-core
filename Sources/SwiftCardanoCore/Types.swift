@@ -331,10 +331,12 @@ public struct IndefiniteList<T>: CBORSerializable, Hashable, Equatable where T: 
         let cborData = try container.decode(CBOR.self)
 
         switch cborData {
-        case .array(let arrayData):
-            self.items = arrayData.map { $0.unwrapped as! T }
-        default:
-            throw CardanoCoreError.valueError("IndefiniteList must be an array")
+            case .array(let arrayData):
+                self.items = arrayData.map { $0.unwrapped as! T }
+            case .indefiniteArray(let arrayData):
+                self.items = arrayData.map { $0.unwrapped as! T }
+            default:
+                throw CardanoCoreError.valueError("IndefiniteList must be an array")
         }
     }
 
@@ -391,9 +393,37 @@ public struct IndefiniteList<T>: CBORSerializable, Hashable, Equatable where T: 
     public var description: String {
         return "IndefiniteList: \(items)"
     }
+    
+    public func map<U>(_ transform: (T) throws -> U) rethrows -> [U] {
+        return try items.map(transform)
+    }
 
     public static func == (lhs: IndefiniteList<T>, rhs: IndefiniteList<T>) -> Bool {
         return lhs.items == rhs.items
+    }
+}
+
+extension IndefiniteList: RandomAccessCollection, CustomReflectable {
+    public typealias Index = Int
+    public typealias Element = T
+
+    public var startIndex: Index { items.startIndex }
+    public var endIndex: Index { items.endIndex }
+
+    public func index(after i: Index) -> Index {
+        items.index(after: i)
+    }
+
+    public func index(before i: Index) -> Index {
+        items.index(before: i)
+    }
+
+    public var customMirror: Mirror {
+        Mirror(
+                self,
+                children: items.enumerated().map { (label: Optional("\($0.offset)"), value: $0.element as Any) },
+                displayStyle: .collection
+            )
     }
 }
 

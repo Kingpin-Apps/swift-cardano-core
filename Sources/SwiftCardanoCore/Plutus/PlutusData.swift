@@ -36,6 +36,7 @@ open class PlutusData: CBORSerializable, Hashable, Codable, Equatable {
             PlutusData.self,
             Dictionary<AnyValue, AnyValue>.self,
             OrderedDictionary<AnyValue, AnyValue>.self,
+            IndefiniteList<AnyValue>.self,
             Array<AnyValue>.self,
             Int.self,
             ByteString.self,
@@ -120,6 +121,8 @@ open class PlutusData: CBORSerializable, Hashable, Codable, Equatable {
         let primitives = try mirror.children.map { field -> AnyValue in
             if let plutusData = field.value as? PlutusData {
                 return try AnyValue.Encoder().encode(plutusData.toShallowPrimitive().toCBOR())
+            } else if let list = field.value as? IndefiniteList<AnyValue> {
+                return try AnyValue.indefiniteArray( list.map { try AnyValue.wrapped($0) })
             } else if let codable = field.value as? Codable {
                 return try AnyValue.Encoder().encode(codable)
             } else if let dict = field.value as? [AnyValue: AnyValue] {
@@ -170,15 +173,38 @@ open class PlutusData: CBORSerializable, Hashable, Codable, Equatable {
 
         let mirror = Mirror(reflecting: self)
 
-        let primitives = try mirror.children.map { field -> AnyHashable in
+        var primitives: [AnyHashable] = []
 
-            if let plutusData = field.value as? PlutusData {
-                return try plutusData.toShallowPrimitive()
+        for field in mirror.children {
+            
+            if field.label == "fields" {
+                if let array = field.value as? [Any] {
+                    for item in array {
+                        if let plutusData = item as? PlutusData {
+                            primitives.append(try plutusData.toShallowPrimitive())
+                        }  else if let int = item as? Int {
+                            primitives.append(int)
+                        } else if let hashable = item as? AnyHashable {
+                            primitives.append(hashable)
+                        } else {
+                            primitives.append(try AnyValue.wrapped(item))
+                        }
+                    }
+                } else {
+                    primitives.append(try AnyValue.wrapped(field.value))
+                }
+            } else if let plutusData = field.value as? PlutusData {
+                primitives.append(try plutusData.toShallowPrimitive())
+            } else if let array = field.value as? IndefiniteList<AnyValue> {
+//                primitives.append( AnyValue.indefiniteArray(try array.map { try AnyValue.wrapped($0) }))
+//                primitives.append(try CBOR.Encoder().encode(array))
+                primitives.append(array)
+//                primitives.append(try array.toCBOR().toCBOR)
             } else if let mirror = Mirror(reflecting: field.value).displayStyle,
-                mirror == .dictionary
+                      mirror == .dictionary
             {
                 let orderedDict: OrderedDictionary<AnyHashable, AnyHashable>
-
+                
                 // Handle any type of dictionary by converting it to OrderedDictionary<AnyHashable, AnyHashable>
                 if let dict = field.value as? [AnyHashable: AnyHashable] {
                     orderedDict = OrderedDictionary(
@@ -196,26 +222,28 @@ open class PlutusData: CBORSerializable, Hashable, Codable, Equatable {
                     // For any other dictionary type, we'll convert it to OrderedDictionary<AnyHashable, AnyHashable>
                     let mirror = Mirror(reflecting: field.value)
                     var tempDict = OrderedDictionary<AnyHashable, AnyHashable>()
-
+                    
                     for child in mirror.children {
                         if let value = child.value as? (key: AnyHashable, value: AnyHashable) {
                             tempDict[value.key] = value.value
                         }
                     }
-
+                    
                     orderedDict = tempDict
                 }
-
-                return OrderedDictionary<AnyHashable, AnyHashable>(
+                
+                let toAppend = OrderedDictionary<AnyHashable, AnyHashable>(
                     uniqueKeysWithValues: try orderedDict.map {
-
+                        
                         let key: AnyHashable
                         let value: AnyHashable
-
+                        
                         if let intKey = $0.key as? Int {
                             key = intKey
                         } else if let stringKey = $0.key as? String {
                             key = stringKey
+                        } else if let any = $0.key as? AnyValue {
+                            key = any
                         } else if let encodableKey = $0.key as? Encodable {
                             key = try CBOREncoder().encode(encodableKey)
                         } else {
@@ -223,13 +251,15 @@ open class PlutusData: CBORSerializable, Hashable, Codable, Equatable {
                                 "Invalid key type: \($0.key)"
                             )
                         }
-
+                        
                         if let plutusData = $0.value as? PlutusData {
                             value = try plutusData.toShallowPrimitive()
                         } else if let intValue = $0.value as? Int {
                             value = intValue
                         } else if let stringValue = $0.value as? String {
                             value = stringValue
+                        } else if let any = $0.value as? AnyValue {
+                            value = any
                         } else if let codable = $0.value as? Codable {
                             value = try CBOR.Encoder().encode(codable)
                         } else if let dictValue = $0.value as? [AnyHashable: Any] {
@@ -242,30 +272,52 @@ open class PlutusData: CBORSerializable, Hashable, Codable, Equatable {
                         } else {
                             value = try AnyValue.wrapped($0.value)
                         }
-
+                        
                         return (key, value)
                     }
                 )
-            } else if let array = field.value as? [PlutusData] {
-                return try array.map { try $0.toShallowPrimitive() }
-            }else if let array = field.value as? [Any] {
-                return try array.map { try AnyValue.wrapped($0) }
+                primitives.append(toAppend)
+            }
+            else if isArray(field.value) {
+                
+                var list: [AnyHashable] = []
+                let mir =  Mirror(reflecting: field.value)
+                for child in mir.children {
+                    if let item = child.value as? PlutusData {
+                        list.append(try item.toShallowPrimitive())
+                    } else {
+                        list.append(try AnyValue.wrapped(child.value))
+                    }
+                }
+                primitives.append(list)
+            }
+            else if let array = field.value as? [PlutusData] {
+                primitives.append( try array.map { try $0.toShallowPrimitive() })
+            } else if let array = field.value as? IndefiniteList<PlutusData> {
+                primitives.append( try array.map { try $0.toShallowPrimitive() })
+            } else if let array = field.value as? IndefiniteList<AnyHashable> {
+                primitives.append( try array.map { try AnyValue.wrapped($0) })
+            } else if let array = field.value as? [Any] {
+                primitives.append( try array.map { try AnyValue.wrapped($0) })
             } else if let int = field.value as? Int {
-                return AnyValue.int(int)
+                primitives.append( AnyValue.int(int))
             } else if let int = field.value as? Data {
-                return AnyValue.data(int)
+                primitives.append( AnyValue.data(int))
             } else if let codable = field.value as? Codable {
-                return try CBOR.Encoder().encode(codable).toCBOR
+                primitives.append(try CBOR.Encoder().encode(codable))
             } else if isEnum(field.value), let info = extractEnumInfo((field.value)) {
                 if let codable = info.associatedValue as? Codable {
-                    return try CBOR.Encoder().encode(codable).toCBOR
+                    primitives.append(try CBOR.Encoder().encode(codable).toCBOR)
+                } else if let plutusData = info.associatedValue as? PlutusData {
+                    primitives.append(try plutusData.toShallowPrimitive())
                 } else {
-                    return try AnyValue.wrapped(info.associatedValue).toCBOR().toCBOR
+                    primitives.append(try AnyValue.wrapped(info.associatedValue).toCBOR().toCBOR)
                 }
             } else {
-                return try AnyValue.wrapped(field.value).toCBOR().toCBOR
+                primitives.append(try AnyValue.wrapped(field.value).toCBOR().toCBOR)
             }
         }
+        
         let tag = getTag(constrID: Self.CONSTR_ID)
 
         let toEncode: CBOR
@@ -312,9 +364,9 @@ open class PlutusData: CBORSerializable, Hashable, Codable, Equatable {
             
             if let constructor = dict["constructor"] as? Int {
 
-                guard constructor == self.CONSTR_ID else {
+                guard constructor == Self.self.CONSTR_ID else {
                     throw CardanoCoreError.decodingError(
-                        "Mismatch between constructors in \(self), expect: \(self.CONSTR_ID), got: \(constructor) instead."
+                        "Mismatch between constructors in \(self), expect: \(Self.self.CONSTR_ID), got: \(constructor) instead."
                     )
                 }
 
@@ -409,6 +461,24 @@ open class PlutusData: CBORSerializable, Hashable, Codable, Equatable {
                             } else if let plutusFields = field.value as? [PlutusData] {
                                 let plutusType = type(of: plutusFields.first!)
                                 return try plutusType.init(from: $0 as! [String: Any]).toAnyValue()
+                            } else if isArray(field.value) {
+                                
+                                var list: [AnyHashable] = []
+                                let mir =  Mirror(reflecting: field.value)
+                                for child in mir.children {
+                                    if let item = child.value as? PlutusData {
+                                        let plutusType = type(of: item)
+                                        list.append(try plutusType.init(from: $0 as! [String: Any]).toAnyValue())
+                                    } else {
+                                        list
+                                            .append(
+                                                try decodeValue(
+                                                    obj: child.value
+                                                ) as! AnyHashable
+                                            )
+                                    }
+                                }
+                                return list
                             } else {
                                 return try decodeValue(obj: $0)
                             }
@@ -518,7 +588,6 @@ open class PlutusData: CBORSerializable, Hashable, Codable, Equatable {
             if let anyValue = anyObj as? AnyValue {
                 obj = anyValue.unwrapped!
             }
-            print("Type: \(type(of: obj))")
 
             if let intValue = obj as? Int {
                 return ["int": intValue]
@@ -540,6 +609,9 @@ open class PlutusData: CBORSerializable, Hashable, Codable, Equatable {
                 return ["raw": rawPlutusData.data]
             } else if let rawCBOR = obj as? CBOR {
                 return ["cbor": rawCBOR]
+            } else if isArray(obj) {
+                let mirror =  Mirror(reflecting: obj)
+                return  ["list": try mirror.children.map { try dfs($0.value) }]
             } else if isDictionary(obj) {
                 var result: [[String: Any]] = []
                 
@@ -556,6 +628,8 @@ open class PlutusData: CBORSerializable, Hashable, Codable, Equatable {
             } else if isEnum(obj), let info = extractEnumInfo((obj)) {
                 return  try dfs(info.associatedValue)
             } else if let list = obj as? [Any] {
+                return  ["list": try list.map { try dfs($0) }]
+            } else if let list = obj as? IndefiniteList<AnyValue> {
                 return  ["list": try list.map { try dfs($0) }]
             } else {
                 throw

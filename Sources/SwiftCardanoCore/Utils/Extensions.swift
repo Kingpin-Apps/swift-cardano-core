@@ -79,10 +79,14 @@ extension CBOR {
             return CBOR(intValue)
         } else if let intValue = value as? Int64 {
             return CBOR(intValue)
+        } else if let intValue = value as? UInt64 {
+            return CBOR(intValue)
         } else if let arrayValue = value as? Array {
             return .array(arrayValue.map { CBOR.fromAny($0) })
         } else if let arrayValue = value as? [Any] {
             return .array(arrayValue.map { CBOR.fromAny($0) })
+        }  else if let indefiniteListValue = value as? IndefiniteList<AnyValue> {
+            return .indefiniteArray(indefiniteListValue.map { CBOR.fromAny($0) })
         } else if let boolValue = value as? Bool {
             return .boolean(boolValue)
         } else if let taggedValue = value as? (Tag, CBOR) {

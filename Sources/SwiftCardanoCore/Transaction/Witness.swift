@@ -29,13 +29,13 @@ public struct VerificationKeyWitness: CBORSerializable, Equatable, Hashable {
     }
 }
 
-public struct TransactionWitnessSet: CBORSerializable, Equatable, Hashable {
+public struct TransactionWitnessSet<T: Codable & Hashable>: CBORSerializable, Equatable, Hashable {
     public var vkeyWitnesses: NonEmptyOrderedCBORSet<VerificationKeyWitness>?
     public var nativeScripts: NonEmptyOrderedCBORSet<NativeScript>?
     public var bootstrapWitness: NonEmptyOrderedCBORSet<BootstrapWitness>?
     public var plutusV1Script: NonEmptyOrderedCBORSet<PlutusV1Script>?
     public var plutusData: NonEmptyOrderedCBORSet<RawPlutusData>?
-    public var redeemers: Redeemers?
+    public var redeemers: Redeemers<T>?
     public var plutusV2Script: NonEmptyOrderedCBORSet<PlutusV2Script>?
     public var plutusV3Script: NonEmptyOrderedCBORSet<PlutusV3Script>?
 
@@ -46,7 +46,7 @@ public struct TransactionWitnessSet: CBORSerializable, Equatable, Hashable {
         plutusV1Script: NonEmptyOrderedCBORSet<PlutusV1Script>? = nil,
         plutusV2Script: NonEmptyOrderedCBORSet<PlutusV2Script>? = nil,
         plutusData: NonEmptyOrderedCBORSet<RawPlutusData>? = nil,
-        redeemers: Redeemers? = nil,
+        redeemers: Redeemers<T>? = nil,
         plutusV3Script: NonEmptyOrderedCBORSet<PlutusV3Script>? = nil
     ) {
         self.vkeyWitnesses = vkeyWitnesses

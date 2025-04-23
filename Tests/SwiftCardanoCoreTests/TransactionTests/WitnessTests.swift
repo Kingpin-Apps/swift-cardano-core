@@ -86,7 +86,7 @@ import PotentCBOR
             signature: signature
         )
         
-        let witnessSet = TransactionWitnessSet(
+        let witnessSet = TransactionWitnessSet<Never>(
             vkeyWitnesses: NonEmptyOrderedCBORSet<VerificationKeyWitness>(
                 [vkeyWitness]
             ),
@@ -114,7 +114,7 @@ import PotentCBOR
             signature: signature
         )
         
-        let witnessSet = TransactionWitnessSet(
+        let witnessSet = TransactionWitnessSet<Never>(
             vkeyWitnesses: NonEmptyOrderedCBORSet<VerificationKeyWitness>(
                 [vkeyWitness]
             ),
@@ -127,7 +127,7 @@ import PotentCBOR
         )
         
         let encodedData = try CBOREncoder().encode(witnessSet)
-        let decodedWitnessSet = try CBORDecoder().decode(TransactionWitnessSet.self, from: encodedData)
+        let decodedWitnessSet = try CBORDecoder().decode(TransactionWitnessSet<Never>.self, from: encodedData)
         
         #expect(decodedWitnessSet == witnessSet)
     }

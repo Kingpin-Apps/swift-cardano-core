@@ -14,15 +14,15 @@ public enum RedeemerTag: Int, CBORSerializable {
 }
 
 
-public class Redeemer: CBORSerializable, Equatable, Hashable {
+public class Redeemer<T: Codable & Hashable>: CBORSerializable, Equatable, Hashable {
     public var tag: RedeemerTag?
     public var index: Int = 0
-    public var data: AnyValue
+    public var data: T
     public var exUnits: ExecutionUnits?
 
     public init(tag: RedeemerTag? = nil,
                 index: Int = 0,
-                data: AnyValue,
+                data: T,
                 exUnits: ExecutionUnits? = nil) {
         self.tag = tag
         self.index = index
@@ -34,7 +34,7 @@ public class Redeemer: CBORSerializable, Equatable, Hashable {
         var container = try decoder.unkeyedContainer()
         tag = try container.decode(RedeemerTag.self)
         index = try container.decode(Int.self)
-        data = try container.decode(AnyValue.self)
+        data = try container.decode(T.self)
         exUnits = try container.decode(ExecutionUnits.self)
     }
 
@@ -52,7 +52,7 @@ public class Redeemer: CBORSerializable, Equatable, Hashable {
         hasher.combine(data)
         hasher.combine(exUnits)
     }
-    
+
     public static func == (lhs: Redeemer, rhs: Redeemer) -> Bool {
         return lhs.tag == rhs.tag &&
             lhs.index == rhs.index &&
@@ -116,7 +116,7 @@ public struct RedeemerValue: CBORSerializable, Equatable, Hashable {
 public typealias RedeemerMap = [RedeemerKey: RedeemerValue]
 
 /// Redeemers can be a list of Redeemer objects or a map of Redeemer keys to values.
-public enum Redeemers: CBORSerializable, Equatable, Hashable {
-    case list([Redeemer])
+public enum Redeemers<T: Codable & Hashable>: CBORSerializable, Equatable, Hashable {
+    case list([Redeemer<T>])
     case map(RedeemerMap)
 }

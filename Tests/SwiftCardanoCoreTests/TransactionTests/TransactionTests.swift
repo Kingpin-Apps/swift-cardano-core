@@ -33,7 +33,7 @@ struct TransactionTests {
             signature: signature
         )
 
-        let witnessSet = TransactionWitnessSet(
+        let witnessSet = TransactionWitnessSet<Never>(
             vkeyWitnesses: NonEmptyOrderedCBORSet<VerificationKeyWitness>(
                 [vkeyWitness]
             ),
@@ -74,7 +74,7 @@ struct TransactionTests {
             signature: signature
         )
 
-        let witnessSet = TransactionWitnessSet(
+        let witnessSet = TransactionWitnessSet<Never>(
             vkeyWitnesses: NonEmptyOrderedCBORSet<VerificationKeyWitness>(
                 [vkeyWitness]
             ),
@@ -119,7 +119,7 @@ struct TransactionTests {
             signature: signature
         )
 
-        let witnessSet = TransactionWitnessSet(
+        let witnessSet = TransactionWitnessSet<Never>(
             vkeyWitnesses: NonEmptyOrderedCBORSet<VerificationKeyWitness>(
                 [vkeyWitness]
             ),
@@ -143,7 +143,7 @@ struct TransactionTests {
         )
 
         let encodedData = try originalTransaction.toCBOR()
-        let decodedTransaction = try Transaction.fromCBOR(data: encodedData)
+        let decodedTransaction = try Transaction<Never>.fromCBOR(data: encodedData)
 
         #expect(decodedTransaction == originalTransaction)
         #expect(decodedTransaction.transactionBody == originalTransaction.transactionBody)
@@ -171,7 +171,7 @@ struct TransactionTests {
             signature: signature
         )
 
-        let witnessSet = TransactionWitnessSet(
+        let witnessSet = TransactionWitnessSet<Never>(
             vkeyWitnesses: NonEmptyOrderedCBORSet<VerificationKeyWitness>(
                 [vkeyWitness]
             ),
