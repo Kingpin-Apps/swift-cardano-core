@@ -1,3 +1,9 @@
+## 0.1.20 (2025-04-23)
+
+### Fix
+
+- use generic type for Reedemer data
+
 ## 0.1.19 (2025-04-10)
 
 ### Fix
