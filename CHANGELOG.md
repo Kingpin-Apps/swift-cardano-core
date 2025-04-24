@@ -1,3 +1,9 @@
+## 0.1.23 (2025-04-24)
+
+### Fix
+
+- init cost models from array of ints
+
 ## 0.1.22 (2025-04-24)
 
 ### Fix
