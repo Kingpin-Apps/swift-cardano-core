@@ -2,6 +2,7 @@ import Foundation
 import CryptoKit
 import PotentCBOR
 import PotentCodables
+import OrderedCollections
 
 /// Redeemer tag, which indicates the type of redeemer.
 public enum RedeemerTag: Int, CBORSerializable {
@@ -113,10 +114,126 @@ public struct RedeemerValue<T: Codable & Hashable>: CBORSerializable, Equatable,
 }
 
 /// Represents a mapping of RedeemerKeys to RedeemerValues.
-public typealias RedeemerMap<T: Codable & Hashable> = [RedeemerKey: RedeemerValue<T>]
+//public typealias RedeemerMap<T: Codable & Hashable> = [RedeemerKey: RedeemerValue<T>]
+public struct RedeemerMap<T: Codable & Hashable>: CBORSerializable, Equatable, Hashable {
+    private var storage: [RedeemerKey: RedeemerValue<T>]
+
+    public init() {
+        self.storage = [:]
+    }
+
+    public init(_ map: [RedeemerKey: RedeemerValue<T>]) {
+        self.storage = map
+    }
+    
+    public init(uniqueKeysWithValues elements: [(RedeemerKey, RedeemerValue<T>)]) {
+        self.storage = [:]
+        for (key, value) in elements {
+            storage[key] = value
+        }
+    }
+
+    public subscript(key: RedeemerKey) -> RedeemerValue<T>? {
+        get { storage[key] }
+        set { storage[key] = newValue }
+    }
+
+    public var dictionary: [RedeemerKey: RedeemerValue<T>] {
+        return storage
+    }
+    
+    public var count: Int {
+        return storage.count
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        let cborMap = CBOR.map(OrderedDictionary(
+            uniqueKeysWithValues: try storage.map { (key, value) in
+                let cborKey = try key.toCBOR().toCBOR
+                let cborValue = try value.toCBOR().toCBOR
+                return (cborKey, cborValue)
+            })
+        )
+        try container.encode(cborMap)
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let cbor = try container.decode(CBOR.self)
+        guard case let .map(cborMap) = cbor else {
+            throw CardanoCoreError.deserializeError("Invalid RedeemerMap type")
+        }
+        
+        storage = [:]
+        for (key, value) in cborMap {
+            let keyData = try CBORSerialization.data(from: key)
+            let valueData = try CBORSerialization.data(from: value)
+            let redeemerKey = try RedeemerKey.fromCBOR(data: keyData)
+            let redeemerValue = try RedeemerValue<T>.fromCBOR(data: valueData)
+            storage[redeemerKey] = redeemerValue
+        }
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(storage)
+    }
+
+    public static func ==(lhs: RedeemerMap<T>, rhs: RedeemerMap<T>) -> Bool {
+        lhs.storage == rhs.storage
+    }
+}
 
 /// Redeemers can be a list of Redeemer objects or a map of Redeemer keys to values.
 public enum Redeemers<T: Codable & Hashable>: CBORSerializable, Equatable, Hashable {
     case list([Redeemer<T>])
     case map(RedeemerMap<T>)
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        
+        let cbor = try? container.decode(CBOR.self)
+        
+        if case let .array(cborArray) = cbor {
+            self = .list(
+                try cborArray
+                    .compactMap { try Redeemer<T>.fromCBOR(
+                        data: try CBORSerialization.data(from: $0)
+                    )
+                    })
+        } else if case let.map(cborMap) = cbor {
+            let map = OrderedDictionary(
+                uniqueKeysWithValues: try cborMap.map {
+                    (try RedeemerKey
+                            .fromCBOR(
+                                data: try CBORSerialization.data(from: $0.key)
+                            ),
+                        try RedeemerValue<T>
+                            .fromCBOR(
+                                data: try CBORSerialization.data(from: $0.value)
+                            )
+                    )
+                }
+            )
+            self = .map(RedeemerMap<T>(
+                uniqueKeysWithValues: map.map(
+                    { (key, value) in
+                        (key, value)
+                    }
+                ))
+            )
+        } else {
+            throw CardanoCoreError.deserializeError("Invalid Redeemers type")
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+            case .list(let redeemers):
+                try container.encode(redeemers)
+            case .map(let redeemerMap):
+                try container.encode(redeemerMap)
+        }
+    }
 }

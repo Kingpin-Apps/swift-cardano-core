@@ -127,6 +127,26 @@ struct RedeemerTests {
     }
     
     
+    @Test("Test Redeemers list with Unit data")
+    func testRedeemersUnit() throws {
+        let unit = SwiftCardanoCore.Unit()
+        let redeemers: Redeemers<SwiftCardanoCore.Unit> = .list([
+            Redeemer<SwiftCardanoCore.Unit>(
+                tag: .spend,
+                index: 0,
+                data: unit,
+                exUnits: ExecutionUnits(mem: 1_000_000, steps: 1_000_000)
+            )
+        ])
+        
+        let encoder = CBOREncoder()
+        let encoded = try encoder.encode(redeemers)
+        let hex = encoded.hexEncodedString()
+
+        #expect(hex == "81840000d87980821a000f42401a000f4240")
+
+    }
+    
     @Test("Test RedeemerKey equality and serialization")
     func testRedeemerKey() throws {
         let key1 = RedeemerKey(tag: .spend, index: 0)
@@ -197,6 +217,7 @@ struct RedeemerTests {
         let witness = TransactionWitnessSet<Never>(redeemers: .map(emptyMap))
 
         let encoded = try CBOREncoder().encode(witness)
+        print("Encoded hex: \(encoded.hexEncodedString())")
         let decoded = try CBORDecoder().decode(TransactionWitnessSet<Never>.self, from: encoded)
 
         #expect(decoded.redeemers == .map(emptyMap))

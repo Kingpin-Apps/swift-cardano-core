@@ -87,7 +87,7 @@ public struct TransactionWitnessSet<T: Codable & Hashable>: CBORSerializable, Eq
         plutusData = try container.decodeIfPresent(
             NonEmptyOrderedCBORSet<RawPlutusData>.self, forKey: .plutusData
         )
-        redeemers = try container.decodeIfPresent(Redeemers.self, forKey: .redeemers)
+        redeemers = try container.decodeIfPresent(Redeemers<T>.self, forKey: .redeemers)
         plutusV2Script = try container.decodeIfPresent(
             NonEmptyOrderedCBORSet<PlutusV2Script>.self, forKey: .plutusV2Script
         )
