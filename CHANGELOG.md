@@ -1,3 +1,9 @@
+## 0.1.22 (2025-04-24)
+
+### Fix
+
+- fix costmodels and add more reedemer tests
+
 ## 0.1.21 (2025-04-23)
 
 ### Fix
