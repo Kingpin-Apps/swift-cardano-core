@@ -23,6 +23,12 @@ public struct CostModels: CBORSerializable, Hashable {
         plutusV3 = data[2]
     }
     
+    public init(_ data: [Int: [Int]]) throws {
+        plutusV1 = PLUTUS_V1_COST_MODEL
+        plutusV2 = PLUTUS_V2_COST_MODEL
+        plutusV3 = PLUTUS_V3_COST_MODEL
+    }
+    
     public init(from decoder: Decoder) throws {
         if String(describing: type(of: decoder)).contains("JSONDecoder") {
             let container = try decoder.container(keyedBy: CodingKeys.self)

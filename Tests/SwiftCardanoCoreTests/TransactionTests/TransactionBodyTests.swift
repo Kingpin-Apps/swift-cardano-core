@@ -43,7 +43,7 @@ struct TransactionBodyTests {
         
         minPoolCost: 0,
         adaPerUtxoByte: 0,
-        costModels: try! CostModels([:]),
+        costModels: try! CostModels([0:[]]),
         executionCosts: ExUnitPrices(
             memPrice: NonNegativeInterval(lowerBound: 0, upperBound: 10),
             stepPrice: NonNegativeInterval(lowerBound: 0, upperBound: 10)
