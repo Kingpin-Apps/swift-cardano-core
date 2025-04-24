@@ -7,7 +7,7 @@ let package = Package(
     name: "SwiftCardanoCore",
     platforms: [
       .iOS(.v14),
-      .macOS(.v13),
+      .macOS(.v14),
       .watchOS(.v7),
       .tvOS(.v14),
     ],
