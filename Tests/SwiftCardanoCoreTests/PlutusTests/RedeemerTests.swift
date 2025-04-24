@@ -125,4 +125,80 @@ struct RedeemerTests {
 //        #expect(decoded.data.d == redeemer.data.d)
         #expect(decoded.exUnits == redeemer.exUnits)
     }
+    
+    
+    @Test("Test RedeemerKey equality and serialization")
+    func testRedeemerKey() throws {
+        let key1 = RedeemerKey(tag: .spend, index: 0)
+        let key2 = RedeemerKey(tag: .spend, index: 0)
+        let key3 = RedeemerKey(tag: .mint, index: 1)
+
+        #expect(key1 == key2)
+        #expect(key1 != key3)
+
+        let hash1 = key1.hashValue
+        let hash2 = key2.hashValue
+        let hash3 = key3.hashValue
+
+        #expect(hash1 == hash2)
+        #expect(hash1 != hash3)
+
+        let encoded = try CBOREncoder().encode(key1)
+        let decoded = try CBORDecoder().decode(RedeemerKey.self, from: encoded)
+        #expect(decoded == key1)
+    }
+
+    @Test("Test RedeemerValue equality and serialization")
+    func testRedeemerValue() throws {
+        let data = RawPlutusData(data: .int(42))
+        let exUnits = ExecutionUnits(mem: 10, steps: 20)
+        let value = RedeemerValue<RawPlutusData>(data: data, exUnits: exUnits)
+
+        #expect(value.data == data)
+        #expect(value.exUnits == exUnits)
+
+        let encoded = try CBOREncoder().encode(value)
+        let decoded = try CBORDecoder().decode(RedeemerValue<RawPlutusData>.self, from: encoded)
+
+        #expect(decoded.data == value.data)
+        #expect(decoded.exUnits == value.exUnits)
+    }
+
+    @Test("Test RedeemerMap creation and serialization")
+    func testRedeemerMap() throws {
+        var redeemerMap = RedeemerMap<RawPlutusData>()
+        let data1 = RawPlutusData(data: .int(42))
+        let data2 = RawPlutusData(data: .bytes(Data("test".utf8)))
+        let key1 = RedeemerKey(tag: .spend, index: 0)
+        let value1 = RedeemerValue<RawPlutusData>(data: data1, exUnits: ExecutionUnits(mem: 10, steps: 20))
+        let key2 = RedeemerKey(tag: .mint, index: 1)
+        let value2 = RedeemerValue<RawPlutusData>(data: data2, exUnits: ExecutionUnits(mem: 30, steps: 40))
+
+        redeemerMap[key1] = value1
+        redeemerMap[key2] = value2
+
+        #expect(redeemerMap.count == 2)
+        #expect(redeemerMap[key1] == value1)
+        #expect(redeemerMap[key2] == value2)
+
+        let encoded = try CBOREncoder().encode(redeemerMap)
+        let decoded = try CBORDecoder().decode(RedeemerMap<RawPlutusData>.self, from: encoded)
+
+        #expect(decoded.count == 2)
+        #expect(decoded[key1]?.data == value1.data)
+        #expect(decoded[key1]?.exUnits == value1.exUnits)
+        #expect(decoded[key2]?.data == value2.data)
+        #expect(decoded[key2]?.exUnits == value2.exUnits)
+    }
+
+    @Test("Test empty RedeemerMap in TransactionWitnessSet serialization")
+    func testEmptyMapDeserialization() throws {
+        let emptyMap = RedeemerMap<Never>()
+        let witness = TransactionWitnessSet<Never>(redeemers: .map(emptyMap))
+
+        let encoded = try CBOREncoder().encode(witness)
+        let decoded = try CBORDecoder().decode(TransactionWitnessSet<Never>.self, from: encoded)
+
+        #expect(decoded.redeemers == .map(emptyMap))
+    }
 }
