@@ -1,3 +1,9 @@
+## 0.1.26 (2025-04-25)
+
+### Fix
+
+- lock PotentCodables version
+
 ## 0.1.25 (2025-04-25)
 
 ### Fix
