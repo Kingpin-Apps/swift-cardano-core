@@ -166,4 +166,61 @@ struct ValueTests {
         #expect(value1.hashValue == value2.hashValue)
         #expect(value1.hashValue != value3.hashValue)
     }
-} 
+    
+    @Test("Test values")
+    func testValues() throws {
+        let scriptHash1 = String(repeating: "1", count: 56)
+        let scriptHash2 = String(repeating: "2", count: 56)
+
+        let a = try Value(from: [1, [scriptHash1: ["Token1": 1, "Token2": 2]]])
+        let b = try Value(from: [11, [scriptHash1: ["Token1": 11, "Token2": 22]]])
+        let c = try Value(from: [11, [
+            scriptHash1: ["Token1": 11, "Token2": 22],
+            scriptHash2: ["Token1": 11, "Token2": 22]
+        ]])
+
+        #expect(a != b)
+        #expect(a <= b)
+        #expect(!(b <= a))
+
+        #expect(a <= c)
+        #expect(!(c <= a))
+
+        #expect(b <= c)
+        #expect(!(c <= b))
+
+        #expect(!(a == Value(coin: 0))) 
+
+        let expectedBMinusA = try Value(from: [10, [scriptHash1: ["Token1": 10, "Token2": 20]]])
+        #expect(b - a == expectedBMinusA)
+
+        let expectedCMinusA = try Value(from: [10, [
+            scriptHash1: ["Token1": 10, "Token2": 20],
+            scriptHash2: ["Token1": 11, "Token2": 22]
+        ]])
+        #expect(c - a == expectedCMinusA)
+
+        let expectedAPlus100 = try Value(from: [101, [scriptHash1: ["Token1": 1, "Token2": 2]]])
+        #expect(a + Value(coin: 100) == expectedAPlus100)
+
+        let expectedAMinusC = try Value(from: [-10, [
+            scriptHash1: ["Token1": -10, "Token2": -20],
+            scriptHash2: ["Token1": -11, "Token2": -22]
+        ]])
+        #expect(a - c == expectedAMinusC)
+
+        let expectedBMinusC = try Value(from: [0, [
+//            scriptHash1: ["Token1": 0, "Token2": 0],
+            scriptHash2: ["Token1": -11, "Token2": -22]
+        ]])
+        #expect(b - c == expectedBMinusC)
+
+        let result = a.union(b)
+        let expectedUnion = try Value(from: [12, [scriptHash1: ["Token1": 12, "Token2": 24]]])
+        #expect(result == expectedUnion)
+
+        let d = 10000000
+        let f = Value(coin: 1)
+        #expect(f.coin <= d)
+    }
+}

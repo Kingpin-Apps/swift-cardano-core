@@ -142,6 +142,10 @@ public struct RedeemerMap<T: Codable & Hashable>: CBORSerializable, Equatable, H
         return storage
     }
     
+    public var isEmpty: Bool {
+        return storage.isEmpty
+    }
+    
     public var count: Int {
         return storage.count
     }

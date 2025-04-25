@@ -41,6 +41,10 @@ public struct Asset: Codable, Comparable, Hashable, Equatable, AdditiveArithmeti
         set { _data[key] = newValue }
     }
     
+    public var isEmpty: Bool {
+        return data.isEmpty
+    }
+    
     public var count: Int {
         return data.count
     }
@@ -65,6 +69,21 @@ public struct Asset: Codable, Comparable, Hashable, Equatable, AdditiveArithmeti
         var container = encoder.singleValueContainer()
         try container.encode(data)
     }
+    
+    public mutating func normalize() -> Asset {
+        for (key, value) in data {
+            if value == 0 {
+                self.data.removeValue(forKey: key)
+            }
+        }
+        return self
+    }
+    
+    public func remove(_ key: AssetName) -> Asset {
+        var result = self
+        result.data.removeValue(forKey: key)
+        return result
+    }
 
     public func union(_ other: Asset) -> Asset {
         return self + other
@@ -83,7 +102,7 @@ public struct Asset: Codable, Comparable, Hashable, Equatable, AdditiveArithmeti
                 return zero
             }
         }
-        return result
+        return result.normalize()
     }
     
     public static func - (lhs: Asset, rhs: Asset) -> Asset {
@@ -99,12 +118,51 @@ public struct Asset: Codable, Comparable, Hashable, Equatable, AdditiveArithmeti
                 return zero
             }
         }
-        return result
+        return result.normalize()
     }
 
     public static func < (lhs: Asset, rhs: Asset) -> Bool {
-        for (key, value) in rhs.data {
-            if (rhs.data[key]!) < (value ) {
+        for (key, value) in lhs.data {
+            guard let rhsData = rhs.data[key] else {
+                return false
+            }
+            if value > rhsData {
+                return false
+            }
+        }
+        return true
+    }
+
+    public static func <= (lhs: Asset, rhs: Asset) -> Bool {
+        for (key, value) in lhs.data {
+            guard let rhsData = rhs.data[key] else {
+                return false
+            }
+            if value >= rhsData {
+                return false
+            }
+        }
+        return true
+    }
+
+    public static func > (lhs: Asset, rhs: Asset) -> Bool {
+        for (key, value) in lhs.data {
+            guard let rhsData = rhs.data[key] else {
+                return false
+            }
+            if value < rhsData {
+                return false
+            }
+        }
+        return true
+    }
+
+    public static func >= (lhs: Asset, rhs: Asset) -> Bool {
+        for (key, value) in lhs.data {
+            guard let rhsData = rhs.data[key] else {
+                return false
+            }
+            if value <= rhsData {
                 return false
             }
         }

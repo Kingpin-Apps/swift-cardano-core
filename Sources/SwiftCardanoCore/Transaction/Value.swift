@@ -1,6 +1,6 @@
 import Foundation
 
-public struct Value: CBORSerializable, Equatable, Hashable {
+public struct Value: CBORSerializable, Equatable, Hashable, Comparable {
     
     /// Amount of ADA
     public var coin: Int
@@ -66,8 +66,16 @@ public struct Value: CBORSerializable, Equatable, Hashable {
         return lhs.coin <= rhs.coin && lhs.multiAsset <= rhs.multiAsset
     }
 
+    public static func >= (lhs: Value, rhs: Value) -> Bool {
+        return lhs.coin >= rhs.coin && lhs.multiAsset >= rhs.multiAsset
+    }
+
     public static func < (lhs: Value, rhs: Value) -> Bool {
-        return lhs <= rhs && lhs != rhs
+        return lhs.coin < rhs.coin && lhs.multiAsset < rhs.multiAsset
+    }
+
+    public static func > (lhs: Value, rhs: Value) -> Bool {
+        return lhs.coin > rhs.coin && lhs.multiAsset > rhs.multiAsset
     }
     
     public func hash(into hasher: inout Hasher) {

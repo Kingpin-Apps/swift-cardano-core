@@ -2,7 +2,7 @@ import Foundation
 import PotentCBOR
 import PotentCodables
 
-public struct MultiAsset: CBORSerializable, Hashable, Equatable {
+public struct MultiAsset: CBORSerializable, Hashable, Equatable, Comparable {
     public var data: [ScriptHash: Asset] {
         get { _data }
         set { _data = newValue }
@@ -45,6 +45,17 @@ public struct MultiAsset: CBORSerializable, Hashable, Equatable {
     public func union(_ other: MultiAsset) -> MultiAsset {
         return self + other
     }
+    
+    public func normalize() -> MultiAsset {
+        var newMultiAsset = self
+        for var (key, value) in data {
+            _ = value.normalize()
+            if value.isEmpty {
+                newMultiAsset.data.removeValue(forKey: key)
+            }
+        }
+        return newMultiAsset
+    }
 
     public static func + (lhs: MultiAsset, rhs: MultiAsset) -> MultiAsset {
         var newMultiAsset = lhs
@@ -52,7 +63,7 @@ public struct MultiAsset: CBORSerializable, Hashable, Equatable {
             newMultiAsset
                 .data[key] = (newMultiAsset.data[key] ?? Asset.zero) + value
         }
-        return newMultiAsset
+        return newMultiAsset.normalize()
     }
 
     public static func += (lhs: inout MultiAsset, rhs: MultiAsset) {
@@ -62,10 +73,17 @@ public struct MultiAsset: CBORSerializable, Hashable, Equatable {
     public static func - (lhs: MultiAsset, rhs: MultiAsset) -> MultiAsset {
         var newMultiAsset = lhs
         for (key, value) in rhs.data {
-            newMultiAsset
-                .data[key] = (newMultiAsset.data[key] ?? Asset.zero) - value
+            if let existingAsset = newMultiAsset.data[key] {
+                newMultiAsset.data[key] = existingAsset - value
+            } else {
+                newMultiAsset.data[key] = Asset.zero - value
+            }
         }
-        return newMultiAsset
+        // Clean up any assets that have all zero amounts
+//        newMultiAsset.data = newMultiAsset.data.filter { (_, asset) in
+//            !asset.data.values.allSatisfy { $0 == 0 }
+//        }
+        return newMultiAsset.normalize()
     }
 
     public static func == (lhs: MultiAsset, rhs: MultiAsset) -> Bool {
@@ -74,7 +92,46 @@ public struct MultiAsset: CBORSerializable, Hashable, Equatable {
 
     public static func <= (lhs: MultiAsset, rhs: MultiAsset) -> Bool {
         for (key, value) in lhs.data {
-            if (rhs.data[key]!) <= value {
+            guard let rhsData = rhs.data[key] else {
+                return false
+            }
+            if value >= rhsData {
+                return false
+            }
+        }
+        return true
+    }
+
+    public static func >= (lhs: MultiAsset, rhs: MultiAsset) -> Bool {
+        for (key, value) in lhs.data {
+            guard let rhsData = rhs.data[key] else {
+                return false
+            }
+            if value <= rhsData {
+                return false
+            }
+        }
+        return true
+    }
+    
+    public static func < (lhs: MultiAsset, rhs: MultiAsset) -> Bool {
+        for (key, value) in lhs.data {
+            guard let rhsData = rhs.data[key] else {
+                return false
+            }
+            if value > rhsData {
+                return false
+            }
+        }
+        return true
+    }
+    
+    public static func > (lhs: MultiAsset, rhs: MultiAsset) -> Bool {
+        for (key, value) in lhs.data {
+            guard let rhsData = rhs.data[key] else {
+                return false
+            }
+            if value < rhsData {
                 return false
             }
         }
@@ -92,7 +149,7 @@ public struct MultiAsset: CBORSerializable, Hashable, Equatable {
                 if criteria(
                     policyId,
                     assetName ,
-                    amount 
+                    amount
                 ) {
                     if newMultiAsset.data[policyId] == nil {
                         newMultiAsset.data[policyId] = Asset([:])
