@@ -1,5 +1,5 @@
 {
-  "originHash" : "6f86616529848430b957d6bf78943644995c7ee9e15e3132280929a1b03ef130",
+  "originHash" : "65b46a3343bcddaf1ae36072bdbd6f8a2bac0ff7066d7825951a8f7ea3d3ea86",
   "pins" : [
     {
       "identity" : "base32",
@@ -60,7 +60,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/KINGH242/PotentCodables.git",
       "state" : {
-        "revision" : "4893bd4d2d14af52916174874c87805540570737"
+        "revision" : "1b3880253008d76dc16e48d6140a81d061214324",
+        "version" : "3.6.0"
       }
     },
     {
