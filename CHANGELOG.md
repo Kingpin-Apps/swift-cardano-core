@@ -1,3 +1,9 @@
+## 0.1.25 (2025-04-25)
+
+### Fix
+
+- improve Value and MultiAssets comparing
+
 ## 0.1.24 (2025-04-24)
 
 ### Fix
