@@ -51,12 +51,18 @@ extension ConstrainedBytes {
         try self.init(payload: payload)
     }
     
-    public init(from primitive: String) throws {
-        if !primitive.hexStringToData.isEmpty {
+    public init(from primitive: Primitive) throws {
+        if case let .bytes(primitive) = primitive {
+            try self.init(payload: primitive)
+        } else if case let .string(primitive) = primitive {
             try self.init(payload: primitive.hexStringToData)
         } else {
-            try self.init(payload: primitive.data(using: .utf8)!)
+            throw CardanoCoreError.deserializeError("Invalid \(Self.self) type: \(primitive)")
         }
+    }
+    
+    public func toPrimitive() -> Primitive {
+        return .bytes(payload)
     }
     
     public func hash(into hasher: inout Hasher) {

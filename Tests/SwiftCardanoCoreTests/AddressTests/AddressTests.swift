@@ -16,7 +16,7 @@ struct AddressTests {
     }
     """
     
-    let test_addr: Address = try! Address(from: "stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n")
+    let test_addr: Address = try! Address(from: .string("stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n"))
     
     @Test("Test initialization", arguments: [
         PaymentPart.verificationKeyHash(VerificationKeyHash(payload: Data(repeating: 0, count: VERIFICATION_KEY_HASH_SIZE))),
@@ -83,7 +83,7 @@ struct AddressTests {
     
     @Test func testFromPrimitiveData() async throws {
         let addr = "addr_test1vr2p8st5t5cxqglyjky7vk98k7jtfhdpvhl4e97cezuhn0cqcexl7"
-        let address: Address = try Address(from: addr)
+        let address: Address = try Address(from: .string(addr))
         #expect(try address.toBech32() == addr)
     }
     
@@ -107,7 +107,7 @@ struct AddressTests {
     }
     
     @Test func testSave() async throws {
-        let test_addr: Address = try! Address(from: "addr1q89gvt69g9hv3ushfzw64jr06qgml8rdeanuz2e3hn9xrytk99uy7hwe828zf7vzm5k37wuyzjrgmqnqakm2qmyy0f5suhvr47")
+        let test_addr: Address = try! Address(from: .string("addr1q89gvt69g9hv3ushfzw64jr06qgml8rdeanuz2e3hn9xrytk99uy7hwe828zf7vzm5k37wuyzjrgmqnqakm2qmyy0f5suhvr47"))
         let tempDirectory = FileManager.default.temporaryDirectory
         let tempFileURL = tempDirectory.appendingPathComponent("test.addr")
         

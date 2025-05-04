@@ -6,10 +6,10 @@ import PotentCBOR
 struct UTxOTests {
     // Test data
     let transactionId = try! TransactionId(
-        from: "732bfd67e66be8e8288349fcaaa2294973ef6271cc189a239bb431275401b8e5"
+        from: .string("732bfd67e66be8e8288349fcaaa2294973ef6271cc189a239bb431275401b8e5")
     )
     let index: UInt16 = 1
-    let address: Address = try! Address(from: "stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n")
+    let address: Address = try! Address(from: .string("stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n"))
     let amount = Value(coin: 1000000)
     
     @Test("Initialize UTxO with valid parameters")
@@ -71,7 +71,7 @@ struct UTxOTests {
         let utxo2 = UTxO(input: input2, output: output2)
         
         let differentTransactionId = try TransactionId(
-            from: "c1b58dd4f2f4ee8656cc7962eefa8552877c4aa23d0699c02b885363d592a961"
+            from: .string("c1b58dd4f2f4ee8656cc7962eefa8552877c4aa23d0699c02b885363d592a961")
         )
         let input3 = TransactionInput(transactionId: differentTransactionId, index: index)
         let output3 = TransactionOutput(address: address, amount: amount)

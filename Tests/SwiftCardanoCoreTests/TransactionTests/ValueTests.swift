@@ -16,7 +16,7 @@ struct ValueTests {
     @Test("Initialize Value with custom parameters")
     func testCustomInitialization() throws {
         let coin = 1000000
-        let multiAsset = try MultiAsset(from: ["policyId": ["assetName": 5]])
+        let multiAsset = try MultiAsset(from: .dict([.string("policyId"): .dict([.string("assetName"): .int(5)])]))
         let value = Value(coin: coin, multiAsset: multiAsset)
         
         #expect(value.coin == coin)
@@ -25,9 +25,12 @@ struct ValueTests {
     
     @Test("Initialize Value from primitive data")
     func testPrimitiveInitialization() throws {
-        let primitive: [Any] = [1000000, ["policyId": ["asset1": 5]]]
+        let primitive: Primitive = .list([
+            .int(1000000),
+            .dict([.string("policyId"): .dict([.string("asset1"): .int(5)])])
+        ])
         let value = try Value(from: primitive)
-        let multiAsset = try MultiAsset(from: ["policyId": ["asset1": 5]])
+        let multiAsset = try MultiAsset(from: .dict([.string("policyId"): .dict([.string("asset1"): .int(5)])]))
         
         #expect(value.coin == 1000000)
         #expect(value.multiAsset == multiAsset)
@@ -35,8 +38,8 @@ struct ValueTests {
     
     @Test("Value addition")
     func testAddition() throws {
-        let multiAsset1 = try MultiAsset(from: ["policy1": ["asset1": 5]])
-        let multiAsset2 = try MultiAsset(from: ["policy1": ["asset1": 3]])
+        let multiAsset1 = try MultiAsset(from: .dict([.string("policyId"): .dict([.string("asset1"): .int(5)])]))
+        let multiAsset2 = try MultiAsset(from: .dict([.string("policyId"): .dict([.string("asset1"): .int(3)])]))
         
         let value1 = Value(
             coin: 1000000,
@@ -47,7 +50,7 @@ struct ValueTests {
             multiAsset: multiAsset2
         )
         
-        let summedMultiAsset = try MultiAsset(from: ["policy1": ["asset1": 8]])
+        let summedMultiAsset = try MultiAsset(from: .dict([.string("policyId"): .dict([.string("asset1"): .int(8)])]))
         
         let sum = value1 + value2
         #expect(sum.coin == 3000000)
@@ -58,15 +61,15 @@ struct ValueTests {
     func testSubtraction() throws {
         let value1 = Value(
             coin: 3000000,
-            multiAsset: try MultiAsset(from: ["policy1": ["asset1": 8]])
+            multiAsset: try MultiAsset(from: .dict([.string("policyId"): .dict([.string("asset1"): .int(8)])]))
         )
         let value2 = Value(
             coin: 1000000,
-            multiAsset: try MultiAsset(from: ["policy1": ["asset1": 3]])
+            multiAsset: try MultiAsset(from: .dict([.string("policyId"): .dict([.string("asset1"): .int(3)])]))
         )
         
         let difference = value1 - value2
-        let differenceMultiAsset = try MultiAsset(from: ["policy1": ["asset1": 5]])
+        let differenceMultiAsset = try MultiAsset(from: .dict([.string("policyId"): .dict([.string("asset1"): .int(5)])]))
         
         #expect(difference.coin == 2000000)
         #expect(difference.multiAsset == differenceMultiAsset)
@@ -76,15 +79,15 @@ struct ValueTests {
     func testComparisons() throws {
         let value1 = Value(
             coin: 1000000,
-            multiAsset: try MultiAsset(from: ["policy1": ["asset1": 5]])
+            multiAsset: try MultiAsset(from: .dict([.string("policyId"): .dict([.string("asset1"): .int(5)])]))
         )
         let value2 = Value(
             coin: 2000000,
-            multiAsset: try MultiAsset(from: ["policy1": ["asset1": 8]])
+            multiAsset: try MultiAsset(from: .dict([.string("policyId"): .dict([.string("asset1"): .int(8)])]))
         )
         let value3 = Value(
             coin: 1000000,
-            multiAsset: try MultiAsset(from: ["policy1": ["asset1": 5]])
+            multiAsset: try MultiAsset(from: .dict([.string("policyId"): .dict([.string("asset1"): .int(5)])]))
         )
         
         #expect(value1 < value2)
@@ -95,9 +98,9 @@ struct ValueTests {
     
     @Test("Value union operation")
     func testUnion() throws {
-        let multiAsset1 = try MultiAsset(from: ["policy1": ["asset1": 5]])
-        let multiAsset2 = try MultiAsset(from: ["policy1": ["asset1": 3]])
-        let unionMultiAsset = try MultiAsset(from: ["policy1": ["asset1": 8]])
+        let multiAsset1 = try MultiAsset(from: .dict([.string("policyId"): .dict([.string("asset1"): .int(5)])]))
+        let multiAsset2 = try MultiAsset(from: .dict([.string("policyId"): .dict([.string("asset1"): .int(3)])]))
+        let unionMultiAsset = try MultiAsset(from: .dict([.string("policyId"): .dict([.string("asset1"): .int(8)])]))
         
         let value1 = Value(
             coin: 1000000,
@@ -115,9 +118,9 @@ struct ValueTests {
     
     @Test("Value compound addition")
     func testCompoundAddition() throws {
-        let multiAsset1 = try MultiAsset(from: ["policy1": ["asset1": 5]])
-        let multiAsset2 = try MultiAsset(from: ["policy1": ["asset1": 3]])
-        let addedMultiAsset = try MultiAsset(from: ["policy1": ["asset1": 8]])
+        let multiAsset1 = try MultiAsset(from: .dict([.string("policyId"): .dict([.string("asset1"): .int(5)])]))
+        let multiAsset2 = try MultiAsset(from: .dict([.string("policyId"): .dict([.string("asset1"): .int(3)])]))
+        let addedMultiAsset = try MultiAsset(from: .dict([.string("policyId"): .dict([.string("asset1"): .int(8)])]))
         
         var value1 = Value(
             coin: 1000000,
@@ -137,7 +140,7 @@ struct ValueTests {
     func testCodable() throws {
         let originalValue = Value(
             coin: 1000000,
-            multiAsset: try MultiAsset(from: ["policy1": ["asset1": 5]])
+            multiAsset: try MultiAsset(from: .dict([.string("policyId"): .dict([.string("asset1"): .int(5)])]))
         )
         let encoder = CBOREncoder()
         let decoder = CBORDecoder()
@@ -152,15 +155,15 @@ struct ValueTests {
     func testHashing() throws {
         let value1 = Value(
             coin: 1000000,
-            multiAsset: try MultiAsset(from: ["policy1": ["asset1": 5]])
+            multiAsset: try MultiAsset(from: .dict([.string("policyId"): .dict([.string("asset1"): .int(5)])]))
         )
         let value2 = Value(
             coin: 1000000,
-            multiAsset: try MultiAsset(from: ["policy1": ["asset1": 5]])
+            multiAsset: try MultiAsset(from: .dict([.string("policyId"): .dict([.string("asset1"): .int(5)])]))
         )
         let value3 = Value(
             coin: 2000000,
-            multiAsset: try MultiAsset(from: ["policy1": ["asset1": 8]])
+            multiAsset: try MultiAsset(from: .dict([.string("policyId"): .dict([.string("asset1"): .int(8)])]))
         )
         
         #expect(value1.hashValue == value2.hashValue)
@@ -170,14 +173,29 @@ struct ValueTests {
     @Test("Test values")
     func testValues() throws {
         let scriptHash1 = String(repeating: "1", count: 56)
+        let scriptHash1Primitive: Primitive = .string(String(repeating: "1", count: 56))
         let scriptHash2 = String(repeating: "2", count: 56)
+        let scriptHash2Primitive: Primitive = .string(String(repeating: "2", count: 56))
 
-        let a = try Value(from: [1, [scriptHash1: ["Token1": 1, "Token2": 2]]])
-        let b = try Value(from: [11, [scriptHash1: ["Token1": 11, "Token2": 22]]])
-        let c = try Value(from: [11, [
-            scriptHash1: ["Token1": 11, "Token2": 22],
-            scriptHash2: ["Token1": 11, "Token2": 22]
-        ]])
+        let a = try Value(from: .list([
+            .int(1),
+            .dict([
+                scriptHash1Primitive: .dict([.string("Token1"): .int(1), .string("Token2"): .int(2)])
+            ])
+        ]))
+        let b = try Value(from: .list([
+            .int(11),
+            .dict([
+                scriptHash1Primitive: .dict([.string("Token1"): .int(11), .string("Token2"): .int(22)])
+            ])
+        ]))
+        let c = try Value(from: .list([
+            .int(11),
+            .dict([
+                scriptHash1Primitive: .dict([.string("Token1"): .int(11), .string("Token2"): .int(22)]),
+                scriptHash2Primitive: .dict([.string("Token1"): .int(11), .string("Token2"): .int(22)])
+            ])
+        ]))
 
         #expect(a != b)
         #expect(a <= b)
@@ -192,7 +210,8 @@ struct ValueTests {
         #expect(!(a == Value(coin: 0))) 
 
         let expectedBMinusA = try Value(from: [10, [scriptHash1: ["Token1": 10, "Token2": 20]]])
-        #expect(b - a == expectedBMinusA)
+        let bMinusA = b - a
+        #expect(bMinusA == expectedBMinusA)
 
         let expectedCMinusA = try Value(from: [10, [
             scriptHash1: ["Token1": 10, "Token2": 20],

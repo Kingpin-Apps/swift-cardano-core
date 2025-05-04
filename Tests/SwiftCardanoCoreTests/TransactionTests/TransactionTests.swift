@@ -8,10 +8,11 @@ import Testing
 struct TransactionTests {
     // Test data
     let transactionId = try! TransactionId(
-        from: "732bfd67e66be8e8288349fcaaa2294973ef6271cc189a239bb431275401b8e5"
+        from: .string("732bfd67e66be8e8288349fcaaa2294973ef6271cc189a239bb431275401b8e5")
     )
     let address = try! Address(
-        from: "stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n")
+        from: .string("stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n")
+    )
     let amount = Value(coin: 1_000_000)
     let verificationKey = VKey(payload: Data(repeating: 0x01, count: 64))
     let signature = Data(repeating: 0x03, count: 64)

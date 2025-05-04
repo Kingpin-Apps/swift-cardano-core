@@ -66,14 +66,14 @@ public struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
     /// - Parameter primitive: The bytes or bech32 string.
     /// - Throws: `CardanoCoreError.decodingError` when the input is not a valid Shelley Address.
     /// - Throws: `CardanoCoreError.valueError` when the input is not a `Data` or `String`.
-    public init(from primitive: Any) throws {
+    public init(from primitive: Primitive) throws {
         let data: Data
-        if let value = primitive as? String {
+        if case let .string(value) = primitive {
             guard let bech32 = Bech32().decode(addr: value) else {
                 throw CardanoCoreError.decodingError("Error decoding data: \(value)")
             }
             data = Data(bech32)
-        } else if let value = primitive as? Data {
+        } else if case let .bytes(value) = primitive {
             data = value
         } else {
             throw CardanoCoreError.valueError("Invalid value type for Address")
@@ -208,12 +208,16 @@ public struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
         }
     }
     
+    public func toPrimitive() -> Primitive {
+        return .bytes(toBytes())
+    }
+    
     /// Codable implementation to decode the address.
     /// - Parameter decoder: The decoder.
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let data = try container.decode(Data.self)
-        self = try Address(from: data)
+        self = try Address(from: .bytes(data))
     }
     
     /// Codable implementation to encode the address.
@@ -391,7 +395,7 @@ public struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
     /// - Returns: Decoded address.
     /// - Throws: CardanoException when the input string is not a valid Shelley address.
     public static func fromBech32(_ data: String) throws -> Address {
-        return try Address(from: data)
+        return try Address(from: .string(data))
     }
     
     /// Hashable implementation for Address.
@@ -422,6 +426,6 @@ public struct Address: Codable, CustomStringConvertible, Equatable, Hashable {
         }
         
         let bech32String = try String(contentsOfFile: path)
-        return try Address(from: bech32String)
+        return try Address(from: .string(bech32String))
     }
 }

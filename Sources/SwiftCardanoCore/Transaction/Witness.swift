@@ -1,18 +1,54 @@
 import Foundation
+import PotentCBOR
 
-public struct VerificationKeyWitness: CBORSerializable, Equatable, Hashable {
+public struct VerificationKeyWitness: PayloadCBORSerializable, Equatable, Hashable {
     public var vkey: VerificationKeyType
     public var signature: Data
+    
+    public static var TYPE: String { "TxWitness ConwayEra" }
+    public static var DESCRIPTION: String { "Key Witness ShelleyEra" }
+
+    public var _payload: Data
+    public var _type: String
+    public var _description: String
+    
+    public init(payload: Data, type: String?, description: String?) {
+//        if let payloadData = try? CBORDecoder().decode(Data.self, from: payload) {
+//            self._payload = payloadData
+//        } else {
+//            self._payload = payload
+//        }
+        self._payload = payload
+        self._type = type ?? Self.TYPE
+        self._description = description ?? Self.DESCRIPTION
+        
+        let cbor = try! CBORDecoder().decode(Self.self, from: payload)
+        self.vkey = cbor.vkey
+        self.signature = cbor.signature
+    }
     
     public init(vkey: VerificationKeyType, signature: Data) {
         self.vkey = vkey
         self.signature = signature
+        
+        self._payload =  try! CBORSerialization.data(from:
+                .array(
+                    [
+                        try! CBOREncoder().encode(vkey).toCBOR,
+                        try! CBOREncoder().encode(signature).toCBOR
+                    ]
+                )
+        )
+        self._type = Self.TYPE
+        self._description = Self.DESCRIPTION
     }
     
     public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
-        vkey = try container.decode(VerificationKeyType.self)
-        signature = try container.decode(Data.self)
+        let vkey = try container.decode(VerificationKeyType.self)
+        let signature = try container.decode(Data.self)
+        
+        self.init(vkey: vkey, signature: signature)
     }
 
     public func encode(to encoder: Encoder) throws {

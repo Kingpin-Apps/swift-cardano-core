@@ -5,7 +5,7 @@ import PotentCBOR
 
 struct CredentialTests {
     
-    let test_addr: Address = try! Address(from: "stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n")
+    let test_addr: Address = try! Address(from: .string("stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n"))
     
     @Test func testVerificationKeyHashInitialization() async throws {
         let payload = Data(repeating: 0, count: VERIFICATION_KEY_HASH_SIZE)

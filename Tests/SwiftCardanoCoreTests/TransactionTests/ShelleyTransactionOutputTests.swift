@@ -6,7 +6,7 @@ import PotentCBOR
 @Suite("ShelleyTransactionOutput Tests")
 struct ShelleyTransactionOutputTests {
     // Test data
-    let address = try! Address(from: "stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n")
+    let address = try! Address(from: .string("stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n"))
     let amount = Value(coin: 1000000)
     let datumHash = DatumHash(payload: Data(repeating: 1, count: DATUM_HASH_SIZE))
     

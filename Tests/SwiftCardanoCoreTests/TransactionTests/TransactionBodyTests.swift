@@ -7,9 +7,9 @@ import PotentCBOR
 struct TransactionBodyTests {
     // Test data
     let transactionId = try! TransactionId(
-        from: "732bfd67e66be8e8288349fcaaa2294973ef6271cc189a239bb431275401b8e5"
+        from: .string("732bfd67e66be8e8288349fcaaa2294973ef6271cc189a239bb431275401b8e5")
     )
-    let address = try! Address(from: "stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n")
+    let address = try! Address(from: .string("stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n"))
     let amount = Value(coin: 1000000)
     
     let deposit = Coin(1_000_000)
@@ -149,7 +149,7 @@ struct TransactionBodyTests {
         )
         let auxiliaryDataHash = AuxiliaryDataHash(payload: Data(repeating: 0x01, count: 32))
         let validityStart = 100
-        let mint = try MultiAsset(from: ["policyId": ["assetName": 5]])
+        let mint = try MultiAsset(from: .dict([.string("policyId"): .dict([.string("assetName"): .int(5)])]))
         let scriptDataHash = ScriptDataHash(payload: Data(repeating: 0x02, count: 32))
         let collateral = [TransactionInput(transactionId: transactionId, index: 1)]
         let requiredSigners = [VerificationKeyHash(payload: Data(repeating: 0x03, count: 32))]
@@ -256,7 +256,7 @@ struct TransactionBodyTests {
         let input = TransactionInput(transactionId: transactionId, index: 0)
         let output = TransactionOutput(address: address, amount: amount)
         let fee = Coin(100000)
-        let mint = try MultiAsset(from: ["policyId": ["assetName": 5]])
+        let mint = try MultiAsset(from: .dict([.string("policyId"): .dict([.string("assetName"): .int(5)])]))
         
         let body = TransactionBody(
             inputs: CBORSet([input]),

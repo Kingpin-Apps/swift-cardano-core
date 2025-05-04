@@ -17,10 +17,10 @@ struct DatumOptionTests {
     @Test("Test inline datum initialization")
     func testInlineDatumInitialization() throws {
         let plutusData = try PlutusData(fields: [])
-        let datumOption = DatumOption(datum: .plutusData(plutusData))
+        let datumOption = DatumOption(datum: .anyValue(plutusData.toAnyValue()))
         
         #expect(datumOption.type == 1)
-        #expect(datumOption.datum == .plutusData(plutusData))
+        #expect(datumOption.datum == .anyValue(plutusData.toAnyValue()))
     }
     
     @Test("Test datum hash encoding and decoding")
@@ -38,7 +38,7 @@ struct DatumOptionTests {
     @Test("Test inline datum encoding and decoding")
     func testInlineDatumCoding() throws {
         let plutusData = PlutusData()
-        let datumOption = DatumOption(datum: .plutusData(plutusData))
+        let datumOption = DatumOption(datum: .anyValue(plutusData.toAnyValue()))
         
         let encoded = try CBOREncoder().encode(datumOption)
         let decoded = try CBORDecoder().decode(DatumOption.self, from: encoded)

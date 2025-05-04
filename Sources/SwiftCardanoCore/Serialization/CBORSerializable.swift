@@ -2,6 +2,8 @@ import Foundation
 import PotentCBOR
 
 public protocol CBORSerializable: Codable, Hashable {
+//    init(from primitive: Primitive) throws
+//    func toPrimitive() -> Primitive
     func toCBOR() throws -> Data
     func toCBORHex() throws -> String
     static func fromCBOR(data: Data) throws -> Self

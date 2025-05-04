@@ -33,9 +33,73 @@ public struct RawPlutusData: CBORSerializable, Equatable, Hashable {
             try container.encode(data)
         }
     }
+    
+    public init(from primitive: Primitive) throws {
+        if case let .plutusData(plutusData) = primitive {
+            self.data = .plutusData(plutusData)
+        } else if case let .dict(dictionary) = primitive {
+            self.data = .dict(dictionary.reduce(into: [:]) { result, entry in
+                result[entry.key.toAnyValue()] = entry.value.toAnyValue()
+            })
+        } else if case let .int(intValue) = primitive {
+            self.data = .int(intValue)
+        } else if case let .bytes(data) = primitive {
+            self.data = .bytes(data)
+        } else if case let .indefiniteList(list) = primitive {
+            self.data =
+                .indefiniteList(IndefiniteList(list.map { $0.toAnyValue() }))
+        } else if case let .cborSimpleValue(cbor) = primitive {
+            self.data = .cbor(cbor)
+        } else if case let .cborTag(tag) = primitive {
+            self.data = .cborTag(tag)
+        } else {
+            throw CardanoCoreError.typeError("Unsupported primitive type: \(type(of: primitive))")
+        }
+    }
 
     // Convert to primitive CBOR format
-    public func toPrimitive() -> AnyValue {
+    public func toPrimitive() throws -> Primitive {
+        func dfs(_ obj: Any) throws -> Primitive {
+            if let list = obj as? [Any] {
+                return .list(try list.map { try dfs($0) })
+            } else if let dict = obj as? [AnyValue: AnyValue] {
+                return .dict(
+                    Dictionary(uniqueKeysWithValues:
+                                try dict.map { (try dfs($0.key), try dfs($0.value)) }
+                              )
+                )
+            } else if let tag = obj as? CBORTag {
+                if tag.tag != 102 {
+                    let value = try tag.value.arrayValue!.map { try dfs($0) }
+                    return .cborTag(
+                        CBORTag(
+                            tag: tag.tag,
+                            value: AnyValue
+                                .indefiniteArray(
+                                    try! value.map { try AnyValue.wrapped($0)
+                                    })
+                        )
+                    )
+                } else {
+                    let value = try tag.value.arrayValue!.map { try dfs($0) }
+                    return .cborTag(
+                        CBORTag(
+                            tag: tag.tag,
+                            value: AnyValue
+                                .array(
+                                    try! value.map { try AnyValue.wrapped($0)
+                                    })
+                        )
+                    )
+                }
+            }
+            return try Primitive.fromAny(obj)
+        }
+
+        return try dfs(self.data)
+    }
+    
+    public func toAnyValue() -> AnyValue {
         func dfs(_ obj: Any) -> AnyValue {
             if let list = obj as? [Any] {
                 return .array(list.map { dfs($0) })

@@ -5,7 +5,31 @@ import PotentCodables
 
 public enum DatumType: Codable, Equatable, Hashable {
     case datumHash(DatumHash)
-    case plutusData(PlutusData)
+//    case plutusData(PlutusData)
+    case anyValue(AnyValue)
+    
+    public init(from primitive: Primitive) throws {
+        if case let .cborTag(cborTag) = primitive {
+            self = .anyValue(cborTag.value)
+        } else if case .bytes(_) = primitive {
+            self = .datumHash(try DatumHash(from: primitive))
+        } else {
+            throw CardanoCoreError.deserializeError("Invalid DatumType type")
+        }
+    }
+    
+    public func toPrimitive() throws -> Primitive {
+        switch self {
+            case .datumHash(let datumHash):
+                return datumHash.toPrimitive()
+            case .anyValue(let anyValue):
+                let data = CBORTag(
+                    tag: 24,
+                    value: .data(try CBOREncoder().encode(anyValue))
+                )
+                return .cborTag(data)
+        }
+    }
 }
 
 public struct DatumOption: Codable, Hashable, Equatable {
@@ -17,7 +41,7 @@ public struct DatumOption: Codable, Hashable, Equatable {
         switch datum {
             case .datumHash(_):
                 self.type = 0
-            case .plutusData(_):
+            case .anyValue(_):
                 self.type = 1
         }
     }
@@ -27,8 +51,8 @@ public struct DatumOption: Codable, Hashable, Equatable {
         self.type = 0
     }
     
-    public init(datum: PlutusData) {
-        self.datum = .plutusData(datum)
+    public init(datum: AnyValue) {
+        self.datum = .anyValue(datum)
         self.type = 1
     }
 
@@ -47,6 +71,35 @@ public struct DatumOption: Codable, Hashable, Equatable {
         var container = encoder.unkeyedContainer()
         try container.encode(type)
         try container.encode(datum)
+    }
+    
+    public init(from primitive: Primitive) throws {
+        guard case let .list(primitive) = primitive else {
+            throw CardanoCoreError.deserializeError("Invalid DatumOption type")
+        }
+        
+        if primitive[0] == .int(0) {
+            type = 0
+            datum = .datumHash(try DatumHash(from: primitive[1]))
+        } else if case let .cborTag(cborTag) = primitive[1] {
+            type = 1
+            datum = .anyValue(cborTag.value)
+        } else {
+            type = 1
+            datum = .anyValue(primitive[1].toAnyValue())
+        }
+    }
+    
+    public func toPrimitive() throws -> Primitive {
+        if self.type == 1 {
+            let data = CBORTag(
+                tag: 24,
+                value: .data(try CBOREncoder().encode(self.datum))
+            )
+            return .list([.int(1), .cborTag(data)])
+        } else {
+            return .list([.int(0), try datum.toPrimitive()])
+        }
     }
 }
 

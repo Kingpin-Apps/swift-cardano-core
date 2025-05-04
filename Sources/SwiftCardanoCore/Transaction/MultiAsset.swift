@@ -23,13 +23,46 @@ public struct MultiAsset: CBORSerializable, Hashable, Equatable, Comparable {
         self.data = data
     }
     
-    public init(from primitive: [String: [String: Int]]) throws {
+    public init(from dict: [String: [String: Int]]) throws {
         var data: [ScriptHash: Asset] = [:]
-        for (policyId, asset) in primitive {
-            let pid = try ScriptHash(from: policyId)
-            data[pid] = Asset(from: asset)
+        
+        for (policyId, asset) in dict {
+            let pid = ScriptHash(payload: policyId.hexStringToData)
+            var assetData: [AssetName: Int] = [:]
+            for (assetName, amount) in asset {
+                let name = AssetName(from: assetName)
+                assetData[name] = amount
+            }
+            data[pid] = Asset(assetData)
         }
         self.data = data
+    }
+
+        
+    public init(from primitive: Primitive) throws {
+        var data: [ScriptHash: Asset] = [:]
+        
+        guard case let .dict(primitive) = primitive else {
+            throw CardanoCoreError.deserializeError("Invalid AssetName type")
+        }
+        
+        for (policyId, asset) in primitive {
+            guard case .string(_) = policyId  else {
+                throw CardanoCoreError.deserializeError("Invalid MultiAsset type")
+            }
+            let pid = try ScriptHash(from: policyId)
+            data[pid] = try Asset(from: asset)
+        }
+        self.data = data
+    }
+    
+    public func toPrimitive() -> Primitive {
+        var primitives: [Primitive: Primitive] = [:]
+        for (policyId, asset) in data {
+            let pid = policyId.payload.toHex
+            primitives[.string(pid)] = asset.toPrimitive()
+        }
+        return .dict(primitives)
     }
     
     public init(from decoder: Decoder) throws {
@@ -95,7 +128,7 @@ public struct MultiAsset: CBORSerializable, Hashable, Equatable, Comparable {
             guard let rhsData = rhs.data[key] else {
                 return false
             }
-            if value >= rhsData {
+            if !(value <= rhsData) {
                 return false
             }
         }
@@ -107,7 +140,7 @@ public struct MultiAsset: CBORSerializable, Hashable, Equatable, Comparable {
             guard let rhsData = rhs.data[key] else {
                 return false
             }
-            if value <= rhsData {
+            if !(value >= rhsData) {
                 return false
             }
         }
@@ -119,7 +152,7 @@ public struct MultiAsset: CBORSerializable, Hashable, Equatable, Comparable {
             guard let rhsData = rhs.data[key] else {
                 return false
             }
-            if value > rhsData {
+            if !(value < rhsData) {
                 return false
             }
         }
@@ -131,7 +164,7 @@ public struct MultiAsset: CBORSerializable, Hashable, Equatable, Comparable {
             guard let rhsData = rhs.data[key] else {
                 return false
             }
-            if value < rhsData {
+            if !(value > rhsData) {
                 return false
             }
         }

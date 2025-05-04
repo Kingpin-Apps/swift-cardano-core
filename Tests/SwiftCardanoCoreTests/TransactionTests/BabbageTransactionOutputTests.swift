@@ -8,7 +8,8 @@ struct BabbageTransactionOutputTests {
     
     @Test("Test initialization")
     func testInitialization() async throws {
-        let address: Address = try! Address(from: "stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n")
+        let address: Address = try! Address(from: .string("stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n")
+        )
         let amount = Value(coin: 1000000)
         let datum = DatumOption(
             datum: DatumHash(payload: Data(repeating: 1, count: 32))
@@ -33,7 +34,8 @@ struct BabbageTransactionOutputTests {
     
     @Test("Test Codable")
     func testCodable() async throws {
-        let address: Address = try! Address(from: "stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n")
+        let address: Address = try! Address(from: .string("stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n")
+        )
         let amount = Value(coin: 1000000)
         let datum = DatumOption(
             datum: DatumHash(payload: Data(repeating: 1, count: 32))
@@ -61,7 +63,8 @@ struct BabbageTransactionOutputTests {
     
     @Test("Test optional properties")
     func testOptionalProperties() async throws {
-        let address: Address = try! Address(from: "stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n")
+        let address: Address = try! Address(from: .string("stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n")
+        )
         let amount = Value(coin: 1000000)
         
         // Create output without optional properties
@@ -79,7 +82,8 @@ struct BabbageTransactionOutputTests {
     
     @Test("Test script property")
     func testScriptProperty() async throws {
-        let address: Address = try! Address(from: "stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n")
+        let address: Address = try! Address(from: .string("stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n")
+        )
         let amount = Value(coin: 1000000)
         let nativeScript = NativeScript.invalidBefore(BeforeScript(slot: 100))
         let scriptRef = try ScriptRef(

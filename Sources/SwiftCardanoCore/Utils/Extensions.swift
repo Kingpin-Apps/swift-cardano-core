@@ -206,7 +206,70 @@ extension String {
 
 // MARK: - AnyValue Extensions
 
-extension AnyValue: CBORSerializable {}
+extension AnyValue: CBORSerializable {
+    public func toPrimitive() -> Primitive {
+        switch self {
+            case .nil:
+                return .null
+            case .bool(let bool):
+                return .bool(bool)
+            case .string(let string):
+                return .string(string)
+            case .indefiniteString(let string):
+                return .string(string)
+            case .int8(let value):
+                return .int(Int(value))
+            case .int16(let value):
+                return .int(Int(value))
+            case .int32(let value):
+                return .int(Int(value))
+            case .int64(let value):
+                return .int(Int(value))
+            case .uint8(let value):
+                return .int(Int(value))
+            case .uint16(let value):
+                return .int(Int(value))
+            case .uint32(let value):
+                return .int(Int(value))
+            case .uint64(let value):
+                return .int(Int(value))
+            case .integer(let value):
+                return .int(Int(value))
+            case .unsignedInteger(let value):
+                return .int(Int(value))
+            case .float16(let value):
+                return .float(Double(value))
+            case .float(let value):
+                return .float(Double(value))
+            case .double(let value):
+                return .float(value)
+            case .decimal(let value):
+                return .decimal(value)
+            case .data(let data):
+                return .bytes(data)
+            case .indefiniteData(let data):
+                return .bytes(data)
+            case .url(let url):
+                return .string(url.absoluteString)
+            case .uuid(let uuid):
+                return .string(uuid.uuidString)
+            case .date(let date):
+                return .datetime(date)
+            case .array(let array):
+                return .list(array.map { $0.toPrimitive() })
+            case .indefiniteArray(let array):
+                return .indefiniteList(IndefiniteList(array.map { $0.toPrimitive() }))
+            case .dictionary(let dictionary):
+                return .dict(dictionary.reduce(into: [:]) { result, entry in
+                    result[entry.key.toPrimitive()] = entry.value.toPrimitive()
+                })
+            case .indefiniteDictionary(let dictionary):
+                return .dict(dictionary.reduce(into: [:]) { result, entry in
+                    result[entry.key.toPrimitive()] = entry.value.toPrimitive()
+                })
+        }
+    }
+}
 
 
 // MARK: - SingleValueEncodingContainer Extension

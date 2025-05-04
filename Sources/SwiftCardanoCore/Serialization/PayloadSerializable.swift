@@ -148,4 +148,15 @@ public extension PayloadCBORSerializable where Self: Codable {
         var container = encoder.singleValueContainer()
         try container.encode(payload)
     }
+    
+    func toPrimitive() -> Primitive {
+        return .bytes(payload)
+    }
+    
+    init(from primitive: Primitive) throws {
+        guard case let .bytes(payload) = primitive else {
+            throw CardanoCoreError.deserializeError("Invalid payload for \(Self.self): expected bytes but got \(primitive) type")
+        }
+        self.init(payload: payload)
+    }
 }

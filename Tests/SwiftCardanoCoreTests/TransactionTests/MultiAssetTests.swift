@@ -20,15 +20,18 @@ struct MultiAssetTests {
     
     @Test("Initialize MultiAsset from primitive dictionary")
     func testInitFromPrimitive() async throws {
-        let primitive = [
-            "policy1": ["asset1": 100, "asset2": 200],
-            "policy2": ["asset3": 300]
-        ]
+        let scriptHash1 = ScriptHash(payload: "policy1".toData)
+        let scriptHash2 = ScriptHash(payload: "policy2".toData)
+        
+        let policy1 = try ScriptHash(from: .string(scriptHash1.payload.toHex))
+        let policy2 = try ScriptHash(from: .string(scriptHash2.payload.toHex))
+        
+        let primitive: Primitive = .dict([
+            .string(scriptHash1.payload.toHex): .dict([.string("asset1"): .int(100), .string("asset2"): .int(200)]),
+            .string(scriptHash2.payload.toHex): .dict([.string("asset3"): .int(300)])
+        ])
         
         let multiAsset = try MultiAsset(from: primitive)
-        
-        let policy1 = try ScriptHash(from: "policy1")
-        let policy2 = try ScriptHash(from: "policy2")
         
         #expect(multiAsset[policy1]?.count == 2)
         #expect(multiAsset[policy2]?.count == 1)
@@ -36,14 +39,14 @@ struct MultiAssetTests {
     
     @Test("Test addition of MultiAssets")
     func testAddition() async throws {
-        let primitive1 = ["policy1": ["asset1": 100, "asset2": 200]]
-        let primitive2 = ["policy1": ["asset1": 50, "asset3": 300]]
+        let primitive1: Primitive = .dict([.string("policy1"): .dict([.string("asset1"): .int(100), .string("asset2"): .int(200)])])
+        let primitive2: Primitive = .dict([.string("policy1"): .dict([.string("asset1"): .int(50), .string("asset3"): .int(300)])])
         
         let multiAsset1 = try MultiAsset(from: primitive1)
         let multiAsset2 = try MultiAsset(from: primitive2)
         
         let result = multiAsset1 + multiAsset2
-        let policy1 = try ScriptHash(from: "policy1")
+        let policy1 = try ScriptHash(from: .string("policy1"))
         
         let asset1 = AssetName(from: "asset1")
         let asset2 = AssetName(from: "asset2")
@@ -56,14 +59,16 @@ struct MultiAssetTests {
     
     @Test("Test subtraction of MultiAssets")
     func testSubtraction() async throws {
-        let primitive1 = ["policy1": ["asset1": 100, "asset2": 200]]
-        let primitive2 = ["policy1": ["asset1": 50, "asset2": 50]]
+        let primitive1: Primitive = .dict([
+            .string("policy1"): .dict([.string("asset1"): .int(100), .string("asset2"): .int(200)])
+        ])
+        let primitive2: Primitive = .dict([.string("policy1"): .dict([.string("asset1"): .int(50), .string("asset2"): .int(50)])])
         
         let multiAsset1 = try MultiAsset(from: primitive1)
         let multiAsset2 = try MultiAsset(from: primitive2)
         
         let result = multiAsset1 - multiAsset2
-        let policy1 = try ScriptHash(from: "policy1")
+        let policy1 = try ScriptHash(from: .string("policy1"))
         
         let asset1 = AssetName(from: "asset1")
         let asset2 = AssetName(from: "asset2")
@@ -74,8 +79,10 @@ struct MultiAssetTests {
     
     @Test("Test comparison operators")
     func testComparison() async throws {
-        let primitive1 = ["policy1": ["asset1": 100, "asset2": 200]]
-        let primitive2 = ["policy1": ["asset1": 50, "asset2": 50]]
+        let primitive1: Primitive = .dict([
+            .string("policy1"): .dict([.string("asset1"): .int(100), .string("asset2"): .int(200)])
+        ])
+        let primitive2: Primitive = .dict([.string("policy1"): .dict([.string("asset1"): .int(50), .string("asset2"): .int(50)])])
         
         let multiAsset1 = try MultiAsset(from: primitive1)
         let multiAsset2 = try MultiAsset(from: primitive2)
@@ -85,10 +92,16 @@ struct MultiAssetTests {
     
     @Test("Test filtering MultiAsset")
     func testFilter() async throws {
-        let primitive = [
-            "policy1": ["asset1": 100, "asset2": 200],
-            "policy2": ["asset3": 300]
-        ]
+        let scriptHash1 = ScriptHash(payload: "policy1".toData)
+        let scriptHash2 = ScriptHash(payload: "policy2".toData)
+        
+        let policy1 = try ScriptHash(from: .string(scriptHash1.payload.toHex))
+        let policy2 = try ScriptHash(from: .string(scriptHash2.payload.toHex))
+        
+        let primitive: Primitive = .dict([
+            .string(scriptHash1.payload.toHex): .dict([.string("asset1"): .int(100), .string("asset2"): .int(200)]),
+            .string(scriptHash2.payload.toHex): .dict([.string("asset3"): .int(300)])
+        ])
         
         let multiAsset = try MultiAsset(from: primitive)
         
@@ -96,9 +109,6 @@ struct MultiAssetTests {
         let filtered = try multiAsset.filter { _, _, amount in
             amount > 150
         }
-        
-        let policy1 = try ScriptHash(from: "policy1")
-        let policy2 = try ScriptHash(from: "policy2")
         
         let asset1 = AssetName(from: "asset1")
         let asset2 = AssetName(from: "asset2")
@@ -111,10 +121,13 @@ struct MultiAssetTests {
     
     @Test("Test counting MultiAsset elements")
     func testCount() async throws {
-        let primitive = [
-            "policy1": ["asset1": 100, "asset2": 200],
-            "policy2": ["asset3": 300]
-        ]
+        let scriptHash1 = ScriptHash(payload: "policy1".toData)
+        let scriptHash2 = ScriptHash(payload: "policy2".toData)
+        
+        let primitive: Primitive = .dict([
+            .string(scriptHash1.payload.toHex): .dict([.string("asset1"): .int(100), .string("asset2"): .int(200)]),
+            .string(scriptHash2.payload.toHex): .dict([.string("asset3"): .int(300)])
+        ])
         
         let multiAsset = try MultiAsset(from: primitive)
         
@@ -128,10 +141,11 @@ struct MultiAssetTests {
     
     @Test("Test Codable conformance")
     func testCodable() throws {
-        let primitive = [
-            "policy1": ["asset1": 100, "asset2": 200],
-            "policy2": ["asset3": 300]
-        ]
+        let primitive: Primitive = .dict([
+            .string("policy1"): .dict([.string("asset1"): .int(100), .string("asset2"): .int(200)]),
+            .string("policy2"): .dict([.string("asset3"): .int(300)])
+        ])
+        
         
         let multiAsset = try MultiAsset(from: primitive)
         

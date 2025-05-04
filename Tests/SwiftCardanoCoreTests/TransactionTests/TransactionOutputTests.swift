@@ -4,7 +4,7 @@ import PotentCBOR
 
 struct TransactionOutputTests {
     @Test func testInitialization() throws {
-        let address = try Address(from: "stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n")
+        let address = try Address(from: .string("stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n"))
         let amount = Value(coin: 1000000)
         
         let output = TransactionOutput(
@@ -28,6 +28,9 @@ struct TransactionOutputTests {
             amount: 1000000
         )
         
+        let address = try Address(from: .string("stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n"))
+        
+        #expect(output.address == address)
         #expect(output.lovelace == 1000000)
         #expect(output.datumHash == nil)
         #expect(output.datum == nil)
@@ -77,7 +80,7 @@ struct TransactionOutputTests {
     
     @Test
     func testCodingBabbage() throws {
-        let address = try Address(from: "stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n")
+        let address = try Address(from: .string("stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n"))
         let amount = Value(coin: 1000000)
         
         let output = TransactionOutput(
@@ -94,7 +97,7 @@ struct TransactionOutputTests {
     
     @Test
     func testCodingPreBabbage() throws {
-        let address = try Address(from: "stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n")
+        let address = try Address(from: .string("stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n"))
         let amount = Value(coin: 1000000)
         
         let output = TransactionOutput(

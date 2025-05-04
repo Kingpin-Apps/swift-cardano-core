@@ -227,6 +227,51 @@ public enum Datum: CBORSerializable, Equatable, Hashable {
         }
     }
     
+    public init(from primitive: Primitive) throws {
+        switch primitive {
+            case .plutusData(let data):
+                self = .plutusData(data)
+            case .dict(let dict):
+                self = .dict(dict.reduce(into: [:]) { result, entry in
+                    result[entry.key.toAnyValue()] = entry.value.toAnyValue()
+                })
+            case .int(let int):
+                self = .int(int)
+            case .bytes(let bytes):
+                self = .bytes(bytes)
+            case .indefiniteList(let list):
+                self = .indefiniteList(
+                    IndefiniteList(list.map { $0.toAnyValue() })
+                )
+            case .cborSimpleValue(let cbor):
+                self = .cbor(cbor)
+            default:
+                throw CardanoCoreError.deserializeError("Invalid Datum")
+        }
+    }
+    
+    public func toPrimitive() throws -> Primitive {
+        switch self {
+            case .plutusData(let data):
+                return .cborTag(try data.toShallowPrimitive())
+            case .dict(let data):
+                return .dict(data.reduce(into: [:]) { result, entry in
+                    result[entry.key.toPrimitive()] = entry.value.toPrimitive()
+                })
+            case .int(let data):
+                return .int(data)
+            case .bytes(let data):
+                return .bytes(data)
+            case .indefiniteList(let data):
+                return .indefiniteList(IndefiniteList(data.map { $0.toPrimitive() }))
+            case .cbor(let data):
+                return .cborSimpleValue(data)
+            case .rawPlutusData(let data):
+                return try data.toPrimitive()
+        }
+            
+    }
+    
     public func toRawDatum() throws -> RawDatum {
         switch self {
             case .plutusData(let data):

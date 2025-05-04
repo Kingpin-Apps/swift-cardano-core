@@ -32,6 +32,26 @@ public struct UTxO: Codable, CustomStringConvertible, Hashable {
         try container.encode(input)
         try container.encode(output)
     }
+    
+    public init(from primitive: Primitive) throws {
+        guard case let .list(array) = primitive else {
+            throw CardanoCoreError.deserializeError("Invalid UTxO type")
+        }
+        
+        guard array.count == 2 else {
+            throw CardanoCoreError.deserializeError("Invalid UTxO type")
+        }
+        
+        input = try TransactionInput(from: array[0])
+        output = try TransactionOutput(from: array[1])
+    }
+    
+    public func toPrimitive() throws -> Primitive {
+        return .list([
+            try input.toPrimitive(),
+            try output.toPrimitive()
+        ])
+    }
 
     public static func == (lhs: UTxO, rhs: UTxO) -> Bool {
         return lhs.input == rhs.input && lhs.output == rhs.output

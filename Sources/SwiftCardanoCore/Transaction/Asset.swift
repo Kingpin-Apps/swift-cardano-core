@@ -53,11 +53,28 @@ public struct Asset: Codable, Comparable, Hashable, Equatable, AdditiveArithmeti
         self.data = data as! [AssetName: Int]
     }
     
-    public init(from primitive: [String: Int]) {
+    public init(from primitive: Primitive) throws {
         self.data = [:]
-        for (key, value) in primitive {
-            self.data[AssetName(from: key)] = value
+        
+        guard case let .dict(primitive) = primitive else {
+            throw CardanoCoreError.deserializeError("Invalid AssetName type")
         }
+        
+        for (key, value) in primitive {
+            guard case let .string(keyValue) = key,
+                    case let .int(intValue) = value else {
+                throw CardanoCoreError.deserializeError("Invalid AssetName type")
+            }
+            self.data[AssetName(from: keyValue)] = intValue
+        }
+    }
+    
+    public func toPrimitive() -> Primitive {
+        var result = [Primitive: Primitive]()
+        for (key, value) in data {
+            result[.string(key.payload.toString)] = .int(value)
+        }
+        return .dict(result)
     }
     
     public init(from decoder: Decoder) throws {
@@ -126,7 +143,7 @@ public struct Asset: Codable, Comparable, Hashable, Equatable, AdditiveArithmeti
             guard let rhsData = rhs.data[key] else {
                 return false
             }
-            if value > rhsData {
+            if !(value < rhsData) {
                 return false
             }
         }
@@ -138,7 +155,7 @@ public struct Asset: Codable, Comparable, Hashable, Equatable, AdditiveArithmeti
             guard let rhsData = rhs.data[key] else {
                 return false
             }
-            if value >= rhsData {
+            if !(value <= rhsData){
                 return false
             }
         }
@@ -150,7 +167,7 @@ public struct Asset: Codable, Comparable, Hashable, Equatable, AdditiveArithmeti
             guard let rhsData = rhs.data[key] else {
                 return false
             }
-            if value < rhsData {
+            if !(value > rhsData) {
                 return false
             }
         }
@@ -162,7 +179,7 @@ public struct Asset: Codable, Comparable, Hashable, Equatable, AdditiveArithmeti
             guard let rhsData = rhs.data[key] else {
                 return false
             }
-            if value <= rhsData {
+            if !(value >= rhsData) {
                 return false
             }
         }

@@ -5,7 +5,7 @@ import PotentCBOR
 @Suite("TransactionInput Tests")
 struct TransactionInputTests {
     let transactionId = try! TransactionId(
-        from: "732bfd67e66be8e8288349fcaaa2294973ef6271cc189a239bb431275401b8e5"
+        from: .string("732bfd67e66be8e8288349fcaaa2294973ef6271cc189a239bb431275401b8e5")
     )
     let index: UInt16 = 1
     
@@ -32,7 +32,7 @@ struct TransactionInputTests {
     @Test("Test Hashable conformance")
     func testHashable() throws {
         let transactionId2 = try TransactionId(
-            from: "c1b58dd4f2f4ee8656cc7962eefa8552877c4aa23d0699c02b885363d592a961"
+            from: .string("c1b58dd4f2f4ee8656cc7962eefa8552877c4aa23d0699c02b885363d592a961")
         )
         
         let input1 = TransactionInput(transactionId: transactionId, index: index)
