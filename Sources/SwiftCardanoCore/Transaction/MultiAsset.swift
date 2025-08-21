@@ -47,9 +47,6 @@ public struct MultiAsset: CBORSerializable, Hashable, Equatable, Comparable {
         }
         
         for (policyId, asset) in primitive {
-            guard case .string(_) = policyId  else {
-                throw CardanoCoreError.deserializeError("Invalid MultiAsset type")
-            }
             let pid = try ScriptHash(from: policyId)
             data[pid] = try Asset(from: asset)
         }
@@ -81,7 +78,7 @@ public struct MultiAsset: CBORSerializable, Hashable, Equatable, Comparable {
     
     public func normalize() -> MultiAsset {
         var newMultiAsset = self
-        for var (key, value) in data {
+        for (key, var value) in data {
             _ = value.normalize()
             if value.isEmpty {
                 newMultiAsset.data.removeValue(forKey: key)
@@ -126,6 +123,7 @@ public struct MultiAsset: CBORSerializable, Hashable, Equatable, Comparable {
     public static func <= (lhs: MultiAsset, rhs: MultiAsset) -> Bool {
         for (key, value) in lhs.data {
             guard let rhsData = rhs.data[key] else {
+                // If lhs has an asset that rhs doesn't have, lhs cannot be <= rhs
                 return false
             }
             if !(value <= rhsData) {
@@ -136,11 +134,12 @@ public struct MultiAsset: CBORSerializable, Hashable, Equatable, Comparable {
     }
 
     public static func >= (lhs: MultiAsset, rhs: MultiAsset) -> Bool {
-        for (key, value) in lhs.data {
-            guard let rhsData = rhs.data[key] else {
+        for (key, value) in rhs.data {
+            guard let lhsData = lhs.data[key] else {
+                // If rhs has an asset that lhs doesn't have, lhs cannot be >= rhs
                 return false
             }
-            if !(value >= rhsData) {
+            if !(lhsData >= value) {
                 return false
             }
         }
@@ -150,6 +149,7 @@ public struct MultiAsset: CBORSerializable, Hashable, Equatable, Comparable {
     public static func < (lhs: MultiAsset, rhs: MultiAsset) -> Bool {
         for (key, value) in lhs.data {
             guard let rhsData = rhs.data[key] else {
+                // If lhs has an asset that rhs doesn't have, lhs cannot be < rhs
                 return false
             }
             if !(value < rhsData) {
@@ -160,11 +160,12 @@ public struct MultiAsset: CBORSerializable, Hashable, Equatable, Comparable {
     }
     
     public static func > (lhs: MultiAsset, rhs: MultiAsset) -> Bool {
-        for (key, value) in lhs.data {
-            guard let rhsData = rhs.data[key] else {
+        for (key, value) in rhs.data {
+            guard let lhsData = lhs.data[key] else {
+                // If rhs has an asset that lhs doesn't have, lhs cannot be > rhs
                 return false
             }
-            if !(value > rhsData) {
+            if !(lhsData > value) {
                 return false
             }
         }
