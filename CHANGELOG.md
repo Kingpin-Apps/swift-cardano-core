@@ -1,3 +1,15 @@
+## 0.1.28 (2025-08-21)
+
+### Fix
+
+- enhance Value initialization to support multiple primitive types
+
+### Refactor
+
+- handle optional datumHash initialization in TransactionOutput
+- improve Value initialization and MultiAsset comparisons
+- initialize logging setup once
+
 ## 0.1.27 (2025-05-04)
 
 ### Refactor
