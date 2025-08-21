@@ -255,7 +255,12 @@ public struct TransactionOutputLegacy: CBORSerializable, Hashable, Equatable {
         
         self.address = try Address(from: primitive[0])
         self.amount = try Value(from: primitive[1])
-        self.datumHash = try DatumHash(from: primitive[2])
+        
+        if primitive.count > 2 {
+            self.datumHash = try DatumHash(from: primitive[2])
+        } else {
+            self.datumHash = nil
+        }
     }
     
     public func toPrimitive() throws -> Primitive {
