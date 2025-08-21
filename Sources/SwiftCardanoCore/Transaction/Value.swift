@@ -36,18 +36,21 @@ public struct Value: CBORSerializable, Equatable, Hashable, Comparable {
     }
     
     public init(from primitive: Primitive) throws {
-        guard case let .list(primitive) = primitive else {
+        switch primitive {
+        case .int(let coinValue):
+            self.coin = coinValue
+            self.multiAsset = MultiAsset([:])
+        case .list(let listValue):
+            guard listValue.count == 2,
+                case let .int(coinValue) = listValue[0],
+                case .dict(_) = listValue[1] else {
+                throw CardanoCoreError.deserializeError("Invalid Value data: \(primitive)")
+            }
+            self.coin = coinValue
+            self.multiAsset = try MultiAsset(from: listValue[1])
+        default:
             throw CardanoCoreError.deserializeError("Invalid Value type")
         }
-        
-        guard primitive.count == 2,
-          case let .int(coinValue) = primitive[0],
-              case .dict(_) = primitive[1] else {
-            throw CardanoCoreError.decodingError("Invalid Value data: \(primitive)")
-        }
-        
-        self.coin = coinValue
-        self.multiAsset = try MultiAsset(from: primitive[1])
     }
     
     public func toPrimitive() -> Primitive {
