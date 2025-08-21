@@ -3,10 +3,14 @@ import Logging
 let logger = Logger(label: "com.swift-cardano-core")
 
 // Setup Logging
-public func setupLogging() {
+private let loggingInitOnce: Void = {
     LoggingSystem.bootstrap { label in
         StreamLogHandler.standardOutput(label: label)
     }
+}()
+
+public func setupLogging() {
+    _ = loggingInitOnce
 }
 
 public protocol Loggable {
