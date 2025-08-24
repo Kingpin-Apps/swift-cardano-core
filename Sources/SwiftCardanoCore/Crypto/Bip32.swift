@@ -92,9 +92,9 @@ public class BIP32ED25519PublicKey {
 public func Fk(message: Data, secret: Data) throws -> Data {
     return try Data(
         HMAC(
-            key: secret.bytes,
+            key: secret.byteArray,
             variant: .sha2(.sha512)
-        ).authenticate(message.bytes)
+        ).authenticate(message.byteArray)
     )
 }
 
@@ -185,7 +185,7 @@ public class HDWallet {
     public static func generateSeed(passphrase: String, entropy: Data) -> Data {
         return Data(try! PKCS5.PBKDF2(
             password: Array(passphrase.utf8),
-            salt: entropy.bytes,
+            salt: entropy.byteArray,
             iterations: 4096,
             keyLength: 96,
             variant: .sha2(.sha512)
@@ -193,7 +193,7 @@ public class HDWallet {
     }
 
     public static func tweakBits(seed: Data) -> Data {
-        var seedArray = seed.bytes
+        var seedArray = seed.byteArray
         seedArray[0] &= 0b11111000
         seedArray[31] &= 0b00011111
         seedArray[31] |= 0b01000000
@@ -309,12 +309,12 @@ public class HDWallet {
         let c: Data
         if index < (1 << 31) {
             // regular child
-            Z = Data(try! HMAC(key: cP.bytes, variant: .sha2(.sha512)).authenticate(Data([0x02]) + AP + iBytes))
-            c = Data(try! HMAC(key: cP.bytes, variant: .sha2(.sha512)).authenticate(Data([0x03]) + AP + iBytes).suffix(32))
+            Z = Data(try! HMAC(key: cP.byteArray, variant: .sha2(.sha512)).authenticate(Data([0x02]) + AP + iBytes))
+            c = Data(try! HMAC(key: cP.byteArray, variant: .sha2(.sha512)).authenticate(Data([0x03]) + AP + iBytes).suffix(32))
         } else {
             // hardened child
-            Z = Data(try! HMAC(key: cP.bytes, variant: .sha2(.sha512)).authenticate(Data([0x00]) + kLP + kRP + iBytes))
-            c = Data(try! HMAC(key: cP.bytes, variant: .sha2(.sha512)).authenticate(Data([0x01]) + kLP + kRP + iBytes).suffix(32))
+            Z = Data(try! HMAC(key: cP.byteArray, variant: .sha2(.sha512)).authenticate(Data([0x00]) + kLP + kRP + iBytes))
+            c = Data(try! HMAC(key: cP.byteArray, variant: .sha2(.sha512)).authenticate(Data([0x01]) + kLP + kRP + iBytes).suffix(32))
         }
 
         let ZL = Z.prefix(28)
@@ -358,8 +358,8 @@ public class HDWallet {
             throw CardanoCoreError.invalidDataError("Cannot derive hardened index with public key")
         }
 
-        let Z = Data(try! HMAC(key: cP.bytes, variant: .sha2(.sha512)).authenticate(Data([0x02]) + AP + iBytes))
-        let c = Data(try! HMAC(key: cP.bytes, variant: .sha2(.sha512)).authenticate(Data([0x03]) + AP + iBytes).suffix(32))
+        let Z = Data(try! HMAC(key: cP.byteArray, variant: .sha2(.sha512)).authenticate(Data([0x02]) + AP + iBytes))
+        let c = Data(try! HMAC(key: cP.byteArray, variant: .sha2(.sha512)).authenticate(Data([0x03]) + AP + iBytes).suffix(32))
 
         let ZL = Z.prefix(28)
         let ZLint = BigInt(Data(ZL))
