@@ -8,6 +8,15 @@ public enum ListOrOrderedSet<T: CBORSerializable & Hashable>: CBORSerializable, 
     case list([Element])
     case orderedSet(OrderedSet<Element>)
     
+    public var count: Int {
+        switch self {
+            case .list(let array):
+                return array.count
+            case .orderedSet(let set):
+                return set.count
+        }
+    }
+    
     public var asArray: [Element] {
         switch self {
             case .list(let array):
@@ -72,6 +81,26 @@ public enum ListOrOrderedSet<T: CBORSerializable & Hashable>: CBORSerializable, 
                 return .orderedSet(try OrderedSet(primitives))
         }
     }
+    
+    public func contains(_ element: Element) -> Bool {
+        switch self {
+            case .list(let array):
+                return array.contains(element)
+            case .orderedSet(let set):
+                return set.contains(element)
+        }
+    }
+    
+    public mutating func append(_ element: Element) throws {
+        switch self {
+            case .list(var array):
+                array.append(element)
+                self = .list(array)
+            case .orderedSet(var set):
+                set.append(element)
+                self = .orderedSet(set)
+        }
+    }
 }
 
 /// A type that can represent transaction inputs as either an array or a NonEmptyOrderedSet
@@ -80,6 +109,15 @@ public enum ListOrNonEmptyOrderedSet<T: CBORSerializable & Hashable>: CBORSerial
     
     case list([Element])
     case nonEmptyOrderedSet(NonEmptyOrderedSet<Element>)
+    
+    public var count: Int {
+        switch self {
+            case .list(let array):
+                return array.count
+            case .nonEmptyOrderedSet(let set):
+                return set.count
+        }
+    }
     
     public var asList: [Element] {
         switch self {
@@ -141,6 +179,26 @@ public enum ListOrNonEmptyOrderedSet<T: CBORSerializable & Hashable>: CBORSerial
             case .nonEmptyOrderedSet(let set):
                 let primitives = try set.elements.map { try $0.toPrimitive() }
                 return .nonEmptyOrderedSet(NonEmptyOrderedSet(primitives))
+        }
+    }
+    
+    public func contains(_ element: Element) -> Bool {
+        switch self {
+            case .list(let array):
+                return array.contains(element)
+            case .nonEmptyOrderedSet(let set):
+                return set.contains(element)
+        }
+    }
+    
+    public mutating func append(_ element: Element) throws {
+        switch self {
+            case .list(var array):
+                array.append(element)
+                self = .list(array)
+            case .nonEmptyOrderedSet(var set):
+                set.append(element)
+                self = .nonEmptyOrderedSet(set)
         }
     }
 }
