@@ -10,7 +10,13 @@ public enum DatumType: Codable, Equatable, Hashable {
     
     public init(from primitive: Primitive) throws {
         if case let .cborTag(cborTag) = primitive {
-            self = .anyValue(cborTag.value)
+            // Handle CBOR-encoded data inside the tag
+            if case .data(let cborData) = cborTag.value {
+                let decodedValue = try CBORDecoder().decode(AnyValue.self, from: cborData)
+                self = .anyValue(decodedValue)
+            } else {
+                self = .anyValue(cborTag.value)
+            }
         } else if case .bytes(_) = primitive {
             self = .datumHash(try DatumHash(from: primitive))
         } else {
@@ -83,7 +89,13 @@ public struct DatumOption: Codable, Hashable, Equatable {
             datum = .datumHash(try DatumHash(from: primitive[1]))
         } else if case let .cborTag(cborTag) = primitive[1] {
             type = 1
-            datum = .anyValue(cborTag.value)
+            // The data is encoded as CBOR inside the tag, so we need to decode it
+            if case .data(let cborData) = cborTag.value {
+                let decodedValue = try CBORDecoder().decode(AnyValue.self, from: cborData)
+                datum = .anyValue(decodedValue)
+            } else {
+                datum = .anyValue(cborTag.value)
+            }
         } else {
             type = 1
             datum = .anyValue(primitive[1].toAnyValue())
@@ -92,11 +104,16 @@ public struct DatumOption: Codable, Hashable, Equatable {
     
     public func toPrimitive() throws -> Primitive {
         if self.type == 1 {
-            let data = CBORTag(
-                tag: 24,
-                value: .data(try CBOREncoder().encode(self.datum))
-            )
-            return .list([.int(1), .cborTag(data)])
+            // For inline datum, we need to encode it as tagged CBOR data
+            switch datum {
+            case .anyValue(let anyValue):
+                // Encode the anyValue as CBOR first, then wrap in tag 24
+                let datumCBORData = try CBOREncoder().encode(anyValue)
+                let cborTag = CBORTag(tag: 24, value: .data(datumCBORData))
+                return .list([.int(1), .cborTag(cborTag)])
+            case .datumHash(let hash):
+                return .list([.int(0), hash.toPrimitive()])
+            }
         } else {
             return .list([.int(0), try datum.toPrimitive()])
         }

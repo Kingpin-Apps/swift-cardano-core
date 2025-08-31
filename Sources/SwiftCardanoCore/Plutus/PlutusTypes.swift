@@ -329,50 +329,6 @@ public enum Datum: CBORSerializable, Equatable, Hashable {
     case cbor(CBOR)
     case rawPlutusData(RawPlutusData)
     
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        if let plutusData = try? container.decode(PlutusData.self) {
-            self = .plutusData(plutusData)
-        } else if let dict = try? container.decode(Dictionary<AnyValue, AnyValue>.self) {
-            self = .dict(dict)
-        } else if let int = try? container.decode(Int.self) {
-            self = .int(int)
-        }  else if let list = try? container.decode(IndefiniteList<AnyValue>.self) {
-            self = .indefiniteList(list)
-        } else if let bytes = try? container.decode(Data.self) {
-            if let cbor = try? CBORSerialization.cbor(from: bytes) {
-                self = .cbor(cbor)
-            } else {
-                self = .bytes(bytes)
-            }
-        } else if let rawPlutusData = try? container.decode(RawPlutusData.self) {
-            self = .rawPlutusData(rawPlutusData)
-         } else {
-            throw CardanoCoreError.deserializeError("Invalid Datum")
-        }
-        
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-        switch self {
-            case .plutusData(let plutusData):
-                try container.encode(plutusData)
-            case .dict(let dict):
-                try container.encode(dict)
-            case .int(let int):
-                try container.encode(int)
-            case .bytes(let bytes):
-                try container.encode(bytes)
-            case .indefiniteList(let list):
-                try container.encode(list)
-            case .cbor(let cbor):
-                try container.encode(try CBORSerialization.data(from: cbor))
-            case .rawPlutusData(let rawPlutusData):
-                try container.encode(rawPlutusData)
-        }
-    }
-    
     public init(from primitive: Primitive) throws {
         switch primitive {
             case .plutusData(let data):

@@ -20,7 +20,19 @@ public struct MultiAsset: CBORSerializable, Hashable, Equatable, Comparable {
     public var isEmpty: Bool { data.isEmpty }
     
     public init(_ data: [ScriptHash: Asset]) {
-        self.data = data
+        self._data = data
+        self._data = self.normalizeData()
+    }
+    
+    private func normalizeData() -> [ScriptHash: Asset] {
+        var normalizedData: [ScriptHash: Asset] = [:]
+        for (key, var value) in _data {
+            value = value.normalize()
+            if !value.isEmpty {
+                normalizedData[key] = value
+            }
+        }
+        return normalizedData
     }
     
     public init(from dict: [String: [String: Int]]) throws {
@@ -43,7 +55,7 @@ public struct MultiAsset: CBORSerializable, Hashable, Equatable, Comparable {
         var data: [ScriptHash: Asset] = [:]
         
         guard case let .dict(primitive) = primitive else {
-            throw CardanoCoreError.deserializeError("Invalid AssetName type")
+            throw CardanoCoreError.deserializeError("Invalid MultiAsset type: \(primitive)")
         }
         
         for (policyId, asset) in primitive {
@@ -79,9 +91,11 @@ public struct MultiAsset: CBORSerializable, Hashable, Equatable, Comparable {
     public func normalize() -> MultiAsset {
         var newMultiAsset = self
         for (key, var value) in data {
-            _ = value.normalize()
+            value = value.normalize()
             if value.isEmpty {
                 newMultiAsset.data.removeValue(forKey: key)
+            } else {
+                newMultiAsset.data[key] = value
             }
         }
         return newMultiAsset
@@ -123,7 +137,7 @@ public struct MultiAsset: CBORSerializable, Hashable, Equatable, Comparable {
     public static func <= (lhs: MultiAsset, rhs: MultiAsset) -> Bool {
         for (key, value) in lhs.data {
             guard let rhsData = rhs.data[key] else {
-                // If lhs has an asset that rhs doesn't have, lhs cannot be <= rhs
+                // lhs has a policy ID that rhs doesn't have, so lhs cannot be <= rhs
                 return false
             }
             if !(value <= rhsData) {
@@ -134,12 +148,11 @@ public struct MultiAsset: CBORSerializable, Hashable, Equatable, Comparable {
     }
 
     public static func >= (lhs: MultiAsset, rhs: MultiAsset) -> Bool {
-        for (key, value) in rhs.data {
-            guard let lhsData = lhs.data[key] else {
-                // If rhs has an asset that lhs doesn't have, lhs cannot be >= rhs
-                return false
+        for (key, value) in lhs.data {
+            guard let rhsData = rhs.data[key] else {
+                continue
             }
-            if !(lhsData >= value) {
+            if !(value >= rhsData) {
                 return false
             }
         }
@@ -149,8 +162,7 @@ public struct MultiAsset: CBORSerializable, Hashable, Equatable, Comparable {
     public static func < (lhs: MultiAsset, rhs: MultiAsset) -> Bool {
         for (key, value) in lhs.data {
             guard let rhsData = rhs.data[key] else {
-                // If lhs has an asset that rhs doesn't have, lhs cannot be < rhs
-                return false
+                continue
             }
             if !(value < rhsData) {
                 return false
@@ -160,12 +172,11 @@ public struct MultiAsset: CBORSerializable, Hashable, Equatable, Comparable {
     }
     
     public static func > (lhs: MultiAsset, rhs: MultiAsset) -> Bool {
-        for (key, value) in rhs.data {
-            guard let lhsData = lhs.data[key] else {
-                // If rhs has an asset that lhs doesn't have, lhs cannot be > rhs
-                return false
+        for (key, value) in lhs.data {
+            guard let rhsData = rhs.data[key] else {
+                continue
             }
-            if !(lhsData > value) {
+            if !(value > rhsData) {
                 return false
             }
         }
@@ -182,13 +193,19 @@ public struct MultiAsset: CBORSerializable, Hashable, Equatable, Comparable {
             for (assetName, amount) in asset.data {
                 if criteria(
                     policyId,
-                    assetName ,
+                    assetName,
                     amount
                 ) {
+                    // Create the asset if it doesn't exist
                     if newMultiAsset.data[policyId] == nil {
                         newMultiAsset.data[policyId] = Asset([:])
                     }
-                    (newMultiAsset.data[policyId]!).data[assetName] = amount
+                    
+                    // Safely access and update the asset using optional chaining instead of force unwrapping
+                    if var assetObj = newMultiAsset.data[policyId] {
+                        assetObj.data[assetName] = amount
+                        newMultiAsset.data[policyId] = assetObj
+                    }
                 }
             }
         }

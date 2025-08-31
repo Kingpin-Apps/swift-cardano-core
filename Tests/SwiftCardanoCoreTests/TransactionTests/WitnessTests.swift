@@ -4,8 +4,8 @@ import PotentCBOR
 @testable import SwiftCardanoCore
 
 @Suite struct VerificationKeyTypeTests {
-    let verificationKey = VKey(payload: Data(repeating: 0x01, count: 64))
-    let extendedVerificationKey = ExtendedVKey(payload: Data(repeating: 0x02, count: 128))
+    let verificationKey = VKey(payload: Data(repeating: 0x01, count: 32))
+    let extendedVerificationKey = ExtendedVKey(payload: Data(repeating: 0x02, count: 64))
     
     @Test func testInitialization() async throws {
         let vkeyType = VerificationKeyType.verificationKey(verificationKey)

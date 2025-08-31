@@ -48,21 +48,27 @@ public struct AfterScript: NativeScriptable {
     }
     
     public init(from primitive: Primitive) throws {
-        guard case let .dict(primitive) = primitive,
-                let slotPrimitive = primitive[.string("slot")],
-              case let .int(slot) = slotPrimitive else {
-            throw CardanoCoreError.deserializeError("Invalid AfterScript type")
+        guard case let .list(primitiveArray) = primitive else {
+            throw CardanoCoreError.deserializeError("Invalid AfterScript type: \(primitive)")
         }
+        
+        guard case let .int(code) = primitiveArray[0],
+              code == Self.TYPE.rawValue else {
+            throw CardanoCoreError.deserializeError("Invalid AfterScript type: \(primitiveArray[0])")
+            }
+        
+        guard case let .int(slot) = primitiveArray[1] else {
+            throw CardanoCoreError.deserializeError("Invalid AfterScript slot: \(primitiveArray[1])")
+        }
+        
         self.slot = slot
     }
 
     public func toPrimitive() throws -> Primitive {
-        return .tuple(
-            AnyTuple([
-                .int(Self.TYPE.rawValue),
-                .int(slot)
-            ])
-        )
+        return .list([
+            .int(Self.TYPE.rawValue),
+            .int(slot)
+        ])
     }
 
     

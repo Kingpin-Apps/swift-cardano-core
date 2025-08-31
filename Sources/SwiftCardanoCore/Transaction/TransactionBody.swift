@@ -96,9 +96,17 @@ public struct TransactionBody: CBORSerializable, Equatable, Hashable {
     }
 
     public func validate() throws {
+        // Check mint asset bounds - values should be within reasonable bounds for Cardano
+        // Cardano uses 64-bit signed integers, but very large values can cause issues
+        let maxMintAmount = 45_000_000_000_000_000 // Maximum reasonable mint amount for Cardano
         if let mint = mint, try mint
-            .count(criteria: { _, _, v in v < Int64.min || v > Int64.max }) > 0 {
+            .count(criteria: { _, _, v in abs(v) > maxMintAmount }) > 0 {
             throw CardanoCoreError.invalidArgument("Invalid mint amount: \(mint)")
+        }
+        
+        // Validate all outputs
+        for output in outputs {
+            try output.validate()
         }
     }
 

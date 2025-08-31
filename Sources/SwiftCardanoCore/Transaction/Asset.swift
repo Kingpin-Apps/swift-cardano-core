@@ -32,13 +32,22 @@ public struct Asset: Codable, Comparable, Hashable, Equatable, AdditiveArithmeti
     
     public var data: [AssetName: Int] {
         get { _data }
-        set { _data = newValue }
+        set { 
+            _data = newValue
+            _data = normalizeData(_data)
+        }
     }
     private var _data: [AssetName: Int] = [:]
     
     public subscript(key: AssetName) -> Int? {
         get { return _data[key] }
-        set { _data[key] = newValue }
+        set { 
+            if let value = newValue, value != 0 {
+                _data[key] = value
+            } else {
+                _data.removeValue(forKey: key)
+            }
+        }
     }
     
     public var isEmpty: Bool {
@@ -57,22 +66,32 @@ public struct Asset: Codable, Comparable, Hashable, Equatable, AdditiveArithmeti
         self.data = [:]
         
         guard case let .dict(primitive) = primitive else {
-            throw CardanoCoreError.deserializeError("Invalid AssetName type")
+            throw CardanoCoreError.deserializeError("Invalid Asset type")
         }
         
         for (key, value) in primitive {
-            guard case let .string(keyValue) = key,
-                    case let .int(intValue) = value else {
-                throw CardanoCoreError.deserializeError("Invalid AssetName type")
+            let assetName: String
+            
+            switch key {
+                case let .string(keyValue):
+                    assetName = keyValue
+                case let .bytes(dataValue):
+                    assetName = dataValue.toHexString()
+                default:
+                    throw CardanoCoreError.deserializeError("Invalid AssetName type: \(key)")
             }
-            self.data[AssetName(from: keyValue)] = intValue
+                    
+            guard case let .int(intValue) = value else {
+                throw CardanoCoreError.deserializeError("Invalid Asset amount type: \(value)")
+            }
+            self.data[AssetName(from: assetName)] = intValue
         }
     }
     
     public func toPrimitive() -> Primitive {
         var result = [Primitive: Primitive]()
         for (key, value) in data {
-            result[.string(key.payload.toString)] = .int(value)
+            result[key.toPrimitive()] = .int(value)
         }
         return .dict(result)
     }
@@ -87,12 +106,12 @@ public struct Asset: Codable, Comparable, Hashable, Equatable, AdditiveArithmeti
         try container.encode(data)
     }
     
+    private func normalizeData(_ data: [AssetName: Int]) -> [AssetName: Int] {
+        return data.filter { $0.value != 0 }
+    }
+    
     public mutating func normalize() -> Asset {
-        for (key, value) in data {
-            if value == 0 {
-                self.data.removeValue(forKey: key)
-            }
-        }
+        _data = normalizeData(_data)
         return self
     }
     
@@ -110,52 +129,32 @@ public struct Asset: Codable, Comparable, Hashable, Equatable, AdditiveArithmeti
         var result = lhs
         for (key, value) in rhs.data {
             result[key] = (result[key] ?? 0) + value
-            
-            if result[key] == 0 {
-                result.data.removeValue(forKey: key)
-            }
-            
-            if result.data.isEmpty {
-                return zero
-            }
         }
-        return result.normalize()
+        return result
     }
     
     public static func - (lhs: Asset, rhs: Asset) -> Asset {
         var result = lhs
         for (key, value) in rhs.data {
             result[key] = (result[key] ?? 0) - value
-            
-            if result[key] == 0 {
-                result.data.removeValue(forKey: key)
-            }
-            
-            if result.data.isEmpty {
-                return zero
-            }
         }
-        return result.normalize()
+        return result
     }
 
     public static func < (lhs: Asset, rhs: Asset) -> Bool {
-        for (key, value) in lhs.data {
-            guard let rhsData = rhs.data[key] else {
-                return false
-            }
-            if !(value < rhsData) {
-                return false
-            }
-        }
-        return true
+        // lhs < rhs means lhs <= rhs && lhs != rhs
+        return lhs <= rhs && lhs != rhs
     }
 
     public static func <= (lhs: Asset, rhs: Asset) -> Bool {
+        // Check if lhs is a subset of rhs with all values <= corresponding rhs values
         for (key, value) in lhs.data {
-            guard let rhsData = rhs.data[key] else {
+            guard let rhsValue = rhs.data[key] else {
+                // lhs has an asset that rhs doesn't have, so lhs cannot be <= rhs
                 return false
             }
-            if !(value <= rhsData){
+            if value > rhsValue {
+                // lhs has more of this asset than rhs, so lhs cannot be <= rhs
                 return false
             }
         }
@@ -163,26 +162,12 @@ public struct Asset: Codable, Comparable, Hashable, Equatable, AdditiveArithmeti
     }
 
     public static func > (lhs: Asset, rhs: Asset) -> Bool {
-        for (key, value) in lhs.data {
-            guard let rhsData = rhs.data[key] else {
-                return false
-            }
-            if !(value > rhsData) {
-                return false
-            }
-        }
-        return true
+        // lhs > rhs means rhs < lhs
+        return rhs < lhs
     }
 
     public static func >= (lhs: Asset, rhs: Asset) -> Bool {
-        for (key, value) in lhs.data {
-            guard let rhsData = rhs.data[key] else {
-                return false
-            }
-            if !(value >= rhsData) {
-                return false
-            }
-        }
-        return true
+        // lhs >= rhs means rhs <= lhs
+        return rhs <= lhs
     }
 }

@@ -385,9 +385,21 @@ public struct AlonzoMetadata: CBORSerializable, Hashable, Equatable {
     
     public init(from primitive: Primitive) throws {
         guard case let .cborTag(cborTag) = primitive,
-                cborTag.tag == AlonzoMetadata.TAG,
-              case let .dictionary(cborDict) = cborTag.value else {
-            throw CardanoCoreError.deserializeError("Invalid AlonzoMetadata type")
+              cborTag.tag == AlonzoMetadata.TAG else {
+            throw CardanoCoreError.deserializeError("Invalid AlonzoMetadata: Not CBOR tag \(AlonzoMetadata.TAG)")
+        }
+        
+        // Handle the case where tag value is a dictionary/map structure
+        var cborDict: OrderedDictionary<AnyValue, AnyValue> = OrderedDictionary<AnyValue, AnyValue>()
+        
+        switch cborTag.value {
+        case .dictionary(let dict):
+            cborDict = dict
+        default:
+            // For any other value type (including maps converted to dictionaries), 
+            // we'll create an empty dictionary and proceed with no metadata
+            // This handles edge cases where the tag exists but has no structured content
+            break
         }
         
         if let metadataPrimitive = cborDict[.int(Int(0))] {

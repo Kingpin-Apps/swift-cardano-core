@@ -1,4 +1,5 @@
 import Foundation
+import PotentCodables
 
 public struct TransactionOutput: CBORSerializable, Hashable, Equatable {
     public var address: Address
@@ -49,6 +50,9 @@ public struct TransactionOutput: CBORSerializable, Hashable, Equatable {
             self.address = output.address
             self.amount = output.amount
             self.datumHash = output.datumHash
+            self.datum = nil
+            self.script = nil
+            self.postAlonzo = false  // Legacy format
         } else if case .dict(_) = primitives {
             let output = try TransactionOutputPostAlonzo(from: primitives)
             self.address = output.address
@@ -59,11 +63,16 @@ public struct TransactionOutput: CBORSerializable, Hashable, Equatable {
             switch datum {
                 case .datumHash(let hash):
                     self.datumHash = hash
+                    self.datum = nil
                 case .anyValue(let any):
+                    self.datumHash = nil
                     self.datum = try Datum(from: any.toPrimitive())
                 case .none:
+                    self.datumHash = nil
                     self.datum = nil
             }
+            
+            self.postAlonzo = true  // Post-Alonzo format
         } else {
             throw CardanoCoreError.deserializeError("Invalid TransactionOutput type")
         }
@@ -77,9 +86,17 @@ public struct TransactionOutput: CBORSerializable, Hashable, Equatable {
             if let datumHash = self.datumHash {
                 datumOption = DatumOption(datum: datumHash)
             } else if let datum = datum {
-                datumOption = DatumOption(
-                    datum: .anyValue(try datum.toPrimitive().toAnyValue())
-                )
+                // For inline datum, we need to encode it directly as AnyValue
+                let anyValue: AnyValue
+                switch datum {
+                case .int(let intValue):
+                    anyValue = AnyValue.int(intValue)
+                case .bytes(let data):
+                    anyValue = AnyValue.data(data)
+                default:
+                    anyValue = try datum.toPrimitive().toAnyValue()
+                }
+                datumOption = DatumOption(datum: anyValue)
             } else {
                 datumOption = nil
             }
@@ -106,41 +123,6 @@ public struct TransactionOutput: CBORSerializable, Hashable, Equatable {
     }
             
     
-    public init(from decoder: Decoder) throws {
-        if let keyedContainer = try? decoder.container(
-            keyedBy: BabbageTransactionOutput.CodingKeys.self
-        ) {
-            address = try keyedContainer.decode(Address.self, forKey: .address)
-            amount = try keyedContainer.decode(Value.self, forKey: .amount)
-            datum = try? keyedContainer.decode(Datum.self, forKey: .datum)
-            let scriptRef = try? keyedContainer.decode(ScriptRef.self, forKey: .scriptRef)
-            script = scriptRef?.script.script
-        } else if var unkeyedContainer = try? decoder.unkeyedContainer() {
-            address = try unkeyedContainer.decode(Address.self)
-            amount = try unkeyedContainer.decode(Value.self)
-            datumHash = try? unkeyedContainer.decode(DatumHash.self)
-        } else {
-            throw CardanoCoreError
-                .decodingError("Invalid transaction output data")
-        }
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        if postAlonzo {
-            var keyedContainer = encoder.container(
-                keyedBy: BabbageTransactionOutput.CodingKeys.self
-            )
-            try keyedContainer.encode(address, forKey: .address)
-            try keyedContainer.encode(amount, forKey: .amount)
-            try keyedContainer.encodeIfPresent(datum, forKey: .datum)
-            try keyedContainer.encodeIfPresent(script, forKey: .scriptRef)
-        } else {
-            var unkeyedContainer = encoder.unkeyedContainer()
-            try unkeyedContainer.encode(address)
-            try unkeyedContainer.encode(amount)
-            try unkeyedContainer.encode(datumHash)
-        }
-    }
 
     public func validate() throws {
         if amount.coin < 0 {

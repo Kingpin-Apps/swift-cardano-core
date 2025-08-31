@@ -109,12 +109,12 @@ public enum VerificationKeyType: CBORSerializable, Equatable, Hashable {
         }
         
         // Determine key type based on data length
-        if data.count/2 == 32 {
+        if data.count == 32 {
             // Regular verification key (32 bytes)
-            self = .verificationKey(VKey(payload: data))
-        } else if data.count/2 == 64 {
+            self = .verificationKey(VKey(payload: data, type: nil, description: nil))
+        } else if data.count == 64 {
             // Extended verification key (64 bytes: 32 bytes key + 32 bytes chain code)
-            self = .extendedVerificationKey(ExtendedVKey(payload: data))
+            self = .extendedVerificationKey(ExtendedVKey(payload: data, type: nil, description: nil))
         } else {
             throw CardanoCoreError.deserializeError("Invalid verification key length: \(data.count) bytes. Expected 32 or 64 bytes.")
         }

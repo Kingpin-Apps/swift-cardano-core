@@ -115,11 +115,11 @@ public enum NativeScript: CBORSerializable, Equatable, Hashable {
     
     public init(from primitive: Primitive) throws {
         guard case let .list(elements) = primitive, let head = elements.first else {
-            throw CardanoCoreError.decodingError("NativeScript: expected CBOR array primitive")
+            throw CardanoCoreError.decodingError("NativeScript expected CBOR array primitive: \(primitive)")
         }
         
         guard case let .int(type) = head else {
-            throw CardanoCoreError.decodingError("NativeScript: expected first element to be unsigned int")
+            throw CardanoCoreError.decodingError("NativeScript: expected first element to be unsigned int: \(head)")
         }
         
         switch type {

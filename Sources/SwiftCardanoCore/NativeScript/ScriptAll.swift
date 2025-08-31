@@ -61,26 +61,24 @@ public struct ScriptAll: NativeScriptable {
             throw CardanoCoreError.deserializeError("Invalid ScriptAll type")
         }
         
-        var primitives = Array(primitiveArray)
-        
-        guard !primitives.isEmpty else {
+        guard !primitiveArray.isEmpty else {
             throw CardanoCoreError.deserializeError("Invalid ScriptAll type")
         }
         
-        let first = primitives.removeFirst()
-        
-        guard case let .int(code) = first,
+        guard case let .int(code) = primitiveArray[0],
               code == Self.TYPE.rawValue else {
             throw CardanoCoreError.deserializeError("Invalid ScriptAll type")
             }
-        self.scripts = try primitives.map { try NativeScript(from: $0)}
+        
+        guard case let .list(nativeScript) = primitiveArray[1] else {
+            throw CardanoCoreError.deserializeError("Invalid ScriptAll type")
+            }
+        self.scripts = try nativeScript.map { try NativeScript(from: $0)}
     }
 
     public func toPrimitive() throws -> Primitive {
-        var elements: [Primitive] = []
-        elements.append(.int(Self.TYPE.rawValue))
-        elements.append(contentsOf: try scripts.map { try $0.toPrimitive() })
-        return .list(elements)
+        let scriptPrimitives = try scripts.map { try $0.toPrimitive() }
+        return .list([.int(Self.TYPE.rawValue), .list(scriptPrimitives)])
     }
 
 }

@@ -14,15 +14,30 @@ public struct Value: CBORSerializable, Equatable, Hashable, Comparable {
     }
     
     public init(from decoder: Decoder) throws {
+        if let singleValueContainer = try? decoder.singleValueContainer() {
+            // Try to decode as a single coin value
+            if let coinValue = try? singleValueContainer.decode(Int.self) {
+                coin = coinValue
+                multiAsset = MultiAsset([:])
+                return
+            }
+        }
+        
+        // Decode as array format [coin, multiAsset]
         var container = try decoder.unkeyedContainer()
         coin = try container.decode(Int.self)
         multiAsset = try container.decode(MultiAsset.self)
     }
     
     public func encode(to encoder: Encoder) throws {
-        var container = encoder.unkeyedContainer()
-        try container.encode(coin)
-        try container.encode(multiAsset)
+        if multiAsset.isEmpty {
+            var container = encoder.singleValueContainer()
+            try container.encode(coin)
+        } else {
+            var container = encoder.unkeyedContainer()
+            try container.encode(coin)
+            try container.encode(multiAsset)
+        }
     }
     
     public init(from list: [Any]) throws {

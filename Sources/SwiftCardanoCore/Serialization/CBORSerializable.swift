@@ -32,11 +32,18 @@ extension CBORSerializable {
     }
     
     public func toCBORHex() throws -> String {
-        return try toCBORData().toHexString()
+        return try toCBORData().toHex
     }
     
     public static func fromCBOR(data: Data) throws -> Self {
         return try CBORDecoder().decode(Self.self, from: data)
+    }
+    
+    public static func fromCBORHex(_ hexString: String) throws -> Self {
+        guard let data = Data(hexString: hexString) else {
+            throw CardanoCoreError.invalidArgument("Invalid hex string: \(hexString)")
+        }
+        return try fromCBOR(data: data)
     }
 
 }
