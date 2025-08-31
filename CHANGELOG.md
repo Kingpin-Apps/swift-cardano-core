@@ -1,3 +1,13 @@
+## 0.1.30 (2025-08-31)
+
+### Fix
+
+- minor fixes since refactor
+
+### Refactor
+
+- use toPrimitive and init from primitive for encoding
+
 ## 0.1.29 (2025-08-24)
 
 ### Fix
