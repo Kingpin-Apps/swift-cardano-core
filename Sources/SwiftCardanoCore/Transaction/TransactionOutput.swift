@@ -6,13 +6,13 @@ public struct TransactionOutput: CBORSerializable, Hashable, Equatable {
     public var datumHash: DatumHash?
     public var datum: Datum?
     public var script: ScriptType?
-    public var postAlonzo: Bool = true
+    public var postAlonzo: Bool = false
 
     public var lovelace: Int {
         return amount.coin
     }
     
-    public init(address: Address, amount: Value, datumHash: DatumHash? = nil, datum: Datum? = nil, script: ScriptType? = nil, postAlonzo: Bool = true) {
+    public init(address: Address, amount: Value, datumHash: DatumHash? = nil, datum: Datum? = nil, script: ScriptType? = nil, postAlonzo: Bool = false) {
         self.address = address
         self.amount = amount
         self.datumHash = datumHash
@@ -27,7 +27,7 @@ public struct TransactionOutput: CBORSerializable, Hashable, Equatable {
                 datumHash: String? = nil,
                 datum: Datum? = nil,
                 script: ScriptType? = nil,
-                postAlonzo: Bool = true
+                postAlonzo: Bool = false
     ) throws {
         self.address = try Address(from: .string(address))
         self.amount = Value(coin: amount)
@@ -221,12 +221,20 @@ public struct TransactionOutputPostAlonzo: CBORSerializable, Hashable, Equatable
     }
     
     public func toPrimitive() throws -> Primitive {
-        return .dict([
+        var dict: Dictionary<Primitive, Primitive> = [
             .int(0): address.toPrimitive(),
-            .int(1): amount.toPrimitive(),
-            .int(2): try datum?.toPrimitive() ?? .null,
-            .int(3): try scriptRef?.toPrimitive() ?? .null
-        ])
+            .int(1): amount.toPrimitive()
+        ]
+        
+        if datum != nil {
+            dict[.int(2)] = try datum!.toPrimitive()
+        }
+        
+        if scriptRef != nil {
+            dict[.int(3)] = try scriptRef!.toPrimitive()
+        }
+        
+        return .dict(dict)
     }
 }
 
@@ -264,10 +272,15 @@ public struct TransactionOutputLegacy: CBORSerializable, Hashable, Equatable {
     }
     
     public func toPrimitive() throws -> Primitive {
-        return .list([
+        var list: [Primitive] = [
             address.toPrimitive(),
-            amount.toPrimitive(),
-            datumHash?.toPrimitive() ?? .null
-        ])
+            amount.toPrimitive()
+        ]
+        
+        if let datumHash = datumHash {
+            list.append(datumHash.toPrimitive())
+        }
+        
+        return .list(list)
     }
 }

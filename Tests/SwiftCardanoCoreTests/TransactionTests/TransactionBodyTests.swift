@@ -101,12 +101,12 @@ struct TransactionBodyTests {
         let fee = Coin(100000)
         
         let body = TransactionBody(
-            inputs: CBORSet([input]),
+            inputs: .orderedSet(try OrderedSet([input])),
             outputs: [output],
             fee: fee
         )
         
-        #expect(body.inputs == CBORSet([input]))
+        #expect(body.inputs == .orderedSet(try OrderedSet([input])))
         #expect(body.outputs == [output])
         #expect(body.fee == fee)
         #expect(body.ttl == nil)
@@ -141,7 +141,7 @@ struct TransactionBodyTests {
         let withdrawals: Withdrawals = Withdrawals([RewardAccount(Data([1, 2, 3])):Coin(1000)])
         let update = Update(
             proposedprotocolParamUpdates: ProposedProtocolParamUpdates(
-                data: [
+                [
                     GenesisHash(payload: Data(repeating: 0x01, count: 32)):protocolParamUpdate
                 ]
             ),
@@ -167,10 +167,13 @@ struct TransactionBodyTests {
         )
         let transactionID = TransactionId(payload: Data(repeating: 0x01, count: 32))
         let originalID = GovActionID(transactionID: transactionID, govActionIndex: 10)
-        let votingProcedures: VotingProcedures = [
+//        let votingProcedures: VotingProcedures = [
+//            voter: [originalID: VotingProcedure(vote: .yes, anchor: anchor)]
+//        ]
+        let votingProcedures = VotingProcedures([
             voter: [originalID: VotingProcedure(vote: .yes, anchor: anchor)]
-        ]
-        let proposalProcedures: ProposalProcedures = NonEmptyCBORSet(
+        ])
+        let proposalProcedures: ProposalProcedures = NonEmptyOrderedSet(
             [
                 ProposalProcedure(
                     deposit: deposit,
@@ -184,46 +187,46 @@ struct TransactionBodyTests {
         let treasuryDonation = PositiveCoin(400000)
         
         let body = TransactionBody(
-            inputs: CBORSet([input]),
+            inputs: .orderedSet(try OrderedSet([input])),
             outputs: [output],
             fee: fee,
             ttl: ttl,
-            certificates: NonEmptyCBORSet(certificates),
+            certificates: .nonEmptyOrderedSet(NonEmptyOrderedSet(certificates)),
             withdrawals: withdrawals,
             update: update,
             auxiliaryDataHash: auxiliaryDataHash,
             validityStart: validityStart,
             mint: mint,
             scriptDataHash: scriptDataHash,
-            collateral: NonEmptyCBORSet(collateral),
-            requiredSigners: NonEmptyCBORSet(requiredSigners),
+            collateral: .nonEmptyOrderedSet(NonEmptyOrderedSet(collateral)),
+            requiredSigners: .nonEmptyOrderedSet(NonEmptyOrderedSet(requiredSigners)),
             networkId: networkId,
             collateralReturn: collateralReturn,
             totalCollateral: totalCollateral,
-            referenceInputs: NonEmptyCBORSet(referenceInputs),
+            referenceInputs: .nonEmptyOrderedSet(NonEmptyOrderedSet(referenceInputs)),
             votingProcedures: votingProcedures,
             proposalProcedures: proposalProcedures,
             currentTreasuryAmount: currentTreasuryAmount,
             treasuryDonation: treasuryDonation
         )
         
-        #expect(body.inputs == CBORSet([input]))
+        #expect(body.inputs == .orderedSet(try OrderedSet([input])))
         #expect(body.outputs == [output])
         #expect(body.fee == fee)
         #expect(body.ttl == ttl)
-        #expect(body.certificates! == NonEmptyCBORSet(certificates))
+        #expect(body.certificates! == .nonEmptyOrderedSet(NonEmptyOrderedSet(certificates)))
         #expect(body.withdrawals! == withdrawals)
         #expect(body.update == update)
         #expect(body.auxiliaryDataHash == auxiliaryDataHash)
         #expect(body.validityStart == validityStart)
         #expect(body.mint == mint)
         #expect(body.scriptDataHash == scriptDataHash)
-        #expect(body.collateral == NonEmptyCBORSet(collateral))
-        #expect(body.requiredSigners == NonEmptyCBORSet(requiredSigners))
+        #expect(body.collateral == .nonEmptyOrderedSet(NonEmptyOrderedSet(collateral)))
+        #expect(body.requiredSigners == .nonEmptyOrderedSet(NonEmptyOrderedSet(requiredSigners)))
         #expect(body.networkId == networkId)
         #expect(body.collateralReturn == collateralReturn)
         #expect(body.totalCollateral == totalCollateral)
-        #expect(body.referenceInputs == NonEmptyCBORSet(referenceInputs))
+        #expect(body.referenceInputs == .nonEmptyOrderedSet(NonEmptyOrderedSet(referenceInputs)))
         #expect(body.votingProcedures == votingProcedures)
         #expect(body.proposalProcedures == proposalProcedures)
         #expect(body.currentTreasuryAmount == currentTreasuryAmount)
@@ -237,13 +240,14 @@ struct TransactionBodyTests {
         let fee = Coin(100000)
         
         let originalBody = TransactionBody(
-            inputs: CBORSet([input]),
+            inputs: .orderedSet(try OrderedSet([input])),
             outputs: [output],
             fee: fee
         )
         
-        let encodedData = try CBOREncoder().encode(originalBody)
-        let decodedBody = try CBORDecoder().decode(TransactionBody.self, from: encodedData)
+        let encodedData = try originalBody.toCBORData()
+        print("Encoded CBOR Data: \(encodedData.toHex)")
+        let decodedBody = try TransactionBody.fromCBOR(data: encodedData)
         
         #expect(decodedBody == originalBody)
         #expect(decodedBody.inputs == originalBody.inputs)
@@ -259,7 +263,7 @@ struct TransactionBodyTests {
         let mint = try MultiAsset(from: .dict([.string("policyId"): .dict([.string("assetName"): .int(5)])]))
         
         let body = TransactionBody(
-            inputs: CBORSet([input]),
+            inputs: .orderedSet(try OrderedSet([input])),
             outputs: [output],
             fee: fee,
             mint: mint
@@ -275,7 +279,7 @@ struct TransactionBodyTests {
         let fee = Coin(100000)
         
         let body = TransactionBody(
-            inputs: CBORSet([input]),
+            inputs: .orderedSet(try OrderedSet([input])),
             outputs: [output],
             fee: fee
         )
@@ -291,7 +295,7 @@ struct TransactionBodyTests {
         let fee = Coin(100000)
         
         let body = TransactionBody(
-            inputs: CBORSet([input]),
+            inputs: .orderedSet(try OrderedSet([input])),
             outputs: [output],
             fee: fee
         )
@@ -299,4 +303,21 @@ struct TransactionBodyTests {
         let hash = body.hash()
         #expect(hash.count == TRANSACTION_HASH_SIZE)
     }
-} 
+    
+    @Test("Test CBOR encoding of transaction body")
+    func testTransactionBodyCBOR() throws {
+        let txBody = try makeTransactionBody()
+        
+        // Convert to CBOR and get the hex representation
+        let cborHex = try txBody.toCBORHex()
+        
+        // Expected CBOR hex string from the Python test
+        let expectedHex = "a50081825820732bfd67e66be8e8288349fcaaa2294973ef6271cc189a239bb431275401b8e500018282581d60f6532850e1bccee9c72a9113ad98bcc5dbb30d2ac960262444f6e5f41b000000174876e80082581d60f6532850e1bccee9c72a9113ad98bcc5dbb30d2ac960262444f6e5f41b000000ba43b4b7f7021a000288090d800e80"
+        
+        // Verify the CBOR encoding matches the expected hex
+        #expect(cborHex == expectedHex, "CBOR encoding does not match expected value")
+        
+        // Verify two-way CBOR serialization works
+        #expect(try checkTwoWayCBOR(serializable: txBody), "Two-way CBOR serialization failed")
+    }
+}

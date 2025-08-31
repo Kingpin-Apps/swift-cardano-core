@@ -37,31 +37,109 @@ public final class MyTest: PlutusData {
     }
 
     required public init(fields: [Any]) throws {
-        guard fields.count == 4,
-            let a = fields[0] as? AnyValue,
-            let b = fields[1] as? AnyValue,
-            let c = fields[2] as? AnyValue,
-            let d = fields[3] as? AnyValue
-        else {
-            throw CardanoCoreError.invalidArgument("Invalid fields for MyTest: \(fields)")
+        guard fields.count == 4 else {
+            throw CardanoCoreError.invalidArgument("Invalid fields count for MyTest: \(fields.count), expected 4")
         }
-
-        if let a = a.uint64Value {
+        
+        // Handle the 'a' field - could be Int directly or wrapped in AnyValue
+        if let a = fields[0] as? AnyValue {
+            if let aValue = a.uint64Value {
+                self.a = Int(aValue)
+            } else if let aValue = a.int64Value {
+                self.a = Int(aValue)
+            } else {
+                throw CardanoCoreError.invalidArgument("Invalid field type for MyTest.a (AnyValue): \(a)")
+            }
+        } else if let a = fields[0] as? Int {
+            self.a = a
+        } else if let a = fields[0] as? Int64 {
             self.a = Int(a)
-        } else if let a = a.int64Value {
+        } else if let a = fields[0] as? UInt64 {
             self.a = Int(a)
         } else {
-            throw CardanoCoreError.invalidArgument("Invalid field type for MyTest.a: \(a)")
+            throw CardanoCoreError.invalidArgument("Invalid field type for MyTest.a: \(type(of: fields[0]))")
         }
-
-        self.b = b.dataValue!
-        self.c = IndefiniteList<AnyValue>(
-            c.indefiniteArrayValue ?? c.arrayValue ?? []
-        )
-        self.d = OrderedDictionary(
-            uniqueKeysWithValues: d.dictionaryValue!.map { key, value in
-                (key, value)
-            })
+        
+        // Handle the 'b' field - could be Data directly or wrapped in AnyValue
+        if let b = fields[1] as? AnyValue {
+            guard let bData = b.dataValue else {
+                throw CardanoCoreError.invalidArgument("Invalid field type for MyTest.b (AnyValue): \(b)")
+            }
+            self.b = bData
+        } else if let b = fields[1] as? Data {
+            self.b = b
+        } else {
+            throw CardanoCoreError.invalidArgument("Invalid field type for MyTest.b: \(type(of: fields[1]))")
+        }
+        
+        // Handle the 'c' field - could be Array/IndefiniteList directly or wrapped in AnyValue
+        if let c = fields[2] as? AnyValue {
+            self.c = IndefiniteList<AnyValue>(c.indefiniteArrayValue ?? c.arrayValue ?? [])
+        } else if let c = fields[2] as? [Any] {
+            // Convert raw array to AnyValue array
+            let anyValueArray = c.compactMap { value -> AnyValue? in
+                if let intValue = value as? Int {
+                    return .uint64(UInt64(intValue))
+                } else if let intValue = value as? Int64 {
+                    return .int64(intValue)
+                } else if let intValue = value as? UInt64 {
+                    return .uint64(intValue)
+                } else if let optionalValue = value as? Optional<Any>, let unwrapped = optionalValue {
+                    if let intValue = unwrapped as? Int {
+                        return .uint64(UInt64(intValue))
+                    } else if let intValue = unwrapped as? UInt64 {
+                        return .uint64(intValue)
+                    } else if let intValue = unwrapped as? Int64 {
+                        return .int64(intValue)
+                    } else if let anyValue = unwrapped as? AnyValue {
+                        return anyValue
+                    }
+                } else if let anyValue = value as? AnyValue {
+                    return anyValue
+                }
+                return nil
+            }
+            self.c = IndefiniteList<AnyValue>(anyValueArray)
+        } else if let c = fields[2] as? IndefiniteList<AnyValue> {
+            self.c = c
+        } else {
+            throw CardanoCoreError.invalidArgument("Invalid field type for MyTest.c: \(type(of: fields[2]))")
+        }
+        
+        // Handle the 'd' field - could be Dictionary/OrderedDictionary directly or wrapped in AnyValue
+        if let d = fields[3] as? AnyValue, let dDict = d.dictionaryValue {
+            self.d = OrderedDictionary(uniqueKeysWithValues: dDict.map { ($0.key, $0.value) })
+        } else if let d = fields[3] as? [AnyHashable: Any] {
+            var orderedDict = OrderedDictionary<AnyValue, AnyValue>()
+            for (key, value) in d {
+                // Convert key to AnyValue
+                let anyKey: AnyValue
+                if let intKey = key.base as? Int {
+                    anyKey = .int64(Int64(intKey))
+                } else {
+                    // Replace AnyValue(from: key.base) with proper initialization
+                    anyKey = try! AnyValue.wrapped(key.base)
+                }
+                
+                // Convert value to AnyValue
+                let anyValue: AnyValue
+                if let dataValue = value as? Data {
+                    anyValue = .data(dataValue)
+                } else if let stringValue = value as? String {
+                    anyValue = .string(stringValue)
+                } else {
+                    // Replace AnyValue(from: value) with proper initialization
+                    anyValue = try! AnyValue.wrapped(value)
+                }
+                
+                orderedDict[anyKey] = anyValue
+            }
+            self.d = orderedDict
+        } else if let d = fields[3] as? OrderedDictionary<AnyValue, AnyValue> {
+            self.d = d
+        } else {
+            throw CardanoCoreError.invalidArgument("Invalid field type for MyTest.d: \(type(of: fields[3]))")
+        }
 
         try super.init(fields: [self.a, self.b, self.c, self.d])
     }
@@ -276,7 +354,7 @@ public final class MyRedeemer: Redeemer<MyTest> {
         super.init(data: data)
     }
 
-    public required init(from decoder: Decoder) throws {
-        try super.init(from: decoder)
+    required init(from primitive: Primitive) throws {
+        try super.init(from: primitive)
     }
 }

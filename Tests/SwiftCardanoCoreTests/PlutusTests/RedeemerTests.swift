@@ -37,18 +37,15 @@ struct RedeemerTests {
     @Test("Test Redeemer encoding and decoding")
     func testRedeemerCoding() async throws {
         let plutusData = try PlutusData(
-            fields: [AnyValue.wrapped(-1)]
+            fields: [-1]
         )
         let exUnits = ExecutionUnits(mem: 1000, steps: 2000)
         let redeemer = Redeemer<PlutusData>(data: plutusData, exUnits: exUnits)
         redeemer.tag = .spend
         redeemer.index = 1
         
-        let encoder = CBOREncoder()
-        let decoder = CBORDecoder()
-        
-        let encoded = try encoder.encode(redeemer)
-        let decoded = try decoder.decode(Redeemer<PlutusData>.self, from: encoded)
+        let encoded = try redeemer.toCBORData()
+        let decoded = try Redeemer<PlutusData>(from: encoded)
         
         #expect(decoded.tag == redeemer.tag)
         #expect(decoded.index == redeemer.index)
@@ -75,15 +72,13 @@ struct RedeemerTests {
         let redeemer = Redeemer(data: data, exUnits: exUnits)
         redeemer.tag = .spend
 
-        let encoder = CBOREncoder()
-        encoder.deterministic = true
-        let encoded = try encoder.encode(redeemer)
+        let encoded = try redeemer.toCBORData()
         let hex = encoded.hexEncodedString()
 
         #expect(hex == "840000d8668218829f187b433233349f040506ffa2014131024132ff821a000f42401a000f4240")
-
-        let decoder = CBORDecoder()
-        let decoded = try decoder.decode(Redeemer<MyTest>.self, from: encoded)
+        
+        let decoded = try Redeemer<MyTest>(from: encoded)
+        
         #expect(decoded.tag == redeemer.tag)
         #expect(decoded.index == redeemer.index)
         #expect(decoded.data.a == redeemer.data.a)
@@ -107,16 +102,15 @@ struct RedeemerTests {
         let exUnits = ExecutionUnits(mem: 1_000_000, steps: 1_000_000)
         let redeemer = Redeemer(data: data, exUnits: exUnits)
         redeemer.tag = .spend
-
-        let encoder = CBOREncoder()
-        encoder.deterministic = true
-        let encoded = try encoder.encode(redeemer)
+        
+        
+        let encoded = try redeemer.toCBORData()
         let hex = encoded.hexEncodedString()
 
         #expect(hex == "840000d8668218829f187b433233349fffa2014131024132ff821a000f42401a000f4240")
-
-        let decoder = CBORDecoder()
-        let decoded = try decoder.decode(Redeemer<MyTest>.self, from: encoded)
+        
+        let decoded = try Redeemer<MyTest>(from: encoded)
+        
         #expect(decoded.tag == redeemer.tag)
         #expect(decoded.index == redeemer.index)
         #expect(decoded.data.a == redeemer.data.a)

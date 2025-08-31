@@ -97,6 +97,49 @@ public struct CostModels: CBORSerializable, Hashable {
             2: PLUTUS_V3_COST_MODEL
         ])
     }
+    
+    public init(from primitive: Primitive) throws {
+        guard case let .dict(dict) = primitive else {
+            throw CardanoCoreError.deserializeError("Invalid CostModels primitive")
+        }
+        
+        var plutusV1: OrderedDictionary<String, Int>?
+        var plutusV2: OrderedDictionary<String, Int>?
+        var plutusV3: OrderedDictionary<String, Int>?
+        
+        if dict[.int(0)] != nil {
+            plutusV1 = PLUTUS_V1_COST_MODEL
+        }
+        if dict[.int(1)] != nil {
+            plutusV2 = PLUTUS_V2_COST_MODEL
+        }
+        if dict[.int(2)] != nil {
+            plutusV3 = PLUTUS_V3_COST_MODEL
+        }
+        
+        self.plutusV1 = plutusV1
+        self.plutusV2 = plutusV2
+        self.plutusV3 = plutusV3
+    }
+    
+    public func toPrimitive() throws -> Primitive {
+        var dict: [Primitive: Primitive] = [:]
+        
+        if let _ = plutusV1 {
+            let v1Array = plutusV1!.values.map { Primitive.int($0) }
+            dict[.int(0)] = .indefiniteList(IndefiniteList(v1Array))
+        }
+        if let _ = plutusV2 {
+            let v2Array = plutusV2!.values.map { Primitive.int($0) }
+            dict[.int(1)] = .indefiniteList(IndefiniteList(v2Array))
+        }
+        if let _ = plutusV3 {
+            let v3Array = plutusV3!.values.map { Primitive.int($0) }
+            dict[.int(2)] = .indefiniteList(IndefiniteList(v3Array))
+        }
+        
+        return .dict(dict)
+    }
 }
 
 

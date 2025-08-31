@@ -12,11 +12,11 @@ import PotentCBOR
     let testCost = 340_000_000
     let testMargin = UnitInterval(numerator: 3, denominator: 100)  // 3%
     let testRewardAccount =  try! stakeVerificationKey!.rewardAccountHash(network: .mainnet)
-    let testPoolOwners = CBORSet(
+    let testPoolOwners: ListOrOrderedSet = .orderedSet(try! OrderedSet(
         Set([
             try! stakeVerificationKey!.hash()
         ])
-    )
+    ))
     let testRelays: [Relay] = [
         .singleHostAddr(SingleHostAddr(port: 3001, ipv4: IPv4Address("192.168.1.1"), ipv6: nil)),
         .singleHostName(SingleHostName(port: 3002, dnsName: "relay.example.com")),
@@ -70,8 +70,8 @@ import PotentCBOR
             id: nil
         )
 
-        let encodedCBOR = try CBOREncoder().encode(poolParams)
-        let decodedPoolParams = try CBORDecoder().decode(PoolParams.self, from: encodedCBOR)
+        let encodedCBOR = try poolParams.toCBORData()
+        let decodedPoolParams = try PoolParams(from: encodedCBOR)
 
         #expect(decodedPoolParams == poolParams)
     }

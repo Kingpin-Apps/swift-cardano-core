@@ -18,7 +18,7 @@ struct TransactionOutputTests {
         #expect(output.datumHash == nil)
         #expect(output.datum == nil)
         #expect(output.script == nil)
-        #expect(output.postAlonzo == true)
+        #expect(output.postAlonzo == false)
     }
     
     @Test
@@ -86,7 +86,7 @@ struct TransactionOutputTests {
         let output = TransactionOutput(
             address: address,
             amount: amount,
-            postAlonzo: true
+            postAlonzo: false
         )
         
         let encoded = try CBOREncoder().encode(output)

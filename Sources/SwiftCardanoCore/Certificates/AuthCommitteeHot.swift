@@ -57,31 +57,27 @@ public struct AuthCommitteeHot: CertificateSerializable {
     }
 
     
-    /// Initialize AuthCommitteeHot certificate from CBOR
-    /// - Parameter decoder: The decoder to use
-    public init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        let code = try container.decode(Int.self)
-        
-        guard case Self.CODE.rawValue = code else {
-            throw CardanoCoreError.deserializeError("Invalid AuthCommitteeHot type: \(code)")
+    public init(from primitive: Primitive) throws {
+        guard case let .list(primitive) = primitive,
+                primitive.count == 3,
+              case let .int(code) = primitive[0],
+              code == Self.CODE.rawValue else {
+            throw CardanoCoreError.deserializeError("Invalid AuthCommitteeHot type")
         }
-        
-        let committeeColdCredential = try container.decode(CommitteeColdCredential.self)
-        let committeeHotCredential = try container.decode(CommitteeHotCredential.self)
-        
+        let committeeColdCredential = try CommitteeColdCredential(from: primitive[1])
+        let committeeHotCredential = try CommitteeHotCredential(from: primitive[2])
         self.init(
             committeeColdCredential: committeeColdCredential,
             committeeHotCredential: committeeHotCredential
         )
     }
-    
-    /// Encode AuthCommitteeHot to CBOR
-    /// - Parameter encoder: The encoder to use
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.unkeyedContainer()
-        try container.encode(Self.CODE.rawValue)
-        try container.encode(committeeColdCredential)
-        try container.encode(committeeHotCredential)
+
+    public func toPrimitive() throws -> Primitive {
+        return .list([
+            .int(Int(Self.CODE.rawValue)),
+            try committeeColdCredential.toPrimitive(),
+            try committeeHotCredential.toPrimitive()
+        ])
     }
+
 }

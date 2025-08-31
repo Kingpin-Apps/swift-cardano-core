@@ -113,6 +113,51 @@ public enum NativeScript: CBORSerializable, Equatable, Hashable {
         }
     }
     
+    public init(from primitive: Primitive) throws {
+        guard case let .list(elements) = primitive, let head = elements.first else {
+            throw CardanoCoreError.decodingError("NativeScript: expected CBOR array primitive")
+        }
+        
+        guard case let .int(type) = head else {
+            throw CardanoCoreError.decodingError("NativeScript: expected first element to be unsigned int")
+        }
+        
+        switch type {
+            case Int(ScriptPubkey.TYPE.rawValue):
+                self = .scriptPubkey(try ScriptPubkey(from: primitive))
+            case Int(ScriptAll.TYPE.rawValue):
+                self = .scriptAll(try ScriptAll(from: primitive))
+            case Int(ScriptAny.TYPE.rawValue):
+                self = .scriptAny(try ScriptAny(from: primitive))
+            case Int(ScriptNofK.TYPE.rawValue):
+                self = .scriptNofK(try ScriptNofK(from: primitive))
+            case Int(BeforeScript.TYPE.rawValue):
+                self = .invalidBefore(try BeforeScript(from: primitive))
+            case Int(AfterScript.TYPE.rawValue):
+                self = .invalidHereAfter(try AfterScript(from: primitive))
+            default:
+                throw CardanoCoreError.decodingError("NativeScript: unknown script type \(type)")
+        }
+    }
+
+    public func toPrimitive() throws -> Primitive {
+        switch self {
+            case .scriptPubkey(let script):
+                return try script.toPrimitive()
+            case .scriptAll(let script):
+                return try script.toPrimitive()
+            case .scriptAny(let script):
+                return try script.toPrimitive()
+            case .scriptNofK(let script):
+                return try script.toPrimitive()
+            case .invalidBefore(let script):
+                return try script.toPrimitive()
+            case .invalidHereAfter(let script):
+                return try script.toPrimitive()
+        }
+    }
+
+    
     public static func fromDict(_ dict: Dictionary<AnyHashable, Any>) throws -> NativeScript {
         guard let type = dict["type"] as? String else {
             throw CardanoCoreError.decodingError("Missing type for NativeScript")
@@ -153,7 +198,7 @@ public enum NativeScriptType: Int, Sendable {
 
 // MARK: - NativeScript Protocol
 /// The metadata for a native script.
-public protocol NativeScriptable: JSONSerializable {
+public protocol NativeScriptable: JSONSerializable, CBORSerializable {
     static var TYPE: NativeScriptType { get }
 }
 
@@ -173,7 +218,7 @@ public extension NativeScriptable {
         return nil
     }
     
-    func toCBOR() throws -> Data {
+    func toCBORData() throws -> Data {
         let cborEncoder = CBOREncoder()
         return try cborEncoder.encode(self)
     }

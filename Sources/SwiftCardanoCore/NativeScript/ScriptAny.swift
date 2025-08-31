@@ -49,11 +49,38 @@ public struct ScriptAny: NativeScriptable {
     
     public static func fromDict(_ dict: Dictionary<AnyHashable, Any>) throws -> ScriptAny {
         guard let scripts = dict["scripts"] as? [Dictionary<AnyHashable, Any>] else {
-            throw CardanoCoreError.decodingError("Invalid ScriptAll scripts")
+            throw CardanoCoreError.decodingError("Invalid ScriptAny scripts")
         }
         
         let nativeScripts = try scripts.map { try NativeScript.fromDict($0) }
         return ScriptAny(scripts: nativeScripts)
+    }
+    
+    public init(from primitive: Primitive) throws {
+        guard case let .list(primitiveArray) = primitive else {
+            throw CardanoCoreError.deserializeError("Invalid ScriptAny type")
+        }
+        
+        var primitives = Array(primitiveArray)
+        
+        guard !primitives.isEmpty else {
+            throw CardanoCoreError.deserializeError("Invalid ScriptAny type")
+        }
+        
+        let first = primitives.removeFirst()
+        
+        guard case let .int(code) = first,
+              code == Self.TYPE.rawValue else {
+            throw CardanoCoreError.deserializeError("Invalid ScriptAny type")
+            }
+        self.scripts = try primitives.map { try NativeScript(from: $0)}
+    }
+
+    public func toPrimitive() throws -> Primitive {
+        var elements: [Primitive] = []
+        elements.append(.int(Self.TYPE.rawValue))
+        elements.append(contentsOf: try scripts.map { try $0.toPrimitive() })
+        return .list(elements)
     }
 
 }

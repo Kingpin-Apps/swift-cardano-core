@@ -1,16 +1,56 @@
 import Foundation
 
-public enum DRepType: Codable, Hashable, Sendable {
+public enum DRepType: CBORSerializable, Hashable, Sendable {
     case verificationKeyHash(VerificationKeyHash)
     case scriptHash(ScriptHash)
     case alwaysAbstain
     case alwaysNoConfidence
+    
+    public init(from primitive: Primitive) throws {
+        guard case let .list(elements) = primitive,
+              elements.count >= 1,
+              case let .int(tag) = elements[0] else {
+            throw CardanoCoreError.deserializeError("Invalid DRepType primitive")
+        }
+        
+        switch tag {
+            case 0:
+                guard elements.count == 2 else {
+                    throw CardanoCoreError.deserializeError("Invalid DRepType verificationKeyHash primitive")
+                }
+                self = .verificationKeyHash(try VerificationKeyHash(from: elements[1]))
+            case 1:
+                guard elements.count == 2 else {
+                    throw CardanoCoreError.deserializeError("Invalid DRepType scriptHash primitive")
+                }
+                self = .scriptHash(try ScriptHash(from: elements[1]))
+            case 2:
+                self = .alwaysAbstain
+            case 3:
+                self = .alwaysNoConfidence
+            default:
+                throw CardanoCoreError.deserializeError("Invalid DRepType tag: \(tag)")
+        }
+    }
+    
+    public func toPrimitive() throws -> Primitive {
+        switch self {
+            case .verificationKeyHash(let hash):
+                return .list([.int(0), hash.toPrimitive()])
+            case .scriptHash(let hash):
+                return .list([.int(1), hash.toPrimitive()])
+            case .alwaysAbstain:
+                return .list([.int(2)])
+            case .alwaysNoConfidence:
+                return .list([.int(3)])
+        }
+    }
 }
 
 /// Represents a Delegate Representative (DRep) in the Cardano governance system.
 ///
 /// DReps are entities that can represent stake holders in governance decisions.
-public struct DRep: Codable, Hashable, Sendable {
+public struct DRep: CBORSerializable, Hashable, Sendable {
     
     public var id: String {
         get throws {
@@ -105,6 +145,14 @@ public struct DRep: Codable, Hashable, Sendable {
                 return Data([3])
                 
         }
+    }
+    
+    public init(from primitive: Primitive) throws {
+        self.credential = try DRepType(from: primitive)
+    }
+    
+    public func toPrimitive() throws -> Primitive {
+        return try credential.toPrimitive()
     }
     
     public func toBech32() throws -> String {

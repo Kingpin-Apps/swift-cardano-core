@@ -42,4 +42,66 @@ public struct BabbageTransactionOutput: CBORSerializable, Hashable, Equatable {
     public var script: ScriptType? {
         return scriptRef?.script.script
     }
+    
+    public init(from primitive: Primitive) throws {
+        guard case let .dict(dict) = primitive else {
+            throw CardanoCoreError.deserializeError("Invalid BabbageTransactionOutput primitive")
+        }
+        
+        // address (required)
+        guard let addressPrimitive = dict[.int(0)] else {
+            throw CardanoCoreError.deserializeError("Missing address in BabbageTransactionOutput")
+        }
+        self.address = try Address(from: addressPrimitive)
+        
+        // amount (required)
+        guard let amountPrimitive = dict[.int(1)] else {
+            throw CardanoCoreError.deserializeError("Missing amount in BabbageTransactionOutput")
+        }
+        self.amount = try Value(from: amountPrimitive)
+        
+        // datum (optional)
+        if let datumPrimitive = dict[.int(2)] {
+            if case .null = datumPrimitive {
+                self.datum = nil
+            } else {
+                self.datum = try DatumOption(from: datumPrimitive)
+            }
+        } else {
+            self.datum = nil
+        }
+        
+        // scriptRef (optional)
+        if let scriptRefPrimitive = dict[.int(3)] {
+            if case .null = scriptRefPrimitive {
+                self.scriptRef = nil
+            } else {
+                self.scriptRef = try ScriptRef(from: scriptRefPrimitive)
+            }
+        } else {
+            self.scriptRef = nil
+        }
+    }
+    
+    public func toPrimitive() throws -> Primitive {
+        var dict: [Primitive: Primitive] = [:]
+        
+        // address (required)
+        dict[.int(0)] = address.toPrimitive()
+        
+        // amount (required)
+        dict[.int(1)] = amount.toPrimitive()
+        
+        // datum (optional)
+        if let datum = datum {
+            dict[.int(2)] = try datum.toPrimitive()
+        }
+        
+        // scriptRef (optional)
+        if let scriptRef = scriptRef {
+            dict[.int(3)] = try scriptRef.toPrimitive()
+        }
+        
+        return .dict(dict)
+    }
 }

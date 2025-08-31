@@ -54,29 +54,28 @@ public struct Register: CertificateSerializable {
         self.coin = cbor.coin
     }
     
-    
-    /// Initialize Register certificate from CBOR
-    /// - Parameter decoder: The decoder to use
-    public init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        let code = try container.decode(Int.self)
-        
-        guard case Self.CODE.rawValue = code else {
-            throw CardanoCoreError.deserializeError("Invalid Register type: \(code)")
+    public init(from primitive: Primitive) throws {
+        guard case let .list(primitive) = primitive,
+              primitive.count == 3 else {
+            throw CardanoCoreError.deserializeError("Invalid Register type")
         }
         
-        let stakeCredential = try container.decode(StakeCredential.self)
-        let coin = try container.decode(Coin.self)
+        guard case let .int(code) = primitive[0],
+              case let .int(coin) = primitive[2],
+              code == Self.CODE.rawValue else {
+            throw CardanoCoreError.deserializeError("Invalid Register type: \(primitive[0])")
+        }
         
-        self.init(stakeCredential: stakeCredential, coin: coin)
+        let stakeCredential = try StakeCredential(from: primitive[1])
+        
+        self.init(stakeCredential: stakeCredential, coin: Coin(coin))
     }
-    
-    /// Encode the Register certificate to CBOR
-    /// - Parameter encoder: The encoder to use
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.unkeyedContainer()
-        try container.encode(Self.CODE.rawValue)
-        try container.encode(stakeCredential)
-        try container.encode(coin)
+
+    public func toPrimitive() throws -> Primitive {
+        return .list([
+            .int(Int(Self.CODE.rawValue)),
+            try stakeCredential.toPrimitive(),
+            .int(Int(coin))
+        ])
     }
 }

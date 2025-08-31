@@ -87,7 +87,9 @@ import PotentCBOR
     @Test("Test VotingProcedures CBOR Encoding and Decoding")
     func testVotingProceduresCBORSerialization() async throws {
         let votingProcedure = VotingProcedure(vote: voteYes, anchor: anchor)
-        let votingProcedures = [voter: [govActionID: votingProcedure]]
+//        let votingProcedures = [voter: [govActionID: votingProcedure]]
+        let votingProcedures = VotingProcedures([voter: [govActionID: votingProcedure]]
+        )
 
         let encoded = try CBOREncoder().encode(votingProcedures)
         let decoded = try CBORDecoder().decode(VotingProcedures.self, from: encoded)

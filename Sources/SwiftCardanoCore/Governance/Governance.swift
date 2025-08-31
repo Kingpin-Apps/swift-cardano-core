@@ -10,7 +10,7 @@ public enum GovActionCode: Int, Codable {
     case infoAction = 6
 }
 
-public protocol GovernanceAction: Codable, Hashable, Equatable {
+public protocol GovernanceAction: CBORSerializable, Hashable, Equatable {
     static var code: GovActionCode { get }
 }
 
@@ -24,7 +24,7 @@ public enum GovAction: Codable, Hashable, Equatable {
     case infoAction(InfoAction)
 }
 
-public struct GovActionID: Codable, Hashable, Equatable {
+public struct GovActionID: CBORSerializable, Hashable, Equatable {
     public let transactionID: TransactionId
     public let govActionIndex: UInt16
     
@@ -39,14 +39,34 @@ public struct GovActionID: Codable, Hashable, Equatable {
         govActionIndex = try container.decode(UInt16.self)
     }
     
+    public init(from primitive: Primitive) throws {
+        guard case let .list(primitive) = primitive,
+              primitive.count == 2 else {
+            throw CardanoCoreError.deserializeError("Invalid GovActionID type")
+        }
+        self.transactionID = try TransactionId(from: primitive[0])
+        
+        guard case let .int(govActionIndex) = primitive[1] else {
+            throw CardanoCoreError.deserializeError("Invalid GovActionID type")
+        }
+        self.govActionIndex = UInt16(govActionIndex)
+    }
+    
     public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(transactionID)
         try container.encode(govActionIndex)
     }
+    
+    public func toPrimitive() throws -> Primitive {
+        return .list([
+            .string(transactionID.payload.toHex),
+            .int(Int(govActionIndex))
+        ])
+    }
 }
 
-public struct PoolVotingThresholds: Codable, Hashable, Equatable {
+public struct PoolVotingThresholds: CBORSerializable, Hashable, Equatable {
     public var committeeNoConfidence: UnitInterval?
     public var committeeNormal: UnitInterval?
     public var hardForkInitiation: UnitInterval?
@@ -102,6 +122,25 @@ public struct PoolVotingThresholds: Codable, Hashable, Equatable {
         ]
     }
     
+    public init(from primitive: Primitive) throws {
+        guard case let .list(primitive) = primitive,
+              primitive.count == 5 else {
+            throw CardanoCoreError.deserializeError("Invalid PoolVotingThresholds type")
+        }
+        self.committeeNoConfidence = try UnitInterval(from: primitive[0])
+        self.committeeNormal = try UnitInterval(from: primitive[1])
+        self.hardForkInitiation = try UnitInterval(from: primitive[2])
+        self.motionNoConfidence = try UnitInterval(from: primitive[3])
+        self.ppSecurityGroup = try UnitInterval(from: primitive[4])
+        self.thresholds = [
+            committeeNoConfidence!,
+            committeeNormal!,
+            hardForkInitiation!,
+            motionNoConfidence!,
+            ppSecurityGroup!
+        ]
+    }
+    
     public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(committeeNoConfidence)
@@ -110,9 +149,40 @@ public struct PoolVotingThresholds: Codable, Hashable, Equatable {
         try container.encode(motionNoConfidence)
         try container.encode(ppSecurityGroup)
     }
+    
+    public func toPrimitive() throws -> Primitive {
+        var list: [Primitive] = []
+        if let committeeNoConfidence = committeeNoConfidence {
+            list.append(try committeeNoConfidence.toPrimitive())
+        } else {
+            list.append(.null)
+        }
+        if let committeeNormal = committeeNormal {
+            list.append(try committeeNormal.toPrimitive())
+        } else {
+            list.append(.null)
+        }
+        if let hardForkInitiation = hardForkInitiation {
+            list.append(try hardForkInitiation.toPrimitive())
+        } else {
+            list.append(.null)
+        }
+        if let motionNoConfidence = motionNoConfidence {
+            list.append(try motionNoConfidence.toPrimitive())
+        } else {
+            list.append(.null)
+        }
+        if let ppSecurityGroup = ppSecurityGroup {
+            list.append(try ppSecurityGroup.toPrimitive())
+        } else {
+            list.append(.null)
+        }
+        return .list(list)
+    }
+
 }
 
-public struct DrepVotingThresholds: Codable, Hashable, Equatable  {
+public struct DrepVotingThresholds: CBORSerializable, Hashable, Equatable  {
     public var thresholds: [UnitInterval]
 
     public init(thresholds: [UnitInterval]) {
@@ -125,13 +195,25 @@ public struct DrepVotingThresholds: Codable, Hashable, Equatable  {
         thresholds = try container.decode([UnitInterval].self)
     }
     
+    public init(from primitive: Primitive) throws {
+        guard case let .list(primitive) = primitive,
+              primitive.count == 10 else {
+            throw CardanoCoreError.deserializeError("Invalid DrepVotingThresholds type")
+        }
+        self.thresholds = try primitive.map { try UnitInterval(from: $0) }
+    }
+    
     public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try thresholds.forEach { try container.encode($0) }
     }
+    
+    public func toPrimitive() throws -> Primitive {
+        return .list(try thresholds.map { try $0.toPrimitive() })
+    }
 }
 
-public struct Constitution: Codable, Hashable, Equatable {
+public struct Constitution: CBORSerializable, Hashable, Equatable {
     public let anchor: Anchor
     public let scriptHash: ScriptHash?
     
@@ -146,9 +228,26 @@ public struct Constitution: Codable, Hashable, Equatable {
         scriptHash = try container.decode(ScriptHash.self)
     }
     
+    public init(from primitive: Primitive) throws {
+        guard case let .list(primitive) = primitive,
+              primitive.count == 2 else {
+            throw CardanoCoreError.deserializeError("Invalid Constitution type")
+        }
+        self.anchor = try Anchor(from: primitive[0])
+        self.scriptHash = try ScriptHash(from: primitive[1])
+
+    }
+    
     public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(anchor)
         try container.encode(scriptHash)
+    }
+    
+    public func toPrimitive() throws -> Primitive {
+        return .list([
+            try anchor.toPrimitive(),
+            scriptHash?.toPrimitive() ?? .null
+        ])
     }
 }

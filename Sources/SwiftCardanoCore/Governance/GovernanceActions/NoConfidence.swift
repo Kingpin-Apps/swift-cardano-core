@@ -26,4 +26,22 @@ public struct NoConfidence: GovernanceAction {
         try container.encode(Self.code)
         try container.encode(id)
     }
+    
+    public init(from primitive: Primitive) throws {
+        guard case let .list(elements) = primitive,
+              elements.count == 2,
+              case let .int(code) = elements[0],
+              code == Self.code.rawValue else {
+            throw CardanoCoreError.deserializeError("Invalid NoConfidence primitive")
+        }
+        
+        self.id = try GovActionID(from: elements[1])
+    }
+    
+    public func toPrimitive() throws -> Primitive {
+        return .list([
+            .int(Self.code.rawValue),
+            try id.toPrimitive()
+        ])
+    }
 }

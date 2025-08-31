@@ -54,6 +54,10 @@ public struct Value: CBORSerializable, Equatable, Hashable, Comparable {
     }
     
     public func toPrimitive() -> Primitive {
+        if multiAsset.isEmpty {
+            return .int(coin)
+        }
+        
         return .list([
             .int(coin),
             multiAsset.toPrimitive()

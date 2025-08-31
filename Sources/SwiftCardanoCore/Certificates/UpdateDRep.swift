@@ -53,28 +53,25 @@ public struct UpdateDRep: CertificateSerializable {
         self.anchor = cbor.anchor
     }
     
-    /// Initialize a new `UpdateDRep` certificate from its CBOR representation
-    /// - Parameter decoder: The decoder
-    public init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        let code = try container.decode(Int.self)
-        
-        guard case Self.CODE.rawValue = code else {
-            throw CardanoCoreError.deserializeError("Invalid UpdateDRep type: \(code)")
+    public init(from primitive: Primitive) throws {
+        guard case let .list(primitive) = primitive,
+              primitive.count == 3,
+              case let .int(code) = primitive[0],
+              code == Self.CODE.rawValue else {
+            throw CardanoCoreError.deserializeError("Invalid UpdateDRep type")
         }
         
-        let drepCredential = try container.decode(DRepCredential.self)
-        let anchor = try container.decode(Anchor.self)
+        let drepCredential = try DRepCredential(from: primitive[1])
+        let anchor = try? Anchor(from: primitive[2])
         
         self.init(drepCredential: drepCredential, anchor: anchor)
     }
     
-    /// Encode the `UpdateDRep` certificate to the given encoder
-    /// - Parameter encoder: The encoder
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.unkeyedContainer()
-        try container.encode(Self.CODE.rawValue)
-        try container.encode(drepCredential)
-        try container.encode(anchor)
+    public func toPrimitive() throws -> Primitive {
+        return .list([
+            .int(Int(Self.CODE.rawValue)),
+            try drepCredential.toPrimitive(),
+            try anchor?.toPrimitive() ?? .null
+        ])
     }
 }

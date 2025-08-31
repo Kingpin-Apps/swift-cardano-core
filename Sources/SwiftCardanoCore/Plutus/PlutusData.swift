@@ -39,6 +39,8 @@ open class PlutusData: CBORSerializable, Hashable, Codable, Equatable {
             IndefiniteList<AnyValue>.self,
             Array<AnyValue>.self,
             Int.self,
+            Int64.self,
+            UInt64.self,
             ByteString.self,
             Data.self,
         ]
@@ -120,7 +122,7 @@ open class PlutusData: CBORSerializable, Hashable, Codable, Equatable {
 
         let primitives = try mirror.children.map { field -> AnyValue in
             if let plutusData = field.value as? PlutusData {
-                return try AnyValue.Encoder().encode(plutusData.toShallowPrimitive().toCBOR())
+                return try AnyValue.Encoder().encode(plutusData.toShallowPrimitive().toCBORData())
             } else if let list = field.value as? IndefiniteList<AnyValue> {
                 return try AnyValue.indefiniteArray( list.map { try AnyValue.wrapped($0) })
             } else if let codable = field.value as? Codable {
@@ -311,10 +313,10 @@ open class PlutusData: CBORSerializable, Hashable, Codable, Equatable {
                 } else if let plutusData = info.associatedValue as? PlutusData {
                     primitives.append(try plutusData.toShallowPrimitive())
                 } else {
-                    primitives.append(try AnyValue.wrapped(info.associatedValue).toCBOR().toCBOR)
+                    primitives.append(try AnyValue.wrapped(info.associatedValue).toCBORData().toCBOR)
                 }
             } else {
-                primitives.append(try AnyValue.wrapped(field.value).toCBOR().toCBOR)
+                primitives.append(try AnyValue.wrapped(field.value).toCBORData().toCBOR)
             }
         }
         
@@ -325,7 +327,7 @@ open class PlutusData: CBORSerializable, Hashable, Codable, Equatable {
             toEncode = .array([])
         } else {
             let indefiniteList = IndefiniteList<AnyHashable>(primitives)
-            toEncode = try indefiniteList.toCBOR().toCBOR
+            toEncode = try indefiniteList.toCBORData().toCBOR
         }
 
         if let tag = tag {
@@ -742,6 +744,139 @@ open class PlutusData: CBORSerializable, Hashable, Codable, Equatable {
                     $0.unwrapped! as! any Codable
                 })
         }
+    }
+    
+    /// Initializes PlutusData from a Primitive value.
+    /// - Parameter primitive: The Primitive to convert from.
+    /// - Throws: CardanoCoreError if the conversion fails.
+    public required convenience init(from primitive: Primitive) throws {
+        switch primitive {
+        case .cborTag(let tag):
+            // Handle CBORTag - the main way PlutusData is represented
+            let instance = try Self.fromPrimitive(tag)
+            try self.init(fields: instance.fields)
+            
+        case .list(let array):
+            // Handle direct list representation
+            let convertedFields = try array.map { primitive -> Any in
+                switch primitive {
+                case .plutusData(let plutusData):
+                    return plutusData
+                default:
+                    return try AnyValue(from: primitive)
+                }
+            }
+            try self.init(fields: convertedFields)
+            
+        case .dict(let dictionary):
+            // Handle dictionary representation (less common for PlutusData)
+            if let constructorPrimitive = dictionary[.int(121)], // "constructor" key as int
+               case .int(let constructorID) = constructorPrimitive,
+               constructorID == Self.CONSTR_ID,
+               let fieldsPrimitive = dictionary[.int(102)], // "fields" key as int
+               case .list(let fieldsArray) = fieldsPrimitive {
+                
+                let convertedFields = try fieldsArray.map { primitive -> Any in
+                    switch primitive {
+                    case .plutusData(let plutusData):
+                        return plutusData
+                    default:
+                        return try AnyValue(from: primitive)
+                    }
+                }
+                try self.init(fields: convertedFields)
+            } else {
+                throw CardanoCoreError.deserializeError(
+                    "Invalid dictionary format for PlutusData conversion"
+                )
+            }
+            
+        case .plutusData(let plutusData):
+            // Direct PlutusData case
+            if type(of: plutusData) == Self.self {
+                try self.init(fields: plutusData.fields)
+            } else {
+                throw CardanoCoreError.typeError(
+                    "PlutusData type mismatch: expected \(Self.self), got \(type(of: plutusData))"
+                )
+            }
+            
+        default:
+            throw CardanoCoreError.deserializeError(
+                "Cannot convert Primitive.\(primitive) to PlutusData"
+            )
+        }
+    }
+    
+    /// Converts PlutusData to a Primitive representation.
+    /// - Returns: A Primitive representation of this PlutusData.
+    public func toPrimitive() -> Primitive {
+        // Convert PlutusData to its primitive representation using CBORTag
+        let tag = getTag(constrID: Self.CONSTR_ID)
+        
+        // Convert fields to primitive representations
+        let primitiveFields = fields.map { field -> Primitive in
+            if let plutusData = field as? PlutusData {
+                return plutusData.toPrimitive()
+            } else if let anyValue = field as? AnyValue {
+                return anyValue.toPrimitive()
+            } else if let dict = field as? [AnyHashable: Any] {
+                // Convert dictionary to ordered dictionary primitive
+                var primitiveDict: [Primitive: Primitive] = [:]
+                for (key, value) in dict {
+                    let keyPrimitive: Primitive
+                    let valuePrimitive: Primitive
+                    
+                    if let anyKey = key as? AnyValue {
+                        keyPrimitive = anyKey.toPrimitive()
+                    } else if let plutusKey = key as? PlutusData {
+                        keyPrimitive = plutusKey.toPrimitive()
+                    } else {
+                        keyPrimitive = (try! AnyValue.wrapped(key.base)).toPrimitive()
+                    }
+                    
+                    if let anyValue = value as? AnyValue {
+                        valuePrimitive = anyValue.toPrimitive()
+                    } else if let plutusValue = value as? PlutusData {
+                        valuePrimitive = plutusValue.toPrimitive()
+                    } else {
+                        valuePrimitive = (try! AnyValue.wrapped(value)).toPrimitive()
+                    }
+                    
+                    primitiveDict[keyPrimitive] = valuePrimitive
+                }
+                return .dict(primitiveDict)
+            } else if let array = field as? [Any] {
+                // Convert array to list primitive
+                let primitiveArray = array.map { item -> Primitive in
+                    if let plutusData = item as? PlutusData {
+                        return plutusData.toPrimitive()
+                    } else if let anyValue = item as? AnyValue {
+                        return anyValue.toPrimitive()
+                    } else {
+                        return (try! AnyValue.wrapped(item)).toPrimitive()
+                    }
+                }
+                return .list(primitiveArray)
+            } else {
+                // Convert other types to AnyValue first, then to Primitive
+                return (try! AnyValue.wrapped(field)).toPrimitive()
+            }
+        }
+        
+        // Create CBORTag with the appropriate tag and field array
+        let fieldsArray = AnyValue.array(try! primitiveFields.map { try AnyValue(from: $0) })
+        
+        let cborTag: CBORTag
+        if let tag = tag {
+            cborTag = CBORTag(tag: UInt64(tag), value: fieldsArray)
+        } else {
+            // Use alternative format for constructor IDs >= 128
+            let constructorArray = AnyValue.array([.int(Self.CONSTR_ID), fieldsArray])
+            cborTag = CBORTag(tag: 102, value: constructorArray)
+        }
+        
+        return .cborTag(cborTag)
     }
 }
 

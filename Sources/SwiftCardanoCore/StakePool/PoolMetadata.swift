@@ -4,7 +4,7 @@ import PotentCBOR
 import OrderedCollections
 import SwiftNcal
 
-public struct PoolMetadata: JSONSerializable {
+public struct PoolMetadata: JSONSerializable, CBORSerializable {
     public let name: String?
     public let description: String?
     public let ticker: String?
@@ -151,6 +151,45 @@ public struct PoolMetadata: JSONSerializable {
         }()
         
         return try PoolMetadata(name: name, description: description, ticker: ticker, homepage: homepage)
+    }
+    
+    public init(from primitive: Primitive) throws {
+        guard case let .list(elements) = primitive else {
+            throw CardanoCoreError.deserializeError("Invalid PoolMetadata primitive")
+        }
+        
+        guard elements.count == 2 else {
+            throw CardanoCoreError.deserializeError("PoolMetadata requires exactly 2 elements: url and hash")
+        }
+        
+        guard case let .string(urlString) = elements[0] else {
+            throw CardanoCoreError.deserializeError("Invalid URL in PoolMetadata")
+        }
+        
+        guard case let .bytes(hashData) = elements[1] else {
+            throw CardanoCoreError.deserializeError("Invalid hash in PoolMetadata")
+        }
+        
+        try self.init(
+            name: nil,
+            description: nil,
+            ticker: nil,
+            homepage: nil,
+            url: Url(urlString),
+            poolMetadataHash: PoolMetadataHash(payload: hashData)
+        )
+    }
+    
+    public func toPrimitive() throws -> Primitive {
+        guard let url = self.url,
+              let poolMetadataHash = self.poolMetadataHash else {
+            throw CardanoCoreError.serializeError("PoolMetadata requires url and poolMetadataHash for CBOR serialization")
+        }
+        
+        return .list([
+            .string(url.absoluteString),
+            .bytes(poolMetadataHash.payload)
+        ])
     }
 
 }

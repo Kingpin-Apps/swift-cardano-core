@@ -54,27 +54,26 @@ public struct PoolRetirement: CertificateSerializable {
         self.epoch = cbor.epoch
     }
     
-    
-    /// Initialize a new PoolRetirement certificate from CBOR
-    /// - Parameter decoder: The decoder
-    public init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        let code = try container.decode(Int.self)
-        
+    public init(from primitive: Primitive) throws {
+        guard case let .list(primitive) = primitive,
+                primitive.count == 3,
+                case let .int(code) = primitive[0],
+              case let .int(epoch) = primitive[2] else {
+            throw CardanoCoreError.deserializeError("Invalid PoolRetirement type")
+        }
         guard case Self.CODE.rawValue = code else {
             throw CardanoCoreError.deserializeError("Invalid PoolRetirement type: \(code)")
         }
-        
-        let poolKeyHash = try container.decode(PoolKeyHash.self)
-        let epoch = try container.decode(Int.self)
-        
-        self.init(poolKeyHash: poolKeyHash, epoch: epoch)
+        let poolKeyHash = try PoolKeyHash(from: primitive[1])
+        self.init(poolKeyHash: poolKeyHash, epoch: Int(epoch))
     }
-    
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.unkeyedContainer()
-        try container.encode(Self.CODE.rawValue)
-        try container.encode(poolKeyHash)
-        try container.encode(epoch)
+
+    public func toPrimitive() throws -> Primitive {
+        return .list([
+            .int(Int(Self.CODE.rawValue)),
+            poolKeyHash.toPrimitive(),
+            .int(epoch)
+        ])
     }
+
 }

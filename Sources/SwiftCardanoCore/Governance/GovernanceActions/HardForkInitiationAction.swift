@@ -30,4 +30,29 @@ public struct HardForkInitiationAction: GovernanceAction {
         try container.encode(id)
         try container.encode(protocolVersion)
     }
+    
+    public init(from primitive: Primitive) throws {
+        guard case let .list(elements) = primitive,
+              elements.count == 3,
+              case let .int(code) = elements[0],
+              code == Self.code.rawValue else {
+            throw CardanoCoreError.deserializeError("Invalid HardForkInitiationAction primitive")
+        }
+        
+        if elements[1] == .null {
+            self.id = nil
+        } else {
+            self.id = try GovActionID(from: elements[1])
+        }
+        
+        self.protocolVersion = try ProtocolVersion(from: elements[2])
+    }
+    
+    public func toPrimitive() throws -> Primitive {
+        return .list([
+            .int(Self.code.rawValue),
+            try id?.toPrimitive() ?? .null,
+            try protocolVersion.toPrimitive()
+        ])
+    }
 }

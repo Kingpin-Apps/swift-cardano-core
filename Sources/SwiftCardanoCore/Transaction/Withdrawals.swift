@@ -19,9 +19,33 @@ public struct Withdrawals: Codable, Equatable, Hashable {
         _data = try container.decode([RewardAccount: Coin].self)
     }
     
+    public init(from primitive: Primitive) throws {
+        self._data = [:]
+        
+        guard case let .dict(primitive) = primitive else {
+            throw CardanoCoreError.deserializeError("Invalid Withdrawals type")
+        }
+        
+        for (key, value) in primitive {
+            guard case let .bytes(keyValue) = key,
+                  case let .int(intValue) = value else {
+                throw CardanoCoreError.deserializeError("Invalid Withdrawals type")
+            }
+            self._data[RewardAccount(keyValue)] = Coin(intValue)
+        }
+    }
+    
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         try container.encode(_data)
+    }
+    
+    public func toPrimitive() throws -> Primitive {
+        var result = [Primitive: Primitive]()
+        for (key, value) in _data {
+            result[.bytes(key)] = .int(Int(value))
+        }
+        return .dict(result)
     }
     
     // Subscript for easier key-value access

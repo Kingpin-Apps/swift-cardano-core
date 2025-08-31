@@ -12,10 +12,12 @@ import FractionNumber
         cost: 340000000,
         margin: UnitInterval(numerator: 1, denominator: 100),
         rewardAccount: try! stakeVerificationKey!.rewardAccountHash(network: .mainnet),
-        poolOwners: CBORSet(
-            Set([
-                try! stakeVerificationKey!.hash()
-            ])
+        poolOwners: .orderedSet(
+            try! OrderedSet(
+                Set([
+                    try! stakeVerificationKey!.hash()
+                ])
+            )
         ),
         relays: [
             .singleHostName(

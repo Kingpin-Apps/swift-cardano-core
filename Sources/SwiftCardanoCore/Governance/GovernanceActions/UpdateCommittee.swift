@@ -37,4 +37,69 @@ public struct UpdateCommittee: GovernanceAction {
         try container.encode(credentialEpochs)
         try container.encode(interval)
     }
+    
+    public init(from primitive: Primitive) throws {
+        guard case let .list(elements) = primitive,
+              elements.count == 5,
+              case let .int(code) = elements[0],
+              code == Self.code.rawValue else {
+            throw CardanoCoreError.deserializeError("Invalid UpdateCommittee primitive")
+        }
+        
+        // Parse optional id
+        if elements[1] == .null {
+            self.id = nil
+        } else {
+            self.id = try GovActionID(from: elements[1])
+        }
+        
+        // Parse coldCredentials set
+        guard case let .list(credentialsList) = elements[2] else {
+            throw CardanoCoreError.deserializeError("Invalid coldCredentials in UpdateCommittee")
+        }
+        
+        var coldCredentials: Set<CommitteeColdCredential> = []
+        for credentialPrimitive in credentialsList {
+            let credential = try CommitteeColdCredential(from: credentialPrimitive)
+            coldCredentials.insert(credential)
+        }
+        self.coldCredentials = coldCredentials
+        
+        // Parse credentialEpochs dictionary
+        guard case let .dict(credentialEpochsDict) = elements[3] else {
+            throw CardanoCoreError.deserializeError("Invalid credentialEpochs in UpdateCommittee")
+        }
+        
+        var credentialEpochs: [CommitteeColdCredential: UInt64] = [:]
+        for (keyPrimitive, valuePrimitive) in credentialEpochsDict {
+            let credential = try CommitteeColdCredential(from: keyPrimitive)
+            guard case let .int(epochValue) = valuePrimitive else {
+                throw CardanoCoreError.deserializeError("Invalid epoch value in credentialEpochs")
+            }
+            credentialEpochs[credential] = UInt64(epochValue)
+        }
+        self.credentialEpochs = credentialEpochs
+        
+        // Parse interval
+        self.interval = try UnitInterval(from: elements[4])
+    }
+    
+    public func toPrimitive() throws -> Primitive {
+        // Convert coldCredentials set to list
+        let credentialsList = try coldCredentials.map { try $0.toPrimitive() }
+        
+        // Convert credentialEpochs dictionary to primitive
+        var credentialEpochsDict: [Primitive: Primitive] = [:]
+        for (credential, epoch) in credentialEpochs {
+            credentialEpochsDict[try credential.toPrimitive()] = .int(Int(epoch))
+        }
+        
+        return .list([
+            .int(Self.code.rawValue),
+            try id?.toPrimitive() ?? .null,
+            .list(credentialsList),
+            .dict(credentialEpochsDict),
+            try interval.toPrimitive()
+        ])
+    }
 }

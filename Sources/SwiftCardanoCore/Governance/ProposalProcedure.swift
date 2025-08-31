@@ -2,7 +2,7 @@ import Foundation
 import PotentCBOR
 
 
-public struct ProposalProcedure: PayloadJSONSerializable {
+public struct ProposalProcedure: PayloadJSONSerializable, CBORSerializable {
     public var _payload: Data
     public var _type: String
     public var _description: String
@@ -76,6 +76,20 @@ public struct ProposalProcedure: PayloadJSONSerializable {
         try container.encode(anchor)
     }
     
+    public init(from primitive: Primitive) throws {
+        // Note: GovAction doesn't currently have primitive methods implemented
+        // This is a placeholder implementation that will need to be completed
+        // when GovAction gets CBORSerializable conformance
+        throw CardanoCoreError.deserializeError("ProposalProcedure primitive deserialization not yet implemented - GovAction needs CBORSerializable conformance")
+    }
+    
+    public func toPrimitive() throws -> Primitive {
+        // Note: GovAction doesn't currently have primitive methods implemented  
+        // This is a placeholder implementation that will need to be completed
+        // when GovAction gets CBORSerializable conformance
+        throw CardanoCoreError.serializeError("ProposalProcedure primitive serialization not yet implemented - GovAction needs CBORSerializable conformance")
+    }
+    
     /// Serialize to JSON.
     ///
     /// The json output has three fields: "type", "description", and "cborHex".
@@ -92,4 +106,4 @@ public struct ProposalProcedure: PayloadJSONSerializable {
     }
 }
 
-public typealias ProposalProcedures = NonEmptyCBORSet<ProposalProcedure>
+public typealias ProposalProcedures = NonEmptyOrderedSet<ProposalProcedure>

@@ -6,14 +6,79 @@ public enum MoveInstantaneousRewardSource: Int, Codable {
     case treasury = 1
 }
 
-public struct DeltaCoin: Codable {
+public struct DeltaCoin: Codable, Hashable, Equatable {
     public let deltaCoin: Int
 }
 
-public struct MoveInstantaneousReward: Codable {
+public struct MoveInstantaneousReward: CBORSerializable, Hashable, Equatable {
     public let source: MoveInstantaneousRewardSource
     public let rewards: [String: DeltaCoin]?
     public let coin: UInt64?
+    
+    public init(from primitive: Primitive) throws {
+        guard case let .list(primitive) = primitive else {
+            throw CardanoCoreError.deserializeError("Invalid MoveInstantaneousReward type")
+        }
+        guard primitive.count == 3 else {
+            throw CardanoCoreError.deserializeError("Invalid MoveInstantaneousReward type")
+        }
+        guard case let .int(source) = primitive[0],
+              let rewardSource = MoveInstantaneousRewardSource(rawValue: Int(source)) else {
+            throw CardanoCoreError.deserializeError("Invalid MoveInstantaneousReward source type")
+        }
+        self.source = rewardSource
+        if case .dict(let rewardsMap) = primitive[1] {
+            var rewardsDict: [String: DeltaCoin] = [:]
+            for (key, value) in rewardsMap {
+                if case let .string(keyStr) = key,
+                   case let .int(delta) = value {
+                    rewardsDict[keyStr] = DeltaCoin(deltaCoin: Int(delta))
+                } else {
+                    throw CardanoCoreError.deserializeError("Invalid MoveInstantaneousReward rewards type")
+                }
+            }
+            self.rewards = rewardsDict
+        } else if case .null = primitive[1] {
+            self.rewards = nil
+        } else {
+            throw CardanoCoreError.deserializeError("Invalid MoveInstantaneousReward rewards type")
+        }
+        
+        if case let .int(coinValue) = primitive[2] {
+            self.coin = UInt64(coinValue)
+        } else if case .null = primitive[2] {
+            self.coin = nil
+        } else {
+            throw CardanoCoreError.deserializeError("Invalid MoveInstantaneousReward coin type")
+        }
+    }
+
+    public func toPrimitive() throws -> Primitive {
+        var elements: [Primitive] = []
+        elements.append(.int(source.rawValue))
+                    
+        if let rewards = rewards {
+            var rewardsMap: [Primitive: Primitive] = [:]
+            for (key, value) in rewards {
+                rewardsMap[.string(key)] = .int(value.deltaCoin)
+            }
+            elements.append(.dict(rewardsMap))
+        } else {
+            elements.append(.null)
+        }
+        if let coin = coin {
+            elements.append(.int(Int(coin)))
+        } else {
+            elements.append(.null)
+        }
+        return .list(elements)
+    }
+    
+    public static func == (lhs: MoveInstantaneousReward, rhs: MoveInstantaneousReward) -> Bool {
+        return lhs.source == rhs.source &&
+                lhs.rewards == rhs.rewards &&
+                lhs.coin == rhs.coin
+    }
 }
 
 public struct MoveInstantaneousRewards: CertificateSerializable {
@@ -85,4 +150,27 @@ public struct MoveInstantaneousRewards: CertificateSerializable {
         try container.encode(Self.CODE.rawValue)
         try container.encode(moveInstantaneousRewards)
     }
+    
+    public init(from primitive: Primitive) throws {
+        guard case let .list(primitive) = primitive,
+              primitive.count == 2 else {
+            throw CardanoCoreError.deserializeError("Invalid MoveInstantaneousRewards type")
+        }
+        
+        guard case let .int(code) = primitive[0],
+              code == UInt64(Self.CODE.rawValue) else {
+            throw CardanoCoreError.deserializeError("Invalid MoveInstantaneousRewards type: \(primitive[0])")
+        }
+        
+        let moveInstantaneousRewards = try MoveInstantaneousReward(from: primitive[1])
+        self.init(moveInstantaneousRewards: moveInstantaneousRewards)
+    }
+
+    public func toPrimitive() throws -> Primitive {
+        return .list([
+            .int(Int(Self.CODE.rawValue)),
+            try moveInstantaneousRewards.toPrimitive()
+        ])
+    }
+
 }

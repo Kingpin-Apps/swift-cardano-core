@@ -58,31 +58,39 @@ public struct StakeRegisterDelegate: CertificateSerializable {
         self.coin = cbor.coin
     }
     
-    /// Initialize a new `StakeRegisterDelegate` certificate from its CBOR representation
-    /// - Parameter decoder: The decoder
-    public init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        let code = try container.decode(Int.self)
-        
-        guard case Self.CODE.rawValue = code else {
-            throw CardanoCoreError.deserializeError("Invalid StakeRegisterDelegate type: \(code)")
+    public init(from primitive: Primitive) throws {
+        guard case let .list(elements) = primitive else {
+            throw CardanoCoreError.deserializeError("Invalid StakeRegisterDelegate: not an array")
         }
         
-        let stakeCredential = try container.decode(StakeCredential.self)
-        let poolKeyHash = try container.decode(PoolKeyHash.self)
-        let coin = try container.decode(Coin.self)
+        guard elements.count == 4 else {
+            throw CardanoCoreError.deserializeError("Invalid StakeRegisterDelegate: wrong number of elements")
+        }
+        
+        guard case let .int(code) = elements[0], code == Self.CODE.rawValue else {
+            throw CardanoCoreError.deserializeError("Invalid StakeRegisterDelegate: invalid type code")
+        }
+        
+        let stakeCredential = try StakeCredential(from: elements[1])
+        let poolKeyHash = try PoolKeyHash(from: elements[2])
+        let coin: Coin
+        
+        if case let .int(coinValue) = elements[3] {
+            coin = Coin(coinValue)
+        } else {
+            throw CardanoCoreError.deserializeError("Invalid StakeRegisterDelegate: invalid coin value")
+        }
         
         self.init(stakeCredential: stakeCredential, poolKeyHash: poolKeyHash, coin: coin)
     }
-    
-    /// Initialize a new `StakeRegisterDelegate` certificate from its CBOR representation
-    /// - Parameter encoder: The encoder
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.unkeyedContainer()
-        try container.encode(Self.CODE.rawValue)
-        try container.encode(stakeCredential)
-        try container.encode(poolKeyHash)
-        try container.encode(coin)
+
+    public func toPrimitive() throws -> Primitive {
+        return .list([
+            .int(Self.CODE.rawValue),
+            try stakeCredential.toPrimitive(),
+            poolKeyHash.toPrimitive(),
+            .int(Int(coin))
+        ])
     }
 }
 

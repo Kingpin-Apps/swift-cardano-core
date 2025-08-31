@@ -46,26 +46,27 @@ public struct StakeRegistration: CertificateSerializable {
         
         self.stakeCredential = cbor.stakeCredential
     }
-
-    /// Initialize StakeRegistration from CBOR
-    /// - Parameter decoder: The decoder to use
-    public init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        let code = try container.decode(Int.self)
-        
-        guard case Self.CODE.rawValue = code else {
-            throw CardanoCoreError.deserializeError("Invalid StakeRegistration type: \(code)")
+    
+    public init(from primitive: Primitive) throws {
+        guard case let .list(list) = primitive,
+              list.count == 2 else {
+            throw CardanoCoreError.deserializeError("Invalid StakeRegistration type")
         }
         
-        let stakeCredential = try container.decode(StakeCredential.self)
+        guard case .int(let code) = list[0],
+              code == Self.CODE.rawValue else {
+            throw CardanoCoreError.deserializeError("Invalid StakeRegistration type")
+        }
+            
+        let stakeCredential = try StakeCredential(from: list[1])
         self.init(stakeCredential: stakeCredential)
+
     }
     
-    /// Encode StakeRegistration to CBOR
-    /// - Parameter encoder: The encoder to use
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.unkeyedContainer()
-        try container.encode(Self.CODE.rawValue)
-        try container.encode(stakeCredential)
+    public func toPrimitive() throws -> Primitive {
+        return .list([
+            .int(Int(Self.CODE.rawValue)),
+            try stakeCredential.toPrimitive()
+        ])
     }
 }

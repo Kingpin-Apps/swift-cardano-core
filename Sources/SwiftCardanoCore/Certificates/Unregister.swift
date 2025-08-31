@@ -55,29 +55,26 @@ public struct Unregister: CertificateSerializable {
         self.coin = cbor.coin
     }
     
-    /// Initialize a new `Unregister` certificate from its Text Envelope representation
-    /// - Parameter decoder: The decoder
-    public init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        let code = try container.decode(Int.self)
-        
-        guard case Self.CODE.rawValue = code else {
-            throw CardanoCoreError.deserializeError("Invalid Unregister type: \(code)")
+    public init(from primitive: Primitive) throws {
+        guard case let .list(primitive) = primitive,
+              primitive.count == 3,
+              case let .int(code) = primitive[0],
+              case let .int(coin) = primitive[2],
+              code == Self.CODE.rawValue else {
+            throw CardanoCoreError.deserializeError("Invalid Unregister type")
         }
         
-        let stakeCredential = try container.decode(StakeCredential.self)
-        let coin = try container.decode(Coin.self)
+        let stakeCredential = try StakeCredential(from: primitive[1])
         
-        self.init(stakeCredential: stakeCredential, coin: coin)
+        self.init(stakeCredential: stakeCredential, coin: Coin(coin))
     }
     
-    /// Encode the `Unregister` certificate
-    /// - Parameter encoder: The encoder
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.unkeyedContainer()
-        try container.encode(Self.CODE.rawValue)
-        try container.encode(stakeCredential)
-        try container.encode(coin)
+    public func toPrimitive() throws -> Primitive {
+        return .list([
+            .int(Int(Self.CODE.rawValue)),
+            try stakeCredential.toPrimitive(),
+            .int(Int(coin))
+        ])
     }
 }
 

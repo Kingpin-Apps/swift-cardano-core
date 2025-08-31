@@ -45,31 +45,33 @@ public extension ExtendedVerificationKey {
     }
 }
 
-public enum VerificationKeyType: Codable, Equatable, Hashable {
+public enum VerificationKeyType: CBORSerializable, Equatable, Hashable {
 
     case extendedVerificationKey(any ExtendedVerificationKey)
     case verificationKey(any VerificationKey)
     
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        let data = try container.decode(Data.self)
-        if data.count == 64 {
-            self = .verificationKey(VKey(payload: data))
-        } else {
-            self = .extendedVerificationKey(ExtendedVKey(payload: data))
-        }
-    }
+//    public init(from decoder: Decoder) throws {
+//        let container = try decoder.singleValueContainer()
+//        let data = try container.decode(Data.self)
+//        if data.count == 32 {
+//            self = .verificationKey(VKey(payload: data))
+//        } else if data.count == 64 {
+//            self = .extendedVerificationKey(ExtendedVKey(payload: data))
+//        } else {
+//            throw CardanoCoreError.deserializeError("Invalid verification key length: \(data.count) bytes. Expected 32 or 64 bytes.")
+//        }
+//    }
 
-    public func encode(to encoder: Swift.Encoder) throws {
-        var container = encoder.singleValueContainer()
-        
-        switch self {
-            case .extendedVerificationKey(let key):
-                try container.encode(key)
-            case .verificationKey(let key):
-                try container.encode(key)
-        }
-    }
+//    public func encode(to encoder: Swift.Encoder) throws {
+//        var container = encoder.singleValueContainer()
+//        
+//        switch self {
+//            case .extendedVerificationKey(let key):
+//                try container.encode(key)
+//            case .verificationKey(let key):
+//                try container.encode(key)
+//        }
+//    }
     
     public func hash(into hasher: inout Hasher) {
         switch self {
@@ -99,5 +101,31 @@ public enum VerificationKeyType: Codable, Equatable, Hashable {
         }
         
         return lhsData == rhsData
+    }
+    
+    public init(from primitive: Primitive) throws {
+        guard case let .bytes(data) = primitive else {
+            throw CardanoCoreError.deserializeError("Invalid VerificationKeyType primitive")
+        }
+        
+        // Determine key type based on data length
+        if data.count/2 == 32 {
+            // Regular verification key (32 bytes)
+            self = .verificationKey(VKey(payload: data))
+        } else if data.count/2 == 64 {
+            // Extended verification key (64 bytes: 32 bytes key + 32 bytes chain code)
+            self = .extendedVerificationKey(ExtendedVKey(payload: data))
+        } else {
+            throw CardanoCoreError.deserializeError("Invalid verification key length: \(data.count) bytes. Expected 32 or 64 bytes.")
+        }
+    }
+    
+    public func toPrimitive() throws -> Primitive {
+        switch self {
+        case .extendedVerificationKey(let key):
+            return .bytes(key.payload)
+        case .verificationKey(let key):
+            return .bytes(key.payload)
+        }
     }
 }

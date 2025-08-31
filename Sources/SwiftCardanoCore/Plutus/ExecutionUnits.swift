@@ -1,7 +1,7 @@
 import Foundation
 import PotentCBOR
 
-public struct ExecutionUnits: Codable, Equatable, Hashable {
+public struct ExecutionUnits: CBORSerializable, Equatable, Hashable {
 
     public var mem: Int
     public var steps: Int
@@ -34,5 +34,24 @@ public struct ExecutionUnits: Codable, Equatable, Hashable {
 
     public func isEmpty() -> Bool {
         return mem == 0 && steps == 0
+    }
+    
+    public init(from primitive: Primitive) throws {
+        guard case let .list(primitive) = primitive,
+              primitive.count == 2,
+              case let .int(mem) = primitive[0],
+              case let .int(steps) = primitive[1] else {
+            throw CardanoCoreError.deserializeError("Invalid ExecutionUnits primitive")
+        }
+        
+        self.mem = mem
+        self.steps = steps
+    }
+    
+    public func toPrimitive() throws -> Primitive {
+        return .list([
+            .int(mem),
+            .int(steps)
+        ])
     }
 }

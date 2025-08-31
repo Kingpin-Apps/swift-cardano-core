@@ -256,6 +256,6 @@ public struct RawPlutusData: CBORSerializable, Equatable, Hashable {
 
     // Deep copy support
     public func copy() throws -> RawPlutusData {
-        return try Self.fromCBOR(data: try self.toCBOR())
+        return try Self.fromCBOR(data: try self.toCBORData())
     }
 }

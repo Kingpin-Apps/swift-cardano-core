@@ -58,30 +58,27 @@ public struct VoteRegisterDelegate: CertificateSerializable {
         self.coin = cbor.coin
     }
     
-    /// Initialize a new `VoteRegisterDelegate` certificate from its CBOR representation
-    /// - Parameter decoder: The decoder
-    public init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        let code = try container.decode(Int.self)
-        
-        guard case Self.CODE.rawValue = code else {
-            throw CardanoCoreError.deserializeError("Invalid VoteRegisterDelegate type: \(code)")
+    public init(from primitive: Primitive) throws {
+        guard case let .list(primitive) = primitive,
+              primitive.count == 4,
+              case let .int(code) = primitive[0],
+              case let .int(coin) = primitive[3],
+              code == Self.CODE.rawValue else {
+            throw CardanoCoreError.deserializeError("Invalid VoteRegisterDelegate type")
         }
         
-        let stakeCredential = try container.decode(StakeCredential.self)
-        let drep = try container.decode(DRep.self)
-        let coin = try container.decode(Coin.self)
+        let stakeCredential = try StakeCredential(from: primitive[1])
+        let drep = try DRep(from: primitive[2])
         
-        self.init(stakeCredential: stakeCredential, drep: drep, coin: coin)
+        self.init(stakeCredential: stakeCredential, drep: drep, coin: Coin(coin))
     }
     
-    /// Encode the `VoteRegisterDelegate` certificate
-    /// - Parameter encoder: The encoder
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.unkeyedContainer()
-        try container.encode(Self.CODE.rawValue)
-        try container.encode(stakeCredential)
-        try container.encode(drep)
-        try container.encode(coin)
+    public func toPrimitive() throws -> Primitive {
+        return .list([
+            .int(Int(Self.CODE.rawValue)),
+            try stakeCredential.toPrimitive(),
+            try drep.toPrimitive(),
+            .int(Int(coin))
+        ])
     }
 }

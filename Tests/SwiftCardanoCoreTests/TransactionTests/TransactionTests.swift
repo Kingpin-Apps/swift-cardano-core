@@ -24,7 +24,7 @@ struct TransactionTests {
         let fee = Coin(100000)
 
         let body = TransactionBody(
-            inputs: CBORSet([input]),
+            inputs: .orderedSet(try OrderedSet([input])),
             outputs: [output],
             fee: fee
         )
@@ -35,8 +35,10 @@ struct TransactionTests {
         )
 
         let witnessSet = TransactionWitnessSet<Never>(
-            vkeyWitnesses: NonEmptyOrderedCBORSet<VerificationKeyWitness>(
-                [vkeyWitness]
+            vkeyWitnesses: .nonEmptyOrderedSet(
+                NonEmptyOrderedSet<VerificationKeyWitness>(
+                    [vkeyWitness]
+                )
             ),
             nativeScripts: nil,
             bootstrapWitness: nil,
@@ -65,7 +67,7 @@ struct TransactionTests {
         let fee = Coin(100000)
 
         let body = TransactionBody(
-            inputs: CBORSet([input]),
+            inputs: .orderedSet(try OrderedSet([input])),
             outputs: [output],
             fee: fee
         )
@@ -76,9 +78,9 @@ struct TransactionTests {
         )
 
         let witnessSet = TransactionWitnessSet<Never>(
-            vkeyWitnesses: NonEmptyOrderedCBORSet<VerificationKeyWitness>(
+            vkeyWitnesses: .nonEmptyOrderedSet(NonEmptyOrderedSet<VerificationKeyWitness>(
                 [vkeyWitness]
-            ),
+            )),
             nativeScripts: nil,
             bootstrapWitness: nil,
             plutusV1Script: nil,
@@ -110,7 +112,7 @@ struct TransactionTests {
         let fee = Coin(100000)
 
         let body = TransactionBody(
-            inputs: CBORSet([input]),
+            inputs: .orderedSet(try OrderedSet([input])),
             outputs: [output],
             fee: fee
         )
@@ -121,9 +123,9 @@ struct TransactionTests {
         )
 
         let witnessSet = TransactionWitnessSet<Never>(
-            vkeyWitnesses: NonEmptyOrderedCBORSet<VerificationKeyWitness>(
+            vkeyWitnesses: .nonEmptyOrderedSet(NonEmptyOrderedSet<VerificationKeyWitness>(
                 [vkeyWitness]
-            ),
+            )),
             nativeScripts: nil,
             bootstrapWitness: nil,
             plutusV1Script: nil,
@@ -143,7 +145,7 @@ struct TransactionTests {
             auxiliaryData: auxiliaryData
         )
 
-        let encodedData = try originalTransaction.toCBOR()
+        let encodedData = try originalTransaction.toCBORData()
         let decodedTransaction = try Transaction<Never>.fromCBOR(data: encodedData)
 
         #expect(decodedTransaction == originalTransaction)
@@ -162,7 +164,7 @@ struct TransactionTests {
         let fee = Coin(100000)
 
         let body = TransactionBody(
-            inputs: CBORSet([input]),
+            inputs: .orderedSet(try OrderedSet([input])),
             outputs: [output],
             fee: fee
         )
@@ -173,9 +175,9 @@ struct TransactionTests {
         )
 
         let witnessSet = TransactionWitnessSet<Never>(
-            vkeyWitnesses: NonEmptyOrderedCBORSet<VerificationKeyWitness>(
+            vkeyWitnesses: .nonEmptyOrderedSet(NonEmptyOrderedSet<VerificationKeyWitness>(
                 [vkeyWitness]
-            ),
+            )),
             nativeScripts: nil,
             bootstrapWitness: nil,
             plutusV1Script: nil,

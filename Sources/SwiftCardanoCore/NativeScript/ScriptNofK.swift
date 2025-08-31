@@ -67,5 +67,35 @@ public struct ScriptNofK: NativeScriptable {
         
         return ScriptNofK(required: required, scripts: nativeScripts)
     }
+    
+    public init(from primitive: Primitive) throws {
+        guard case let .list(components) = primitive else {
+            throw CardanoCoreError.deserializeError("Invalid ScriptNofK type")
+        }
+        guard components.count == 3 else {
+            throw CardanoCoreError.deserializeError("Invalid ScriptNofK array length")
+        }
+        guard case let .int(type) = components[0], type == Self.TYPE.rawValue
+        else {
+            throw CardanoCoreError.deserializeError("Invalid ScriptNofK type")
+        }
+        guard case let .int(required) = components[1] else {
+            throw CardanoCoreError.deserializeError("Invalid ScriptNofK required")
+        }
+        guard case let .list(scripts) = components[2] else {
+            throw CardanoCoreError.deserializeError("Invalid ScriptNofK scripts")
+        }
+        self.required = Int(required)
+        self.scripts = try scripts.map { try NativeScript(from: $0) }
+    }
+
+    public func toPrimitive() throws -> Primitive {
+        var elements: [Primitive] = []
+        elements.append(.int(Self.TYPE.rawValue))
+        elements.append(.int(Int(required)))
+        elements.append(.list(try scripts.map { try $0.toPrimitive() }))
+        return .list(elements)
+    }
+
 
 }

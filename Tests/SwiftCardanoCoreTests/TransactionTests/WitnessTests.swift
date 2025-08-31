@@ -35,14 +35,14 @@ import PotentCBOR
     }
     
     @Test func testEncoding() async throws {
-        let vkeyType = VerificationKeyType.verificationKey(verificationKey)
-        let extendedVkeyType = VerificationKeyType.extendedVerificationKey(extendedVerificationKey)
+        let vkeyType: VerificationKeyType = .verificationKey(verificationKey)
+        let extendedVkeyType: VerificationKeyType = .extendedVerificationKey(extendedVerificationKey)
         
-        let vkeyData = try CBOREncoder().encode(vkeyType)
-        let extendedVkeyData = try CBOREncoder().encode(extendedVkeyType)
+        let vkeyData = try vkeyType.toCBORData()
+        let extendedVkeyData = try extendedVkeyType.toCBORData()
         
-        let decodedVkey = try CBORDecoder().decode(VerificationKeyType.self, from: vkeyData)
-        let decodedExtendedVkey = try CBORDecoder().decode(VerificationKeyType.self, from: extendedVkeyData)
+        let decodedVkey = try VerificationKeyType.fromCBOR(data: vkeyData)
+        let decodedExtendedVkey = try VerificationKeyType.fromCBOR(data: extendedVkeyData)
         
         #expect(decodedVkey == vkeyType)
         #expect(decodedExtendedVkey == extendedVkeyType)
@@ -87,9 +87,10 @@ import PotentCBOR
         )
         
         let witnessSet = TransactionWitnessSet<Never>(
-            vkeyWitnesses: NonEmptyOrderedCBORSet<VerificationKeyWitness>(
+            vkeyWitnesses:
+                    .nonEmptyOrderedSet(NonEmptyOrderedSet<VerificationKeyWitness>(
                 [vkeyWitness]
-            ),
+            )),
             nativeScripts: nil,
             bootstrapWitness: nil,
             plutusV1Script: nil,
@@ -98,8 +99,8 @@ import PotentCBOR
             redeemers: nil
         )
         
-        #expect(witnessSet.vkeyWitnesses?.count == 1)
-        #expect(witnessSet.vkeyWitnesses?.elements.first == vkeyWitness)
+        #expect(witnessSet.vkeyWitnesses?.asList.count == 1)
+        #expect(witnessSet.vkeyWitnesses?.asList.first == vkeyWitness)
         #expect(witnessSet.nativeScripts == nil)
         #expect(witnessSet.bootstrapWitness == nil)
         #expect(witnessSet.plutusV1Script == nil)
@@ -115,8 +116,10 @@ import PotentCBOR
         )
         
         let witnessSet = TransactionWitnessSet<Never>(
-            vkeyWitnesses: NonEmptyOrderedCBORSet<VerificationKeyWitness>(
-                [vkeyWitness]
+            vkeyWitnesses: .nonEmptyOrderedSet(
+                NonEmptyOrderedSet<VerificationKeyWitness>(
+                    [vkeyWitness]
+                )
             ),
             nativeScripts: nil,
             bootstrapWitness: nil,

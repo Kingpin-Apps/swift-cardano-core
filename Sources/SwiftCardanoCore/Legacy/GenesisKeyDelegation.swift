@@ -82,4 +82,36 @@ public struct GenesisKeyDelegation: CertificateSerializable {
         try container.encode(genesisDelegateHash)
         try container.encode(vrfKeyHash)
     }
+    
+    public init(from primitive: Primitive) throws {
+        guard case let .list(primitive) = primitive,
+                primitive.count == 4,
+                case let .int(code) = primitive[0],
+                code == Self.CODE.rawValue,
+              case .byteString(_) = primitive[1],
+              case .byteString(_) = primitive[2],
+              case .byteString(_) = primitive[3]
+        else {
+            throw CardanoCoreError.deserializeError("Invalid GenesisKeyDelegation type")
+        }
+        let genesisHash = try GenesisHash(from: primitive[1])
+        let genesisDelegateHash = try GenesisDelegateHash(from: primitive[2])
+        let vrfKeyHash = try VrfKeyHash(from: primitive[3])
+        
+        self.init(
+            genesisHash: genesisHash,
+            genesisDelegateHash: genesisDelegateHash,
+            vrfKeyHash: vrfKeyHash
+        )
+    }
+
+    public func toPrimitive() throws -> Primitive {
+        return .list([
+            .int(Int(Self.CODE.rawValue)),
+            .bytes(genesisHash.payload),
+            .bytes(genesisDelegateHash.payload),
+            .bytes(vrfKeyHash.payload)
+        ])
+    }
+
 }

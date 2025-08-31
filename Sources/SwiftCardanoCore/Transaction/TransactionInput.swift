@@ -31,7 +31,7 @@ public struct TransactionInput: CBORSerializable, Equatable, Hashable {
     
     public func toPrimitive() throws -> Primitive {
         return .list([
-            .string(transactionId.payload.toHex),
+            .bytes(transactionId.payload),
             .int(Int(index))
         ])
     }

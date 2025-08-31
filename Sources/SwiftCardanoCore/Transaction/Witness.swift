@@ -13,11 +13,6 @@ public struct VerificationKeyWitness: PayloadCBORSerializable, Equatable, Hashab
     public var _description: String
     
     public init(payload: Data, type: String?, description: String?) {
-//        if let payloadData = try? CBORDecoder().decode(Data.self, from: payload) {
-//            self._payload = payloadData
-//        } else {
-//            self._payload = payload
-//        }
         self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
@@ -63,27 +58,70 @@ public struct VerificationKeyWitness: PayloadCBORSerializable, Equatable, Hashab
         
         try container.encode(signature)
     }
+    
+    public init(from primitive: Primitive) throws {
+        guard case let .list(elements) = primitive else {
+            throw CardanoCoreError.deserializeError("Invalid VerificationKeyWitness primitive")
+        }
+        
+        guard elements.count == 2 else {
+            throw CardanoCoreError.deserializeError("VerificationKeyWitness requires exactly 2 elements")
+        }
+        
+        // vkey (VerificationKeyType)
+        self.vkey = try VerificationKeyType(from: elements[0])
+        
+        // signature (Data)
+        guard case let .bytes(signatureData) = elements[1] else {
+            throw CardanoCoreError.deserializeError("Invalid signature in VerificationKeyWitness")
+        }
+        self.signature = signatureData
+        
+        // Initialize the PayloadCBORSerializable properties
+        self._payload = try! CBORSerialization.data(from:
+                .array(
+                    [
+                        try! CBOREncoder().encode(vkey).toCBOR,
+                        try! CBOREncoder().encode(signature).toCBOR
+                    ]
+                )
+        )
+        self._type = Self.TYPE
+        self._description = Self.DESCRIPTION
+    }
+    
+    public func toPrimitive() throws -> Primitive {
+        var elements: [Primitive] = []
+        
+        // vkey (VerificationKeyType)
+        elements.append(try vkey.toPrimitive())
+        
+        // signature (Data)
+        elements.append(.bytes(signature))
+        
+        return .list(elements)
+    }
 }
 
-public struct TransactionWitnessSet<T: Codable & Hashable>: CBORSerializable, Equatable, Hashable {
-    public var vkeyWitnesses: NonEmptyOrderedCBORSet<VerificationKeyWitness>?
-    public var nativeScripts: NonEmptyOrderedCBORSet<NativeScript>?
-    public var bootstrapWitness: NonEmptyOrderedCBORSet<BootstrapWitness>?
-    public var plutusV1Script: NonEmptyOrderedCBORSet<PlutusV1Script>?
-    public var plutusData: NonEmptyOrderedCBORSet<RawPlutusData>?
+public struct TransactionWitnessSet<T: CBORSerializable & Hashable>: CBORSerializable, Equatable, Hashable {
+    public var vkeyWitnesses: ListOrNonEmptyOrderedSet<VerificationKeyWitness>?
+    public var nativeScripts: ListOrNonEmptyOrderedSet<NativeScript>?
+    public var bootstrapWitness: ListOrNonEmptyOrderedSet<BootstrapWitness>?
+    public var plutusV1Script: ListOrNonEmptyOrderedSet<PlutusV1Script>?
+    public var plutusData: ListOrNonEmptyOrderedSet<RawPlutusData>?
     public var redeemers: Redeemers<T>?
-    public var plutusV2Script: NonEmptyOrderedCBORSet<PlutusV2Script>?
-    public var plutusV3Script: NonEmptyOrderedCBORSet<PlutusV3Script>?
+    public var plutusV2Script: ListOrNonEmptyOrderedSet<PlutusV2Script>?
+    public var plutusV3Script: ListOrNonEmptyOrderedSet<PlutusV3Script>?
 
     public init(
-        vkeyWitnesses: NonEmptyOrderedCBORSet<VerificationKeyWitness>? = nil,
-        nativeScripts: NonEmptyOrderedCBORSet<NativeScript>? = nil,
-        bootstrapWitness: NonEmptyOrderedCBORSet<BootstrapWitness>? = nil,
-        plutusV1Script: NonEmptyOrderedCBORSet<PlutusV1Script>? = nil,
-        plutusV2Script: NonEmptyOrderedCBORSet<PlutusV2Script>? = nil,
-        plutusData: NonEmptyOrderedCBORSet<RawPlutusData>? = nil,
+        vkeyWitnesses: ListOrNonEmptyOrderedSet<VerificationKeyWitness>? = nil,
+        nativeScripts: ListOrNonEmptyOrderedSet<NativeScript>? = nil,
+        bootstrapWitness: ListOrNonEmptyOrderedSet<BootstrapWitness>? = nil,
+        plutusV1Script: ListOrNonEmptyOrderedSet<PlutusV1Script>? = nil,
+        plutusV2Script: ListOrNonEmptyOrderedSet<PlutusV2Script>? = nil,
+        plutusData: ListOrNonEmptyOrderedSet<RawPlutusData>? = nil,
         redeemers: Redeemers<T>? = nil,
-        plutusV3Script: NonEmptyOrderedCBORSet<PlutusV3Script>? = nil
+        plutusV3Script: ListOrNonEmptyOrderedSet<PlutusV3Script>? = nil
     ) {
         self.vkeyWitnesses = vkeyWitnesses
         self.nativeScripts = nativeScripts
@@ -106,45 +144,116 @@ public struct TransactionWitnessSet<T: Codable & Hashable>: CBORSerializable, Eq
         case plutusV3Script = 7
     }
     
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        vkeyWitnesses = try container.decodeIfPresent(
-            NonEmptyOrderedCBORSet<VerificationKeyWitness>.self, forKey: .vkeyWitnesses
-        )
-        nativeScripts = try container.decodeIfPresent(
-            NonEmptyOrderedCBORSet<NativeScript>.self, forKey: .nativeScripts
-        )
-        bootstrapWitness = try container.decodeIfPresent(
-            NonEmptyOrderedCBORSet<BootstrapWitness>.self, forKey: .bootstrapWitness
-        )
-        plutusV1Script = try container.decodeIfPresent(
-            NonEmptyOrderedCBORSet<PlutusV1Script>.self, forKey: .plutusV1Script
-        )
-        plutusData = try container.decodeIfPresent(
-            NonEmptyOrderedCBORSet<RawPlutusData>.self, forKey: .plutusData
-        )
-        redeemers = try container.decodeIfPresent(Redeemers<T>.self, forKey: .redeemers)
-        plutusV2Script = try container.decodeIfPresent(
-            NonEmptyOrderedCBORSet<PlutusV2Script>.self, forKey: .plutusV2Script
-        )
-        plutusV3Script = try container.decodeIfPresent(
-            NonEmptyOrderedCBORSet<PlutusV3Script>.self, forKey: .plutusV3Script
-        )
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encodeIfPresent(vkeyWitnesses, forKey: .vkeyWitnesses)
-        try container.encodeIfPresent(nativeScripts, forKey: .nativeScripts)
-        try container.encodeIfPresent(bootstrapWitness, forKey: .bootstrapWitness)
-        try container.encodeIfPresent(plutusV1Script, forKey: .plutusV1Script)
-        try container.encodeIfPresent(plutusData, forKey: .plutusData)
-        try container.encodeIfPresent(redeemers, forKey: .redeemers)
-        try container.encodeIfPresent(plutusV2Script, forKey: .plutusV2Script)
-        try container.encodeIfPresent(plutusV3Script, forKey: .plutusV3Script)
-    }
-    
     public func isEmpty() -> Bool {
         return vkeyWitnesses == nil && nativeScripts == nil && bootstrapWitness == nil && plutusV1Script == nil && plutusData == nil && redeemers == nil && plutusV2Script == nil && plutusV3Script == nil
+    }
+    
+    public init(from primitive: Primitive) throws {
+        guard case let .dict(dict) = primitive else {
+            throw CardanoCoreError.deserializeError("Invalid TransactionWitnessSet primitive")
+        }
+        
+        // vkeyWitnesses (key 0)
+        if let vkeyWitnessesPrimitive = dict[.int(CodingKeys.vkeyWitnesses.rawValue)] {
+            vkeyWitnesses = try ListOrNonEmptyOrderedSet<VerificationKeyWitness>(from: vkeyWitnessesPrimitive)
+        } else {
+            self.vkeyWitnesses = nil
+        }
+            
+        
+        // nativeScripts (key 1)
+        if let nativeScriptsPrimitive = dict[.int(CodingKeys.nativeScripts.rawValue)] {
+            nativeScripts = try ListOrNonEmptyOrderedSet<NativeScript>(from: nativeScriptsPrimitive)
+        } else {
+            self.nativeScripts = nil
+        }
+        
+        // bootstrapWitness (key 2)
+        if let bootstrapWitnessPrimitive = dict[.int(CodingKeys.bootstrapWitness.rawValue)] {
+            bootstrapWitness = try ListOrNonEmptyOrderedSet<BootstrapWitness>(from: bootstrapWitnessPrimitive)
+        } else {
+            self.bootstrapWitness = nil
+        }
+        
+        // plutusV1Script (key 3)
+        if let plutusV1ScriptPrimitive = dict[.int(CodingKeys.plutusV1Script.rawValue)] {
+            plutusV1Script = try ListOrNonEmptyOrderedSet<PlutusV1Script>(from: plutusV1ScriptPrimitive)
+        } else {
+            self.plutusV1Script = nil
+        }
+        
+        // plutusData (key 4)
+        if let plutusDataPrimitive = dict[.int(CodingKeys.plutusData.rawValue)] {
+            plutusData = try ListOrNonEmptyOrderedSet<RawPlutusData>(from: plutusDataPrimitive)
+        } else {
+            self.plutusData = nil
+        }
+        
+        // redeemers (key 5)
+        if let redeemersPrimitive = dict[.int(CodingKeys.redeemers.rawValue)] {
+            self.redeemers = try Redeemers<T>(from: redeemersPrimitive)
+        } else {
+            self.redeemers = nil
+        }
+        
+        // plutusV2Script (key 6)
+        if let plutusV2ScriptPrimitive = dict[.int(CodingKeys.plutusV2Script.rawValue)] {
+            plutusV2Script = try ListOrNonEmptyOrderedSet<PlutusV2Script>(from: plutusV2ScriptPrimitive)
+        } else {
+            self.plutusV2Script = nil
+        }
+        
+        // plutusV3Script (key 7)
+        if let plutusV3ScriptPrimitive = dict[.int(CodingKeys.plutusV3Script.rawValue)] {
+            plutusV3Script = try ListOrNonEmptyOrderedSet<PlutusV3Script>(from: plutusV3ScriptPrimitive)
+        } else {
+            self.plutusV3Script = nil
+        }
+    }
+    
+    public func toPrimitive() throws -> Primitive {
+        var dict: [Primitive: Primitive] = [:]
+        
+        if let vkeyWitnesses = vkeyWitnesses {
+            dict[.int(CodingKeys.vkeyWitnesses.rawValue)] = try vkeyWitnesses
+                .toPrimitive()
+        }
+        
+        if let nativeScripts = nativeScripts {
+            dict[.int(CodingKeys.nativeScripts.rawValue)] = try nativeScripts
+                .toPrimitive()
+        }
+        
+        if let bootstrapWitness = bootstrapWitness {
+            dict[.int(CodingKeys.bootstrapWitness.rawValue)] = try bootstrapWitness
+                .toPrimitive()
+        }
+        
+        if let plutusV1Script = plutusV1Script {
+            dict[.int(CodingKeys.plutusV1Script.rawValue)] = try plutusV1Script
+                .toPrimitive()
+        }
+        
+        if let plutusData = plutusData {
+            dict[.int(CodingKeys.plutusData.rawValue)] = try plutusData
+                .toPrimitive()
+        }
+        
+        if let redeemers = redeemers {
+            dict[.int(CodingKeys.redeemers.rawValue)] = try redeemers
+                .toPrimitive()
+        }
+        
+        if let plutusV2Script = plutusV2Script {
+            dict[.int(CodingKeys.plutusV2Script.rawValue)] = try plutusV2Script
+                .toPrimitive()
+        }
+        
+        if let plutusV3Script = plutusV3Script {
+            dict[.int(CodingKeys.plutusV3Script.rawValue)] = try plutusV3Script
+                .toPrimitive()
+        }
+        
+        return .dict(dict)
     }
 }

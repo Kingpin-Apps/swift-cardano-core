@@ -63,4 +63,24 @@ public struct ScriptPubkey: NativeScriptable {
         
         return ScriptPubkey(keyHash: keyHash)
     }
+    
+    public init(from primitive: Primitive) throws {
+        guard case let .list(primitive) = primitive,
+              primitive.count == 2 else {
+            throw CardanoCoreError.deserializeError("Invalid ScriptPubkey type")
+        }
+        guard case let .int(type) = primitive[0],
+              type == Self.TYPE.rawValue else {
+            throw CardanoCoreError.deserializeError("Invalid ScriptPubkey type")
+        }
+        self.keyHash = try VerificationKeyHash(from: primitive[1])
+    }
+
+    public func toPrimitive() throws -> Primitive {
+        return .list([
+            .int(Int(Self.TYPE.rawValue)),
+            keyHash.toPrimitive()
+        ])
+    }
+
 }
