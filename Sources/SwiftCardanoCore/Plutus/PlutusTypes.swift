@@ -295,7 +295,7 @@ public enum RawDatum: CBORSerializable, Equatable, Hashable {
     public func toPrimitive() throws -> Primitive {
         switch self {
         case .plutusData(let data):
-            return .plutusData(data)
+            return data.toPrimitive()
         case .dict(let dict):
             let convertedDict = dict.reduce(into: [:]) { result, entry in
                 result[entry.key.toPrimitive()] = entry.value.toPrimitive()

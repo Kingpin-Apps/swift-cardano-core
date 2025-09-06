@@ -6,7 +6,7 @@ import Testing
 @Suite  struct SigningKeyTests {
     @Test
     func testSigningKeyGenerate() throws {
-        let signingKey = try SKey.generate()
+        let signingKey = try SigningKey.generate()
         #expect(
             signingKey.payload.count > 0,
             "Generated signing key payload should not be empty"
@@ -15,7 +15,7 @@ import Testing
     
     @Test
     func testSigningData() throws {
-        let signingKey = try SKey.generate()
+        let signingKey = try SigningKey.generate()
         let message = "Test message".data(using: .utf8)!
         
         let signature = try signingKey.sign(data: message)
@@ -24,15 +24,15 @@ import Testing
     
     @Test
     func testToVerificationKey() throws {
-        let signingKey = try SKey.generate()
-        let verificationKey: VKey = try signingKey.toVerificationKey()
+        let signingKey = try SigningKey.generate()
+        let verificationKey: VerificationKey = try signingKey.toVerificationKey()
         
         #expect(verificationKey.payload.count > 0, "Verification key payload should not be empty")
     }
     
     @Test
     func testSigningConsistency() throws {
-        let signingKey = try SKey.generate()
+        let signingKey = try SigningKey.generate()
         let message = "Consistency check".data(using: .utf8)!
         
         let signature1 = try signingKey.sign(data: message)

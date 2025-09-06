@@ -15,7 +15,6 @@ import PotentCBOR
         )
         
         #expect(NoConfidence.code == .noConfidence)
-        #expect(action != nil)
         #expect(action.id == govActionID)
     }
     

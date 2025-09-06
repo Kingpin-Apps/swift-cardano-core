@@ -76,28 +76,32 @@ public final class MyTest: PlutusData {
         if let c = fields[2] as? AnyValue {
             self.c = IndefiniteList<AnyValue>(c.indefiniteArrayValue ?? c.arrayValue ?? [])
         } else if let c = fields[2] as? [Any] {
+            // Helper to unwrap Optional values that may be boxed as `Any`
+            func unwrapOptional(_ value: Any) -> Any? {
+                let mirror = Mirror(reflecting: value)
+                guard mirror.displayStyle == .optional else { return value }
+                return mirror.children.first?.value
+            }
+
             // Convert raw array to AnyValue array
-            let anyValueArray = c.compactMap { value -> AnyValue? in
-                if let intValue = value as? Int {
+            let anyValueArray: [AnyValue] = c.compactMap { value in
+                guard let v = unwrapOptional(value) else { return nil }
+
+                if let intValue = v as? Int {
                     return .uint64(UInt64(intValue))
-                } else if let intValue = value as? Int64 {
+                } else if let intValue = v as? Int64 {
                     return .int64(intValue)
-                } else if let intValue = value as? UInt64 {
+                } else if let intValue = v as? UInt64 {
                     return .uint64(intValue)
-                } else if let optionalValue = value as? Optional<Any>, let unwrapped = optionalValue {
-                    if let intValue = unwrapped as? Int {
-                        return .uint64(UInt64(intValue))
-                    } else if let intValue = unwrapped as? UInt64 {
-                        return .uint64(intValue)
-                    } else if let intValue = unwrapped as? Int64 {
-                        return .int64(intValue)
-                    } else if let anyValue = unwrapped as? AnyValue {
-                        return anyValue
-                    }
-                } else if let anyValue = value as? AnyValue {
+                } else if let dataValue = v as? Data {
+                    return .data(dataValue)
+                } else if let stringValue = v as? String {
+                    return .string(stringValue)
+                } else if let anyValue = v as? AnyValue {
                     return anyValue
+                } else {
+                    return try? AnyValue.wrapped(v)
                 }
-                return nil
             }
             self.c = IndefiniteList<AnyValue>(anyValueArray)
         } else if let c = fields[2] as? IndefiniteList<AnyValue> {
@@ -350,7 +354,6 @@ public final class VestingParam: PlutusData {
 
 public final class MyRedeemer: Redeemer<MyTest> {
     public init(data: MyTest) throws {
-        //        self.data = try AnyValue.Encoder().encode(data)
         super.init(data: data)
     }
 

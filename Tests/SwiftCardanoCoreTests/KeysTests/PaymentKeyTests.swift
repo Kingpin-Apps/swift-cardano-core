@@ -111,7 +111,7 @@ let extendedPaymentVKey = [
     @Test func testPaymentVKey() async throws {
         let VK = extendedPaymentVerificationKey!
         
-        #expect(VK != nil)
+        #expect(VK.payload.count > 0)
     }
     
     @Test func testPaymentSKey() async throws {
@@ -124,9 +124,9 @@ let extendedPaymentVKey = [
         
         let data = try SK.sign(data: message)
         
-        #expect(SK != nil)
-        #expect(extendedVkey != nil)
-        #expect(vkey != nil)
-        #expect(data != nil)
+        #expect(SK.payload.count > 0)
+        #expect(extendedVkey.payload.count > 0)
+        #expect(vkey.payload.count > 0)
+        #expect(data.count > 0)
     }
 }

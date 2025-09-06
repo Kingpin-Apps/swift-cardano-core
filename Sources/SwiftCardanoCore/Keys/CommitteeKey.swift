@@ -1,7 +1,7 @@
 import Foundation
 import PotentCBOR
 
-public struct CommitteeColdSigningKey: SigningKey {
+public struct CommitteeColdSigningKey: SigningKeyProtocol {
     public var _payload: Data
     public var _type: String
     public var _description: String
@@ -21,7 +21,7 @@ public struct CommitteeColdSigningKey: SigningKey {
     }
 }
 
-public struct CommitteeColdVerificationKey: VerificationKey {
+public struct CommitteeColdVerificationKey: VerificationKeyProtocol {
     public var _payload: Data
     public var _type: String
     public var _description: String
@@ -42,7 +42,7 @@ public struct CommitteeColdVerificationKey: VerificationKey {
 }
 
 
-public struct CommitteeHotSigningKey: SigningKey {
+public struct CommitteeHotSigningKey: SigningKeyProtocol {
     public var _payload: Data
     public var _type: String
     public var _description: String
@@ -62,7 +62,7 @@ public struct CommitteeHotSigningKey: SigningKey {
     }
 }
 
-public struct CommitteeHotVerificationKey: VerificationKey {
+public struct CommitteeHotVerificationKey: VerificationKeyProtocol {
     public var _payload: Data
     public var _type: String
     public var _description: String

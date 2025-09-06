@@ -2,7 +2,7 @@ import Foundation
 import PotentCBOR
 import SwiftNcal
 
-public struct StakePoolSigningKey: SigningKey {
+public struct StakePoolSigningKey: SigningKeyProtocol {
     public var _payload: Data
     public var _type: String
     public var _description: String
@@ -22,7 +22,7 @@ public struct StakePoolSigningKey: SigningKey {
     }
 }
 
-public struct StakePoolVerificationKey: VerificationKey {
+public struct StakePoolVerificationKey: VerificationKeyProtocol {
     public var _payload: Data
     public var _type: String
     public var _description: String

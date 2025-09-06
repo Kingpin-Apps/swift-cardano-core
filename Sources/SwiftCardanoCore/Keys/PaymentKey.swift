@@ -3,7 +3,7 @@ import PotentCBOR
 
 
 /// A PaymentSigningKey is a type of ``SigningKey`` 
-public struct PaymentSigningKey: SigningKey {
+public struct PaymentSigningKey: SigningKeyProtocol {
     public var _payload: Data
     public var _type: String
     public var _description: String
@@ -24,7 +24,7 @@ public struct PaymentSigningKey: SigningKey {
 }
 
 /// A PaymentVerificationKey is a type of ``VerificationKey``
-public struct PaymentVerificationKey: VerificationKey {
+public struct PaymentVerificationKey: VerificationKeyProtocol {
     public var _payload: Data
     public var _type: String
     public var _description: String
@@ -47,7 +47,7 @@ public struct PaymentVerificationKey: VerificationKey {
     }
 }
 
-public struct PaymentExtendedSigningKey: ExtendedSigningKey {
+public struct PaymentExtendedSigningKey: ExtendedSigningKeyProtocol {
     public var _payload: Data
     public var _type: String
     public var _description: String
@@ -67,7 +67,7 @@ public struct PaymentExtendedSigningKey: ExtendedSigningKey {
     }
 }
 
-public struct PaymentExtendedVerificationKey: ExtendedVerificationKey {
+public struct PaymentExtendedVerificationKey: ExtendedVerificationKeyProtocol {
     public var _payload: Data
     public var _type: String
     public var _description: String

@@ -144,84 +144,46 @@ public enum Certificate: CBORSerializable, Equatable, Hashable {
         }
     }
 
-    public func toPrimitive() throws -> Primitive {
+    public func toPrimitive() throws -> Primitive {        
         switch self {
             case .stakeRegistration(let stakeReg):
-                var elements: [Primitive] = [.int(CertificateCode.stakeRegistration.rawValue)]
-                elements.append(try stakeReg.toPrimitive())
-                return .list(elements)
+                return try stakeReg.toPrimitive()
             case .stakeDeregistration(let stakeDereg):
-                var elements: [Primitive] = [.int(CertificateCode.stakeDeregistration.rawValue)]
-                elements.append(try stakeDereg.toPrimitive())
-                return .list(elements)
+                return try stakeDereg.toPrimitive()
             case .stakeDelegation(let stakeDel):
-                var elements: [Primitive] = [.int(CertificateCode.stakeDelegation.rawValue)]
-                elements.append(try stakeDel.toPrimitive())
-                return .list(elements)
+                return try stakeDel.toPrimitive()
             case .poolRegistration(let poolReg):
-                var elements: [Primitive] = [.int(CertificateCode.poolRegistration.rawValue)]
-                elements.append(try poolReg.toPrimitive())
-                return .list(elements)
+                return try poolReg.toPrimitive()
             case .poolRetirement(let poolRet):
-                var elements: [Primitive] = [.int(CertificateCode.poolRetirement.rawValue)]
-                elements.append(try poolRet.toPrimitive())
-                return .list(elements)
+                return try poolRet.toPrimitive()
             case .genesisKeyDelegation(let genKeyDel):
-                var elements: [Primitive] = [.int(CertificateCode.genesisKeyDelegation.rawValue)]
-                elements.append(try genKeyDel.toPrimitive())
-                return .list(elements)
+                return try genKeyDel.toPrimitive()
             case .moveInstantaneousRewards(let mir):
-                var elements: [Primitive] = [.int(CertificateCode.moveInstantaneousRewards.rawValue)]
-                elements.append(try mir.toPrimitive())
-                return .list(elements)
+                return try mir.toPrimitive()
             case .register(let reg):
-                var elements: [Primitive] = [.int(CertificateCode.register.rawValue)]
-                elements.append(try reg.toPrimitive())
-                return .list(elements)
+                return try reg.toPrimitive()
             case .unregister(let unreg):
-                var elements: [Primitive] = [.int(CertificateCode.unregister.rawValue)]
-                elements.append(try unreg.toPrimitive())
-                return .list(elements)
+                return try unreg.toPrimitive()
             case .voteDelegate(let voteDel):
-                var elements: [Primitive] = [.int(CertificateCode.voteDelegate.rawValue)]
-                elements.append(try voteDel.toPrimitive())
-                return .list(elements)
+                return try voteDel.toPrimitive()
             case .stakeVoteDelegate(let stakeVoteDel):
-                var elements: [Primitive] = [.int(CertificateCode.stakeVoteDelegate.rawValue)]
-                elements.append(try stakeVoteDel.toPrimitive())
-                return .list(elements)
+                return try stakeVoteDel.toPrimitive()
             case .stakeRegisterDelegate(let stakeRegDel):
-                var elements: [Primitive] = [.int(CertificateCode.stakeRegisterDelegate.rawValue)]
-                elements.append(try stakeRegDel.toPrimitive())
-                return .list(elements)
+                return try stakeRegDel.toPrimitive()
             case .voteRegisterDelegate(let voteRegDel):
-                var elements: [Primitive] = [.int(CertificateCode.voteRegisterDelegate.rawValue)]
-                elements.append(try voteRegDel.toPrimitive())
-                return .list(elements)
+                return try voteRegDel.toPrimitive()
             case .stakeVoteRegisterDelegate(let stakeVoteRegDel):
-                var elements: [Primitive] = [.int(CertificateCode.stakeVoteRegisterDelegate.rawValue)]
-                elements.append(try stakeVoteRegDel.toPrimitive())
-                return .list(elements)
+                return try stakeVoteRegDel.toPrimitive()
             case .authCommitteeHot(let authCommHot):
-                var elements: [Primitive] = [.int(CertificateCode.authCommitteeHot.rawValue)]
-                elements.append(try authCommHot.toPrimitive())
-                return .list(elements)
+                return try authCommHot.toPrimitive()
             case .resignCommitteeCold(let resignCommCold):
-                var elements: [Primitive] = [.int(CertificateCode.resignCommitteeCold.rawValue)]
-                elements.append(try resignCommCold.toPrimitive())
-                return .list(elements)
+                return try resignCommCold.toPrimitive()
             case .registerDRep(let regDRep):
-                var elements: [Primitive] = [.int(CertificateCode.registerDRep.rawValue)]
-                elements.append(try regDRep.toPrimitive())
-                return .list(elements)
+                return try regDRep.toPrimitive()
             case .unRegisterDRep(let unRegDRep):
-                var elements: [Primitive] = [.int(CertificateCode.unRegisterDRep.rawValue)]
-                elements.append(try unRegDRep.toPrimitive())
-                return .list(elements)
+                return try unRegDRep.toPrimitive()
             case .updateDRep(let updDRep):
-                var elements: [Primitive] = [.int(CertificateCode.updateDRep.rawValue)]
-                elements.append(try updDRep.toPrimitive())
-                return .list(elements)
+                return try updDRep.toPrimitive()	
         }
     }
 }

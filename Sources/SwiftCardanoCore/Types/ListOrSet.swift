@@ -101,6 +101,21 @@ public enum ListOrOrderedSet<T: CBORSerializable & Hashable>: CBORSerializable, 
                 self = .orderedSet(set)
         }
     }
+    
+    public subscript(_ index: Int) -> Element? {
+        switch self {
+            case .list(let array):
+                guard index >= 0 && index < array.count else {
+                    return nil
+                }
+                return array[index]
+            case .orderedSet(let set):
+                guard index >= 0 && index < set.count else {
+                    return nil
+                }
+                return set.elementsOrdered[index]
+        }
+    }
 }
 
 /// A type that can represent transaction inputs as either an array or a NonEmptyOrderedSet
@@ -199,6 +214,21 @@ public enum ListOrNonEmptyOrderedSet<T: CBORSerializable & Hashable>: CBORSerial
             case .nonEmptyOrderedSet(var set):
                 set.append(element)
                 self = .nonEmptyOrderedSet(set)
+        }
+    }
+    
+    public subscript(_ index: Int) -> Element? {
+        switch self {
+            case .list(let array):
+                guard index >= 0 && index < array.count else {
+                    return nil
+                }
+                return array[index]
+            case .nonEmptyOrderedSet(let set):
+                guard index >= 0 && index < set.count else {
+                    return nil
+                }
+                return set.elementsOrdered[index]
         }
     }
 }

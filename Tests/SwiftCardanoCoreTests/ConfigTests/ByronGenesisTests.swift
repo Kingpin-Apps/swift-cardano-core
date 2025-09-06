@@ -12,8 +12,7 @@ struct ByronGenesisTests {
     )
     
     @Test func testInit() async throws {
-        let byronGenesis = try ByronGenesis.load(from: filePath!)
-        #expect(byronGenesis != nil)
+        _ = try ByronGenesis.load(from: filePath!)
     }
     
     @Test func testSaveLoad() async throws {

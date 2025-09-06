@@ -38,6 +38,14 @@ public enum TransactionMetadatum: CBORSerializable, Hashable, Sendable {
                     map[keyMeta] = valueMeta
                 }
                 self = .map(map)
+            case .orderedDict(let dict):
+                var map = [TransactionMetadatum: TransactionMetadatum]()
+                for (key, value) in dict {
+                    let keyMeta = try TransactionMetadatum(from: key)
+                    let valueMeta = try TransactionMetadatum(from: value)
+                    map[keyMeta] = valueMeta
+                }
+                self = .map(map)
             default:
                 throw CardanoCoreError.deserializeError("Unsupported CBOR type for TransactionMetadatum")
         }
@@ -79,7 +87,7 @@ public enum MetadataType: CBORSerializable, Hashable, Equatable {
             return
         }
         
-        if case .dict(_) = primitive {
+        if case .orderedDict(_) = primitive {
             let metadata = try Metadata(from: primitive)
             self = .metadata(metadata)
             return
@@ -90,7 +98,7 @@ public enum MetadataType: CBORSerializable, Hashable, Equatable {
             var metadata: Metadata!
             var nativeScripts: [NativeScript]?
             
-            if case .dict(_) = elements[0] {
+            if case .orderedDict(_) = elements[0] {
                 metadata = try Metadata(from: elements[0])
             } else {
                 throw CardanoCoreError.deserializeError("Invalid metadata format in ShelleyMaryMetadata")
@@ -107,7 +115,7 @@ public enum MetadataType: CBORSerializable, Hashable, Equatable {
             return
         }
         
-        throw CardanoCoreError.deserializeError("Invalid MetadataType primitive")
+        throw CardanoCoreError.deserializeError("Invalid MetadataType primitive: \(primitive)")
     }
 
     public func toPrimitive() throws -> Primitive {
@@ -176,8 +184,15 @@ public struct Metadata: CBORSerializable, Hashable, Equatable {
     public init(from primitive: Primitive) throws {
         self.data = [:]
         
-        guard case let .dict(primitiveDict) = primitive else {
-            throw CardanoCoreError.deserializeError("Invalid Metadata type")
+        var primitiveDict: OrderedDictionary<Primitive, Primitive> = [:]
+        
+        switch primitive {
+            case let .dict(dict):
+                primitiveDict.merge(dict) { (_, new) in new }
+            case let .orderedDict(orderedDict):
+                primitiveDict = orderedDict
+            default:
+                throw CardanoCoreError.deserializeError("Invalid Metadata type: \(primitive)")
         }
         
         for (key, value) in primitiveDict {
@@ -237,17 +252,17 @@ public struct ShelleyMaryMetadata: CBORSerializable, Hashable, Equatable {
         self.nativeScripts = nativeScripts
     }
     
-    public init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        metadata = try container.decode(Metadata.self)
-        nativeScripts = try container.decodeIfPresent([NativeScript].self)
-    }
-    
-    public func encode(to encoder: Swift.Encoder) throws {
-        var container = encoder.unkeyedContainer()
-        try container.encode(metadata)
-        try container.encode(nativeScripts)
-    }
+//    public init(from decoder: Decoder) throws {
+//        var container = try decoder.unkeyedContainer()
+//        metadata = try container.decode(Metadata.self)
+//        nativeScripts = try container.decodeIfPresent([NativeScript].self)
+//    }
+//    
+//    public func encode(to encoder: Swift.Encoder) throws {
+//        var container = encoder.unkeyedContainer()
+//        try container.encode(metadata)
+//        try container.encode(nativeScripts)
+//    }
     
     public init(from primitive: Primitive) throws {
         guard case let .list(elements) = primitive, elements.count >= 1 else {
@@ -309,79 +324,79 @@ public struct AlonzoMetadata: CBORSerializable, Hashable, Equatable {
         self.plutusV3Script = plutusV3Script
     }
     
-    public init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        let tag = try container.decode(Int.self)
-        
-        guard tag == AlonzoMetadata.TAG else {
-            throw CardanoCoreError.deserializeError("Expect CBOR tag: \(AlonzoMetadata.TAG), got: \(tag) instead.")
-        }
-        
-        let cborData = try container.decode([Int:Data].self)
-    
-        if let metadataDict = cborData[0] {
-            let dict = try CBORDecoder().decode(
-                [Metadata.KEY_TYPE: Metadata.VALUE_TYPE].self,
-                from: metadataDict
-            )
-            metadata = try Metadata(dict)
-        } else {
-            metadata = nil
-        }
-        
-        if let nativeScriptsArray = cborData[1] {
-            nativeScripts = try CBORDecoder().decode([NativeScript].self, from: nativeScriptsArray)
-        } else {
-            nativeScripts = nil
-        }
-        
-        if let plutusV1ScriptArray = cborData[2] {
-            plutusV1Script = try CBORDecoder().decode([PlutusV1Script].self, from: plutusV1ScriptArray)
-        } else {
-            plutusV1Script = nil
-        }
-        
-        if let plutusV2ScriptArray = cborData[3] {
-            plutusV2Script = try CBORDecoder().decode([PlutusV2Script].self, from: plutusV2ScriptArray)
-        } else {
-            plutusV2Script = nil
-        }
-        
-        if let plutusV3ScriptArray = cborData[4] {
-            plutusV3Script = try CBORDecoder().decode([PlutusV3Script].self, from: plutusV3ScriptArray)
-        } else {
-            plutusV3Script = nil
-        }
-    }
-
-    public func encode(to encoder: Swift.Encoder) throws {
-        var cbor: [Int:Data] = [:]
-        
-        if metadata != nil {
-            cbor[0] = try CBOREncoder().encode(metadata!.data)
-        }
-        
-        if nativeScripts != nil {
-            cbor[1] = try CBOREncoder().encode(nativeScripts!)
-        }
-        
-        if plutusV1Script != nil {
-            cbor[2] = try CBOREncoder().encode(plutusV1Script!)
-        }
-        
-        if plutusV2Script != nil {
-            cbor[3] = try CBOREncoder().encode(plutusV2Script!)
-        }
-        
-        if plutusV3Script != nil {
-            cbor[4] = try CBOREncoder().encode(plutusV3Script!)
-        }
-        
-        var container = encoder.unkeyedContainer()
-        try container.encode(AlonzoMetadata.TAG)
-        
-        try container.encode(cbor)
-    }
+//    public init(from decoder: Decoder) throws {
+//        var container = try decoder.unkeyedContainer()
+//        let tag = try container.decode(Int.self)
+//        
+//        guard tag == AlonzoMetadata.TAG else {
+//            throw CardanoCoreError.deserializeError("Expect CBOR tag: \(AlonzoMetadata.TAG), got: \(tag) instead.")
+//        }
+//        
+//        let cborData = try container.decode([Int:Data].self)
+//    
+//        if let metadataDict = cborData[0] {
+//            let dict = try CBORDecoder().decode(
+//                [Metadata.KEY_TYPE: Metadata.VALUE_TYPE].self,
+//                from: metadataDict
+//            )
+//            metadata = try Metadata(dict)
+//        } else {
+//            metadata = nil
+//        }
+//        
+//        if let nativeScriptsArray = cborData[1] {
+//            nativeScripts = try CBORDecoder().decode([NativeScript].self, from: nativeScriptsArray)
+//        } else {
+//            nativeScripts = nil
+//        }
+//        
+//        if let plutusV1ScriptArray = cborData[2] {
+//            plutusV1Script = try CBORDecoder().decode([PlutusV1Script].self, from: plutusV1ScriptArray)
+//        } else {
+//            plutusV1Script = nil
+//        }
+//        
+//        if let plutusV2ScriptArray = cborData[3] {
+//            plutusV2Script = try CBORDecoder().decode([PlutusV2Script].self, from: plutusV2ScriptArray)
+//        } else {
+//            plutusV2Script = nil
+//        }
+//        
+//        if let plutusV3ScriptArray = cborData[4] {
+//            plutusV3Script = try CBORDecoder().decode([PlutusV3Script].self, from: plutusV3ScriptArray)
+//        } else {
+//            plutusV3Script = nil
+//        }
+//    }
+//
+//    public func encode(to encoder: Swift.Encoder) throws {
+//        var cbor: [Int:Data] = [:]
+//        
+//        if metadata != nil {
+//            cbor[0] = try CBOREncoder().encode(metadata!.data)
+//        }
+//        
+//        if nativeScripts != nil {
+//            cbor[1] = try CBOREncoder().encode(nativeScripts!)
+//        }
+//        
+//        if plutusV1Script != nil {
+//            cbor[2] = try CBOREncoder().encode(plutusV1Script!)
+//        }
+//        
+//        if plutusV2Script != nil {
+//            cbor[3] = try CBOREncoder().encode(plutusV2Script!)
+//        }
+//        
+//        if plutusV3Script != nil {
+//            cbor[4] = try CBOREncoder().encode(plutusV3Script!)
+//        }
+//        
+//        var container = encoder.unkeyedContainer()
+//        try container.encode(AlonzoMetadata.TAG)
+//        
+//        try container.encode(cbor)
+//    }
     
     public init(from primitive: Primitive) throws {
         guard case let .cborTag(cborTag) = primitive,
@@ -393,8 +408,8 @@ public struct AlonzoMetadata: CBORSerializable, Hashable, Equatable {
         var cborDict: OrderedDictionary<AnyValue, AnyValue> = OrderedDictionary<AnyValue, AnyValue>()
         
         switch cborTag.value {
-        case .dictionary(let dict):
-            cborDict = dict
+            case .dictionary(let dict):
+                cborDict = dict
         default:
             // For any other value type (including maps converted to dictionaries), 
             // we'll create an empty dictionary and proceed with no metadata
@@ -510,15 +525,15 @@ public struct AuxiliaryData: CBORSerializable, Equatable, Hashable {
         self.data = data
     }
     
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        data = try container.decode(MetadataType.self)
-    }
-
-    public func encode(to encoder: Swift.Encoder) throws {
-        var container = encoder.singleValueContainer()
-        try container.encode(data)
-    }
+//    public init(from decoder: Decoder) throws {
+//        let container = try decoder.singleValueContainer()
+//        data = try container.decode(MetadataType.self)
+//    }
+//
+//    public func encode(to encoder: Swift.Encoder) throws {
+//        var container = encoder.singleValueContainer()
+//        try container.encode(data)
+//    }
     
     /// Compute a blake2b hash from the key
     /// - Returns: Hash output in bytes.

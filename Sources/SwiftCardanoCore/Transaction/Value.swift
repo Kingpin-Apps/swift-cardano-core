@@ -1,6 +1,6 @@
 import Foundation
 
-public struct Value: CBORSerializable, Equatable, Hashable, Comparable {
+public struct Value: CBORSerializable, Equatable, Hashable, Comparable, Sendable {
     
     /// Amount of ADA
     public var coin: Int
@@ -13,32 +13,32 @@ public struct Value: CBORSerializable, Equatable, Hashable, Comparable {
         self.multiAsset = multiAsset
     }
     
-    public init(from decoder: Decoder) throws {
-        if let singleValueContainer = try? decoder.singleValueContainer() {
-            // Try to decode as a single coin value
-            if let coinValue = try? singleValueContainer.decode(Int.self) {
-                coin = coinValue
-                multiAsset = MultiAsset([:])
-                return
-            }
-        }
-        
-        // Decode as array format [coin, multiAsset]
-        var container = try decoder.unkeyedContainer()
-        coin = try container.decode(Int.self)
-        multiAsset = try container.decode(MultiAsset.self)
-    }
-    
-    public func encode(to encoder: Encoder) throws {
-        if multiAsset.isEmpty {
-            var container = encoder.singleValueContainer()
-            try container.encode(coin)
-        } else {
-            var container = encoder.unkeyedContainer()
-            try container.encode(coin)
-            try container.encode(multiAsset)
-        }
-    }
+//    public init(from decoder: Decoder) throws {
+//        if let singleValueContainer = try? decoder.singleValueContainer() {
+//            // Try to decode as a single coin value
+//            if let coinValue = try? singleValueContainer.decode(Int.self) {
+//                coin = coinValue
+//                multiAsset = MultiAsset([:])
+//                return
+//            }
+//        }
+//        
+//        // Decode as array format [coin, multiAsset]
+//        var container = try decoder.unkeyedContainer()
+//        coin = try container.decode(Int.self)
+//        multiAsset = try container.decode(MultiAsset.self)
+//    }
+//    
+//    public func encode(to encoder: Encoder) throws {
+//        if multiAsset.isEmpty {
+//            var container = encoder.singleValueContainer()
+//            try container.encode(coin)
+//        } else {
+//            var container = encoder.unkeyedContainer()
+//            try container.encode(coin)
+//            try container.encode(multiAsset)
+//        }
+//    }
     
     public init(from list: [Any]) throws {
         guard list.count == 2,
@@ -57,8 +57,7 @@ public struct Value: CBORSerializable, Equatable, Hashable, Comparable {
             self.multiAsset = MultiAsset([:])
         case .list(let listValue):
             guard listValue.count == 2,
-                case let .int(coinValue) = listValue[0],
-                case .dict(_) = listValue[1] else {
+                case let .int(coinValue) = listValue[0] else {
                 throw CardanoCoreError.deserializeError("Invalid Value data: \(primitive)")
             }
             self.coin = coinValue
@@ -90,6 +89,13 @@ public struct Value: CBORSerializable, Equatable, Hashable, Comparable {
         )
     }
 
+    public static func + (lhs: Value, rhs: Coin) -> Value {
+        return Value(
+            coin: lhs.coin + Int(rhs),
+            multiAsset: lhs.multiAsset
+        )
+    }
+
     public static func += (lhs: inout Value, rhs: Value) {
         lhs = lhs + rhs
     }
@@ -100,6 +106,13 @@ public struct Value: CBORSerializable, Equatable, Hashable, Comparable {
 
     public static func - (lhs: Value, rhs: Value) -> Value {
         return Value(coin: lhs.coin - rhs.coin, multiAsset: lhs.multiAsset - rhs.multiAsset)
+    }
+    
+    public static func - (lhs: Value, rhs: Coin) -> Value {
+        return Value(
+            coin: lhs.coin - Int(rhs),
+            multiAsset: lhs.multiAsset
+        )
     }
 
     public static func == (lhs: Value, rhs: Value) -> Bool {

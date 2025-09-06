@@ -224,9 +224,9 @@ public extension NativeScriptable {
     }
     
     func hash() throws -> ScriptHash {
-        let cbor = try! CBOREncoder().encode(self)
+        let cbor = try self.toCBORData()
         let hash = try Hash().blake2b(
-            data: Data([0x01]) + cbor,
+            data: Data([0x00]) + cbor,
             digestSize: SCRIPT_HASH_SIZE,
             encoder: RawEncoder.self
         )

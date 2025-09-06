@@ -19,13 +19,13 @@ let validMetadata: [TransactionMetadatumLabel: TransactionMetadatum] = [
         let metadata = try Metadata(validMetadata)
         let encoded = try CBOREncoder().encode(metadata.data)
         
-        #expect(encoded != nil, "Encoded CBOR data should not be nil")
+        #expect(encoded.count > 0, "Encoded CBOR data should not be nil")
     }
     
     @Test("Test Metadata Decoding")
     func testDecoding() async throws {
         let metadata = try Metadata(validMetadata)
-        let encoded = try CBOREncoder().encode(metadata.data)
+        let encoded = try metadata.toCBORData()
         let decoded = try CBORDecoder().decode([TransactionMetadatumLabel: TransactionMetadatum].self, from: encoded)
         
         #expect(decoded == metadata.data, "Decoded metadata should match the original")
@@ -119,8 +119,8 @@ let validMetadata: [TransactionMetadatumLabel: TransactionMetadatum] = [
             plutusV3Script: plutusV3Script
         )
         
-        let encoded = try CBOREncoder().encode(alonzoMetadata)
-        let decoded = try CBORDecoder().decode(AlonzoMetadata.self, from: encoded)
+        let encoded = try alonzoMetadata.toCBORData()
+        let decoded = try AlonzoMetadata.fromCBOR(data: encoded)
         
         #expect(decoded.metadata?.data == sampleMetadata.data, "Decoded metadata should match the original")
         #expect(decoded.nativeScripts == sampleNativeScripts, "Decoded native scripts should match the original")
@@ -173,8 +173,8 @@ let validMetadata: [TransactionMetadatumLabel: TransactionMetadatum] = [
     @Test("Test Encoding and Decoding AuxiliaryData")
     func testEncodingDecoding() async throws {
         let auxiliaryData = AuxiliaryData(data: sampleMetadataType)
-        let encoded = try CBOREncoder().encode(auxiliaryData)
-        let decoded = try CBORDecoder().decode(AuxiliaryData.self, from: encoded)
+        let encoded = try auxiliaryData.toCBORData()
+        let decoded = try AuxiliaryData.fromCBOR(data: encoded)
         
         #expect(decoded.data == sampleMetadataType, "Decoded auxiliary data should match the original")
     }

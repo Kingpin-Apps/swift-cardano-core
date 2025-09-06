@@ -12,8 +12,7 @@ struct ShelleyGenesisTests {
     )
     
     @Test func testInit() async throws {
-        let shelleyGenesis = try ShelleyGenesis.load(from: filePath!)
-        #expect(shelleyGenesis != nil)
+        _ = try ShelleyGenesis.load(from: filePath!)
     }
     
     @Test func testSaveLoad() async throws {

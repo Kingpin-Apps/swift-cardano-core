@@ -5,10 +5,9 @@ import PotentCBOR
 
 @Suite struct InfoActionTests {
     @Test func testInitialization() async throws {
-        let action = InfoAction()
+        _ = InfoAction()
         
         #expect(InfoAction.code == .infoAction)
-        #expect(action != nil)
     }
     
     @Test func testEncoding() async throws {

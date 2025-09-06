@@ -246,7 +246,6 @@ struct TransactionBodyTests {
         )
         
         let encodedData = try originalBody.toCBORData()
-        print("Encoded CBOR Data: \(encodedData.toHex)")
         let decodedBody = try TransactionBody.fromCBOR(data: encodedData)
         
         #expect(decodedBody == originalBody)
@@ -318,6 +317,6 @@ struct TransactionBodyTests {
         #expect(cborHex == expectedHex, "CBOR encoding does not match expected value")
         
         // Verify two-way CBOR serialization works
-        #expect(try checkTwoWayCBOR(serializable: txBody), "Two-way CBOR serialization failed")
+        try checkTwoWayCBOR(serializable: txBody)
     }
 }

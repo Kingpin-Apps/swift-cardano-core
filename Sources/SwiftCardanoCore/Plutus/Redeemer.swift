@@ -24,6 +24,17 @@ public enum RedeemerTag: Int, CBORSerializable {
     public func toPrimitive() throws -> Primitive {
         return .int(rawValue)
     }
+    
+    public func description() -> String {
+        switch self {
+            case .spend: return "spend"
+            case .mint: return "mint"
+            case .cert: return "cert"
+            case .reward: return "reward"
+            case .voting: return "voting"
+            case .proposing: return "proposing"
+        }
+    }
 }
 
 
@@ -279,12 +290,19 @@ public struct RedeemerMap<T: CBORSerializable & Hashable>: CBORSerializable, Equ
     }
     
     public init(from primitive: Primitive) throws {
-        guard case let .dict(dict) = primitive else {
-            throw CardanoCoreError.deserializeError("Invalid RedeemerMap primitive")
+        var primitiveDict: OrderedDictionary<Primitive, Primitive> = [:]
+        
+        switch primitive {
+            case let .dict(dict):
+                primitiveDict.merge(dict) { (_, new) in new }
+            case let .orderedDict(orderedDict):
+                primitiveDict = orderedDict
+            default:
+                throw CardanoCoreError.deserializeError("Invalid RedeemerMap primitive: \(primitive)")
         }
         
         storage = [:]
-        for (keyPrimitive, valuePrimitive) in dict {
+        for (keyPrimitive, valuePrimitive) in primitiveDict {
             let key = try RedeemerKey(from: keyPrimitive)
             let value = try RedeemerValue<T>(from: valuePrimitive)
             storage[key] = value
@@ -368,6 +386,10 @@ public enum Redeemers<T: CBORSerializable & Hashable>: CBORSerializable, Equatab
             self = .list(redeemers)
             
         case .dict(_):
+            let redeemerMap = try RedeemerMap<T>(from: primitive)
+            self = .map(redeemerMap)
+            
+        case .orderedDict(_):
             let redeemerMap = try RedeemerMap<T>(from: primitive)
             self = .map(redeemerMap)
             

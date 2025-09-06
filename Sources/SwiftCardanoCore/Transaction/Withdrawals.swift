@@ -1,32 +1,35 @@
 import Foundation
+import OrderedCollections
 
 /// A disctionary of reward addresses to reward withdrawal amount.
 ///
 /// Key is address bytes, value is an integer.
 public struct Withdrawals: Codable, Equatable, Hashable {
-    public var data: [RewardAccount: Coin] {
+    public var data: OrderedDictionary<RewardAccount, Coin> {
         get { _data }
         set { _data = newValue }
     }
-    private var _data: [RewardAccount: Coin] = [:]
+    private var _data: OrderedDictionary<RewardAccount, Coin> = [:]
     
-    public init(_ data: [RewardAccount: Coin]) {
+    public init(_ data: OrderedDictionary<RewardAccount, Coin>) {
         self._data = data
-    }
-    
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        _data = try container.decode([RewardAccount: Coin].self)
     }
     
     public init(from primitive: Primitive) throws {
         self._data = [:]
         
-        guard case let .dict(primitive) = primitive else {
-            throw CardanoCoreError.deserializeError("Invalid Withdrawals type")
+        var primitiveDict: OrderedDictionary<Primitive, Primitive> = [:]
+        
+        switch primitive {
+            case let .dict(dict):
+                primitiveDict.merge(dict) { (_, new) in new }
+            case let .orderedDict(orderedDict):
+                primitiveDict = orderedDict
+            default:
+                throw CardanoCoreError.deserializeError("Invalid Withdrawals type")
         }
         
-        for (key, value) in primitive {
+        for (key, value) in primitiveDict {
             guard case let .bytes(keyValue) = key,
                   case let .int(intValue) = value else {
                 throw CardanoCoreError.deserializeError("Invalid Withdrawals type")
@@ -35,17 +38,12 @@ public struct Withdrawals: Codable, Equatable, Hashable {
         }
     }
     
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-        try container.encode(_data)
-    }
-    
     public func toPrimitive() throws -> Primitive {
-        var result = [Primitive: Primitive]()
+        var result: OrderedDictionary<Primitive, Primitive> = [:]
         for (key, value) in _data {
             result[.bytes(key)] = .int(Int(value))
         }
-        return .dict(result)
+        return .orderedDict(result)
     }
     
     // Subscript for easier key-value access

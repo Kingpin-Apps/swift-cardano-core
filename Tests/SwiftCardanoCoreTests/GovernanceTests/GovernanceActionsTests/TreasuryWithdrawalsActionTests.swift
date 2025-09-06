@@ -18,7 +18,6 @@ import PotentCBOR
         )
         
         #expect(TreasuryWithdrawalsAction.code == .treasuryWithdrawalsAction)
-        #expect(action != nil)
         #expect(action.withdrawals == withdrawals)
         #expect(action.policyHash == policyHash)
     }

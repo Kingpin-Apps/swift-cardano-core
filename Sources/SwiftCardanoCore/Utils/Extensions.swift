@@ -141,13 +141,13 @@ extension CBOR {
             let primitiveArray = try array.map { try $0.toPrimitive() }
             return .list(primitiveArray)
         case .map(let map):
-            var resultDict: [Primitive: Primitive] = [:]
+            var resultDict:  OrderedDictionary<Primitive, Primitive> = [:]
             for (key, value) in map {
                 let keyPrimitive = try key.toPrimitive()
                 let valuePrimitive = try value.toPrimitive()
                 resultDict[keyPrimitive] = valuePrimitive
             }
-            return .dict(resultDict)
+            return .orderedDict(resultDict)
         case .tagged(_, let value):
             let taggedValue = try AnyValue(from: value.toPrimitive())
             return taggedValue.toPrimitive()
@@ -197,7 +197,9 @@ extension Data {
     }
 
     public var toString: String {
-        return String(data: self, encoding: .utf8)!
+        return String(data: self, encoding: .utf8)
+        ?? String(data: self, encoding: .ascii)
+        ?? String(data: self, encoding: .unicode) ?? ""
     }
 
     public var toCBOR: CBOR {
@@ -266,12 +268,13 @@ extension String {
         var currentIndex = cleanHex.startIndex
 
         while currentIndex < cleanHex.endIndex {
-            let nextIndex =
-                cleanHex.index(currentIndex, offsetBy: 2, limitedBy: cleanHex.endIndex)
+            let nextIndex = cleanHex.index(currentIndex, offsetBy: 2, limitedBy: cleanHex.endIndex)
                 ?? cleanHex.endIndex
             let byteString = String(cleanHex[currentIndex..<nextIndex])
             if let byte = UInt8(byteString, radix: 16) {
                 bytes.append(byte)
+            } else {
+                return Data() // Return empty Data if invalid hex
             }
             currentIndex = nextIndex
         }
@@ -290,7 +293,7 @@ extension AnyValue: CBORSerializable {
         case .bool(let value):
             self = .bool(value)
         case .int(let value):
-            self = .integer(BigInt(value))
+            self = .int64(Int64(value))
         case .float(let value):
             self = .double(value)
         case .decimal(let value):

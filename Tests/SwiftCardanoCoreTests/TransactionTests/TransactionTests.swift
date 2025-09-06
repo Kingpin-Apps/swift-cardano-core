@@ -14,7 +14,7 @@ struct TransactionTests {
         from: .string("stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n")
     )
     let amount = Value(coin: 1_000_000)
-    let verificationKey = VKey(payload: Data(repeating: 0x01, count: 64))
+    let verificationKey = VerificationKey(payload: Data(repeating: 0x01, count: 64))
     let signature = Data(repeating: 0x03, count: 64)
 
     @Test("Test initialization with required parameters")
@@ -208,7 +208,7 @@ struct TransactionTests {
         let actualCBORHex = try txIn.toCBORHex()
         
         #expect(actualCBORHex == expectedCBORHex)
-        #expect(try checkTwoWayCBOR(serializable: txIn))
+        try checkTwoWayCBOR(serializable: txIn)
     }
     
     @Test("Test TransactionInput is hashable")
@@ -235,7 +235,7 @@ struct TransactionTests {
         let actualCBORHex = try output.toCBORHex()
         
         #expect(actualCBORHex == expectedCBORHex)
-        #expect(try checkTwoWayCBOR(serializable: output))
+        try checkTwoWayCBOR(serializable: output)
     }
     
     @Test("Test TransactionOutput with string address")
@@ -247,7 +247,7 @@ struct TransactionTests {
         let actualCBORHex = try output.toCBORHex()
         
         #expect(actualCBORHex == expectedCBORHex)
-        #expect(try checkTwoWayCBOR(serializable: output))
+        try checkTwoWayCBOR(serializable: output)
     }
     
     @Test("Test TransactionOutput with inline datum")
@@ -259,10 +259,10 @@ struct TransactionTests {
         output.postAlonzo = true
         
         let expectedCBORHex = "a300581d60f6532850e1bccee9c72a9113ad98bcc5dbb30d2ac960262444f6e5f4011b000000174876e800028201d81842182a"
-        let actualCBORHex = try output.toCBORHex()
+        let actualCBORHex = try output.toCBORHex(deterministic: true)
         
         #expect(actualCBORHex == expectedCBORHex)
-        #expect(try checkTwoWayCBOR(serializable: output))
+        try checkTwoWayCBOR(serializable: output)
     }
     
     @Test("Test invalid TransactionOutput with negative amount")
@@ -297,7 +297,7 @@ struct TransactionTests {
         let actualCBORHex = try txBody.toCBORHex()
         
         #expect(actualCBORHex == expectedCBORHex)
-        #expect(try checkTwoWayCBOR(serializable: txBody))
+        try checkTwoWayCBOR(serializable: txBody)
     }
     
     @Test("Test full transaction CBOR deserialization")
@@ -305,8 +305,8 @@ struct TransactionTests {
         let txCBORHex = "84a70081825820b35a4ba9ef3ce21adcd6879d08553642224304704d206c74d3ffb3e6eed3ca28000d80018182581d60cc30497f4ff962f4c1dca54cceefe39f86f1d7179668009f8eb71e598200a1581cec8b7d1dd0b124e8333d3fa8d818f6eac068231a287554e9ceae490ea24f5365636f6e6454657374746f6b656e1a009896804954657374746f6b656e1a00989680021a000493e00e8009a1581cec8b7d1dd0b124e8333d3fa8d818f6eac068231a287554e9ceae490ea24f5365636f6e6454657374746f6b656e1a009896804954657374746f6b656e1a00989680075820592a2df0e091566969b3044626faa8023dabe6f39c78f33bed9e105e55159221a200828258206443a101bdb948366fc87369336224595d36d8b0eee5602cba8b81a024e584735840846f408dee3b101fda0f0f7ca89e18b724b7ca6266eb29775d3967d6920cae7457accb91def9b77571e15dd2ede38b12cf92496ce7382fa19eb90ab7f73e49008258205797dc2cc919dfec0bb849551ebdf30d96e5cbe0f33f734a87fe826db30f7ef95840bdc771aa7b8c86a8ffcbe1b7a479c68503c8aa0ffde8059443055bf3e54b92f4fca5e0b9ca5bb11ab23b1390bb9ffce414fa398fc0b17f4dc76fe9f7e2c99c09018182018482051a075bcd1582041a075bcd0c8200581c9139e5c0a42f0f2389634c3dd18dc621f5594c5ba825d9a8883c66278200581c835600a2be276a18a4bebf0225d728f090f724f4c0acd591d066fa6ff5d90103a100a11902d1a16b7b706f6c6963795f69647da16d7b706f6c6963795f6e616d657da66b6465736372697074696f6e6a3c6f7074696f6e616c3e65696d6167656a3c72657175697265643e686c6f636174696f6ea367617277656176656a3c6f7074696f6e616c3e6568747470736a3c6f7074696f6e616c3e64697066736a3c72657175697265643e646e616d656a3c72657175697265643e667368613235366a3c72657175697265643e64747970656a3c72657175697265643e"
         
         let tx = try Transaction<Never>.fromCBORHex(txCBORHex)
-        print(tx)
-        #expect(try checkTwoWayCBOR(serializable: tx))
+//        print(tx)
+        try checkTwoWayCBOR(serializable: tx)
     }
     
     @Test("Test MultiAsset creation and operations")
@@ -327,7 +327,7 @@ struct TransactionTests {
         let restoredValue = try Value(from: primitive)
         
         #expect(value == restoredValue)
-        #expect(try checkTwoWayCBOR(serializable: value))
+        try checkTwoWayCBOR(serializable: value)
     }
     
     @Test("Test MultiAsset addition")

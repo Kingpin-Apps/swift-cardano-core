@@ -2,7 +2,7 @@ import Foundation
 import SwiftNcal
 import PotentCBOR
 
-public struct VRFSigningKey: SigningKey {
+public struct VRFSigningKey: SigningKeyProtocol {
     public var _payload: Data
     public var _type: String
     public var _description: String
@@ -26,7 +26,7 @@ public struct VRFSigningKey: SigningKey {
         fatalError("Not implemented")
     }
     
-    public func toVerificationKey<T>() throws -> T where T: VerificationKey {
+    public func toVerificationKey<T>() throws -> T where T: VerificationKeyProtocol {
 //        return try VRFVerificationKey.fromSigningKey(self) as! T
         fatalError("Not implemented")
     }
@@ -37,7 +37,7 @@ public struct VRFSigningKey: SigningKey {
     }
 }
 
-public struct VRFVerificationKey: VerificationKey {
+public struct VRFVerificationKey: VerificationKeyProtocol {
     public var _payload: Data
     public var _type: String
     public var _description: String
@@ -68,7 +68,7 @@ public struct VRFVerificationKey: VerificationKey {
         )
     }
     
-    public static func fromSigningKey<T>(_ key: any SigningKey) throws -> T where T: VerificationKey {
+    public static func fromSigningKey<T>(_ key: any SigningKeyProtocol) throws -> T where T: VerificationKeyProtocol {
 //        return try key.toVerificationKey()
         fatalError("Not implemented")
     }

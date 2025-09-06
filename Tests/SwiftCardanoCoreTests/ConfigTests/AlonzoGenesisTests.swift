@@ -12,8 +12,7 @@ struct AlonzoGenesisTests {
     )
     
     @Test func testInit() async throws {
-        let alonzoGenesis = try AlonzoGenesis.load(from: filePath!)
-        #expect(alonzoGenesis != nil)
+        _ = try AlonzoGenesis.load(from: filePath!)
     }
     
     @Test func testSaveLoad() async throws {

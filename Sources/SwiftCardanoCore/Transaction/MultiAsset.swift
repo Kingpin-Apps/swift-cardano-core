@@ -1,8 +1,9 @@
 import Foundation
 import PotentCBOR
 import PotentCodables
+import OrderedCollections
 
-public struct MultiAsset: CBORSerializable, Hashable, Equatable, Comparable {
+public struct MultiAsset: CBORSerializable, Hashable, Equatable, Comparable, Sendable {
     public var data: [ScriptHash: Asset] {
         get { _data }
         set { _data = newValue }
@@ -40,7 +41,7 @@ public struct MultiAsset: CBORSerializable, Hashable, Equatable, Comparable {
         
         for (policyId, asset) in dict {
             let pid = ScriptHash(payload: policyId.hexStringToData)
-            var assetData: [AssetName: Int] = [:]
+            var assetData: OrderedDictionary<AssetName, Int> = [:]
             for (assetName, amount) in asset {
                 let name = AssetName(from: assetName)
                 assetData[name] = amount
@@ -54,11 +55,18 @@ public struct MultiAsset: CBORSerializable, Hashable, Equatable, Comparable {
     public init(from primitive: Primitive) throws {
         var data: [ScriptHash: Asset] = [:]
         
-        guard case let .dict(primitive) = primitive else {
-            throw CardanoCoreError.deserializeError("Invalid MultiAsset type: \(primitive)")
+        var primitiveDict: OrderedDictionary<Primitive, Primitive> = [:]
+        
+        switch primitive {
+            case let .dict(dict):
+                primitiveDict.merge(dict) { (_, new) in new }
+            case let .orderedDict(orderedDict):
+                primitiveDict = orderedDict
+            default:
+                throw CardanoCoreError.deserializeError("Invalid MultiAsset type")
         }
         
-        for (policyId, asset) in primitive {
+        for (policyId, asset) in primitiveDict {
             let pid = try ScriptHash(from: policyId)
             data[pid] = try Asset(from: asset)
         }
@@ -66,22 +74,12 @@ public struct MultiAsset: CBORSerializable, Hashable, Equatable, Comparable {
     }
     
     public func toPrimitive() -> Primitive {
-        var primitives: [Primitive: Primitive] = [:]
+        var primitives: OrderedDictionary<Primitive, Primitive> = [:]
+        
         for (policyId, asset) in data {
-            let pid = policyId.payload.toHex
-            primitives[.string(pid)] = asset.toPrimitive()
+            primitives[.bytes(policyId.payload)] = asset.toPrimitive()
         }
-        return .dict(primitives)
-    }
-    
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        data = try container.decode([ScriptHash: Asset].self)
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-        try container.encode(data)
+        return .orderedDict(primitives)
     }
 
     public func union(_ other: MultiAsset) -> MultiAsset {
@@ -123,10 +121,7 @@ public struct MultiAsset: CBORSerializable, Hashable, Equatable, Comparable {
                 newMultiAsset.data[key] = Asset.zero - value
             }
         }
-        // Clean up any assets that have all zero amounts
-//        newMultiAsset.data = newMultiAsset.data.filter { (_, asset) in
-//            !asset.data.values.allSatisfy { $0 == 0 }
-//        }
+        
         return newMultiAsset.normalize()
     }
 

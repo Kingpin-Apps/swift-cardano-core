@@ -2,8 +2,10 @@ import Foundation
 import CryptoKit
 import PotentCBOR
 import PotentCodables
+import OrderedCollections
 
-public struct AssetName: ConstrainedBytes {
+
+public struct AssetName: ConstrainedBytes, Sendable {
     public var payload: Data
     public static var maxSize: Int { 32 }
     public static var minSize: Int { 0 }
@@ -20,24 +22,28 @@ public struct AssetName: ConstrainedBytes {
         }
     }
 
+    public var debugDescription: String {
+        return "AssetName(\(self.payload.toString))"
+    }
+
     public var description: String {
-        return "AssetName(\(String(describing: self.payload.toString)))"
+        return "AssetName(\(self.payload.toString))"
     }
 }
 
-public struct Asset: Codable, Comparable, Hashable, Equatable, AdditiveArithmetic {
+public struct Asset: CBORSerializable, Comparable, Hashable, Equatable, AdditiveArithmetic, Sendable {
     public static var zero: Asset {
         return Asset([:])
     }
     
-    public var data: [AssetName: Int] {
+    public var data: OrderedDictionary<AssetName, Int> {
         get { _data }
         set { 
             _data = newValue
             _data = normalizeData(_data)
         }
     }
-    private var _data: [AssetName: Int] = [:]
+    private var _data: OrderedDictionary<AssetName, Int> = [:]
     
     public subscript(key: AssetName) -> Int? {
         get { return _data[key] }
@@ -58,18 +64,25 @@ public struct Asset: Codable, Comparable, Hashable, Equatable, AdditiveArithmeti
         return data.count
     }
     
-    public init(_ data: [AnyHashable: AnyHashable]) {
-        self.data = data as! [AssetName: Int]
+    public init(_ data: OrderedDictionary<AssetName, Int>) {
+        self.data = data
     }
     
     public init(from primitive: Primitive) throws {
         self.data = [:]
         
-        guard case let .dict(primitive) = primitive else {
-            throw CardanoCoreError.deserializeError("Invalid Asset type")
+        var primitiveDict: OrderedDictionary<Primitive, Primitive> = [:]
+        
+        switch primitive {
+            case let .dict(dict):
+                primitiveDict.merge(dict) { (_, new) in new }
+            case let .orderedDict(orderedDict):
+                primitiveDict = orderedDict
+            default:
+                throw CardanoCoreError.deserializeError("Invalid Asset type")
         }
         
-        for (key, value) in primitive {
+        for (key, value) in primitiveDict {
             let assetName: String
             
             switch key {
@@ -89,24 +102,14 @@ public struct Asset: Codable, Comparable, Hashable, Equatable, AdditiveArithmeti
     }
     
     public func toPrimitive() -> Primitive {
-        var result = [Primitive: Primitive]()
+        var result: OrderedDictionary<Primitive, Primitive> = [:]
         for (key, value) in data {
             result[key.toPrimitive()] = .int(value)
         }
-        return .dict(result)
+        return .orderedDict(result)
     }
     
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        data = try container.decode([AssetName: Int].self)
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-        try container.encode(data)
-    }
-    
-    private func normalizeData(_ data: [AssetName: Int]) -> [AssetName: Int] {
+    private func normalizeData(_ data: OrderedDictionary<AssetName, Int>) -> OrderedDictionary<AssetName, Int> {
         return data.filter { $0.value != 0 }
     }
     

@@ -12,8 +12,7 @@ struct ProtocolParametersTests {
     )
     
     @Test func testInit() async throws {
-        let protocolParameters = try ProtocolParameters.load(from: filePath!)
-        #expect(protocolParameters != nil)
+        _ = try ProtocolParameters.load(from: filePath!)
     }
     
     @Test func testSaveLoad() async throws {

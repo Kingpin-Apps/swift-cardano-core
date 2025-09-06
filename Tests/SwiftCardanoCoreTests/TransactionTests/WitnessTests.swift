@@ -4,8 +4,8 @@ import PotentCBOR
 @testable import SwiftCardanoCore
 
 @Suite struct VerificationKeyTypeTests {
-    let verificationKey = VKey(payload: Data(repeating: 0x01, count: 32))
-    let extendedVerificationKey = ExtendedVKey(payload: Data(repeating: 0x02, count: 64))
+    let verificationKey = VerificationKey(payload: Data(repeating: 0x01, count: 32))
+    let extendedVerificationKey = ExtendedVerificationKey(payload: Data(repeating: 0x02, count: 64))
     
     @Test func testInitialization() async throws {
         let vkeyType = VerificationKeyType.verificationKey(verificationKey)
@@ -13,7 +13,7 @@ import PotentCBOR
         
         switch vkeyType {
         case .verificationKey(let key):
-            if let vkey = key as? VKey {
+            if let vkey = key as? VerificationKey {
                 #expect(vkey.payload == verificationKey.payload)
             } else {
                 Issue.record("Expected VKey type")
@@ -26,7 +26,7 @@ import PotentCBOR
         case .verificationKey:
             Issue.record("Expected extendedVerificationKey, but found verificationKey")
         case .extendedVerificationKey(let key):
-            if let extendedVkey = key as? ExtendedVKey {
+            if let extendedVkey = key as? ExtendedVerificationKey {
                 #expect(extendedVkey.payload == extendedVerificationKey.payload)
             } else {
                 Issue.record("Expected ExtendedVKey type")
@@ -50,7 +50,7 @@ import PotentCBOR
 }
 
 @Suite struct VerificationKeyWitnessTests {
-    let verificationKey = VKey(payload: Data(repeating: 0x01, count: 64))
+    let verificationKey = VerificationKey(payload: Data(repeating: 0x01, count: 64))
     let signature = Data(repeating: 0x03, count: 64)
     
     @Test func testInitialization() async throws {
@@ -77,7 +77,7 @@ import PotentCBOR
 }
 
 @Suite struct TransactionWitnessSetTests {
-    let verificationKey = VKey(payload: Data(repeating: 0x01, count: 64))
+    let verificationKey = VerificationKey(payload: Data(repeating: 0x01, count: 64))
     let signature = Data(repeating: 0x03, count: 64)
     
     @Test func testInitialization() async throws {
@@ -129,8 +129,8 @@ import PotentCBOR
             redeemers: nil
         )
         
-        let encodedData = try CBOREncoder().encode(witnessSet)
-        let decodedWitnessSet = try CBORDecoder().decode(TransactionWitnessSet<Never>.self, from: encodedData)
+        let encodedData = try witnessSet.toCBORData()
+        let decodedWitnessSet = try TransactionWitnessSet<Never>.fromCBOR(data: encodedData)
         
         #expect(decodedWitnessSet == witnessSet)
     }

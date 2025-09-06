@@ -4,15 +4,26 @@ import Logging
 @testable import SwiftCardanoCore
 
 @Suite struct LoggingTests {
+    struct TestLoggable: Loggable {
+        var logger: Logging.Logger
+
+        let name: String
+        let value: Int
+    }
     
     @Test("Test Logging Setup")
     func testLoggingSetup() async throws {
+        let loggableInstance = TestLoggable(
+            logger: Logger(label: "test.logger"),
+            name: "Cardano",
+            value: 42
+        )
+        
         // Setup logging
-        setupLogging()
+        loggableInstance.setupLogging()
         
         // Check if the logger is properly initialized
-        let testLogger = Logger(label: "test.logger")
-        testLogger.info("Testing Logging Setup")
+        loggableInstance.logger.info("Testing Logging Setup")
 
         // The expectation is that this does not throw and logs are properly set up
         #expect(true)  // No actual assertion, just checking for silent failure
@@ -20,12 +31,11 @@ import Logging
 
     @Test("Test Loggable Protocol Default Implementation")
     func testLoggableProtocol() async throws {
-        struct TestLoggable: Loggable {
-            let name: String
-            let value: Int
-        }
-
-        let loggableInstance = TestLoggable(name: "Cardano", value: 42)
+        let loggableInstance = TestLoggable(
+            logger: Logger(label: "test.logger"),
+            name: "Cardano",
+            value: 42
+        )
 
         // Log state (should log properties of the instance)
         loggableInstance.logState()

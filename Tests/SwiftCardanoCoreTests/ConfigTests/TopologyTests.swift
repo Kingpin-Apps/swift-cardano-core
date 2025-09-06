@@ -12,8 +12,7 @@ struct TopologyTests {
     )
     
     @Test func testInit() async throws {
-        let topology = try Topology.load(from: filePath!)
-        #expect(topology != nil)
+        _ = try Topology.load(from: filePath!)
     }
     
     @Test func testSaveLoad() async throws {

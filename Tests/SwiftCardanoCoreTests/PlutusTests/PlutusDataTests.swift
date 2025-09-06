@@ -59,7 +59,7 @@ struct PlutusDataTests {
         #expect(dictTest == decoded)
         #expect(dictTest.fields.count == 1)
         if let decodedDict = dictTest.fields[0] as? [Int: LargestTest] {
-            #expect(try LargestTest() == decodedDict[1])
+            #expect(LargestTest() == decodedDict[1])
         }
     }
 
@@ -67,13 +67,13 @@ struct PlutusDataTests {
     func testListPlutusData() throws {
         let listTest = try ListTest(a: IndefiniteList<LargestTest>([LargestTest()]))
         let encoded = try CBOREncoder().encode(listTest)
-        let decoded = try CBORDecoder().decode(ListTest.self, from: encoded)
+        _ = try CBORDecoder().decode(ListTest.self, from: encoded)
 
 //        #expect(listTest == decoded)
         #expect(listTest.fields.count == 1)
         if let decodedList = listTest.fields[0] as? [LargestTest] {
             #expect(decodedList.count == 1)
-            #expect(try LargestTest() == decodedList[0])
+            #expect(LargestTest() == decodedList[0])
         }
     }
 
@@ -123,10 +123,12 @@ struct PlutusDataBasicTests {
             a: 123,
             b: Data("1234".utf8),
             c: IndefiniteList<AnyValue>([4, 5, 6]),
-            d: OrderedDictionary(uniqueKeysWithValues:[
-                1: AnyValue.data(Data("1".utf8)),
-                2: AnyValue.data(Data("2".utf8))
-            ])
+            d: {
+                var dict = OrderedDictionary<AnyValue, AnyValue>()
+                dict[AnyValue.int64(1)] = AnyValue.data(Data("1".utf8))
+                dict[AnyValue.int64(2)] = AnyValue.data(Data("2".utf8))
+                return dict
+            }()
         )
         let testa = MyTestType.bigTest(try BigTest(test: myTest))
         let testb = MyTestType.largestTest(LargestTest())
@@ -138,11 +140,11 @@ struct PlutusDataBasicTests {
             testb: testb
         )
         
-        let cborHex = try myVesting.toCBORHex()
+        let cborHex = try myVesting.toCBORHex(deterministic: true)
 
         let expectedCBOR =
             "d87a9f581cc2ff616e11299d9094ce0a7eb5b7284b705147a822f4ffbd471f971a1b0000017e9874d2a0581ed905019fd86682188284187b44313233349f040506ffa2014131024132ff44d9050280ff"
-
+        
         #expect(cborHex == expectedCBOR)
 
         // Test two-way serialization
@@ -158,10 +160,12 @@ struct PlutusDataBasicTests {
             a: 123,
             b: Data("1234".utf8),
             c: IndefiniteList<AnyValue>([4, 5, 6]),
-            d: OrderedDictionary(uniqueKeysWithValues:[
-                1: AnyValue.data(Data("1".utf8)),
-                2: AnyValue.data(Data("2".utf8))
-            ])
+            d: {
+                var dict = OrderedDictionary<AnyValue, AnyValue>()
+                dict[AnyValue.int64(1)] = AnyValue.data(Data("1".utf8))
+                dict[AnyValue.int64(2)] = AnyValue.data(Data("2".utf8))
+                return dict
+            }()
         )
         let testa = MyTestType.bigTest(try BigTest(test: myTest))
         let testb = MyTestType.largestTest(LargestTest())
@@ -244,13 +248,13 @@ struct PlutusDataDictTests {
             1: LargestTest(),
         ]))
         let expectedCBOR = "d87c9fa200d905028001d9050280ff"
-        let CBORHex = try test.toCBORHex()
+        let CBORHex = try test.toCBORHex(deterministic: true)
 
         #expect(CBORHex == expectedCBOR)
 
         // Test two-way serialization
         let decoded = try DictTest.fromCBOR(data: Data(hex: expectedCBOR))
-        #expect(try decoded.toCBORHex() == expectedCBOR)
+        #expect(try decoded.toCBORHex(deterministic: true) == expectedCBOR)
     }
 }
 

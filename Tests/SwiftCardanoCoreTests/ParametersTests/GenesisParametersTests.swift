@@ -57,12 +57,10 @@ import PotentCBOR
         let pathWithoutFilename = url.deletingLastPathComponent().path
         
         let nodeConfig = try NodeConfig.load(from: filePath!)
-        let genesisParameters = try GenesisParameters(
+        _ = try GenesisParameters(
             nodeConfig: nodeConfig,
             inDirectory: pathWithoutFilename
         )
-        
-        #expect(genesisParameters != nil)
     }
     
     @Test func testFromGenesisFiles() async throws {
@@ -95,14 +93,12 @@ import PotentCBOR
         )
         let shelleyGenesis = try ShelleyGenesis.load(from: shelleyGenesisfilePath!)
         
-        let genesisParameters = GenesisParameters(
+        _ = GenesisParameters(
             alonzoGenesis: alonzoGenesis,
             byronGenesis: byronGenesis,
             conwayGenesis: conwayGenesis,
             shelleyGenesis: shelleyGenesis
         )
-        
-        #expect(genesisParameters != nil)
     }
         
         

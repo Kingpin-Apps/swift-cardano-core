@@ -10,6 +10,12 @@ struct CertificateTests {
         let certificate = Certificate.stakeRegistration(stakeRegistration)
         
         // Assertions
-        #expect(certificate != nil, "Certificate should not be nil")
+        guard case .stakeRegistration(let reg) = certificate else {
+            fatalError("Expected stake registration certificate")
+        }
+        #expect(
+            reg.payload == stakeRegistration.payload,
+            "Certificate should not be nil"
+        )
     }
 }

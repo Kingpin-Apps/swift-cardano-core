@@ -12,8 +12,7 @@ struct ConwayGenesisTests {
     )
     
     @Test func testInit() async throws {
-        let conwayGenesis = try ConwayGenesis.load(from: filePath!)
-        #expect(conwayGenesis != nil)
+        _ = try ConwayGenesis.load(from: filePath!)
     }
     
     @Test func testSaveLoad() async throws {

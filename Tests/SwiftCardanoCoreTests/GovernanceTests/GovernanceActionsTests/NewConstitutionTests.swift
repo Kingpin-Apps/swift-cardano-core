@@ -24,7 +24,6 @@ import PotentCBOR
         )
         
         #expect(NewConstitution.code == .newConstitution)
-        #expect(action != nil)
         #expect(action.id == govActionID)
         #expect(action.constitution == constitution)
     }

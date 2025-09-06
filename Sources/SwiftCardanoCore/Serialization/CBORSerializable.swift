@@ -4,8 +4,8 @@ import PotentCBOR
 public protocol CBORSerializable: Codable, Hashable {
     init(from primitive: Primitive) throws
     func toPrimitive() throws -> Primitive
-    func toCBORData() throws -> Data
-    func toCBORHex() throws -> String
+    func toCBORData(deterministic: Bool) throws -> Data
+    func toCBORHex(deterministic: Bool) throws -> String
     static func fromCBOR(data: Data) throws -> Self
 }
 
@@ -25,14 +25,14 @@ extension CBORSerializable {
         try container.encode(try toPrimitive())
     }
     
-    public func toCBORData() throws -> Data {
+    public func toCBORData(deterministic: Bool = false) throws -> Data {
         let cborEncoder = CBOREncoder()
-        cborEncoder.deterministic = true
+        cborEncoder.deterministic = deterministic
         return try cborEncoder.encode(self)
     }
     
-    public func toCBORHex() throws -> String {
-        return try toCBORData().toHex
+    public func toCBORHex(deterministic: Bool = false) throws -> String {
+        return try toCBORData(deterministic: deterministic).toHex
     }
     
     public static func fromCBOR(data: Data) throws -> Self {

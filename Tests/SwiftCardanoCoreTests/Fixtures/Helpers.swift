@@ -33,7 +33,7 @@ func getFilePath(forResource: String, ofType: String, inDirectory: String) throw
     return filePath
 }
 
-func getVerificationKey<T>(forResource: String, ofType: String, inDirectory: String) throws -> T? where T: VerificationKey {
+func getVerificationKey<T>(forResource: String, ofType: String, inDirectory: String) throws -> T? where T: VerificationKeyProtocol {
     guard let filePath = Bundle.module.path(
         forResource: forResource,
         ofType: ofType,
@@ -84,8 +84,8 @@ func makeTransactionBody() throws -> TransactionBody {
     return txBody
 }
 
-func checkTwoWayCBOR<T: CBORSerializable & Equatable>(serializable: T) throws -> Bool {
+func checkTwoWayCBOR<T: CBORSerializable & Equatable>(serializable: T) throws {
     let cborData = try serializable.toCBORData()
     let restored = try T.self.fromCBOR(data: cborData)
-    return restored == serializable
+    #expect(restored == serializable, "Two-way CBOR serialization failed")
 }

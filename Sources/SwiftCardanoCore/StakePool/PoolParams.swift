@@ -364,7 +364,7 @@ public struct PoolParams: CBORSerializable, Equatable, Hashable {
         poolOwners: ListOrOrderedSet<VerificationKeyHash>,
         relays: [Relay]?,
         poolMetadata: PoolMetadata?,
-        id: PoolId?
+        id: PoolId? = nil
     ) {
         self.poolOperator = poolOperator
         self.vrfKeyHash = vrfKeyHash

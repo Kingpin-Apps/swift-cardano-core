@@ -11,9 +11,7 @@ struct DRepTests {
         .alwaysNoConfidence
     ])
     func testInitialization(credential: DRepType) async throws {
-        let drep = DRep(credential: credential)
-        
-        #expect(drep != nil)
+        _ = DRep(credential: credential)
     }
     
     @Test func testId() async throws {

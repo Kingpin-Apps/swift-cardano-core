@@ -50,7 +50,7 @@ let spVkJson = """
             0xb6, 0x9e, 0x2d, 0x73, 0x32, 0x0d, 0xb6, 0xdc,
             0x0f, 0x78, 0x0d, 0x81, 0x58, 0x5b, 0x84, 0xc2
         ])
-        let key = VKey(
+        let key = VerificationKey(
             payload: payload,
             type: "GenesisUTxOSigningKey_ed25519",
             description: "Genesis Initial UTxO Signing Key"

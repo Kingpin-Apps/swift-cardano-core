@@ -140,7 +140,17 @@ public indirect enum Primitive: CBORSerializable, Equatable, Hashable {
                 for (key, value) in map {
                     dict[try Primitive.from(cbor: key)] = try Primitive.from(cbor: value)
                 }
-                return .dict(dict)
+//                return .dict(dict)
+                return .orderedDict(OrderedDictionary<Primitive, Primitive>(
+                    uniqueKeysWithValues: try map.elements
+                        .map {
+                            (
+                                try Primitive.from(cbor: $0.key),
+                                try Primitive.from(cbor: $0.value)
+                            )
+                        }
+                    )
+                )
             case .indefiniteMap(let map):
                 var dict: [Primitive: Primitive] = [:]
                 for (key, value) in map {
@@ -315,6 +325,8 @@ public indirect enum Primitive: CBORSerializable, Equatable, Hashable {
             case (.cborTag(let a), .cborTag(let b)):
                 return a == b
             case (.orderedSet(let a), .orderedSet(let b)):
+                return a == b
+            case (.nonEmptyOrderedSet(let a), .nonEmptyOrderedSet(let b)):
                 return a == b
             case (.unitInterval(let a), .unitInterval(let b)):
                 return a == b

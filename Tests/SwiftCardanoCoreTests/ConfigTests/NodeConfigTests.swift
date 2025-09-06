@@ -12,8 +12,7 @@ struct NodeConfigTests {
     )
     
     @Test func testInit() async throws {
-        let nodeConfig = try NodeConfig.load(from: filePath!)
-        #expect(nodeConfig != nil)
+        _ = try NodeConfig.load(from: filePath!)
     }
     
     @Test func testSaveLoad() async throws {

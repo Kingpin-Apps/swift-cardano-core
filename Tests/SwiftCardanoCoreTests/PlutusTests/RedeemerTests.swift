@@ -63,10 +63,12 @@ struct RedeemerTests {
                 .uint64(5),
                 .uint64(6)
             ]),
-            d: OrderedDictionary(uniqueKeysWithValues:[
-                1: AnyValue.data(Data("1".utf8)),
-                2: AnyValue.data(Data("2".utf8))
-            ])
+            d: {
+                var dict = OrderedDictionary<AnyValue, AnyValue>()
+                dict[AnyValue.int64(1)] = AnyValue.data(Data("1".utf8))
+                dict[AnyValue.int64(2)] = AnyValue.data(Data("2".utf8))
+                return dict
+            }()
         )
         let exUnits = ExecutionUnits(mem: 1_000_000, steps: 1_000_000)
         let redeemer = Redeemer(data: data, exUnits: exUnits)
@@ -94,10 +96,12 @@ struct RedeemerTests {
             a: 123,
             b: Data("234".utf8),
             c: IndefiniteList<AnyValue>([]),
-            d: OrderedDictionary(uniqueKeysWithValues:[
-                1: AnyValue.data(Data("1".utf8)),
-                2: AnyValue.data(Data("2".utf8))
-            ])
+            d: {
+                var dict = OrderedDictionary<AnyValue, AnyValue>()
+                dict[AnyValue.int64(1)] = AnyValue.data(Data("1".utf8))
+                dict[AnyValue.int64(2)] = AnyValue.data(Data("2".utf8))
+                return dict
+            }()
         )
         let exUnits = ExecutionUnits(mem: 1_000_000, steps: 1_000_000)
         let redeemer = Redeemer(data: data, exUnits: exUnits)
@@ -210,9 +214,8 @@ struct RedeemerTests {
         let emptyMap = RedeemerMap<Never>()
         let witness = TransactionWitnessSet<Never>(redeemers: .map(emptyMap))
 
-        let encoded = try CBOREncoder().encode(witness)
-        print("Encoded hex: \(encoded.hexEncodedString())")
-        let decoded = try CBORDecoder().decode(TransactionWitnessSet<Never>.self, from: encoded)
+        let encoded = try witness.toCBORData()
+        let decoded = try TransactionWitnessSet<Never>.fromCBOR(data: encoded)
 
         #expect(decoded.redeemers == .map(emptyMap))
     }

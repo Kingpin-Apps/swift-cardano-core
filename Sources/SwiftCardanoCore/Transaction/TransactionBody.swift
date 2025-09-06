@@ -1,6 +1,7 @@
 import Foundation
 import SwiftNcal
 import PotentCBOR
+import OrderedCollections
 
 public struct TransactionBody: CBORSerializable, Equatable, Hashable {
     public var inputs: ListOrOrderedSet<TransactionInput>
@@ -123,8 +124,15 @@ public struct TransactionBody: CBORSerializable, Equatable, Hashable {
     }
     
     public init(from primitive: Primitive) throws {
-        guard case let .dict(primitiveDict) = primitive else {
-            throw CardanoCoreError.deserializeError("Invalid TransactionBody type")
+        var primitiveDict: OrderedDictionary<Primitive, Primitive> = [:]
+        
+        switch primitive {
+            case let .dict(dict):
+                primitiveDict.merge(dict) { (_, new) in new }
+            case let .orderedDict(orderedDict):
+                primitiveDict = orderedDict
+            default:
+                throw CardanoCoreError.deserializeError("Invalid TransactionBody type: \(primitive)")
         }
         
         // Required fields
@@ -267,7 +275,7 @@ public struct TransactionBody: CBORSerializable, Equatable, Hashable {
     }
     
     public func toPrimitive() throws -> Primitive {
-        var dictionary: [Primitive: Primitive] = [:]
+        var dictionary: OrderedDictionary<Primitive, Primitive> = [:]
         
         // Required fields
         dictionary[.int(CodingKeys.inputs.rawValue)] = try inputs.toPrimitive()
@@ -331,6 +339,6 @@ public struct TransactionBody: CBORSerializable, Equatable, Hashable {
             dictionary[.int(22)] = try treasuryDonation.toPrimitive()
         }
         
-        return .dict(dictionary)
+        return .orderedDict(dictionary)
     }
 }

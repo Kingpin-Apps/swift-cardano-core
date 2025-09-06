@@ -1,5 +1,6 @@
 import Foundation
 import PotentCodables
+import OrderedCollections
 
 public struct TransactionOutput: CBORSerializable, Hashable, Equatable {
     public var address: Address
@@ -53,7 +54,7 @@ public struct TransactionOutput: CBORSerializable, Hashable, Equatable {
             self.datum = nil
             self.script = nil
             self.postAlonzo = false  // Legacy format
-        } else if case .dict(_) = primitives {
+        } else if case .orderedDict(_) = primitives {
             let output = try TransactionOutputPostAlonzo(from: primitives)
             self.address = output.address
             self.amount = output.amount
@@ -122,8 +123,6 @@ public struct TransactionOutput: CBORSerializable, Hashable, Equatable {
         }
     }
             
-    
-
     public func validate() throws {
         if amount.coin < 0 {
             throw CardanoCoreError.invalidArgument("Transaction output cannot have negative amount of ADA: \(amount)")
@@ -177,25 +176,34 @@ public struct TransactionOutputPostAlonzo: CBORSerializable, Hashable, Equatable
     }
     
     public init(from primitive: Primitive) throws {
-        guard case let .dict(primitiveDict) = primitive else {
-            throw CardanoCoreError.deserializeError("Invalid TransactionOutputLegacy type")
-        }      
+        var primitiveDict: OrderedDictionary<Primitive, Primitive> = [:]
+        
+        switch primitive {
+            case let .dict(dict):
+                primitiveDict.merge(dict) { (_, new) in new }
+            case let .orderedDict(orderedDict):
+                primitiveDict = orderedDict
+            default:
+                throw CardanoCoreError.deserializeError("Invalid TransactionOutputLegacy type")
+        }
         
         guard primitiveDict.count >= 2 else {
             throw CardanoCoreError.deserializeError("Invalid TransactionOutputLegacy type")
         }
                 
         
-        self.address = try Address(from: primitiveDict[.int(0)]!)
-        self.amount = try Value(from: primitiveDict[.int(1)]!)
+        self.address = try Address(
+            from: primitiveDict[.int(CodingKeys.address.rawValue)]!
+        )
+        self.amount = try Value(from: primitiveDict[.int(CodingKeys.amount.rawValue)]!)
         
-        if let datum = primitiveDict[.int(2)] {
+        if let datum = primitiveDict[.int(CodingKeys.datum.rawValue)] {
             self.datum = try DatumOption(from: datum)
         } else {
             self.datum = nil
         }
         
-        if let scriptRef = primitiveDict[.int(3)] {
+        if let scriptRef = primitiveDict[.int(CodingKeys.scriptRef.rawValue)] {
             self.scriptRef = try ScriptRef(from: scriptRef)
         } else {
             self.scriptRef = nil
@@ -204,16 +212,17 @@ public struct TransactionOutputPostAlonzo: CBORSerializable, Hashable, Equatable
     
     public func toPrimitive() throws -> Primitive {
         var dict: Dictionary<Primitive, Primitive> = [
-            .int(0): address.toPrimitive(),
-            .int(1): amount.toPrimitive()
+            .int(CodingKeys.address.rawValue): address.toPrimitive(),
+            .int(CodingKeys.amount.rawValue): amount.toPrimitive()
         ]
         
         if datum != nil {
-            dict[.int(2)] = try datum!.toPrimitive()
+            dict[.int(CodingKeys.datum.rawValue)] = try datum!.toPrimitive()
         }
         
         if scriptRef != nil {
-            dict[.int(3)] = try scriptRef!.toPrimitive()
+            dict[.int(CodingKeys.scriptRef.rawValue)] = try scriptRef!
+                .toPrimitive()
         }
         
         return .dict(dict)

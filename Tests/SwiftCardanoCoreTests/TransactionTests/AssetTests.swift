@@ -9,7 +9,6 @@ struct AssetNameTests {
     func testInitialization() throws {
         let assetName = try AssetName(payload: Data([0x4D, 0x59, 0x5F, 0x4E, 0x46, 0x54, 0x5F, 0x31]))
         
-        #expect(assetName != nil)
         #expect(assetName.description == "AssetName(MY_NFT_1)")
     }
     
@@ -18,9 +17,7 @@ struct AssetNameTests {
         let assetName1 = AssetName(from: "MY_NFT_1")
         let assetName2 = AssetName(from: "MY_NFT_1".data(using: .utf8)!.toHex)
         
-        #expect(assetName1 != nil)
         #expect(assetName1.description == "AssetName(MY_NFT_1)")
-        #expect(assetName2 != nil)
         #expect(assetName2.description == "AssetName(MY_NFT_1)")
     }
 }
@@ -40,7 +37,6 @@ struct AssetTests {
         let assetName = try AssetName(payload: Data([0x4D, 0x59, 0x5F, 0x4E, 0x46, 0x54, 0x5F, 0x31]))
         let asset = Asset([assetName:100])
         
-        #expect(asset != nil)
         #expect(asset[assetName] == 100)
     }
     
@@ -48,7 +44,6 @@ struct AssetTests {
     func testInitializationFromPrimitive() throws {
         let asset = try Asset(from: .dict([.string("MY_NFT_1"):.int(100)]))
         
-        #expect(asset != nil)
         #expect(asset.count == 1)
     }
     

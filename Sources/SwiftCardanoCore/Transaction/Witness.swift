@@ -149,7 +149,7 @@ public struct TransactionWitnessSet<T: CBORSerializable & Hashable>: CBORSeriali
     }
     
     public init(from primitive: Primitive) throws {
-        guard case let .dict(dict) = primitive else {
+        guard case let .orderedDict(dict) = primitive else {
             throw CardanoCoreError.deserializeError("Invalid TransactionWitnessSet primitive")
         }
         
@@ -215,43 +215,35 @@ public struct TransactionWitnessSet<T: CBORSerializable & Hashable>: CBORSeriali
         var dict: [Primitive: Primitive] = [:]
         
         if let vkeyWitnesses = vkeyWitnesses {
-            dict[.int(CodingKeys.vkeyWitnesses.rawValue)] = try vkeyWitnesses
-                .toPrimitive()
+            dict[.int(CodingKeys.vkeyWitnesses.rawValue)] = try vkeyWitnesses.toPrimitive()
         }
         
         if let nativeScripts = nativeScripts {
-            dict[.int(CodingKeys.nativeScripts.rawValue)] = try nativeScripts
-                .toPrimitive()
+            dict[.int(CodingKeys.nativeScripts.rawValue)] = try nativeScripts.toPrimitive()
         }
         
         if let bootstrapWitness = bootstrapWitness {
-            dict[.int(CodingKeys.bootstrapWitness.rawValue)] = try bootstrapWitness
-                .toPrimitive()
+            dict[.int(CodingKeys.bootstrapWitness.rawValue)] = try bootstrapWitness.toPrimitive()
         }
         
         if let plutusV1Script = plutusV1Script {
-            dict[.int(CodingKeys.plutusV1Script.rawValue)] = try plutusV1Script
-                .toPrimitive()
+            dict[.int(CodingKeys.plutusV1Script.rawValue)] = try plutusV1Script.toPrimitive()
         }
         
         if let plutusData = plutusData {
-            dict[.int(CodingKeys.plutusData.rawValue)] = try plutusData
-                .toPrimitive()
+            dict[.int(CodingKeys.plutusData.rawValue)] = try plutusData.toPrimitive()
         }
         
         if let redeemers = redeemers {
-            dict[.int(CodingKeys.redeemers.rawValue)] = try redeemers
-                .toPrimitive()
+            dict[.int(CodingKeys.redeemers.rawValue)] = try redeemers.toPrimitive()
         }
         
         if let plutusV2Script = plutusV2Script {
-            dict[.int(CodingKeys.plutusV2Script.rawValue)] = try plutusV2Script
-                .toPrimitive()
+            dict[.int(CodingKeys.plutusV2Script.rawValue)] = try plutusV2Script.toPrimitive()
         }
         
         if let plutusV3Script = plutusV3Script {
-            dict[.int(CodingKeys.plutusV3Script.rawValue)] = try plutusV3Script
-                .toPrimitive()
+            dict[.int(CodingKeys.plutusV3Script.rawValue)] = try plutusV3Script.toPrimitive()
         }
         
         return .dict(dict)

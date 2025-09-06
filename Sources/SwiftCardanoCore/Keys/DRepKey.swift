@@ -1,7 +1,7 @@
 import Foundation
 import PotentCBOR
 
-public struct DRepSigningKey: SigningKey {
+public struct DRepSigningKey: SigningKeyProtocol {
     public var _payload: Data
     public var _type: String
     public var _description: String
@@ -21,7 +21,7 @@ public struct DRepSigningKey: SigningKey {
     }
 }
 
-public struct DRepVerificationKey: VerificationKey {
+public struct DRepVerificationKey: VerificationKeyProtocol {
     public var _payload: Data
     public var _type: String
     public var _description: String

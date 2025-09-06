@@ -16,7 +16,7 @@ let signatureTestsArguments: Zip2Sequence<[any ConstrainedBytes.Type], [Int]> = 
         let payload = Data(repeating: 0, count: size)
         let keyHash = try type.init(payload: payload)
         let cborData = try CBOREncoder().encode(keyHash)
-        #expect(cborData != nil, "CBOR data should not be nil")
+        #expect(cborData.count > 0, "CBOR data should not be nil")
     }
     
     @Test("Test CBOR Decoding", arguments: signatureTestsArguments)

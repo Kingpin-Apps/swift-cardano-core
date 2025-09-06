@@ -1,11 +1,12 @@
 import Foundation
 import CryptoKit
 import SwiftNcal
+import PotentCBOR
 
-public protocol VerificationKey: PayloadCBORSerializable {}
-public protocol ExtendedVerificationKey: PayloadCBORSerializable {}
+public protocol VerificationKeyProtocol: PayloadCBORSerializable {}
+public protocol ExtendedVerificationKeyProtocol: PayloadCBORSerializable {}
 
-public extension VerificationKey {
+public extension VerificationKeyProtocol {
     /// Compute a blake2b hash from the key
     /// - Returns: Hash output in bytes.
     func hash() throws -> VerificationKeyHash {
@@ -18,15 +19,15 @@ public extension VerificationKey {
         )
     }
     
-    static func fromSigningKey<T>(_ key: any SigningKey) throws -> T where T: VerificationKey {
+    static func fromSigningKey<T>(_ key: any SigningKeyProtocol) throws -> T where T: VerificationKeyProtocol {
         return try key.toVerificationKey()
     }
 }
 
-public extension ExtendedVerificationKey {
+public extension ExtendedVerificationKeyProtocol {
     /// Compute a blake2b hash from the key, excluding chain code
     /// - Returns: VerificationKeyHash as the hash output in bytes
-    func hash<T: VerificationKey>() throws -> (VerificationKeyHash, T) {
+    func hash<T: VerificationKeyProtocol>() throws -> (VerificationKeyHash, T) {
         let nonExtendedKey: T = self.toNonExtended()
         return (try nonExtendedKey.hash(), nonExtendedKey)
     }
@@ -34,44 +35,79 @@ public extension ExtendedVerificationKey {
     /// Generate ExtendedVerificationKey from an ExtendedSigningKey
     /// - Parameter key: ExtendedSigningKey instance
     /// - Returns: ExtendedVerificationKey
-    static func fromSigningKey<T>(_ key: any ExtendedSigningKey) -> T where T: ExtendedVerificationKey {
+    static func fromSigningKey<T>(_ key: any ExtendedSigningKeyProtocol) -> T where T: ExtendedVerificationKeyProtocol {
         return key.toVerificationKey()
     }
     
     /// Get the 32-byte verification key with chain code trimmed off
     /// - Returns: VerificationKey (non-extended)
-    func toNonExtended<T>() -> T where T: VerificationKey {
+    func toNonExtended<T>() -> T where T: VerificationKeyProtocol {
         return T(payload: payload.prefix(32))
     }
 }
 
+/// Holds a cryptographic key and some metadata for a verification key.
+public struct VerificationKey: VerificationKeyProtocol {
+    public var _payload: Data
+    public var _type: String
+    public var _description: String
+
+    public static var TYPE: String { "" }
+    public static var DESCRIPTION: String { "Verification Key" }
+    
+    public init(payload: Data, type: String?, description: String?) {
+        // For verification keys, we should almost always use raw bytes
+        // Only try CBOR decoding if the payload looks like it might be CBOR-encoded
+        // and is significantly larger than expected key sizes (32 or 64 bytes)
+        let actualPayload: Data
+        
+        if payload.count > 70 && payload.count > 32 && payload.count > 64 {
+            // Only try CBOR decoding for significantly larger payloads that might be wrapped
+            if let payloadData = try? CBORDecoder().decode(Data.self, from: payload) {
+                actualPayload = payloadData
+            } else {
+                actualPayload = payload
+            }
+        } else {
+            // For payloads that are around the expected key size, use them directly
+            actualPayload = payload
+        }
+        
+        self._payload = actualPayload
+        self._type = type ?? Self.TYPE
+        self._description = description ?? Self.DESCRIPTION
+    }
+}
+
+
+/// Holds a cryptographic key and some metadata for an extended verification key.
+public struct ExtendedVerificationKey: ExtendedVerificationKeyProtocol {
+    public var _payload: Data
+    public var _type: String
+    public var _description: String
+
+    public static var TYPE: String { "" }
+    public static var DESCRIPTION: String { "Extended Verification Key" }
+    
+    public init(payload: Data, type: String?, description: String?) {
+        let actualPayload: Data
+        if let payloadData = try? CBORDecoder().decode(Data.self, from: payload) {
+            actualPayload = payloadData
+        } else {
+            actualPayload = payload
+        }
+        
+        self._payload = actualPayload
+        self._type = type ?? Self.TYPE
+        self._description = description ?? Self.DESCRIPTION
+    }
+}
+
+
 public enum VerificationKeyType: CBORSerializable, Equatable, Hashable {
 
-    case extendedVerificationKey(any ExtendedVerificationKey)
-    case verificationKey(any VerificationKey)
-    
-//    public init(from decoder: Decoder) throws {
-//        let container = try decoder.singleValueContainer()
-//        let data = try container.decode(Data.self)
-//        if data.count == 32 {
-//            self = .verificationKey(VKey(payload: data))
-//        } else if data.count == 64 {
-//            self = .extendedVerificationKey(ExtendedVKey(payload: data))
-//        } else {
-//            throw CardanoCoreError.deserializeError("Invalid verification key length: \(data.count) bytes. Expected 32 or 64 bytes.")
-//        }
-//    }
-
-//    public func encode(to encoder: Swift.Encoder) throws {
-//        var container = encoder.singleValueContainer()
-//        
-//        switch self {
-//            case .extendedVerificationKey(let key):
-//                try container.encode(key)
-//            case .verificationKey(let key):
-//                try container.encode(key)
-//        }
-//    }
+    case extendedVerificationKey(any ExtendedVerificationKeyProtocol)
+    case verificationKey(any VerificationKeyProtocol)
     
     public func hash(into hasher: inout Hasher) {
         switch self {
@@ -111,10 +147,10 @@ public enum VerificationKeyType: CBORSerializable, Equatable, Hashable {
         // Determine key type based on data length
         if data.count == 32 {
             // Regular verification key (32 bytes)
-            self = .verificationKey(VKey(payload: data, type: nil, description: nil))
+            self = .verificationKey(VerificationKey(payload: data, type: nil, description: nil))
         } else if data.count == 64 {
             // Extended verification key (64 bytes: 32 bytes key + 32 bytes chain code)
-            self = .extendedVerificationKey(ExtendedVKey(payload: data, type: nil, description: nil))
+            self = .extendedVerificationKey(ExtendedVerificationKey(payload: data, type: nil, description: nil))
         } else {
             throw CardanoCoreError.deserializeError("Invalid verification key length: \(data.count) bytes. Expected 32 or 64 bytes.")
         }
