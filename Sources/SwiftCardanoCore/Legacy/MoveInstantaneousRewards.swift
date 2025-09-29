@@ -1,12 +1,12 @@
 import Foundation
 import PotentCBOR
 
-public enum MoveInstantaneousRewardSource: Int, Codable {
+public enum MoveInstantaneousRewardSource: Int, Codable, Sendable {
     case reserves = 0
     case treasury = 1
 }
 
-public struct DeltaCoin: Codable, Hashable, Equatable {
+public struct DeltaCoin: Codable, Hashable, Equatable, Sendable {
     public let deltaCoin: Int
 }
 

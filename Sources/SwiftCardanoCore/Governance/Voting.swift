@@ -1,6 +1,6 @@
 import Foundation
 
-public enum Vote: Int, Codable {
+public enum Vote: Int, Codable, Sendable {
     case no = 0
     case yes = 1
     case abstain = 2

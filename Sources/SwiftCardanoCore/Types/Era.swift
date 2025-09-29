@@ -1,5 +1,5 @@
 ///  Era.swift
-public enum Era: String, CBORSerializable, Equatable {
+public enum Era: String, CBORSerializable, Equatable, CaseIterable, Sendable {
     case byron
     case shelley
     case allegra

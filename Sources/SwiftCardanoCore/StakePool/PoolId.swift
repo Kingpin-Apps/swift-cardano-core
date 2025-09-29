@@ -8,7 +8,8 @@ public func isBech32CardanoPoolId(_ poolId: String?) -> Bool {
     return decoded != nil
 }
 
-public struct PoolId: Codable, CustomStringConvertible, CustomDebugStringConvertible, Equatable, Hashable {
+public struct PoolId: CBORSerializable, CustomStringConvertible, CustomDebugStringConvertible, Equatable, Hashable {
+
 
     public var description: String { return bech32 }
 
@@ -33,6 +34,18 @@ public struct PoolId: Codable, CustomStringConvertible, CustomDebugStringConvert
         }
         
         try self.init(from: hexData!)
+    }
+    
+    public init(from primitive: Primitive) throws {
+        if case .string(let bech32) = primitive {
+            try self.init(from: bech32)
+        } else {
+            throw CardanoCoreError.valueError("Invalid PoolId format. The PoolId should be a valid Cardano stake pool ID in bech32 format.")
+        }
+    }
+    
+    public func toPrimitive() throws -> Primitive {
+        return .string(bech32)
     }
 
     public init(from decoder: Decoder) throws {

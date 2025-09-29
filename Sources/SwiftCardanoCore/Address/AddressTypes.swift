@@ -19,7 +19,7 @@ public enum AddressFromPrimitiveData {
 }
 
 /// Address type definition.
-public enum AddressType: Int {
+public enum AddressType: Int, Sendable  {
     
     /// Byron address
     case byron = 0b1000

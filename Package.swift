@@ -20,9 +20,8 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/KINGH242/PotentCodables.git", .upToNextMinor(from: "3.6.0")),
         .package(url: "https://github.com/krzyzanowskim/CryptoSwift.git", .upToNextMajor(from: "1.9.0")),
-        .package(url: "https://github.com/Kingpin-Apps/swift-ncal.git", .upToNextMinor(from: "0.1.4")),
-        .package(url: "https://github.com/Kingpin-Apps/swift-mnemonic.git", .upToNextMinor(from: "0.1.3")),
-        .package(url: "https://github.com/tesseract-one/Bip39.swift.git", from: "0.2.0"),
+        .package(url: "https://github.com/Kingpin-Apps/swift-ncal.git", .upToNextMinor(from: "0.2.0")),
+        .package(url: "https://github.com/Kingpin-Apps/swift-mnemonic.git", .upToNextMinor(from: "0.2.1")),
         .package(url: "https://github.com/attaswift/BigInt.git", .upToNextMinor(from: "5.3.0")),
         .package(url: "https://github.com/Frizlab/swift-fraction-number.git", from: "0.1.0"),
         .package(url: "https://github.com/apple/swift-log.git", from: "1.6.2")
@@ -39,7 +38,6 @@ let package = Package(
                 .product(name: "SwiftMnemonic", package: "swift-mnemonic"),
                 .product(name: "SwiftNcal", package: "swift-ncal"),
                 .product(name: "Clibsodium", package: "swift-ncal"),
-                .product(name: "Bip39", package: "Bip39.swift"),
                 .product(name: "FractionNumber", package: "swift-fraction-number"),
                 .product(name: "Logging", package: "swift-log")
             ]

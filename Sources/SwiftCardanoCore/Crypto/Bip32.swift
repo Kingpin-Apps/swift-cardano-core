@@ -7,21 +7,11 @@ import Clibsodium
 import CryptoSwift
 import Foundation
 import SwiftNcal
-import Bip39
 import CryptoKit
 import BigInt
 import SwiftMnemonic
 
-public let SUPPORTED_MNEMONIC_LANGS = [
-    "english",
-    "french",
-    "italian",
-    "japanese",
-    "chinese_simplified",
-    "chinese_traditional",
-    "korean",
-    "spanish",
-]
+public let SUPPORTED_MNEMONIC_LANGS = Language.allCases.filter { $0 != .unsupported }
 
 public enum BIP32Error: Error, Equatable {
     case invalidMnemonic(String)
@@ -161,13 +151,12 @@ public class HDWallet {
             throw CardanoCoreError.invalidDataError("Invalid mnemonic words.")
         }
 
-        let _mnemonic = try! Mnemonic(mnemonic: mnemonic.components(separatedBy: " "))
-        let entropy = Data(_mnemonic.entropy)
-        let seed = HDWallet.generateSeed(passphrase: passphrase, entropy: entropy)
+        let _mnemonic = try Mnemonic(from: mnemonic.components(separatedBy: " "))
+        let seed = HDWallet.generateSeed(passphrase: passphrase, entropy: _mnemonic.entropy)
 
         return try HDWallet.fromSeed(
             seed: seed.hexEncodedString(),
-            entropy: entropy.hexEncodedString(),
+            entropy: _mnemonic.entropy.hexEncodedString(),
             passphrase: passphrase,
             mnemonic: mnemonic
         )
@@ -386,21 +375,21 @@ public class HDWallet {
     }
 
     public static func generateMnemonic(language: Language = .english, wordCount: WordCount = .twentyFour) throws -> [String] {
-        guard SUPPORTED_MNEMONIC_LANGS.contains(language.rawValue) else {
+        guard SUPPORTED_MNEMONIC_LANGS.contains(language) else {
             throw CardanoCoreError.invalidLanguage(
-                "Invalid language, use only this options english, french, italian, spanish, chinese_simplified, chinese_traditional, japanese or korean languages."
+                "Invalid language, use only the following languages: \(SUPPORTED_MNEMONIC_LANGS)"
             )
         }
         
-        let mnemonic = try Mnemonic(language: .english)
+        let mnemonic = try Mnemonic(language: language)
 
         return try mnemonic.generate(wordCount: wordCount)
     }
 
     public static func isMnemonic(mnemonic: String, language: Language = .english) throws -> Bool {
-        guard SUPPORTED_MNEMONIC_LANGS.contains(language.rawValue) else {
+        guard SUPPORTED_MNEMONIC_LANGS.contains(language) else {
             throw CardanoCoreError.invalidLanguage(
-                "Invalid language, use only this options english, french, italian, spanish, chinese_simplified, chinese_traditional, japanese or korean languages."
+                "Invalid language, use only the following languages: \(SUPPORTED_MNEMONIC_LANGS)"
             )
         }
         

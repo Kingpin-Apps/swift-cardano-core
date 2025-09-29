@@ -7,7 +7,7 @@ import PotentCodables
 import BigInt
 
 // MARK: - IPv4Address Extensions
-extension IPv4Address: Codable {
+extension IPv4Address: @retroactive Codable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let addressString = try container.decode(String.self)
@@ -27,7 +27,7 @@ extension IPv4Address: Codable {
 }
 
 // MARK: - IPv6Address Extensions
-extension IPv6Address: Codable {
+extension IPv6Address: @retroactive Codable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let addressString = try container.decode(String.self)
@@ -47,7 +47,7 @@ extension IPv6Address: Codable {
 }
 
 // MARK: - CBOR Extensions
-extension CBOR: Codable {
+extension CBOR: @retroactive Codable {
     public init(from decoder: Swift.Decoder) throws {
         let container = try decoder.singleValueContainer()
         let cborData = try container.decode(Data.self)
