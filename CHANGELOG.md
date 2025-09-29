@@ -1,3 +1,9 @@
+## 0.1.33 (2025-09-29)
+
+### Fix
+
+- use swift-mnemonic and other improvementsp
+
 ## 0.1.32 (2025-09-06)
 
 ### Fix
