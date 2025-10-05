@@ -102,6 +102,10 @@ public struct IndefiniteList<T>: CBORSerializable, Hashable, Equatable where T: 
     public static func == (lhs: IndefiniteList<T>, rhs: IndefiniteList<T>) -> Bool {
         return lhs.items == rhs.items
     }
+
+    public static func == (lhs: IndefiniteList<T>, rhs: [T]) -> Bool {
+        return lhs.items == rhs
+    }
 }
 
 extension IndefiniteList: RandomAccessCollection, CustomReflectable {
