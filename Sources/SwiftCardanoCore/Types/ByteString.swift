@@ -3,7 +3,7 @@ import PotentCodables
 
 
 // MARK: - ByteString
-public struct ByteString: CBORSerializable, Hashable {
+public struct ByteString: CBORSerializable {
     public let value: Data
 
     public init(value: Data) {
