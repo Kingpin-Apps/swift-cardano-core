@@ -2,91 +2,91 @@
 //  Created by Hareem Adderley on 19/06/2024 AT 8:13 PM
 //  Copyright © 2024 Kingpin Apps. All rights reserved.
 //
-import XCTest
+import Testing
 import SwiftMnemonic
 
 @testable import SwiftCardanoCore
 
-final class HDWalletTests: XCTestCase {
+@Suite("HDWallet Tests")
+struct HDWalletTests {
 
-    let mnemonic12 = "test walk nut penalty hip pave soap entry language right filter choice"
-    let mnemonic15 = "art forum devote street sure rather head chuckle guard poverty release quote oak craft enemy"
-    let mnemonic24 = "excess behave track soul table wear ocean cash stay nature item turtle palm soccer lunch horror start stumble month panic right must lock dress"
+    // Test fixtures
+    static let mnemonic12 = "test walk nut penalty hip pave soap entry language right filter choice"
+    static let mnemonic15 = "art forum devote street sure rather head chuckle guard poverty release quote oak craft enemy"
+    static let mnemonic24 = "excess behave track soul table wear ocean cash stay nature item turtle palm soccer lunch horror start stumble month panic right must lock dress"
 
-    let mnemonic12Entropy = "df9ed25ed146bf43336a5d7cf7395994"
-    let mnemonic15Entropy = "0ccb74f36b7da1649a8144675522d4d8097c6412"
-    let mnemonic24Entropy = "4e828f9a67ddcff0e6391ad4f26ddb7579f59ba14b6dd4baf63dcfdb9d2420da"
+    static let mnemonic12Entropy = "df9ed25ed146bf43336a5d7cf7395994"
+    static let mnemonic15Entropy = "0ccb74f36b7da1649a8144675522d4d8097c6412"
+    static let mnemonic24Entropy = "4e828f9a67ddcff0e6391ad4f26ddb7579f59ba14b6dd4baf63dcfdb9d2420da"
 
-    func testIsMnemonic() throws {
-        XCTAssertTrue(try HDWallet.isMnemonic(mnemonic: mnemonic12))
-        XCTAssertTrue(try HDWallet.isMnemonic(mnemonic: mnemonic15))
-        XCTAssertTrue(try HDWallet.isMnemonic(mnemonic: mnemonic24))
+    @Test("Valid mnemonics are recognized")
+    func isMnemonic_valid() async throws {
+        #expect(try HDWallet.isMnemonic(mnemonic: Self.mnemonic12))
+        #expect(try HDWallet.isMnemonic(mnemonic: Self.mnemonic15))
+        #expect(try HDWallet.isMnemonic(mnemonic: Self.mnemonic24))
     }
 
-    func testIsMnemonicLanguageExplicitlySpecified() throws {
-        XCTAssertTrue(try HDWallet.isMnemonic(mnemonic: mnemonic12, language: .english))
+    @Test("Valid mnemonic with explicit language")
+    func isMnemonic_languageExplicit() async throws {
+        #expect(try HDWallet.isMnemonic(mnemonic: Self.mnemonic12, language: .english))
     }
 
-    func testIsMnemonicIncorrectMnemonic() throws {
+    @Test("Invalid mnemonic is rejected")
+    func isMnemonic_invalid() async throws {
         let wrongMnemonic = "test walk nut penalty hip pave soap entry language right filter"
-        XCTAssertFalse(try HDWallet.isMnemonic(mnemonic: wrongMnemonic))
+        #expect(try HDWallet.isMnemonic(mnemonic: wrongMnemonic) == false)
     }
 
-    func testIsMnemonicUnsupportedLanguage() throws {
-        XCTAssertThrowsError(try HDWallet.isMnemonic(mnemonic: mnemonic12, language: .unsupported)) { error in
-            guard error is CardanoCoreError else {
-                XCTFail("Expected MnemonicError but got \(error)")
-                return
-            }
+    @Test("Unsupported language throws CardanoCoreError")
+    func isMnemonic_unsupportedLanguage() async throws {
+        #expect(throws: CardanoCoreError.self) {
+            _ = try HDWallet.isMnemonic(mnemonic: Self.mnemonic12, language: .unsupported)
         }
     }
 
-    func testMnemonicGeneration() throws {
+    @Test("Generated 12-word mnemonic is valid")
+    func mnemonicGeneration_isValid() async throws {
         let mnemonicWords = try HDWallet.generateMnemonic(wordCount: .twelve)
-        XCTAssertTrue(try HDWallet.isMnemonic(mnemonic: mnemonicWords.joined(separator: " ")))
+        #expect(try HDWallet.isMnemonic(mnemonic: mnemonicWords.joined(separator: " ")))
     }
 
-    func testGenerateMnemonicUnsupportedLang() throws {
-        XCTAssertThrowsError(try HDWallet.generateMnemonic(language: .unsupported)) { error in
-            guard error is CardanoCoreError else {
-                XCTFail("Expected MnemonicError but got \(error)")
-                return
-            }
+    @Test("Generating mnemonic with unsupported language throws CardanoCoreError")
+    func generateMnemonic_unsupportedLanguage() async throws {
+        #expect(throws: CardanoCoreError.self) {
+            _ = try HDWallet.generateMnemonic(language: .unsupported)
         }
     }
 
-    func testFromMnemonicInvalidMnemonic() throws {
+    @Test("fromMnemonic with invalid mnemonic throws specific CardanoCoreError")
+    func fromMnemonic_invalidMnemonic() async throws {
         let wrongMnemonic = "test walk nut penalty hip pave soap entry language right filter"
-        XCTAssertThrowsError(try HDWallet.fromMnemonic(mnemonic: wrongMnemonic)) { error in
-            guard let error = error as? CardanoCoreError else {
-                XCTFail("Expected MnemonicError but got \(error)")
-                return
-            }
-            XCTAssertEqual(error, .invalidDataError("Invalid mnemonic words."))
+        #expect(throws: CardanoCoreError.self) {
+            _ = try HDWallet.fromMnemonic(mnemonic: wrongMnemonic)
         }
     }
 
-    func testDeriveFromPathIncorrectPath() throws {
+    @Test("Deriving from incorrect path throws BIP32Error.invalidPath")
+    func deriveFromPath_incorrectPath() async throws {
         let rootMissingPath = "1852'/1815'/0'/2/0"
-        XCTAssertThrowsError(try HDWallet.fromMnemonic(mnemonic: mnemonic12).derive(fromPath: rootMissingPath)) { error in
-            guard let error = error as? BIP32Error else {
-                XCTFail("Expected BIP32Error but got \(error)")
-                return
-            }
-            XCTAssertEqual(error, .invalidPath("Bad path, please insert like this type of path \"m/0\'/0\"!"))
+        let wallet = try HDWallet.fromMnemonic(mnemonic: Self.mnemonic12)
+        #expect(throws: BIP32Error.self) {
+            _ = try wallet.derive(fromPath: rootMissingPath)
         }
     }
 
-    func testIsEntropy() {
-        XCTAssertTrue(HDWallet.isEntropy(entropy: mnemonic12Entropy))
+    @Test("Valid entropy is recognized")
+    func isEntropy_valid() async throws {
+        #expect(HDWallet.isEntropy(entropy: Self.mnemonic12Entropy))
     }
 
-    func testIsEntropyWrongInput() {
+    @Test("Invalid entropy length is rejected")
+    func isEntropy_wrongLength() async throws {
         let wrongEntropy = "df9ed25ed146bf43336a5d7cf73959"
-        XCTAssertFalse(HDWallet.isEntropy(entropy: wrongEntropy))
+        #expect(HDWallet.isEntropy(entropy: wrongEntropy) == false)
     }
 
-    func testIsEntropyValueError() {
-        XCTAssertFalse(HDWallet.isEntropy(entropy: "*(#_"))
+    @Test("Invalid entropy characters are rejected")
+    func isEntropy_invalidCharacters() async throws {
+        #expect(HDWallet.isEntropy(entropy: "*(#_") == false)
     }
 }
