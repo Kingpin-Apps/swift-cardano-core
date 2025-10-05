@@ -7,9 +7,13 @@ import Clibsodium
 import CryptoSwift
 import Foundation
 import SwiftNcal
-import CryptoKit
 import BigInt
 import SwiftMnemonic
+#if canImport(CryptoKit)
+import CryptoKit
+#elseif canImport(Crypto)
+import Crypto
+#endif
 
 public let SUPPORTED_MNEMONIC_LANGS = Language.allCases.filter { $0 != .unsupported }
 

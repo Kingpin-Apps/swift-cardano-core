@@ -1,5 +1,4 @@
 import Foundation
-import CryptoKit
 import PotentCodables
 import PotentCBOR
 
@@ -295,7 +294,7 @@ public enum RawDatum: CBORSerializable, Equatable, Hashable {
     public func toPrimitive() throws -> Primitive {
         switch self {
         case .plutusData(let data):
-            return data.toPrimitive()
+            return try data.toPrimitive()
         case .dict(let dict):
             let convertedDict = dict.reduce(into: [:]) { result, entry in
                 result[entry.key.toPrimitive()] = entry.value.toPrimitive()

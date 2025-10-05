@@ -1,7 +1,11 @@
 import Foundation
-import CryptoKit
 import SwiftNcal
 import PotentCBOR
+#if canImport(CryptoKit)
+import CryptoKit
+#elseif canImport(Crypto)
+import Crypto
+#endif
 
 public protocol VerificationKeyProtocol: PayloadCBORSerializable {}
 public protocol ExtendedVerificationKeyProtocol: PayloadCBORSerializable {}
