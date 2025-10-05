@@ -1,5 +1,4 @@
 import Testing
-import Network
 import Foundation
 import PotentCBOR
 @testable import SwiftCardanoCore

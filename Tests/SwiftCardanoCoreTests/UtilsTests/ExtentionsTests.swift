@@ -2,46 +2,7 @@ import Testing
 import Foundation
 import OrderedCollections
 import PotentCBOR
-import Network
 @testable import SwiftCardanoCore
-
-// MARK: - IPv4Address Test Suite
-struct IPv4AddressTests {
-    @Test func testEncodingDecoding() async throws {
-        let address = IPv4Address("192.168.1.1")!
-        let encodedData = try JSONEncoder().encode(address)
-        let decodedAddress = try JSONDecoder().decode(IPv4Address.self, from: encodedData)
-        
-        #expect(decodedAddress == address)
-    }
-    
-    @Test func testInvalidDecoding() async throws {
-        let json = "\"invalid_ip\"".data(using: .utf8)!
-        
-        #expect(throws: DecodingError.self) {
-            _ = try JSONDecoder().decode(IPv4Address.self, from: json)
-        }
-    }
-}
-
-// MARK: - IPv6Address Test Suite
-struct IPv6AddressTests {
-    @Test func testEncodingDecoding() async throws {
-        let address = IPv6Address("2001:db8::ff00:42:8329")!
-        let encodedData = try JSONEncoder().encode(address)
-        let decodedAddress = try JSONDecoder().decode(IPv6Address.self, from: encodedData)
-        
-        #expect(decodedAddress == address)
-    }
-    
-    @Test func testInvalidDecoding() async throws {
-        let json = "\"invalid_ip\"".data(using: .utf8)!
-        
-        #expect(throws: DecodingError.self) {
-            _ = try JSONDecoder().decode(IPv6Address.self, from: json)
-        }
-    }
-}
 
 // MARK: - CBOR Test Suite
 struct CBORTests {
