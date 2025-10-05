@@ -2,7 +2,6 @@ import Foundation
 import PotentCBOR
 import PotentCodables
 import FractionNumber
-import Network
 
 
 public struct SingleHostAddr: CBORSerializable, Equatable, Hashable {
@@ -67,7 +66,7 @@ public struct SingleHostAddr: CBORSerializable, Equatable, Hashable {
             switch ipv4Element {
                 case .bytes(let ipv4Data):
                     if ipv4Data.count == 4 {
-                        self.ipv4 = IPv4Address(ipv4Data)
+                        self.ipv4 = try IPv4Address(ipv4Data)
                     } else {
                         throw CardanoCoreError.deserializeError("Invalid IPv4 address length in SingleHostAddr")
                     }
@@ -84,7 +83,7 @@ public struct SingleHostAddr: CBORSerializable, Equatable, Hashable {
             switch ipv6Element {
                 case .bytes(let ipv6Data):
                     if ipv6Data.count == 16 {
-                        self.ipv6 = IPv6Address(ipv6Data)
+                        self.ipv6 = try IPv6Address(ipv6Data)
                     } else {
                         throw CardanoCoreError.deserializeError("Invalid IPv6 address length in SingleHostAddr")
                     }

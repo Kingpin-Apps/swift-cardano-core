@@ -1,50 +1,9 @@
 import Foundation
 import FractionNumber
-import Network
 import OrderedCollections
 import PotentCBOR
 import PotentCodables
 import BigInt
-
-// MARK: - IPv4Address Extensions
-extension IPv4Address: @retroactive Codable {
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        let addressString = try container.decode(String.self)
-
-        guard let address = IPv4Address(addressString) else {
-            throw DecodingError.dataCorruptedError(
-                in: container, debugDescription: "Invalid IPv4 address format")
-        }
-
-        self = address
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-        try container.encode(self.debugDescription)
-    }
-}
-
-// MARK: - IPv6Address Extensions
-extension IPv6Address: @retroactive Codable {
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        let addressString = try container.decode(String.self)
-
-        guard let address = IPv6Address(addressString) else {
-            throw DecodingError.dataCorruptedError(
-                in: container, debugDescription: "Invalid IPv6 address format")
-        }
-
-        self = address
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-        try container.encode(self.debugDescription)
-    }
-}
 
 // MARK: - CBOR Extensions
 extension CBOR: @retroactive Codable {
@@ -54,7 +13,7 @@ extension CBOR: @retroactive Codable {
         let cbor = try CBORSerialization.cbor(from: cborData)
         self = cbor
     }
-
+    
     public func encode(to encoder: Swift.Encoder) throws {
         let cbor = try CBORSerialization.data(from: self)
         try cbor.encode(to: encoder)
@@ -129,57 +88,57 @@ extension CBOR {
     
     public func toPrimitive() throws -> Primitive {
         switch self {
-        case .null:
-            return .null
-        case .boolean(let bool):
-            return .bool(bool)
-        case .utf8String(let string):
-            return .string(string)
-        case .byteString(let data):
-            return .bytes(data)
-        case .array(let array):
-            let primitiveArray = try array.map { try $0.toPrimitive() }
-            return .list(primitiveArray)
-        case .map(let map):
-            var resultDict:  OrderedDictionary<Primitive, Primitive> = [:]
-            for (key, value) in map {
-                let keyPrimitive = try key.toPrimitive()
-                let valuePrimitive = try value.toPrimitive()
-                resultDict[keyPrimitive] = valuePrimitive
-            }
-            return .orderedDict(resultDict)
-        case .tagged(_, let value):
-            let taggedValue = try AnyValue(from: value.toPrimitive())
-            return taggedValue.toPrimitive()
-        case .simple(let simpleValue):
+            case .null:
+                return .null
+            case .boolean(let bool):
+                return .bool(bool)
+            case .utf8String(let string):
+                return .string(string)
+            case .byteString(let data):
+                return .bytes(data)
+            case .array(let array):
+                let primitiveArray = try array.map { try $0.toPrimitive() }
+                return .list(primitiveArray)
+            case .map(let map):
+                var resultDict:  OrderedDictionary<Primitive, Primitive> = [:]
+                for (key, value) in map {
+                    let keyPrimitive = try key.toPrimitive()
+                    let valuePrimitive = try value.toPrimitive()
+                    resultDict[keyPrimitive] = valuePrimitive
+                }
+                return .orderedDict(resultDict)
+            case .tagged(_, let value):
+                let taggedValue = try AnyValue(from: value.toPrimitive())
+                return taggedValue.toPrimitive()
+            case .simple(let simpleValue):
                 return .int(Int(simpleValue))
-        case .float(let floatValue):
-            return .float(Double(floatValue))
-        case .double(let doubleValue):
-            return .float(doubleValue)
-        case .unsignedInt(let value):
-            return .int(Int(value))
-        case .negativeInt(let value):
-            return .int(-Int(value) - 1) // CBOR negative integers are encoded as -1 - n
-        case .indefiniteByteString(let data):
-            return .bytes(data)
-        case .indefiniteUtf8String(let string):
-            return .string(string)
-        case .indefiniteArray(let array):
-            let primitiveArray = try array.map { try $0.toPrimitive() }
-            return .indefiniteList(IndefiniteList(primitiveArray))
-        case .indefiniteMap(let map):
-            var resultDict: [Primitive: Primitive] = [:]
-            for (key, value) in map {
-                let keyPrimitive = try key.toPrimitive()
-                let valuePrimitive = try value.toPrimitive()
-                resultDict[keyPrimitive] = valuePrimitive
-            }
-            return .dict(resultDict)
-        case .undefined:
-            return .null
-        case .half(let halfValue):
-            return .float(Double(halfValue))
+            case .float(let floatValue):
+                return .float(Double(floatValue))
+            case .double(let doubleValue):
+                return .float(doubleValue)
+            case .unsignedInt(let value):
+                return .int(Int(value))
+            case .negativeInt(let value):
+                return .int(-Int(value) - 1) // CBOR negative integers are encoded as -1 - n
+            case .indefiniteByteString(let data):
+                return .bytes(data)
+            case .indefiniteUtf8String(let string):
+                return .string(string)
+            case .indefiniteArray(let array):
+                let primitiveArray = try array.map { try $0.toPrimitive() }
+                return .indefiniteList(IndefiniteList(primitiveArray))
+            case .indefiniteMap(let map):
+                var resultDict: [Primitive: Primitive] = [:]
+                for (key, value) in map {
+                    let keyPrimitive = try key.toPrimitive()
+                    let valuePrimitive = try value.toPrimitive()
+                    resultDict[keyPrimitive] = valuePrimitive
+                }
+                return .dict(resultDict)
+            case .undefined:
+                return .null
+            case .half(let halfValue):
+                return .float(Double(halfValue))
         }
         
     }
@@ -191,29 +150,51 @@ extension Data {
     public var toBytes: [UInt8] {
         return [UInt8](self)
     }
-
+    
     public var toHex: String {
         return map { String(format: "%02hhx", $0) }.joined()
     }
-
+    
     public var toString: String {
         return String(data: self, encoding: .utf8)
         ?? String(data: self, encoding: .ascii)
         ?? String(data: self, encoding: .unicode) ?? ""
     }
-
+    
     public var toCBOR: CBOR {
         return try! CBORSerialization.cbor(from: self)
     }
-
+    
     public static func randomBytes(count: Int) -> Data {
+#if canImport(Security)
+        // Use Security framework on Apple platforms
         var data = Data(count: count)
-        _ = data.withUnsafeMutableBytes {
+        let result = data.withUnsafeMutableBytes {
             SecRandomCopyBytes(kSecRandomDefault, count, $0.baseAddress!)
         }
+        guard result == errSecSuccess else {
+            // Fallback to SystemRandomNumberGenerator if Security framework fails
+            return randomBytesSystemRandom(count: count)
+        }
+        return data
+#else
+        // Use SystemRandomNumberGenerator on Linux and other platforms
+        return randomBytesSystemRandom(count: count)
+#endif
+    }
+    
+    private static func randomBytesSystemRandom(count: Int) -> Data {
+        var data = Data()
+        data.reserveCapacity(count)
+        
+        var generator = SystemRandomNumberGenerator()
+        for _ in 0..<count {
+            data.append(UInt8.random(in: 0...255, using: &generator))
+        }
+        
         return data
     }
-
+    
     public init?(hexString: String) {
         let length = hexString.count / 2
         var data = Data(capacity: length)
@@ -253,23 +234,23 @@ extension String {
     public var toData: Data {
         return Data(self.utf8)
     }
-
+    
     public var hexStringToData: Data {
         var tempHex = self
-
+        
         // Ensure string length is even
         if tempHex.count % 2 != 0 {
             tempHex = "0" + tempHex
         }
-
+        
         let cleanHex = tempHex.replacingOccurrences(of: " ", with: "").replacingOccurrences(
             of: "\n", with: "")
         var bytes = [UInt8]()
         var currentIndex = cleanHex.startIndex
-
+        
         while currentIndex < cleanHex.endIndex {
             let nextIndex = cleanHex.index(currentIndex, offsetBy: 2, limitedBy: cleanHex.endIndex)
-                ?? cleanHex.endIndex
+            ?? cleanHex.endIndex
             let byteString = String(cleanHex[currentIndex..<nextIndex])
             if let byte = UInt8(byteString, radix: 16) {
                 bytes.append(byte)
@@ -278,7 +259,7 @@ extension String {
             }
             currentIndex = nextIndex
         }
-
+        
         return Data(bytes)
     }
 }
@@ -288,137 +269,137 @@ extension String {
 extension AnyValue: CBORSerializable {
     public init(from primitive: Primitive) throws {
         switch primitive {
-        case .null:
-            self = .nil
-        case .bool(let value):
-            self = .bool(value)
-        case .int(let value):
-            self = .int64(Int64(value))
-        case .float(let value):
-            self = .double(value)
-        case .decimal(let value):
-            self = .decimal(value)
-        case .string(let value):
-            self = .string(value)
-        case .bytes(let data):
-            self = .data(data)
-        case .byteArray(let array):
-            self = .data(Data(array))
-        case .datetime(let date):
-            self = .date(date)
-        case .list(let array):
-            let anyValueArray = try array.map { try AnyValue(from: $0) }
-            self = .array(anyValueArray)
-        case .indefiniteList(let indefiniteArray):
-            let anyValueArray = try indefiniteArray.map { try AnyValue(from: $0) }
-            self = .indefiniteArray(anyValueArray)
-        case .dict(let dictionary):
-            var orderedDict = OrderedDictionary<AnyValue, AnyValue>()
-            for (key, value) in dictionary {
-                let anyKey = try AnyValue(from: key)
-                let anyValue = try AnyValue(from: value)
-                orderedDict[anyKey] = anyValue
-            }
-            self = .dictionary(orderedDict)
-        case .orderedDict(let orderedDictionary):
-            var orderedDict = OrderedDictionary<AnyValue, AnyValue>()
-            for (key, value) in orderedDictionary {
-                let anyKey = try AnyValue(from: key)
-                let anyValue = try AnyValue(from: value)
-                orderedDict[anyKey] = anyValue
-            }
-            self = .dictionary(orderedDict)
-        case .tuple(let tuple):
-            let anyValueArray = try tuple.elements.map { try AnyValue(from: $0) }
-            self = .array(anyValueArray)
-        case .regex(let regex):
-            self = .string(regex.pattern)
-        case .orderedSet(let set):
-            let anyValueArray = try set.elements.map { try AnyValue(from: $0) }
-            self = .array(anyValueArray)
-        case .nonEmptyOrderedSet(let set):
-            let anyValueArray = try set.elements.map { try AnyValue(from: $0) }
-            self = .array(anyValueArray)
-        case .unitInterval(let unitInterval):
-            // Represent fraction as a 2-element array [numerator, denominator]
+            case .null:
+                self = .nil
+            case .bool(let value):
+                self = .bool(value)
+            case .int(let value):
+                self = .int64(Int64(value))
+            case .float(let value):
+                self = .double(value)
+            case .decimal(let value):
+                self = .decimal(value)
+            case .string(let value):
+                self = .string(value)
+            case .bytes(let data):
+                self = .data(data)
+            case .byteArray(let array):
+                self = .data(Data(array))
+            case .datetime(let date):
+                self = .date(date)
+            case .list(let array):
+                let anyValueArray = try array.map { try AnyValue(from: $0) }
+                self = .array(anyValueArray)
+            case .indefiniteList(let indefiniteArray):
+                let anyValueArray = try indefiniteArray.map { try AnyValue(from: $0) }
+                self = .indefiniteArray(anyValueArray)
+            case .dict(let dictionary):
+                var orderedDict = OrderedDictionary<AnyValue, AnyValue>()
+                for (key, value) in dictionary {
+                    let anyKey = try AnyValue(from: key)
+                    let anyValue = try AnyValue(from: value)
+                    orderedDict[anyKey] = anyValue
+                }
+                self = .dictionary(orderedDict)
+            case .orderedDict(let orderedDictionary):
+                var orderedDict = OrderedDictionary<AnyValue, AnyValue>()
+                for (key, value) in orderedDictionary {
+                    let anyKey = try AnyValue(from: key)
+                    let anyValue = try AnyValue(from: value)
+                    orderedDict[anyKey] = anyValue
+                }
+                self = .dictionary(orderedDict)
+            case .tuple(let tuple):
+                let anyValueArray = try tuple.elements.map { try AnyValue(from: $0) }
+                self = .array(anyValueArray)
+            case .regex(let regex):
+                self = .string(regex.pattern)
+            case .orderedSet(let set):
+                let anyValueArray = try set.elements.map { try AnyValue(from: $0) }
+                self = .array(anyValueArray)
+            case .nonEmptyOrderedSet(let set):
+                let anyValueArray = try set.elements.map { try AnyValue(from: $0) }
+                self = .array(anyValueArray)
+            case .unitInterval(let unitInterval):
+                // Represent fraction as a 2-element array [numerator, denominator]
                 self = .array(
                     [
                         .int(Int(unitInterval.numerator)),
                         .int(Int(unitInterval.denominator))
                     ]
                 )
-        case .frozenSet(let set):
-            let anyValueArray = try set.map { try AnyValue(from: $0) }
-            self = .array(anyValueArray)
-        case .frozenDict(let dictionary):
-            var orderedDict = OrderedDictionary<AnyValue, AnyValue>()
-            for (key, value) in dictionary {
-                let anyKey = try AnyValue(from: key)
-                let anyValue = try AnyValue(from: value)
-                orderedDict[anyKey] = anyValue
-            }
-            self = .dictionary(orderedDict)
-        case .frozenList(let array):
-            let anyValueArray = try array.map { try AnyValue(from: $0) }
-            self = .array(anyValueArray)
-        case .indefiniteFrozenList(let indefiniteArray):
-            let anyValueArray = try indefiniteArray.map { try AnyValue(from: $0) }
-            self = .indefiniteArray(anyValueArray)
-        case .byteString(let byteString):
-            self = .data(byteString.value)
-        case .cborTag(let tag):
-            // Handle CBOR tags by attempting to decode the tagged value
-            let taggedValue = try AnyValue(from: tag.value.toPrimitive())
-            self = taggedValue
-        case .cborSimpleValue(let cbor):
-            // Convert CBOR simple values to appropriate AnyValue
-            switch cbor {
-            case .null:
-                self = .nil
-            case .boolean(let bool):
-                self = .bool(bool)
-            case .utf8String(let string):
-                self = .string(string)
-            case .byteString(let data):
-                self = .data(data)
-            case .array(let array):
-                let primitiveArray = try array.map { try $0.toPrimitive() }
-                let anyValueArray = try primitiveArray.map { try AnyValue(from: $0) }
+            case .frozenSet(let set):
+                let anyValueArray = try set.map { try AnyValue(from: $0) }
                 self = .array(anyValueArray)
-            case .map(let map):
+            case .frozenDict(let dictionary):
                 var orderedDict = OrderedDictionary<AnyValue, AnyValue>()
-                for (key, value) in map {
-                    let keyPrimitive = try key.toPrimitive()
-                    let valuePrimitive = try value.toPrimitive()
-                    let anyKey = try AnyValue(from: keyPrimitive)
-                    let anyValue = try AnyValue(from: valuePrimitive)
+                for (key, value) in dictionary {
+                    let anyKey = try AnyValue(from: key)
+                    let anyValue = try AnyValue(from: value)
                     orderedDict[anyKey] = anyValue
                 }
                 self = .dictionary(orderedDict)
-            case .tagged(_, let value):
-                let taggedValue = try AnyValue(from: value.toPrimitive())
+            case .frozenList(let array):
+                let anyValueArray = try array.map { try AnyValue(from: $0) }
+                self = .array(anyValueArray)
+            case .indefiniteFrozenList(let indefiniteArray):
+                let anyValueArray = try indefiniteArray.map { try AnyValue(from: $0) }
+                self = .indefiniteArray(anyValueArray)
+            case .byteString(let byteString):
+                self = .data(byteString.value)
+            case .cborTag(let tag):
+                // Handle CBOR tags by attempting to decode the tagged value
+                let taggedValue = try AnyValue(from: tag.value.toPrimitive())
                 self = taggedValue
-            case .simple(let simpleValue):
-                self = .uint8(simpleValue)
-            case .float(let floatValue):
-                self = .float(floatValue)
-            case .double(let doubleValue):
-                self = .double(doubleValue)
-            default:
-                // For other CBOR types, attempt to get their raw value
-                if let intValue: Int64 = cbor.integerValue() {
-                    self = .integer(BigInt(intValue))
-                } else if let stringValue = cbor.utf8StringValue {
-                    self = .string(stringValue)
-                } else if let dataValue = cbor.bytesStringValue {
-                    self = .data(dataValue)
-                } else {
-                    throw CardanoCoreError.deserializeError("Unsupported CBOR type for AnyValue conversion")
+            case .cborSimpleValue(let cbor):
+                // Convert CBOR simple values to appropriate AnyValue
+                switch cbor {
+                    case .null:
+                        self = .nil
+                    case .boolean(let bool):
+                        self = .bool(bool)
+                    case .utf8String(let string):
+                        self = .string(string)
+                    case .byteString(let data):
+                        self = .data(data)
+                    case .array(let array):
+                        let primitiveArray = try array.map { try $0.toPrimitive() }
+                        let anyValueArray = try primitiveArray.map { try AnyValue(from: $0) }
+                        self = .array(anyValueArray)
+                    case .map(let map):
+                        var orderedDict = OrderedDictionary<AnyValue, AnyValue>()
+                        for (key, value) in map {
+                            let keyPrimitive = try key.toPrimitive()
+                            let valuePrimitive = try value.toPrimitive()
+                            let anyKey = try AnyValue(from: keyPrimitive)
+                            let anyValue = try AnyValue(from: valuePrimitive)
+                            orderedDict[anyKey] = anyValue
+                        }
+                        self = .dictionary(orderedDict)
+                    case .tagged(_, let value):
+                        let taggedValue = try AnyValue(from: value.toPrimitive())
+                        self = taggedValue
+                    case .simple(let simpleValue):
+                        self = .uint8(simpleValue)
+                    case .float(let floatValue):
+                        self = .float(floatValue)
+                    case .double(let doubleValue):
+                        self = .double(doubleValue)
+                    default:
+                        // For other CBOR types, attempt to get their raw value
+                        if let intValue: Int64 = cbor.integerValue() {
+                            self = .integer(BigInt(intValue))
+                        } else if let stringValue = cbor.utf8StringValue {
+                            self = .string(stringValue)
+                        } else if let dataValue = cbor.bytesStringValue {
+                            self = .data(dataValue)
+                        } else {
+                            throw CardanoCoreError.deserializeError("Unsupported CBOR type for AnyValue conversion")
+                        }
                 }
-            }
-        case .plutusData(let plutusData):
-            // Convert PlutusData to its AnyValue representation
-            self = plutusData.toAnyValue()
+            case .plutusData(let plutusData):
+                // Convert PlutusData to its AnyValue representation
+                self = plutusData.toAnyValue()
         }
     }
     
@@ -484,6 +465,24 @@ extension AnyValue: CBORSerializable {
                 })
         }
     }
+    
+    /// Normalize CBOR arrays to ensure cross-platform compatibility
+    public func normalized() -> AnyValue {
+        switch self {
+            case .indefiniteArray(let items):
+                return .array(items.map { $0.normalized() })
+            case .array(let items):
+                return .array(items.map { $0.normalized() })
+            case .dictionary(let dict):
+                var normalizedDict = OrderedDictionary<AnyValue, AnyValue>()
+                for (key, val) in dict {
+                    normalizedDict[key.normalized()] = val.normalized()
+                }
+                return .dictionary(normalizedDict)
+            default:
+                return self
+        }
+    }
 }
 
 
@@ -498,4 +497,10 @@ public extension SingleValueEncodingContainer {
         try encode(transformer.encode(value))
     }
     
+}
+
+extension Array where Element: Hashable {
+    public static func == (lhs: Array<Element>, rhs: IndefiniteList<Element>) -> Bool {
+        return rhs == lhs
+    }
 }
