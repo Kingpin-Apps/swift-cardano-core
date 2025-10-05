@@ -1,5 +1,42 @@
 import Foundation
 
+/// Cross-platform implementation of isSubclass functionality
+/// Uses instance creation and casting instead of Objective-C runtime for Linux compatibility
+/// - Parameters:
+///   - subclass: The potential subclass to check
+///   - superclass: The potential superclass to check against
+/// - Returns: true if subclass is a subclass of superclass, false otherwise
+public func isSubclassOf(_ subclass: AnyClass, _ superclass: AnyClass) -> Bool {
+    // Direct equality check
+    if subclass == superclass {
+        return true
+    }
+    
+    // For PlutusData inheritance checking, we need to be more thorough
+    if superclass == PlutusData.self {
+        // Try to create an instance and check if it can be cast to PlutusData
+        // This is safe because PlutusData has a required init()
+        if let plutusDataType = subclass as? PlutusData.Type {
+            let _ = plutusDataType.init()
+            return true
+        }
+    }
+    
+    // Use string-based comparison for general inheritance checking
+    let subclassName = String(describing: subclass)
+    let superclassName = String(describing: superclass)
+    
+    // Handle common inheritance patterns by checking if subclass name contains superclass name
+    if subclassName.contains(superclassName) {
+        return true
+    }
+    
+    // For most Foundation/Swift types in our validTypes array, they are concrete types
+    // that don't typically have subclasses, so this fallback is sufficient
+    return false
+}
+
+
 func hasAttribute(_ object: Any, propertyName: String) -> Bool {
     let mirror = Mirror(reflecting: object)
     return mirror.children.contains { $0.label == propertyName }
@@ -13,19 +50,6 @@ func getAttribute(_ object: Any, propertyName: String) -> Any? {
         }
     }
     return nil
-}
-
-func setAttribute(_ object: Any, propertyName: String, value: Any) -> Any? {
-    let mirror = Mirror(reflecting: object)
-    for child in mirror.children {
-        if child.label == propertyName {
-            if let object = object as? NSObject {
-                object.setValue(value, forKey: propertyName)
-                return true
-            }
-        }
-    }
-    return false
 }
 
 func isArray(_ obj: Any) -> Bool {
