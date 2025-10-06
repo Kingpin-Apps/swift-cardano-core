@@ -26,7 +26,7 @@ import Logging
         loggableInstance.logger.info("Testing Logging Setup")
 
         // The expectation is that this does not throw and logs are properly set up
-        #expect(true)  // No actual assertion, just checking for silent failure
+        #expect(Bool(true))  // No actual assertion, just checking for silent failure
     }
 
     @Test("Test Loggable Protocol Default Implementation")
@@ -41,7 +41,7 @@ import Logging
         loggableInstance.logState()
 
         // There's no direct way to assert log output here, but we check for execution
-        #expect(true)  // Ensures no crashes occur while logging
+        #expect(Bool(true))  // Ensures no crashes occur while logging
     }
 
     @Test("Test Logger Outputs Debug Logs")
@@ -51,7 +51,7 @@ import Logging
         
         testLogger.debug("This is a debug message")
 
-        #expect(true)  // Placeholder: Ensures logging does not crash
+        #expect(Bool(true))  // Placeholder: Ensures logging does not crash
     }
 
     @Test("Test Logger Outputs Info Logs")
@@ -60,6 +60,6 @@ import Logging
         
         testLogger.info("This is an info message")
 
-        #expect(true)  // Placeholder: Ensures logging does not crash
+        #expect(Bool(true))  // Placeholder: Ensures logging does not crash
     }
 }

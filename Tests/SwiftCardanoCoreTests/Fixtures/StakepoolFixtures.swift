@@ -23,7 +23,8 @@ var poolMetadataHash: String? {
             ofType: poolMetadataHashFilePath.ofType,
             inDirectory: poolMetadataHashFilePath.inDirectory
         )
-        return try String(contentsOfFile: filePath!).trimmingCharacters(in: .newlines)
+        return try String(contentsOfFile: filePath!, encoding: .utf8)
+            .trimmingCharacters(in: .newlines)
     } catch {
         return nil
     }

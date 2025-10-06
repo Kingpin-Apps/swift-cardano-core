@@ -8,7 +8,7 @@ var drepId: String? {
             ofType: drepIdFilePath.ofType,
             inDirectory: drepIdFilePath.inDirectory
         )
-        return try String(contentsOfFile: filePath!).trimmingCharacters(in: .newlines)
+        return try String(contentsOfFile: filePath!, encoding: .utf8).trimmingCharacters(in: .newlines)
     } catch {
         return nil
     }
@@ -20,7 +20,7 @@ var drepHexId: String? {
             ofType: drepHexIdFilePath.ofType,
             inDirectory: drepHexIdFilePath.inDirectory
         )
-        return try String(contentsOfFile: filePath!).trimmingCharacters(in: .newlines)
+        return try String(contentsOfFile: filePath!, encoding: .utf8).trimmingCharacters(in: .newlines)
     } catch {
         return nil
     }
@@ -44,7 +44,7 @@ var drepMetadataHash: String? {
             ofType: drepMetadataHashFilePath.ofType,
             inDirectory: drepMetadataHashFilePath.inDirectory
         )
-        return try String(contentsOfFile: filePath!).trimmingCharacters(in: .newlines)
+        return try String(contentsOfFile: filePath!, encoding: .utf8).trimmingCharacters(in: .newlines)
     } catch {
         return nil
     }

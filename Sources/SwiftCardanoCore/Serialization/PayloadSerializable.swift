@@ -98,7 +98,7 @@ public extension PayloadJSONSerializable {
     /// - Parameter path: The file path
     /// - Returns: The object restored from the JSON file.
     static func load(from path: String) throws -> Self {
-        let jsonString = try String(contentsOfFile: path)
+        let jsonString = try String(contentsOfFile: path, encoding: .utf8)
         return try fromJSON(jsonString)
     }
     

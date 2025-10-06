@@ -63,7 +63,7 @@ public struct PoolId: CBORSerializable, CustomStringConvertible, CustomDebugStri
     /// - Parameter path: The path to the file
     /// - Returns: An instance of the conforming type
     public static func load(from path: String) throws -> Self {
-        let id = try String(contentsOfFile: path).trimmingCharacters(in: .newlines)
+        let id = try String(contentsOfFile: path, encoding: .utf8).trimmingCharacters(in: .newlines)
         
         if id.hasPrefix("pool") {
             return try self.init(from: id)
