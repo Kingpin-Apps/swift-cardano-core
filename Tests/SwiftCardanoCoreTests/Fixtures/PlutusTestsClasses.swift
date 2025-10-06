@@ -207,10 +207,10 @@ public final class DictTest: PlutusData {
         self.a = a
         let newMap = OrderedDictionary(
             uniqueKeysWithValues:
-                try a.map { key, value in
+                a.map { key, value in
                     (
                         AnyValue(integerLiteral: key),
-                        AnyValue.array(try value.fields.map { try AnyValue.wrapped($0) })
+                        value.toAnyValue()
                     )
                 })
         try super.init(fields: [newMap])

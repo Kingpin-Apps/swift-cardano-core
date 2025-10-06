@@ -72,6 +72,14 @@ public indirect enum Primitive: CBORSerializable, Equatable, Hashable {
             return .byteArray(v)
         case let v as [Any]:
             return .list(try v.map { try Primitive.fromAny($0) })
+        case let v as OrderedDictionary<AnyHashable, Any>:
+            var dict: OrderedDictionary<Primitive, Primitive> = [:]
+            for (key, value) in v {
+                let keyPrimitive = try Primitive.fromAny(key)
+                let valuePrimitive = try Primitive.fromAny(value)
+                dict[keyPrimitive] = valuePrimitive
+            }
+            return .orderedDict(dict)
         case let v as [AnyHashable: Any]:
             var dict: [Primitive: Primitive] = [:]
             for (key, value) in v {
@@ -208,7 +216,8 @@ public indirect enum Primitive: CBORSerializable, Equatable, Hashable {
                 
                 let wrapped = CBORTag(
                     tag: tag.rawValue,
-                    value: try AnyValue.wrapped(value.unwrapped)
+//                    value: try AnyValue.wrapped(value.unwrapped)
+                    value: try value.toPrimitive().toAnyValue()
                 )
                 return .cborTag(wrapped)
             case .indefiniteByteString(let string):

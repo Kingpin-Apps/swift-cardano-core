@@ -59,9 +59,9 @@ struct RedeemerTests {
             a: 123,
             b: Data("234".utf8),
             c: IndefiniteList<AnyValue>([
-                .uint64(4),
-                .uint64(5),
-                .uint64(6)
+                .int64(4),
+                .int64(5),
+                .int64(6)
             ]),
             d: {
                 var dict = OrderedDictionary<AnyValue, AnyValue>()

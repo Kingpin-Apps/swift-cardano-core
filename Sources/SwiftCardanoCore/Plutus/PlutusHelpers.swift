@@ -116,12 +116,15 @@ public func getConstructorIDAndFields(value: CBOR) throws -> (Int, [AnyValue]) {
         if innerValue.arrayValue != nil {
             return (
                 constr,
-                try innerValue.arrayValue!.map { try AnyValue.wrapped($0.unwrapped!) }
+                try innerValue.arrayValue!
+                    .map {
+                        try $0.toPrimitive().toAnyValue()
+                    }
             )
         } else if innerValue.indefiniteArrayValue != nil {
             return (
                 constr,
-                try innerValue.indefiniteArrayValue!.map { try AnyValue.wrapped($0.unwrapped!) }
+                try innerValue.indefiniteArrayValue!.map { try $0.toPrimitive().toAnyValue() }
             )
         } else {
             throw

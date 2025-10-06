@@ -409,6 +409,8 @@ public struct AlonzoMetadata: CBORSerializable, Hashable, Equatable {
         switch cborTag.value {
             case .dictionary(let dict):
                 cborDict = dict
+            case .indefiniteDictionary(let dict):
+                cborDict = dict
         default:
             // For any other value type (including maps converted to dictionaries), 
             // we'll create an empty dictionary and proceed with no metadata
