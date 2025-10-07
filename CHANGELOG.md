@@ -1,3 +1,17 @@
+## 0.1.34 (2025-10-06)
+
+### Fix
+
+- add encoding type for depreciation warning
+- handle AnyValue conversion better for Linux compatibility
+- add equality between IndefiniteList and List
+- add swift-crypto for cross platform
+- add isSubCLassOf
+- use new IP Address
+- add IPAddress
+- make ByteString Hashable
+- add description and from era
+
 ## 0.1.33 (2025-09-29)
 
 ### Fix
