@@ -251,18 +251,6 @@ public struct ShelleyMaryMetadata: CBORSerializable, Hashable, Equatable {
         self.nativeScripts = nativeScripts
     }
     
-//    public init(from decoder: Decoder) throws {
-//        var container = try decoder.unkeyedContainer()
-//        metadata = try container.decode(Metadata.self)
-//        nativeScripts = try container.decodeIfPresent([NativeScript].self)
-//    }
-//    
-//    public func encode(to encoder: Swift.Encoder) throws {
-//        var container = encoder.unkeyedContainer()
-//        try container.encode(metadata)
-//        try container.encode(nativeScripts)
-//    }
-    
     public init(from primitive: Primitive) throws {
         guard case let .list(elements) = primitive, elements.count >= 1 else {
             throw CardanoCoreError.deserializeError("Invalid ShelleyMaryMetadata type")
@@ -322,80 +310,6 @@ public struct AlonzoMetadata: CBORSerializable, Hashable, Equatable {
         self.plutusV2Script = plutusV2Script
         self.plutusV3Script = plutusV3Script
     }
-    
-//    public init(from decoder: Decoder) throws {
-//        var container = try decoder.unkeyedContainer()
-//        let tag = try container.decode(Int.self)
-//        
-//        guard tag == AlonzoMetadata.TAG else {
-//            throw CardanoCoreError.deserializeError("Expect CBOR tag: \(AlonzoMetadata.TAG), got: \(tag) instead.")
-//        }
-//        
-//        let cborData = try container.decode([Int:Data].self)
-//    
-//        if let metadataDict = cborData[0] {
-//            let dict = try CBORDecoder().decode(
-//                [Metadata.KEY_TYPE: Metadata.VALUE_TYPE].self,
-//                from: metadataDict
-//            )
-//            metadata = try Metadata(dict)
-//        } else {
-//            metadata = nil
-//        }
-//        
-//        if let nativeScriptsArray = cborData[1] {
-//            nativeScripts = try CBORDecoder().decode([NativeScript].self, from: nativeScriptsArray)
-//        } else {
-//            nativeScripts = nil
-//        }
-//        
-//        if let plutusV1ScriptArray = cborData[2] {
-//            plutusV1Script = try CBORDecoder().decode([PlutusV1Script].self, from: plutusV1ScriptArray)
-//        } else {
-//            plutusV1Script = nil
-//        }
-//        
-//        if let plutusV2ScriptArray = cborData[3] {
-//            plutusV2Script = try CBORDecoder().decode([PlutusV2Script].self, from: plutusV2ScriptArray)
-//        } else {
-//            plutusV2Script = nil
-//        }
-//        
-//        if let plutusV3ScriptArray = cborData[4] {
-//            plutusV3Script = try CBORDecoder().decode([PlutusV3Script].self, from: plutusV3ScriptArray)
-//        } else {
-//            plutusV3Script = nil
-//        }
-//    }
-//
-//    public func encode(to encoder: Swift.Encoder) throws {
-//        var cbor: [Int:Data] = [:]
-//        
-//        if metadata != nil {
-//            cbor[0] = try CBOREncoder().encode(metadata!.data)
-//        }
-//        
-//        if nativeScripts != nil {
-//            cbor[1] = try CBOREncoder().encode(nativeScripts!)
-//        }
-//        
-//        if plutusV1Script != nil {
-//            cbor[2] = try CBOREncoder().encode(plutusV1Script!)
-//        }
-//        
-//        if plutusV2Script != nil {
-//            cbor[3] = try CBOREncoder().encode(plutusV2Script!)
-//        }
-//        
-//        if plutusV3Script != nil {
-//            cbor[4] = try CBOREncoder().encode(plutusV3Script!)
-//        }
-//        
-//        var container = encoder.unkeyedContainer()
-//        try container.encode(AlonzoMetadata.TAG)
-//        
-//        try container.encode(cbor)
-//    }
     
     public init(from primitive: Primitive) throws {
         guard case let .cborTag(cborTag) = primitive,
