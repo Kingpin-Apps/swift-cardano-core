@@ -11,29 +11,24 @@ public struct VRFSigningKey: SigningKeyProtocol {
     public static var DESCRIPTION: String { "VRF Signing Key" }
     
     public init(payload: Data, type: String?, description: String?) {
-        if let payloadData = try? CBORDecoder().decode(Data.self, from: payload) {
-            self._payload = payloadData
-        } else {
-            self._payload = payload
-        }
-        
+        self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
     }
     
     public func sign(data: Data) throws -> Data {
-//        return try VRF.sign(data: data, with: self)?
-        fatalError("Not implemented")
+        let signingKey = try SwiftNcal.VRFSigningKey(bytes: payload)
+        let proof = try signingKey.prove(message: data)
+        return proof.bytes
     }
     
-    public func toVerificationKey<T>() throws -> T where T: VerificationKeyProtocol {
-//        return try VRFVerificationKey.fromSigningKey(self) as! T
-        fatalError("Not implemented")
+    public func toVerificationKey() throws -> VRFVerificationKey {
+        return try VRFVerificationKey.fromSigningKey(self)
     }
     
     public  static func generate() throws -> Self {
-        //        return try VRFSigningKey(from: VRF.generate())
-        fatalError("Not implemented")
+        let vrfKeyPair = try VRFKeyPair.generate()
+        return vrfKeyPair.signingKey
     }
 }
 
@@ -46,12 +41,7 @@ public struct VRFVerificationKey: VerificationKeyProtocol {
     public static var DESCRIPTION: String { "VRF Verification Key" }
     
     public init(payload: Data, type: String?, description: String?) {
-        if let payloadData = try? CBORDecoder().decode(Data.self, from: payload) {
-            self._payload = payloadData
-        } else {
-            self._payload = payload
-        }
-        
+        self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
     }
@@ -68,8 +58,48 @@ public struct VRFVerificationKey: VerificationKeyProtocol {
         )
     }
     
-    public static func fromSigningKey<T>(_ key: any SigningKeyProtocol) throws -> T where T: VerificationKeyProtocol {
-//        return try key.toVerificationKey()
-        fatalError("Not implemented")
+    public static func fromSigningKey(_ key: VRFSigningKey) throws -> VRFVerificationKey {
+        let vrfSKey = try SwiftNcal.VRFSigningKey(bytes: key.payload)
+        return try VRFVerificationKey(payload: vrfSKey.verifyingKey.bytes)
+    }
+}
+
+public struct VRFKeyPair {
+    public let signingKey: VRFSigningKey
+    public let verificationKey: VRFVerificationKey
+    
+    public init(signingKey: VRFSigningKey, verificationKey: VRFVerificationKey) {
+        self.signingKey = signingKey
+        self.verificationKey = verificationKey
+    }
+    
+    // static method to generate a new StakePoolKeyPair
+    public static func generate() throws -> VRFKeyPair {
+        let vrfKeyPair = SwiftNcal.VRFKeyPair.generate()
+        return VRFKeyPair(
+            signingKey: try VRFSigningKey(
+                payload: vrfKeyPair.signingKey.bytes
+            ),
+            verificationKey: try VRFVerificationKey(
+                payload: vrfKeyPair.verifyingKey.bytes
+            )
+        )
+    }
+    
+    // static a VRFKeyPair from an existing signing key
+    public static func fromSigningKey(_ signingKey: VRFSigningKey) throws -> VRFKeyPair {
+        let verificationKey: VRFVerificationKey = try VRFVerificationKey.fromSigningKey(signingKey)
+        return VRFKeyPair(
+            signingKey: signingKey,
+            verificationKey: verificationKey
+        )
+    }
+}
+
+// Equatable Protocol for VRFKeyPair
+extension VRFKeyPair: Equatable {
+    public static func == (lhs: VRFKeyPair, rhs: VRFKeyPair) -> Bool {
+        return lhs.signingKey == rhs.signingKey &&
+        lhs.verificationKey == rhs.verificationKey
     }
 }
