@@ -106,6 +106,30 @@ public class HDWallet {
     public var entropy: String?
     
     private let sodium = Sodium()
+    
+    // Helper functions for little-endian byte conversion
+    private func intFromBytesLittleEndian(_ data: Data) -> BigInt {
+        var result = BigInt(0)
+        var base = BigInt(1)
+        for byte in data {
+            result += BigInt(byte) * base
+            base *= 256
+        }
+        return result
+    }
+    
+    private func intToBytesLittleEndian(_ value: BigInt, length: Int) -> Data {
+        var result = Data(count: length)
+        var val = value
+        // Handle the case where value might be negative or larger than what fits in length bytes
+        for i in 0..<length {
+            result[i] = UInt8(val % 256)
+            val /= 256
+            // If val becomes 0, we can break early
+            if val == 0 { break }
+        }
+        return result
+    }
 
     public init(
         rootXPrivateKey: Data, rootPublicKey: Data, rootChainCode: Data, xPrivateKey: Data,
@@ -132,7 +156,7 @@ public class HDWallet {
         let seedModified = tweakBits(seed: seedData)
 
         let kL = seedModified.prefix(32)
-        let c = seedModified.suffix(32)
+        let c = seedModified.suffix(from: 64)  // Changed from suffix(32)
         let A = try Sodium().cryptoScalarmult.ed25519BaseNoclamp(n: kL)
 
         return HDWallet(
@@ -155,14 +179,17 @@ public class HDWallet {
             throw CardanoCoreError.invalidDataError("Invalid mnemonic words.")
         }
 
-        let _mnemonic = try Mnemonic(from: mnemonic.components(separatedBy: " "))
+        
+        let normalizedMnemonic = mnemonic.decomposedStringWithCompatibilityMapping
+        
+        let _mnemonic = try Mnemonic(from: normalizedMnemonic.components(separatedBy: " "))
         let seed = HDWallet.generateSeed(passphrase: passphrase, entropy: _mnemonic.entropy)
 
         return try HDWallet.fromSeed(
             seed: seed.hexEncodedString(),
             entropy: _mnemonic.entropy.hexEncodedString(),
             passphrase: passphrase,
-            mnemonic: mnemonic
+            mnemonic: normalizedMnemonic
         )
     }
 
@@ -215,15 +242,37 @@ public class HDWallet {
             throw BIP32Error.invalidPath(
                 "Bad path, please insert like this type of path \"m/0\'/0\"!")
         }
+        
+        // Validate path format more strictly
+        let pathWithoutPrefix = String(path.dropFirst(2)) // Remove "m/"
+        
+        // Check for invalid patterns
+        if pathWithoutPrefix.isEmpty {
+            throw BIP32Error.invalidPath("Empty path after m/")
+        }
+        if pathWithoutPrefix.contains("//") {
+            throw BIP32Error.invalidPath("Path contains double slashes")
+        }
+        if pathWithoutPrefix.hasSuffix("/") {
+            throw BIP32Error.invalidPath("Path cannot end with /")
+        }
 
         var derivedWallet = self.copyHDWallet()
-        for index in path.dropFirst(2).split(separator: "/") {
+        for index in pathWithoutPrefix.split(separator: "/") {
+            if index.isEmpty {
+                throw BIP32Error.invalidPath("Empty path segment")
+            }
+            
             if index.last == "'" {
-                let idx = Int(index.dropLast())! + (1 << 31)
+                guard let idx = Int(index.dropLast()) else {
+                    throw BIP32Error.invalidPath("Invalid hardened index: \(index)")
+                }
                 derivedWallet = try derivedWallet.derive(
                     index: idx, isPrivate: isPrivate, hardened: true)
             } else {
-                let idx = Int(index)!
+                guard let idx = Int(index) else {
+                    throw BIP32Error.invalidPath("Invalid index: \(index)")
+                }
                 derivedWallet = try derivedWallet.derive(
                     index: idx, isPrivate: isPrivate, hardened: false)
             }
@@ -295,32 +344,37 @@ public class HDWallet {
         let (kLP, kRP, AP, cP, path) = privateNode
         assert(0 <= index && index < (1 << 32))
 
-        let iBytes = withUnsafeBytes(of: index.littleEndian, Array.init)
+        let iBytes = Data(withUnsafeBytes(of: UInt32(index).littleEndian, Array.init))
 
         // compute Z, c
         let Z: Data
         let c: Data
         if index < (1 << 31) {
             // regular child
-            Z = Data(try! HMAC(key: cP.byteArray, variant: .sha2(.sha512)).authenticate(Data([0x02]) + AP + iBytes))
-            c = Data(try! HMAC(key: cP.byteArray, variant: .sha2(.sha512)).authenticate(Data([0x03]) + AP + iBytes).suffix(32))
+            Z = Data(try! HMAC(key: cP.byteArray, variant: .sha2(.sha512)).authenticate((Data([0x02]) + AP + iBytes).byteArray))
+            c = Data(try! HMAC(key: cP.byteArray, variant: .sha2(.sha512)).authenticate((Data([0x03]) + AP + iBytes).byteArray).suffix(32))
         } else {
             // hardened child
-            Z = Data(try! HMAC(key: cP.byteArray, variant: .sha2(.sha512)).authenticate(Data([0x00]) + kLP + kRP + iBytes))
-            c = Data(try! HMAC(key: cP.byteArray, variant: .sha2(.sha512)).authenticate(Data([0x01]) + kLP + kRP + iBytes).suffix(32))
+            Z = Data(try! HMAC(key: cP.byteArray, variant: .sha2(.sha512)).authenticate((Data([0x00]) + kLP + kRP + iBytes).byteArray))
+            c = Data(try! HMAC(key: cP.byteArray, variant: .sha2(.sha512)).authenticate((Data([0x01]) + kLP + kRP + iBytes).byteArray).suffix(32))
         }
 
-        let ZL = Z.prefix(28)
-        let ZR = Z.suffix(32)
+        let ZL = Z.prefix(28)  // Python: Z[:28]
+        let ZR = Z.suffix(from: 32)  // Python: Z[32:]
 
-        // compute kL_i
-        let kLn = (BigInt(Data(ZL)) * 8 + BigInt(Data(kLP))).modulus(BigInt(1 << 256))
-
-        // compute kR_i
-        let kRn = (BigInt(Data(ZR)) + BigInt(Data(kRP))).modulus(BigInt(1 << 256))
-
-        let kL = kLn.serialize()
-        let kR = kRn.serialize()
+        
+        // Compute kL_i
+        let ZLint = intFromBytesLittleEndian(ZL)
+        let kLPint = intFromBytesLittleEndian(kLP)
+        let kLn = ZLint * 8 + kLPint
+        
+        // Compute kR_i - the modulo 2^256 is handled by limiting to 32 bytes
+        let ZRint = intFromBytesLittleEndian(Data(ZR))
+        let kRPint = intFromBytesLittleEndian(kRP)
+        let kRn = (ZRint + kRPint) 
+        
+        let kL = intToBytesLittleEndian(kLn, length: 32)
+        let kR = intToBytesLittleEndian(kRn, length: 32)
 
         // compute A
         let A = try sodium.cryptoScalarmult.ed25519BaseNoclamp(n: kL)
@@ -345,21 +399,23 @@ public class HDWallet {
 
     public func derivePublicChildKeyByIndex(publicNode: (Data, Data, String), index: Int) throws -> HDWallet {
         let (AP, cP, path) = publicNode
-        let iBytes = withUnsafeBytes(of: index.littleEndian, Array.init)
+        let iBytes = Data(withUnsafeBytes(of: UInt32(index).littleEndian, Array.init))
 
         guard index < (1 << 31) else {
             throw CardanoCoreError.invalidDataError("Cannot derive hardened index with public key")
         }
 
-        let Z = Data(try! HMAC(key: cP.byteArray, variant: .sha2(.sha512)).authenticate(Data([0x02]) + AP + iBytes))
-        let c = Data(try! HMAC(key: cP.byteArray, variant: .sha2(.sha512)).authenticate(Data([0x03]) + AP + iBytes).suffix(32))
+        let Z = Data(try! HMAC(key: cP.byteArray, variant: .sha2(.sha512)).authenticate((Data([0x02]) + AP + iBytes).byteArray))
+        let c = Data(try! HMAC(key: cP.byteArray, variant: .sha2(.sha512)).authenticate((Data([0x03]) + AP + iBytes).byteArray).suffix(32))
 
-        let ZL = Z.prefix(28)
-        let ZLint = BigInt(Data(ZL))
+        let ZL = Z.prefix(28)  // Python: Z[:28]
+        
+        let ZLint = intFromBytesLittleEndian(ZL)
+        
+        let scaledZL = intToBytesLittleEndian(8 * ZLint, length: 32)
 
         let A = try sodium.cryptoCore.ed25519Add(
-            AP, try sodium.cryptoScalarmult
-                .ed25519BaseNoclamp(n: (8 * ZLint).serialize()))
+            AP, try sodium.cryptoScalarmult.ed25519BaseNoclamp(n: scaledZL))
 
         let newPath = path + "/" + String(index)
 

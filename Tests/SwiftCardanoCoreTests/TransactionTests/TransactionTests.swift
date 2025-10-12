@@ -14,7 +14,7 @@ struct TransactionTests {
         from: .string("stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n")
     )
     let amount = Value(coin: 1_000_000)
-    let verificationKey = VerificationKey(payload: Data(repeating: 0x01, count: 64))
+    let verificationKey = try! VerificationKey(payload: Data(repeating: 0x01, count: 64))
     let signature = Data(repeating: 0x03, count: 64)
 
     @Test("Test initialization with required parameters")

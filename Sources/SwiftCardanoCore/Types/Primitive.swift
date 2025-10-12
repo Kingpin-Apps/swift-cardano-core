@@ -194,8 +194,8 @@ public indirect enum Primitive: CBORSerializable, Equatable, Hashable {
                     }
                     
                     let unitInterval = UnitInterval(
-                        numerator: UInt(numerator),
-                        denominator: UInt(denominator)
+                        numerator: UInt64(numerator),
+                        denominator: UInt64(denominator)
                     )
                     return .unitInterval(unitInterval)
                 } else if tag == CBOR.Tag.iso8601DateTime {

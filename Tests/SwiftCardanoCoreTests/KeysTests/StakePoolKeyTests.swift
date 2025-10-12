@@ -37,7 +37,7 @@ let stakePoolVKey = [
     
     @Test func testStakePoolSKey() async throws {
         let SK = try! StakePoolSigningKey.fromJSON(stakePoolSKeyJSON)
-        let cborData = try CBOREncoder().encode(SK)
+        let cborData = try SK.toCBORData()
         let cborHex = cborData.toHex
         let json = try SK.toJSON()
         let expectedPayload = Data([

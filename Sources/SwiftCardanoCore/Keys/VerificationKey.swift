@@ -32,21 +32,21 @@ public extension ExtendedVerificationKeyProtocol {
     /// Compute a blake2b hash from the key, excluding chain code
     /// - Returns: VerificationKeyHash as the hash output in bytes
     func hash<T: VerificationKeyProtocol>() throws -> (VerificationKeyHash, T) {
-        let nonExtendedKey: T = self.toNonExtended()
+        let nonExtendedKey: T = try self.toNonExtended()
         return (try nonExtendedKey.hash(), nonExtendedKey)
     }
     
     /// Generate ExtendedVerificationKey from an ExtendedSigningKey
     /// - Parameter key: ExtendedSigningKey instance
     /// - Returns: ExtendedVerificationKey
-    static func fromSigningKey<T>(_ key: any ExtendedSigningKeyProtocol) -> T where T: ExtendedVerificationKeyProtocol {
-        return key.toVerificationKey()
+    static func fromSigningKey<T>(_ key: any ExtendedSigningKeyProtocol) throws -> T where T: ExtendedVerificationKeyProtocol {
+        return try key.toVerificationKey()
     }
     
     /// Get the 32-byte verification key with chain code trimmed off
     /// - Returns: VerificationKey (non-extended)
-    func toNonExtended<T>() -> T where T: VerificationKeyProtocol {
-        return T(payload: payload.prefix(32))
+    func toNonExtended<T>() throws -> T where T: VerificationKeyProtocol {
+        return try T(payload: payload.prefix(32))
     }
 }
 
@@ -60,24 +60,7 @@ public struct VerificationKey: VerificationKeyProtocol {
     public static var DESCRIPTION: String { "Verification Key" }
     
     public init(payload: Data, type: String?, description: String?) {
-        // For verification keys, we should almost always use raw bytes
-        // Only try CBOR decoding if the payload looks like it might be CBOR-encoded
-        // and is significantly larger than expected key sizes (32 or 64 bytes)
-        let actualPayload: Data
-        
-        if payload.count > 70 && payload.count > 32 && payload.count > 64 {
-            // Only try CBOR decoding for significantly larger payloads that might be wrapped
-            if let payloadData = try? CBORDecoder().decode(Data.self, from: payload) {
-                actualPayload = payloadData
-            } else {
-                actualPayload = payload
-            }
-        } else {
-            // For payloads that are around the expected key size, use them directly
-            actualPayload = payload
-        }
-        
-        self._payload = actualPayload
+        self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
     }
@@ -94,14 +77,7 @@ public struct ExtendedVerificationKey: ExtendedVerificationKeyProtocol {
     public static var DESCRIPTION: String { "Extended Verification Key" }
     
     public init(payload: Data, type: String?, description: String?) {
-        let actualPayload: Data
-        if let payloadData = try? CBORDecoder().decode(Data.self, from: payload) {
-            actualPayload = payloadData
-        } else {
-            actualPayload = payload
-        }
-        
-        self._payload = actualPayload
+        self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
     }

@@ -107,9 +107,14 @@ extension CBOR {
                     resultDict[keyPrimitive] = valuePrimitive
                 }
                 return .orderedDict(resultDict)
-            case .tagged(_, let value):
+            case .tagged(let tag, let value):
                 let taggedValue = try AnyValue(from: value.toPrimitive())
-                return taggedValue.toPrimitive()
+//                return taggedValue.toPrimitive()
+                let cborTag = CBORTag(
+                    tag: tag.rawValue,
+                    value: taggedValue
+                )
+                return .cborTag(cborTag)
             case .simple(let simpleValue):
                 return .int(Int(simpleValue))
             case .float(let floatValue):

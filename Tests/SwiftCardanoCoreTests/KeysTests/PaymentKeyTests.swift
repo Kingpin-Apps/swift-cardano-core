@@ -117,8 +117,8 @@ let extendedPaymentVKey = [
     @Test func testPaymentSKey() async throws {
         let SK = extendedPaymentSigningKey!
         
-        let extendedVkey: PaymentExtendedVerificationKey = SK.toVerificationKey()
-        let vkey: PaymentVerificationKey = extendedVkey.toNonExtended()
+        let extendedVkey: PaymentExtendedVerificationKey = try SK.toVerificationKey()
+        let vkey: PaymentVerificationKey = try extendedVkey.toNonExtended()
         
         let message = "Pycardano is cool.".data(using: .utf8)!
         

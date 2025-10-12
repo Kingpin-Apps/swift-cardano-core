@@ -55,10 +55,10 @@ import FractionNumber
         
         let cert = PoolRegistration(poolParams: poolParams)
         
-        let cborData = try CBOREncoder().encode(cert)
+        let cborData = try cert.toCBORData()
         let cborHex = cborData.toHex
         
-        let fromCBOR = try CBORDecoder().decode(PoolRegistration.self, from: cborData)
+        let fromCBOR = try PoolRegistration.fromCBOR(data: cborData)
         
         #expect(cborHex == excpectedCBOR)
         #expect(fromCBOR == cert)

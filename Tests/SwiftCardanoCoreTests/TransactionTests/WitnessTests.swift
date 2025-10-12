@@ -4,8 +4,8 @@ import PotentCBOR
 @testable import SwiftCardanoCore
 
 @Suite struct VerificationKeyTypeTests {
-    let verificationKey = VerificationKey(payload: Data(repeating: 0x01, count: 32))
-    let extendedVerificationKey = ExtendedVerificationKey(payload: Data(repeating: 0x02, count: 64))
+    let verificationKey = try! VerificationKey(payload: Data(repeating: 0x01, count: 32))
+    let extendedVerificationKey = try! ExtendedVerificationKey(payload: Data(repeating: 0x02, count: 64))
     
     @Test func testInitialization() async throws {
         let vkeyType = VerificationKeyType.verificationKey(verificationKey)
@@ -50,7 +50,7 @@ import PotentCBOR
 }
 
 @Suite struct VerificationKeyWitnessTests {
-    let verificationKey = VerificationKey(payload: Data(repeating: 0x01, count: 64))
+    let verificationKey = try! VerificationKey(payload: Data(repeating: 0x01, count: 64))
     let signature = Data(repeating: 0x03, count: 64)
     
     @Test func testInitialization() async throws {
@@ -77,7 +77,7 @@ import PotentCBOR
 }
 
 @Suite struct TransactionWitnessSetTests {
-    let verificationKey = VerificationKey(payload: Data(repeating: 0x01, count: 64))
+    let verificationKey = try! VerificationKey(payload: Data(repeating: 0x01, count: 64))
     let signature = Data(repeating: 0x03, count: 64)
     
     @Test func testInitialization() async throws {

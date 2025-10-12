@@ -11,12 +11,7 @@ public struct StakePoolSigningKey: SigningKeyProtocol {
     public static var DESCRIPTION: String { "Stake Pool Operator Signing Key" }
     
     public init(payload: Data, type: String?, description: String?) {
-        if let payloadData = try? CBORDecoder().decode(Data.self, from: payload) {
-            self._payload = payloadData
-        } else {
-            self._payload = payload
-        }
-        
+        self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
     }
@@ -31,12 +26,7 @@ public struct StakePoolVerificationKey: VerificationKeyProtocol {
     public static var DESCRIPTION: String { "Stake Pool Operator Verification Key" }
     
     public init(payload: Data, type: String?, description: String?) {
-        if let payloadData = try? CBORDecoder().decode(Data.self, from: payload) {
-            self._payload = payloadData
-        } else {
-            self._payload = payload
-        }
-        
+        self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
     }

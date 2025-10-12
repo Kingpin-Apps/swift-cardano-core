@@ -57,12 +57,12 @@ public struct NonNegativeInterval: CBORSerializable, Hashable, Equatable {
 // MARK: - UnitInterval
 /// A unit interval is a number in the range between 0 and 1
 public struct UnitInterval: CBORSerializable, Equatable, Hashable {
-    public let numerator: UInt
-    public let denominator: UInt
+    public let numerator: UInt64
+    public let denominator: UInt64
 
     public static let tag = 30
 
-    public init(numerator: UInt, denominator: UInt) {
+    public init(numerator: UInt64, denominator: UInt64) {
         precondition(
             numerator <= denominator, "Numerator must be less than or equal to denominator")
         precondition(denominator > 0, "Denominator must be greater than zero")
@@ -114,8 +114,8 @@ public struct UnitInterval: CBORSerializable, Equatable, Hashable {
                         "UnitInterval must contain exactly 2 elements")
                 }
                 self.init(
-                    numerator: arrayData[0].uintValue!,
-                    denominator: arrayData[1].uintValue!
+                    numerator: arrayData[0].integerValue(UInt64.self)!,
+                    denominator: arrayData[1].integerValue(UInt64.self)!
                 )
             case let .unitInterval(interval):
                 self = interval

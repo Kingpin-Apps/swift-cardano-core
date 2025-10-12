@@ -20,7 +20,7 @@ public extension SigningKeyProtocol {
     
     func toVerificationKey<T>() throws -> T where T: VerificationKeyProtocol {
         let signingKey = try SwiftNcal.SigningKey(seed: payload)
-        var vkey =  T(
+        var vkey =  try T(
             payload: signingKey.verifyKey.bytes,
             type: type.replacingOccurrences(of: "Signing", with: "Verification"),
             description: description.replacingOccurrences(of: "Signing", with: "Verification")
@@ -32,7 +32,7 @@ public extension SigningKeyProtocol {
     
     static func generate() throws -> Self {
         let signingKey = try SwiftNcal.SigningKey.generate()
-        var sKey = Self(payload: signingKey.bytes)
+        var sKey = try Self(payload: signingKey.bytes)
         sKey._payload = signingKey.bytes
         return sKey
     }
@@ -50,8 +50,8 @@ public extension ExtendedSigningKeyProtocol {
         return signedMessage
     }
 
-    func toVerificationKey<T>() -> T where T: ExtendedVerificationKeyProtocol {
-        return T(
+    func toVerificationKey<T>() throws -> T where T: ExtendedVerificationKeyProtocol {
+        return try T(
             payload: payload.suffix(from: 64),
             type: type.replacingOccurrences(of: "Signing", with: "Verification"),
             description: description.replacingOccurrences(of: "Signing", with: "Verification")
@@ -61,7 +61,7 @@ public extension ExtendedSigningKeyProtocol {
     static func fromHDWallet(_ hdwallet: HDWallet) throws -> any ExtendedSigningKeyProtocol {
         let payload = hdwallet.xPrivateKey + hdwallet.publicKey + hdwallet.chainCode
         
-        return Self(
+        return try Self(
             payload: payload,
             type: "PaymentExtendedSigningKeyShelley_ed25519_bip32",
             description: "Payment Signing Key"
@@ -79,12 +79,7 @@ public struct SigningKey: SigningKeyProtocol {
     public static var DESCRIPTION: String { "Signing Key" }
     
     public init(payload: Data, type: String?, description: String?) {
-        if let payloadData = try? CBORDecoder().decode(Data.self, from: payload) {
-            self._payload = payloadData
-        } else {
-            self._payload = payload
-        }
-        
+        self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
     }
@@ -100,12 +95,7 @@ public struct ExtendedSigningKey: ExtendedSigningKeyProtocol {
     public static var DESCRIPTION: String { "Extended Signing Key" }
     
     public init(payload: Data, type: String?, description: String?) {
-        if let payloadData = try? CBORDecoder().decode(Data.self, from: payload) {
-            self._payload = payloadData
-        } else {
-            self._payload = payload
-        }
-        
+        self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
     }
@@ -120,9 +110,9 @@ public enum SigningKeyType: Codable, Equatable, Hashable {
         let container = try decoder.singleValueContainer()
         let data = try container.decode(Data.self)
         if data.count == 64 {
-            self = .signingKey(SigningKey(payload: data))
+            self = .signingKey(try SigningKey(payload: data))
         } else {
-            self = .extendedSigningKey(ExtendedSigningKey(payload: data))
+            self = .extendedSigningKey(try ExtendedSigningKey(payload: data))
         }
     }
 
@@ -204,16 +194,16 @@ public enum SigningKeyType: Codable, Equatable, Hashable {
         switch self {
             case .extendedSigningKey(let key):
                 if let skey = key as? PaymentExtendedSigningKey {
-                    let evkey: PaymentExtendedVerificationKey = skey.toVerificationKey()
-                    let vkey: PaymentVerificationKey = evkey.toNonExtended()
+                    let evkey: PaymentExtendedVerificationKey = try skey.toVerificationKey()
+                    let vkey: PaymentVerificationKey = try evkey.toNonExtended()
                     return vkey
                 } else if let skey = key as? StakeExtendedSigningKey {
-                    let evkey: StakeExtendedVerificationKey = skey.toVerificationKey()
-                    let vkey: StakeVerificationKey = evkey.toNonExtended()
+                    let evkey: StakeExtendedVerificationKey = try skey.toVerificationKey()
+                    let vkey: StakeVerificationKey = try evkey.toNonExtended()
                     return vkey
                 } else if let skey = key as? ExtendedSigningKey {
-                    let evkey: ExtendedVerificationKey = skey.toVerificationKey()
-                    let vkey: VerificationKey = evkey.toNonExtended()
+                    let evkey: ExtendedVerificationKey = try skey.toVerificationKey()
+                    let vkey: VerificationKey = try evkey.toNonExtended()
                     return vkey
                 } else {
                     throw CardanoCoreError.invalidKeyTypeError("Invalid key type: \(key)")
@@ -250,13 +240,13 @@ public enum SigningKeyType: Codable, Equatable, Hashable {
         switch self {
             case .extendedSigningKey(let key):
                 if let skey = key as? PaymentExtendedSigningKey {
-                    let evkey: PaymentExtendedVerificationKey = skey.toVerificationKey()
+                    let evkey: PaymentExtendedVerificationKey = try skey.toVerificationKey()
                     return .extendedVerificationKey(evkey)
                 } else if let skey = key as? StakeExtendedSigningKey {
-                    let evkey: StakeExtendedVerificationKey = skey.toVerificationKey()
+                    let evkey: StakeExtendedVerificationKey = try skey.toVerificationKey()
                     return .extendedVerificationKey(evkey)
                 } else if let skey = key as? ExtendedSigningKey {
-                    let evkey: ExtendedVerificationKey = skey.toVerificationKey()
+                    let evkey: ExtendedVerificationKey = try skey.toVerificationKey()
                     return .extendedVerificationKey(evkey)
                 } else {
                     throw CardanoCoreError.invalidKeyTypeError("Invalid key type: \(key)")

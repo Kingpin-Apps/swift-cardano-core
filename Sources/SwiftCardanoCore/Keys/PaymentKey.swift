@@ -12,12 +12,7 @@ public struct PaymentSigningKey: SigningKeyProtocol {
     public static var DESCRIPTION: String { "Payment Signing Key" }
     
     public init(payload: Data, type: String?, description: String?) {
-        if let payloadData = try? CBORDecoder().decode(Data.self, from: payload) {
-            self._payload = payloadData
-        } else {
-            self._payload = payload
-        }
-        
+        self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
     }
@@ -33,15 +28,7 @@ public struct PaymentVerificationKey: VerificationKeyProtocol {
     public static var DESCRIPTION: String { "Payment Verification Key" }
     
     public init(payload: Data, type: String?, description: String?) {
-        if payload.count > 32, let payloadData = try? CBORDecoder().decode(
-            Data.self,
-            from: payload
-        ) {
-            self._payload = payloadData
-        } else {
-            self._payload = payload
-        }
-        
+        self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
     }
@@ -56,12 +43,7 @@ public struct PaymentExtendedSigningKey: ExtendedSigningKeyProtocol {
     public static var DESCRIPTION: String { "Payment Signing Key" }
     
     public init(payload: Data, type: String?, description: String?) {
-        if let payloadData = try? CBORDecoder().decode(Data.self, from: payload) {
-            self._payload = payloadData
-        } else {
-            self._payload = payload
-        }
-        
+        self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
     }
@@ -76,12 +58,7 @@ public struct PaymentExtendedVerificationKey: ExtendedVerificationKeyProtocol {
     public static var DESCRIPTION: String { "Payment Verification Key" }
     
     public init(payload: Data, type: String?, description: String?) {
-        if payload.count > 64, let payloadData = try? CBORDecoder().decode(Data.self, from: payload) {
-            self._payload = payloadData
-        } else {
-            self._payload = payload
-        }
-        
+        self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
     }

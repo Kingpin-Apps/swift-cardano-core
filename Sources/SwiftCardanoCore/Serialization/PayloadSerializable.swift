@@ -20,7 +20,7 @@ public protocol PayloadSerializable: Payloadable, CBORSerializable, Hashable, Eq
     static var DESCRIPTION: String { get }
     
 //    init(payload: Data)
-    init(payload: Data, type: String?, description: String?)
+    init(payload: Data, type: String?, description: String?) throws
 }
 
 public protocol PayloadJSONSerializable: PayloadSerializable {}
@@ -28,8 +28,8 @@ public protocol PayloadJSONSerializable: PayloadSerializable {}
 public protocol PayloadCBORSerializable: PayloadJSONSerializable {}
 
 public extension PayloadSerializable {
-    init(payload: Data) {
-        self.init(payload: payload, type: Self.TYPE, description: Self.DESCRIPTION)
+    init(payload: Data) throws {
+        try self.init(payload: payload, type: Self.TYPE, description: Self.DESCRIPTION)
     }
     
     /// Convert to raw bytes
@@ -120,13 +120,11 @@ public extension PayloadJSONSerializable {
             }
         }
         
-        let cborData = Data(hexString: cborHex)!
+        var obj = try Self.fromCBORHex(cborHex)
+        obj._type = type
+        obj._description = description
         
-        return Self(
-            payload: cborData,
-            type: type,
-            description: description
-        )
+        return obj
     }
 }
 
@@ -137,9 +135,7 @@ public extension PayloadCBORSerializable where Self: Codable {
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let payload = try container.decode(Data.self)
-        self.init(
-            payload: payload
-        )
+        try self.init(payload: payload)
     }
     
     /// Serialize to CBOR.
@@ -157,6 +153,6 @@ public extension PayloadCBORSerializable where Self: Codable {
         guard case let .bytes(payload) = primitive else {
             throw CardanoCoreError.deserializeError("Invalid payload for \(Self.self): expected bytes but got \(primitive) type")
         }
-        self.init(payload: payload)
+        try self.init(payload: payload)
     }
 }

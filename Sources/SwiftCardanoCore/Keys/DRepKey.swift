@@ -10,12 +10,7 @@ public struct DRepSigningKey: SigningKeyProtocol {
     public static var DESCRIPTION: String { "Delegated Representative Signing Key" }
     
     public init(payload: Data, type: String?, description: String?) {
-        if let payloadData = try? CBORDecoder().decode(Data.self, from: payload) {
-            self._payload = payloadData
-        } else {
-            self._payload = payload
-        }
-        
+        self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
     }
@@ -30,12 +25,7 @@ public struct DRepVerificationKey: VerificationKeyProtocol {
     public static var DESCRIPTION: String { "Delegated Representative Verification Key" }
     
     public init(payload: Data, type: String?, description: String?) {
-        if let payloadData = try? CBORDecoder().decode(Data.self, from: payload) {
-            self._payload = payloadData
-        } else {
-            self._payload = payload
-        }
-        
+        self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
     }

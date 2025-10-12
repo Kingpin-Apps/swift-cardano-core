@@ -11,12 +11,7 @@ public struct StakeSigningKey: SigningKeyProtocol {
     public static var DESCRIPTION: String { "Stake Signing Key" }
     
     public init(payload: Data, type: String?, description: String?) {
-        if let payloadData = try? CBORDecoder().decode(Data.self, from: payload) {
-            self._payload = payloadData
-        } else {
-            self._payload = payload
-        }
-        
+        self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
     }
@@ -31,12 +26,7 @@ public struct StakeVerificationKey: VerificationKeyProtocol {
     public static var DESCRIPTION: String { "Stake Verification Key" }
     
     public init(payload: Data, type: String?, description: String?) {
-        if let payloadData = try? CBORDecoder().decode(Data.self, from: payload) {
-            self._payload = payloadData
-        } else {
-            self._payload = payload
-        }
-        
+        self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
     }
@@ -63,12 +53,7 @@ public struct StakeExtendedSigningKey: ExtendedSigningKeyProtocol {
     public static var DESCRIPTION: String { "Stake Signing Key" }
     
     public init(payload: Data, type: String?, description: String?) {
-        if let payloadData = try? CBORDecoder().decode(Data.self, from: payload) {
-            self._payload = payloadData
-        } else {
-            self._payload = payload
-        }
-        
+        self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
     }
@@ -83,12 +68,7 @@ public struct StakeExtendedVerificationKey: ExtendedVerificationKeyProtocol {
     public static var DESCRIPTION: String { "Stake Verification Key" }
     
     public init(payload: Data, type: String?, description: String?) {
-        if let payloadData = try? CBORDecoder().decode(Data.self, from: payload) {
-            self._payload = payloadData
-        } else {
-            self._payload = payload
-        }
-        
+        self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
     }

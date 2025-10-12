@@ -22,14 +22,12 @@ public struct PoolRegistration: CertificateSerializable {
     public init(poolParams: PoolParams) {
         self.poolParams = poolParams
         
-        self._payload =  try! CBORSerialization.data(from:
-                .array(
-                    [
-                        CBOR(integerLiteral: Self.CODE.rawValue),
-                        try! CBOREncoder().encode(poolParams).toCBOR
-                    ]
-                )
+        var cbor: [CBOR] = [CBOR(integerLiteral: Self.CODE.rawValue)]
+        cbor.append(
+            contentsOf: try! CBOREncoder().encode(poolParams).toCBOR.arrayValue!
         )
+            
+        self._payload =  try! CBORSerialization.data(from: .array(cbor))
         self._type = Self.TYPE
         self._description = Self.DESCRIPTION
     }
@@ -39,17 +37,21 @@ public struct PoolRegistration: CertificateSerializable {
     ///   - payload: The payload
     ///   - type: The type
     ///   - description: The description
-    public init(payload: Data, type: String?, description: String?) {
+    public init(payload: Data, type: String?, description: String?) throws {
         self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
         
-//        let cbor = try! CBORDecoder().decode(Self.self, from: payload)
         do {
-            let cbor = try PoolRegistration(from: payload)
-            self.poolParams = cbor.poolParams
+            let primitives = try payload.toCBOR.toPrimitive()
+            if case let .list(primitivesList) = primitives {
+                let poolParamsElements = Array(primitivesList.dropFirst())
+                self.poolParams = try PoolParams(from: .list(poolParamsElements))
+            } else {
+                throw CardanoCoreError.deserializeError("Failed to decode PoolRegistration from payload: Not a list.")
+            }
         } catch {
-            fatalError("Failed to decode PoolRegistration from payload: \(error)")
+            throw CardanoCoreError.deserializeError("Failed to decode PoolRegistration from payload: \(error)")
         }
     }
     
@@ -63,14 +65,18 @@ public struct PoolRegistration: CertificateSerializable {
             throw CardanoCoreError.deserializeError("Invalid PoolRegistration type")
         }
         
-        // Extract the pool parameters elements
-        let poolParamsElements = Array(elements.dropFirst())
-        
-        // Create a list primitive with just the pool parameters elements
-        let poolParamsList: Primitive = .list(poolParamsElements)
-        
-        // Parse the pool parameters
-        let poolParams = try PoolParams(from: poolParamsList)
+        // Handle pool params as list or as the rest of the elements in the main list
+        let poolParams: PoolParams
+        if elements.count == 2, case let .list(poolParamsElements) = elements[1] {
+            // If pool params are in a single list element, use that list
+            let poolParamsList: Primitive = .list(poolParamsElements)
+            poolParams = try PoolParams(from: poolParamsList)
+        } else if elements.count == 10 {
+            let poolParamsElements = Array(elements.dropFirst())
+            poolParams = try PoolParams(from: .list(poolParamsElements))
+        } else {
+            throw CardanoCoreError.deserializeError("Invalid PoolRegistration primitive structure")
+        }
         
         self.init(poolParams: poolParams)
     }

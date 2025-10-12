@@ -6,8 +6,8 @@ import PotentCBOR
 @Suite struct UnitIntervalTests {
     
     @Test func testInitialization() async throws {
-        let numerator: UInt = 1
-        let denominator: UInt = 100
+        let numerator: UInt64 = 1
+        let denominator: UInt64 = 100
         
         let unitInterval = UnitInterval(
             numerator: numerator,
@@ -20,8 +20,8 @@ import PotentCBOR
     
     @Test func testEncodingDecodingCBOR() async throws {
         let testCBORHex = "d81e82011864"
-        let numerator: UInt = 1
-        let denominator: UInt = 100
+        let numerator: UInt64 = 1
+        let denominator: UInt64 = 100
         
         let unitInterval = UnitInterval(
             numerator: numerator,
