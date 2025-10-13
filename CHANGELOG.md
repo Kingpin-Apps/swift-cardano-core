@@ -1,3 +1,13 @@
+## 0.2.0 (2025-10-13)
+
+### Feat
+
+- add VRF functionality
+
+### Fix
+
+- improve payload decoding/encoding
+
 ## 0.1.34 (2025-10-06)
 
 ### Fix
