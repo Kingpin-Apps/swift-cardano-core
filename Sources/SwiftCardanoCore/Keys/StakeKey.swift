@@ -31,7 +31,7 @@ public struct StakeVerificationKey: VerificationKeyProtocol {
         self._description = description ?? Self.DESCRIPTION
     }
     
-    public func rewardAccountHash(network: Network) throws -> RewardAccountHash {
+    public func rewardAccountHash(network: NetworkId) throws -> RewardAccountHash {
         let vKeyHash = VerificationKeyHash(
             payload: try SwiftNcal.Hash().blake2b(
                 data: payload,

@@ -18,8 +18,8 @@ public struct Address: CBORSerializable, CustomStringConvertible, Equatable {
     private let _stakingPart: StakingPart?
     
     /// The network the address belongs to.
-    public var network: Network { get { return _network } }
-    private let _network: Network
+    public var network: NetworkId { get { return _network } }
+    private let _network: NetworkId
     
     /// The type of the address.
     public var addressType: AddressType? { get { return _addressType } }
@@ -48,7 +48,7 @@ public struct Address: CBORSerializable, CustomStringConvertible, Equatable {
     ///   - stakingPart: The staking part of the address.
     ///   - network: Type of network the address belongs to.
     /// - Throws: `CardanoCoreError.invalidAddressInputError` when the address type cannot be inferred from the ``PaymentPart`` and ``StakingPart``.
-    public init(paymentPart: PaymentPart? = nil, stakingPart: StakingPart? = nil, network: Network = .mainnet) throws {
+    public init(paymentPart: PaymentPart? = nil, stakingPart: StakingPart? = nil, network: NetworkId = .mainnet) throws {
         _paymentPart = paymentPart
         _stakingPart = stakingPart
         _network = network
@@ -88,7 +88,7 @@ public struct Address: CBORSerializable, CustomStringConvertible, Equatable {
         guard let addrType = AddressType(rawValue: Int(addrBits)) else {
             throw CardanoCoreError.invalidAddressInputError("Invalid address type in header: \(header)")
         }
-        guard let network = Network(rawValue: Int(networkBits)) else {
+        guard let network = NetworkId(rawValue: Int(networkBits)) else {
             throw CardanoCoreError.invalidAddressInputError("Invalid network in header: \(header)")
         }
         
@@ -278,7 +278,7 @@ public struct Address: CBORSerializable, CustomStringConvertible, Equatable {
     ///   - addressType: Type of address.
     ///   - network: Type of network.
     /// - Returns: Data containing the header byte.
-    public static func computeHeaderByte(addressType: AddressType, network: Network) -> Data {
+    public static func computeHeaderByte(addressType: AddressType, network: NetworkId) -> Data {
         let header = (addressType.rawValue << 4 | network.rawValue)
         return Data([UInt8(header)])
     }
@@ -290,7 +290,7 @@ public struct Address: CBORSerializable, CustomStringConvertible, Equatable {
     ///   - addressType: Type of address.
     ///   - network: Type of network
     /// - Returns: The human-readable prefix.
-    public static func computeHrp(addressType: AddressType, network: Network) -> String {
+    public static func computeHrp(addressType: AddressType, network: NetworkId) -> String {
         let prefix = (addressType == .noneKey || addressType == .noneScript) ? "stake" : "addr"
         let suffix = (network == .mainnet) ? "" : "_test"
         return prefix + suffix

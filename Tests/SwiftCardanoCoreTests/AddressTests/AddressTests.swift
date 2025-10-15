@@ -27,7 +27,7 @@ struct AddressTests {
         StakingPart.pointerAddress(PointerAddress(slot: 1, txIndex: 2, certIndex: 3))
     ])
     func testInitialization(_ paymentPart: PaymentPart, _ stakingPart: StakingPart) async throws {
-        for network in Network.allCases {
+        for network in NetworkId.allCases {
             let address = try Address(
                 paymentPart: paymentPart,
                 stakingPart: stakingPart,

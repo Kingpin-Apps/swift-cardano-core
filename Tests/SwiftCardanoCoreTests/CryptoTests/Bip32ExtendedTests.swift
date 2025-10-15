@@ -64,7 +64,7 @@ enum TestAddressType {
 }
 
 // Test utility functions
-func deriveAndCreateAddress(wallet: HDWallet, derivationPath: String, network: Network, addressType: TestAddressType) throws -> String {
+func deriveAndCreateAddress(wallet: HDWallet, derivationPath: String, network: NetworkId, addressType: TestAddressType) throws -> String {
     let derivedWallet = try wallet.derive(fromPath: derivationPath)
     let paymentVK = PaymentVerificationKey(payload: derivedWallet.publicKey, type: nil, description: nil)
     
