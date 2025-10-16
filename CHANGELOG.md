@@ -1,3 +1,9 @@
+## 0.2.4 (2025-10-16)
+
+### Fix
+
+- handle DRep Id parsing and add stake address info tests
+
 ## 0.2.3 (2025-10-16)
 
 ### Fix
