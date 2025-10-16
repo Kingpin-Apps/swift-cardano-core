@@ -108,28 +108,55 @@ public struct DRep: CBORSerializable, Hashable, Sendable {
     }
     
     public init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        let code = try container.decode(Int.self)
-        let credential: DRepType
-        
-        if code == 0 {
-            let verificationKeyHash = try container.decode(VerificationKeyHash.self)
-            credential = .verificationKeyHash(verificationKeyHash)
-        } else if code == 1 {
-            let scriptHash = try container.decode(ScriptHash.self)
-            credential = .scriptHash(scriptHash)
-        } else if code == 2 {
-            credential = .alwaysAbstain
-        } else if code == 3 {
-            credential = .alwaysNoConfidence
-        } else {
-            throw CardanoCoreError
-                .deserializeError(
-                    "Invalid \(type(of: Self.self)) type: \(code)"
-                )
+        if String(describing: type(of: decoder)).contains("JSONDecoder") {
+            let container = try decoder.singleValueContainer()
+            let drepId = try container.decode(String.self)
+            
+            if Self.isValidBech32(drepId) {
+                try self.init(from: drepId)
+            } else {
+                let parts = drepId.split(separator: "-", maxSplits: 1)
+                let credentialType = String(parts[0])
+                let credentialHex = String(parts[1])
+                
+                guard let data = Data(hexString: credentialHex) else {
+                    throw CardanoCoreError.decodingError("Invalid hex string for DRepId: \(drepId)")
+                }
+                
+                if credentialType == "keyHash" {
+                    try self.init(from: data, as: .keyHash)
+                }
+                else if credentialType == "scriptHash" {
+                    try self.init(from: data, as: .scriptHash)
+                } else {
+                    throw CardanoCoreError.decodingError("Unexpected credential type in DRepId: \(drepId)")
+                }
+            }
+            
         }
-        
-        self.credential = credential
+        else {
+            var container = try decoder.unkeyedContainer()
+            let code = try container.decode(Int.self)
+            let credential: DRepType
+            
+            if code == 0 {
+                let verificationKeyHash = try container.decode(VerificationKeyHash.self)
+                credential = .verificationKeyHash(verificationKeyHash)
+            } else if code == 1 {
+                let scriptHash = try container.decode(ScriptHash.self)
+                credential = .scriptHash(scriptHash)
+            } else if code == 2 {
+                credential = .alwaysAbstain
+            } else if code == 3 {
+                credential = .alwaysNoConfidence
+            } else {
+                throw CardanoCoreError
+                    .deserializeError(
+                        "Invalid \(type(of: Self.self)) type: \(code)"
+                    )
+            }
+            self.init(credential: credential)
+        }
     }
     
     public init(from primitive: Primitive) throws {
@@ -189,16 +216,22 @@ public struct DRep: CBORSerializable, Hashable, Sendable {
     }
     
     public func encode(to encoder: Encoder) throws {
-        var container = encoder.unkeyedContainer()
-        try container.encode(code)
-        
-        switch credential {
-            case .verificationKeyHash(let verificationKeyHash):
-                try container.encode(verificationKeyHash)
-            case .scriptHash(let scriptHash):
-                try container.encode(scriptHash)
-            default:
-                break
+        if String(describing: type(of: encoder)).contains("JSONEncoder") {
+            var container = encoder.singleValueContainer()
+            try container.encode(try self.toBech32(.cip129))
+        }
+        else {
+            var container = encoder.unkeyedContainer()
+            try container.encode(code)
+            
+            switch credential {
+                case .verificationKeyHash(let verificationKeyHash):
+                    try container.encode(verificationKeyHash)
+                case .scriptHash(let scriptHash):
+                    try container.encode(scriptHash)
+                default:
+                    break
+            }
         }
     }
     
