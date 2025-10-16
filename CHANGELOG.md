@@ -1,3 +1,9 @@
+## 0.2.3 (2025-10-16)
+
+### Fix
+
+- add init from DRepID hex data
+
 ## 0.2.2 (2025-10-15)
 
 ### Fix
