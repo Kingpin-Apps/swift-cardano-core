@@ -23,10 +23,13 @@ struct DRepTests {
         
         let cip105 = "drep1kqhhkv66a0egfw7uyz7u8dv7fcvr4ck0c3ad9k9urx3yzhefup0"
         let cip129 = "drep1y2cz77entt4l9p9mmsstmsa4ne8pswhzelz845kchsv6ysgdhay86"
-        let drepcip105 = try DRep(from: .string(cip105))
-        let drepcip129 = try DRep(from: .string(cip129))
+        let drepcip105 = try DRep(from: cip105)
+        let drepcip129 = try DRep(from: cip129)
+        
+        let drepFromHash = try DRep(from: excpectedDrepHexId.hexStringToData, as: .keyHash)
         
         #expect(drepcip105 == drepcip129)
+        #expect(drepFromHash == drepcip129)
         
         #expect(try drepcip105.id(.cip129) == cip129)
         #expect(try drepcip129.id(.cip105) == cip105)

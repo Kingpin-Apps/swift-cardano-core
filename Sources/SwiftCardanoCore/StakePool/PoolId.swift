@@ -1,16 +1,6 @@
 import Foundation
 
-public func isBech32CardanoPoolId(_ poolId: String?) -> Bool {
-    guard let poolId = poolId, poolId.hasPrefix("pool") else {
-        return false
-    }
-    let decoded = try? Bech32().bech32Decode(poolId)
-    return decoded != nil
-}
-
 public struct PoolId: CBORSerializable, CustomStringConvertible, CustomDebugStringConvertible, Equatable, Hashable {
-
-
     public var description: String { return bech32 }
 
     public var debugDescription: String { return bech32 }
@@ -20,7 +10,7 @@ public struct PoolId: CBORSerializable, CustomStringConvertible, CustomDebugStri
     public let bech32: String
     
     public init(from bech32: String) throws {
-        guard isBech32CardanoPoolId(bech32) else {
+        guard Self.isValidBech32(bech32) else {
             throw CardanoCoreError.valueError("Invalid PoolId format. The PoolId should be a valid Cardano stake pool ID in bech32 format.")
         }
         self.bech32 = bech32
@@ -39,6 +29,8 @@ public struct PoolId: CBORSerializable, CustomStringConvertible, CustomDebugStri
     public init(from primitive: Primitive) throws {
         if case .string(let bech32) = primitive {
             try self.init(from: bech32)
+        } else if case .bytes(let data) = primitive {
+            try self.init(from: data)
         } else {
             throw CardanoCoreError.valueError("Invalid PoolId format. The PoolId should be a valid Cardano stake pool ID in bech32 format.")
         }
@@ -70,5 +62,13 @@ public struct PoolId: CBORSerializable, CustomStringConvertible, CustomDebugStri
         } else {
             return try self.init(from: id.hexStringToData)
         }
+    }
+    
+    public static func isValidBech32(_ poolId: String?) -> Bool {
+        guard let poolId = poolId, poolId.hasPrefix("pool") else {
+            return false
+        }
+        let decoded = try? Bech32().bech32Decode(poolId)
+        return decoded != nil
     }
 }

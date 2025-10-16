@@ -90,7 +90,21 @@ public struct DRep: CBORSerializable, Hashable, Sendable {
     }
     
     public init(from bech32: String) throws {
+        guard Self.isValidBech32(bech32) else {
+            throw CardanoCoreError.valueError("Invalid DRepId format. The DRepId should be a valid bech32 format.")
+        }
         try self.init(from: .string(bech32))
+    }
+    
+    public init(from hex: Data, as credentialType: GovernanceCredentialType) throws {
+        switch credentialType {
+            case .keyHash:
+                let verificationKeyHash = VerificationKeyHash(payload: hex)
+                self.credential = .verificationKeyHash(verificationKeyHash)
+            case .scriptHash:
+                let scriptHash = ScriptHash(payload: hex)
+                self.credential = .scriptHash(scriptHash)
+        }
     }
     
     public init(from decoder: Decoder) throws {
@@ -116,6 +130,62 @@ public struct DRep: CBORSerializable, Hashable, Sendable {
         }
         
         self.credential = credential
+    }
+    
+    public init(from primitive: Primitive) throws {
+        if case .list(_) = primitive {
+            let credential = try DRepType(from: primitive)
+            self.init(credential: credential)
+        }
+        else if case let .string(drepId) = primitive {
+            let bech32 = Bech32()
+            let (hrp, checksum, _) = try bech32.bech32Decode(drepId)
+            let data = bech32.convertBits(data: checksum, fromBits: 5, toBits: 8, pad: false)
+            
+            guard let data else {
+                throw CardanoCoreError.decodingError("Invalid bech32 string")
+            }
+            
+            if data.count == VERIFICATION_KEY_HASH_SIZE {
+                // CIP-0105
+                if hrp == "drep" {
+                    try self.init(from: data, as: .keyHash)
+                } else if hrp == "drep_script" {
+                    try self.init(from: data, as: .scriptHash)
+                } else {
+                    throw CardanoCoreError.decodingError("Unhandled HRP")
+                }
+            }
+            else if data.count == DREP_CIP129_PAYLOAD_SIZE {
+                // CIP-0129
+                let header = data[0]
+                let payload = data.dropFirst()
+                
+                let keyTypeBits = (UInt8(header) & 0xF0) >> 4
+                let credentialTypeBits = UInt8(header & 0x0F)
+                
+                guard let keyType = GovernanceKeyType(rawValue: Int(keyTypeBits)),
+                      case .drep = keyType else {
+                    throw CardanoCoreError.decodingError("Invalid key type type in header: \(header)")
+                }
+                
+                guard let credentialType = GovernanceCredentialType(rawValue: Int(credentialTypeBits)) else {
+                    throw CardanoCoreError.decodingError("Invalid credential type in header: \(header)")
+                }
+                
+                switch credentialType {
+                    case .keyHash:
+                        try self.init(from: payload, as: .keyHash)
+                    case .scriptHash:
+                        try self.init(from: payload, as: .scriptHash)
+                }
+            }
+            else {
+                throw CardanoCoreError.decodingError("Unhandled DRepId size")
+            }
+        } else {
+            throw CardanoCoreError.decodingError("Invalid DRepId: \(primitive)")
+        }
     }
     
     public func encode(to encoder: Encoder) throws {
@@ -174,65 +244,6 @@ public struct DRep: CBORSerializable, Hashable, Sendable {
         }
     }
     
-    public init(from primitive: Primitive) throws {
-        if case .list(_) = primitive {
-            self.credential = try DRepType(from: primitive)
-        }
-        else if case let .string(drepId) = primitive {
-            let bech32 = Bech32()
-            let (hrp, checksum, _) = try bech32.bech32Decode(drepId)
-            let data = bech32.convertBits(data: checksum, fromBits: 5, toBits: 8, pad: false)
-            
-            guard let data else {
-                throw CardanoCoreError.decodingError("Invalid bech32 string")
-            }
-            
-            if data.count == VERIFICATION_KEY_HASH_SIZE {
-                // CIP-0105
-                if hrp == "drep" {
-                    let verificationKeyHash = VerificationKeyHash(payload: data)
-                    self.credential = .verificationKeyHash(verificationKeyHash)
-                } else if hrp == "drep_script" {
-                    let scriptHash = ScriptHash(payload: data)
-                    self.credential = .scriptHash(scriptHash)
-                } else {
-                    throw CardanoCoreError.decodingError("Unhandled HRP")
-                }
-            }
-            else if data.count == DREP_CIP129_PAYLOAD_SIZE {
-                // CIP-0129
-                let header = data[0]
-                let payload = data.dropFirst()
-                
-                let keyTypeBits = (UInt8(header) & 0xF0) >> 4
-                let credentialTypeBits = UInt8(header & 0x0F)
-                
-                guard let keyType = GovernanceKeyType(rawValue: Int(keyTypeBits)),
-                      case .drep = keyType else {
-                    throw CardanoCoreError.decodingError("Invalid key type type in header: \(header)")
-                }
-                
-                guard let credentialType = GovernanceCredentialType(rawValue: Int(credentialTypeBits)) else {
-                    throw CardanoCoreError.decodingError("Invalid credential type in header: \(header)")
-                }
-                
-                switch credentialType {
-                    case .keyHash:
-                        let verificationKeyHash = VerificationKeyHash(payload: payload)
-                        self.credential = .verificationKeyHash(verificationKeyHash)
-                    case .scriptHash:
-                        let scriptHash = ScriptHash(payload: payload)
-                        self.credential = .scriptHash(scriptHash)
-                }
-            }
-            else {
-                throw CardanoCoreError.decodingError("Unhandled DRepId size")
-            }
-        } else {
-            throw CardanoCoreError.decodingError("Invalid DRepId: \(primitive)")
-        }
-    }
-    
     public func toPrimitive() throws -> Primitive {
         return try credential.toPrimitive()
     }
@@ -287,4 +298,11 @@ public struct DRep: CBORSerializable, Hashable, Sendable {
         return try DRep(from: .string(drepId))
     }
     
+    public static func isValidBech32(_ drepId: String?) -> Bool {
+        guard let drepId = drepId, drepId.hasPrefix("drep") else {
+            return false
+        }
+        let decoded = try? Bech32().bech32Decode(drepId)
+        return decoded != nil
+    }
 }
