@@ -1,3 +1,9 @@
+## 0.2.2 (2025-10-15)
+
+### Fix
+
+- add DRep init from bech32 id with CIP129 support
+
 ## 0.2.1 (2025-10-15)
 
 ### Fix
