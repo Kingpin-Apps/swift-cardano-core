@@ -1,5 +1,16 @@
 import Foundation
 
+public enum GovernanceKeyType: Int, Sendable {
+    case ccHot = 0b0000
+    case ccCold = 0b0001
+    case drep = 0b0010
+}
+
+public enum GovernanceCredentialType: Int, Sendable {
+    case keyHash = 0b0010
+    case scriptHash = 0b0011
+}
+
 public enum GovActionCode: Int, Codable {
     case parameterChangeAction = 0
     case hardForkInitiationAction = 1
