@@ -118,22 +118,22 @@ public enum NativeScript: CBORSerializable, Equatable, Hashable {
             throw CardanoCoreError.decodingError("NativeScript expected CBOR array primitive: \(primitive)")
         }
         
-        guard case let .int(type) = head else {
+        guard case let .uint(type) = head else {
             throw CardanoCoreError.decodingError("NativeScript: expected first element to be unsigned int: \(head)")
         }
         
         switch type {
-            case Int(ScriptPubkey.TYPE.rawValue):
+            case UInt(ScriptPubkey.TYPE.rawValue):
                 self = .scriptPubkey(try ScriptPubkey(from: primitive))
-            case Int(ScriptAll.TYPE.rawValue):
+            case UInt(ScriptAll.TYPE.rawValue):
                 self = .scriptAll(try ScriptAll(from: primitive))
-            case Int(ScriptAny.TYPE.rawValue):
+            case UInt(ScriptAny.TYPE.rawValue):
                 self = .scriptAny(try ScriptAny(from: primitive))
-            case Int(ScriptNofK.TYPE.rawValue):
+            case UInt(ScriptNofK.TYPE.rawValue):
                 self = .scriptNofK(try ScriptNofK(from: primitive))
-            case Int(BeforeScript.TYPE.rawValue):
+            case UInt(BeforeScript.TYPE.rawValue):
                 self = .invalidBefore(try BeforeScript(from: primitive))
-            case Int(AfterScript.TYPE.rawValue):
+            case UInt(AfterScript.TYPE.rawValue):
                 self = .invalidHereAfter(try AfterScript(from: primitive))
             default:
                 throw CardanoCoreError.decodingError("NativeScript: unknown script type \(type)")

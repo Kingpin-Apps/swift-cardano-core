@@ -76,7 +76,7 @@ public enum Certificate: CBORSerializable, Equatable, Hashable {
         }
         
         guard let firstElement = elements.first,
-                case let .int(code) = firstElement,
+                case let .uint(code) = firstElement,
               let certificateCode = CertificateCode(rawValue: Int(code)) else {
             throw CardanoCoreError.deserializeError("Invalid Certificate code")
         }

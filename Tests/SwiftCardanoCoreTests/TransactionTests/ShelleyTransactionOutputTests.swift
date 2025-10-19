@@ -44,8 +44,10 @@ struct ShelleyTransactionOutputTests {
             datumHash: datumHash
         )
         
-        let encodedData = try CBOREncoder().encode(originalOutput)
-        let decodedOutput = try CBORDecoder().decode(ShelleyTransactionOutput.self, from: encodedData)
+        let encodedData = try originalOutput.toCBORData()
+        let decodedOutput = try ShelleyTransactionOutput.fromCBOR(
+            data: encodedData
+        )
         
         #expect(decodedOutput == originalOutput)
         #expect(decodedOutput.address == originalOutput.address)

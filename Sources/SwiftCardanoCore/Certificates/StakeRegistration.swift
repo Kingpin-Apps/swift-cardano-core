@@ -53,7 +53,7 @@ public struct StakeRegistration: CertificateSerializable {
             throw CardanoCoreError.deserializeError("Invalid StakeRegistration type")
         }
         
-        guard case .int(let code) = list[0],
+        guard case .uint(let code) = list[0],
               code == Self.CODE.rawValue else {
             throw CardanoCoreError.deserializeError("Invalid StakeRegistration type")
         }
@@ -65,7 +65,7 @@ public struct StakeRegistration: CertificateSerializable {
     
     public func toPrimitive() throws -> Primitive {
         return .list([
-            .int(Int(Self.CODE.rawValue)),
+            .uint(UInt(Self.CODE.rawValue)),
             try stakeCredential.toPrimitive()
         ])
     }

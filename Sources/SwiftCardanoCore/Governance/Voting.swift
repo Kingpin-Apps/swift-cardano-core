@@ -1,4 +1,5 @@
 import Foundation
+import OrderedCollections
 
 public enum Vote: Int, Codable, Sendable {
     case no = 0
@@ -16,7 +17,7 @@ public enum VoterType: CBORSerializable, Equatable, Hashable {
     public init(from primitive: Primitive) throws {
         guard case let .list(elements) = primitive,
               elements.count == 2,
-              case let .int(tag) = elements[0] else {
+              case let .uint(tag) = elements[0] else {
             throw CardanoCoreError.deserializeError("Invalid VoterType primitive")
         }
         
@@ -39,15 +40,15 @@ public enum VoterType: CBORSerializable, Equatable, Hashable {
     public func toPrimitive() throws -> Primitive {
         switch self {
             case .constitutionalCommitteeHotKeyhash(let hash):
-                return .list([.int(0), hash.toPrimitive()])
+                return .list([.uint(0), hash.toPrimitive()])
             case .constitutionalCommitteeHotScriptHash(let hash):
-                return .list([.int(1), hash.toPrimitive()])
+                return .list([.uint(1), hash.toPrimitive()])
             case .drepKeyhash(let hash):
-                return .list([.int(2), hash.toPrimitive()])
+                return .list([.uint(2), hash.toPrimitive()])
             case .drepScriptHash(let hash):
-                return .list([.int(3), hash.toPrimitive()])
+                return .list([.uint(3), hash.toPrimitive()])
             case .stakePoolKeyhash(let hash):
-                return .list([.int(4), hash.toPrimitive()])
+                return .list([.uint(4), hash.toPrimitive()])
         }
     }
 }
@@ -79,11 +80,11 @@ public struct VotingProcedure: CBORSerializable, Equatable, Hashable {
             throw CardanoCoreError.deserializeError("Invalid VotingProcedure primitive")
         }
         
-        guard case let .int(voteValue) = elements[0] else {
+        guard case let .uint(voteValue) = elements[0] else {
             throw CardanoCoreError.deserializeError("Invalid vote value in VotingProcedure")
         }
         
-        guard let vote = Vote(rawValue: voteValue) else {
+        guard let vote = Vote(rawValue: Int(voteValue)) else {
             throw CardanoCoreError.deserializeError("Invalid vote enum value: \(voteValue)")
         }
         
@@ -142,8 +143,8 @@ public struct Voter: CBORSerializable, Equatable, Hashable {
     public init(from primitive: Primitive) throws {
         guard case let .list(elements) = primitive,
               elements.count == 2,
-              case .int(_) = elements[0] else {
-            throw CardanoCoreError.deserializeError("Invalid Voter primitive")
+              case .uint(_) = elements[0] else {
+            throw CardanoCoreError.deserializeError("Invalid Voter primitive: \(primitive)")
         }
         
         self.credential = try VoterType(from: elements[1])
@@ -151,7 +152,7 @@ public struct Voter: CBORSerializable, Equatable, Hashable {
     
     public func toPrimitive() throws -> Primitive {
         return .list([
-            .int(code),
+            .uint(UInt(code)),
             try credential.toPrimitive()
         ])
     }
@@ -306,21 +307,28 @@ public struct VotingProcedures: CBORSerializable, Equatable, Hashable {
     
     // MARK: - Codable conformance
     
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        procedures = try container.decode([Voter: [GovActionID: VotingProcedure]].self)
-    }
-    
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-        try container.encode(procedures)
-    }
+//    public init(from decoder: Decoder) throws {
+//        let container = try decoder.singleValueContainer()
+//        procedures = try container.decode([Voter: [GovActionID: VotingProcedure]].self)
+//    }
+//    
+//    public func encode(to encoder: Encoder) throws {
+//        var container = encoder.singleValueContainer()
+//        try container.encode(procedures)
+//    }
     
     // MARK: - CBORSerializable primitive methods
     
     public init(from primitive: Primitive) throws {
-        guard case let .dict(dict) = primitive else {
-            throw CardanoCoreError.deserializeError("Invalid VotingProcedures primitive")
+        // handle dict or ordered dict
+        var dict: OrderedDictionary<Primitive, Primitive>
+        switch primitive {
+            case .orderedDict(let orderedDict):
+                dict = orderedDict
+            case .dict(let dictionary):
+                dict = OrderedDictionary(uniqueKeysWithValues: dictionary.map { ($0.key, $0.value) })
+            default:
+                throw CardanoCoreError.deserializeError("Invalid VotingProcedures primitive: \(primitive)")
         }
         
         var procedures: [Voter: [GovActionID: VotingProcedure]] = [:]
@@ -328,8 +336,14 @@ public struct VotingProcedures: CBORSerializable, Equatable, Hashable {
         for (voterPrimitive, actionsPrimitive) in dict {
             let voter = try Voter(from: voterPrimitive)
             
-            guard case let .dict(actionsDict) = actionsPrimitive else {
-                throw CardanoCoreError.deserializeError("Invalid actions dictionary in VotingProcedures")
+            var actionsDict: OrderedDictionary<Primitive, Primitive>
+            switch actionsPrimitive {
+                case .orderedDict(let orderedDict):
+                    actionsDict = orderedDict
+                case .dict(let dictionary):
+                    actionsDict = OrderedDictionary(uniqueKeysWithValues: dictionary.map { ($0.key, $0.value) })
+                default:
+                    throw CardanoCoreError.deserializeError("Invalid actions dictionary in VotingProcedures: \(actionsPrimitive)")
             }
             
             var actions: [GovActionID: VotingProcedure] = [:]

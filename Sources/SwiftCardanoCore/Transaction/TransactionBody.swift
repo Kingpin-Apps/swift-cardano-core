@@ -135,13 +135,17 @@ public struct TransactionBody: CBORSerializable, Equatable, Hashable {
                 throw CardanoCoreError.deserializeError("Invalid TransactionBody type: \(primitive)")
         }
         
+        func key(_ key: CodingKeys) -> Primitive {
+            return .uint(UInt(key.rawValue))
+        }
+        
         // Required fields
-        guard let inputsPrimitive = primitiveDict[.int(CodingKeys.inputs.rawValue)] else {
+        guard let inputsPrimitive = primitiveDict[key(CodingKeys.inputs)] else {
             throw CardanoCoreError.deserializeError("TransactionBody inputs are required")
         }
         inputs = try ListOrOrderedSet<TransactionInput>(from: inputsPrimitive)
         
-        guard let outputsPrimitive = primitiveDict[.int(CodingKeys.outputs.rawValue)] else {
+        guard let outputsPrimitive = primitiveDict[key(CodingKeys.outputs)] else {
             throw CardanoCoreError.deserializeError("TransactionBody outputs are required")
         }
         if case let .list(outputsList) = outputsPrimitive {
@@ -150,124 +154,124 @@ public struct TransactionBody: CBORSerializable, Equatable, Hashable {
             throw CardanoCoreError.deserializeError("TransactionBody outputs must be an array")
         }
         
-        guard let feePrimitive = primitiveDict[.int(CodingKeys.fee.rawValue)] else {
+        guard let feePrimitive = primitiveDict[key(CodingKeys.fee)] else {
             throw CardanoCoreError.deserializeError("TransactionBody fee is required")
         }
-        if case let .int(feeValue) = feePrimitive {
+        if case let .uint(feeValue) = feePrimitive {
             fee = Coin(feeValue)
         } else {
             throw CardanoCoreError.deserializeError("TransactionBody fee must be an integer")
         }
         
         // Optional fields
-        if let ttlPrimitive = primitiveDict[.int(CodingKeys.ttl.rawValue)],
-           case let .int(ttlValue) = ttlPrimitive {
+        if let ttlPrimitive = primitiveDict[key(CodingKeys.ttl)],
+           case let .uint(ttlValue) = ttlPrimitive {
             ttl = Int(ttlValue)
         } else {
             ttl = nil
         }
         
-        if let certificatesPrimitive = primitiveDict[.int(CodingKeys.certificates.rawValue)] {
+        if let certificatesPrimitive = primitiveDict[key(CodingKeys.certificates)] {
             certificates = try ListOrNonEmptyOrderedSet<Certificate>(from: certificatesPrimitive)
         } else {
             certificates = nil
         }
         
-        if let withdrawalsPrimitive = primitiveDict[.int(CodingKeys.withdrawals.rawValue)] {
+        if let withdrawalsPrimitive = primitiveDict[key(CodingKeys.withdrawals)] {
             withdrawals = try Withdrawals(from: withdrawalsPrimitive)
         } else {
             withdrawals = nil
         }
         
-        if let updatePrimitive = primitiveDict[.int(CodingKeys.update.rawValue)] {
+        if let updatePrimitive = primitiveDict[key(CodingKeys.update)] {
             update = try Update(from: updatePrimitive)
         } else {
             update = nil
         }
         
-        if let auxiliaryDataHashPrimitive = primitiveDict[.int(CodingKeys.auxiliaryDataHash.rawValue)] {
+        if let auxiliaryDataHashPrimitive = primitiveDict[key(CodingKeys.auxiliaryDataHash)] {
             auxiliaryDataHash = try AuxiliaryDataHash(from: auxiliaryDataHashPrimitive)
         } else {
             auxiliaryDataHash = nil
         }
         
-        if let validityStartPrimitive = primitiveDict[.int(CodingKeys.validityStart.rawValue)],
-           case let .int(validityStartValue) = validityStartPrimitive {
+        if let validityStartPrimitive = primitiveDict[key(CodingKeys.validityStart)],
+           case let .uint(validityStartValue) = validityStartPrimitive {
             validityStart = Int(validityStartValue)
         } else {
             validityStart = nil
         }
         
-        if let mintPrimitive = primitiveDict[.int(CodingKeys.mint.rawValue)] {
+        if let mintPrimitive = primitiveDict[key(CodingKeys.mint)] {
             mint = try MultiAsset(from: mintPrimitive)
         } else {
             mint = nil
         }
         
-        if let scriptDataHashPrimitive = primitiveDict[.int(CodingKeys.scriptDataHash.rawValue)] {
+        if let scriptDataHashPrimitive = primitiveDict[key(CodingKeys.scriptDataHash)] {
             scriptDataHash = try ScriptDataHash(from: scriptDataHashPrimitive)
         } else {
             scriptDataHash = nil
         }
         
-        if let collateralPrimitive = primitiveDict[.int(CodingKeys.collateral.rawValue)] {
+        if let collateralPrimitive = primitiveDict[key(CodingKeys.collateral)] {
             collateral = try ListOrNonEmptyOrderedSet<TransactionInput>(from: collateralPrimitive)
         } else {
             collateral = nil
         }
         
-        if let requiredSignersPrimitive = primitiveDict[.int(CodingKeys.requiredSigners.rawValue)] {
+        if let requiredSignersPrimitive = primitiveDict[key(CodingKeys.requiredSigners)] {
             requiredSigners = try ListOrNonEmptyOrderedSet<VerificationKeyHash>(from: requiredSignersPrimitive)
         } else {
             requiredSigners = nil
         }
         
-        if let networkIdPrimitive = primitiveDict[.int(CodingKeys.networkId.rawValue)],
-           case let .int(networkIdValue) = networkIdPrimitive {
+        if let networkIdPrimitive = primitiveDict[key(CodingKeys.networkId)],
+           case let .uint(networkIdValue) = networkIdPrimitive {
             networkId = Int(networkIdValue)
         } else {
             networkId = nil
         }
         
-        if let collateralReturnPrimitive = primitiveDict[.int(CodingKeys.collateralReturn.rawValue)] {
+        if let collateralReturnPrimitive = primitiveDict[key(CodingKeys.collateralReturn)] {
             collateralReturn = try TransactionOutput(from: collateralReturnPrimitive)
         } else {
             collateralReturn = nil
         }
         
-        if let totalCollateralPrimitive = primitiveDict[.int(CodingKeys.totalCollateral.rawValue)],
-           case let .int(totalCollateralValue) = totalCollateralPrimitive {
+        if let totalCollateralPrimitive = primitiveDict[key(CodingKeys.totalCollateral)],
+           case let .uint(totalCollateralValue) = totalCollateralPrimitive {
             totalCollateral = Coin(totalCollateralValue)
         } else {
             totalCollateral = nil
         }
         
-        if let referenceInputsPrimitive = primitiveDict[.int(CodingKeys.referenceInputs.rawValue)] {
+        if let referenceInputsPrimitive = primitiveDict[key(CodingKeys.referenceInputs)] {
             referenceInputs = try ListOrNonEmptyOrderedSet<TransactionInput>(from: referenceInputsPrimitive)
         } else {
             referenceInputs = nil
         }
         
-        if let votingProceduresPrimitive = primitiveDict[.int(CodingKeys.votingProcedures.rawValue)] {
+        if let votingProceduresPrimitive = primitiveDict[key(CodingKeys.votingProcedures)] {
             votingProcedures = try VotingProcedures(from: votingProceduresPrimitive)
         } else {
             votingProcedures = nil
         }
         
-        if let proposalProceduresPrimitive = primitiveDict[.int(CodingKeys.proposalProcedures.rawValue)] {
+        if let proposalProceduresPrimitive = primitiveDict[key(CodingKeys.proposalProcedures)] {
             proposalProcedures = try ProposalProcedures(from: proposalProceduresPrimitive)
         } else {
             proposalProcedures = nil
         }
         
-        if let currentTreasuryAmountPrimitive = primitiveDict[.int(CodingKeys.currentTreasuryAmount.rawValue)],
-           case let .int(currentTreasuryAmountValue) = currentTreasuryAmountPrimitive {
+        if let currentTreasuryAmountPrimitive = primitiveDict[key(CodingKeys.currentTreasuryAmount)],
+           case let .uint(currentTreasuryAmountValue) = currentTreasuryAmountPrimitive {
             currentTreasuryAmount = Coin(currentTreasuryAmountValue)
         } else {
             currentTreasuryAmount = nil
         }
         
-        if let treasuryDonationPrimitive = primitiveDict[.int(CodingKeys.treasuryDonation.rawValue)] {
+        if let treasuryDonationPrimitive = primitiveDict[key(CodingKeys.treasuryDonation)] {
             treasuryDonation = try PositiveCoin(from: treasuryDonationPrimitive)
         } else {
             treasuryDonation = nil
@@ -277,66 +281,73 @@ public struct TransactionBody: CBORSerializable, Equatable, Hashable {
     public func toPrimitive() throws -> Primitive {
         var dictionary: OrderedDictionary<Primitive, Primitive> = [:]
         
+        func key(_ key: CodingKeys) -> Primitive {
+            return .uint(UInt(key.rawValue))
+        }
+        
         // Required fields
-        dictionary[.int(CodingKeys.inputs.rawValue)] = try inputs.toPrimitive()
-        dictionary[.int(CodingKeys.outputs.rawValue)] =
+        dictionary[key(CodingKeys.inputs)] = try inputs.toPrimitive()
+        dictionary[key(CodingKeys.outputs)] =
             .list(try outputs.map { try $0.toPrimitive() })
-        dictionary[.int(CodingKeys.fee.rawValue)] = .int(Int(fee))
+        dictionary[key(CodingKeys.fee)] = .uint(UInt(fee))
         
         // Optional fields
         if let ttl = ttl {
-            dictionary[.int(CodingKeys.ttl.rawValue)] = .int(Int(ttl))
+            dictionary[key(CodingKeys.ttl)] = .uint(UInt(ttl))
         }
         if let certificates = certificates {
-            dictionary[.int(4)] = try certificates.toPrimitive()
+            dictionary[key(CodingKeys.certificates)] = try certificates.toPrimitive()
         }
         if let withdrawals = withdrawals {
-            dictionary[.int(5)] = try withdrawals.toPrimitive()
+            dictionary[key(CodingKeys.withdrawals)] = try withdrawals.toPrimitive()
         }
         if let update = update {
-            dictionary[.int(6)] = try update.toPrimitive()
+            dictionary[key(CodingKeys.update)] = try update.toPrimitive()
         }
         if let auxiliaryDataHash = auxiliaryDataHash {
-            dictionary[.int(7)] = auxiliaryDataHash.toPrimitive()
+            dictionary[key(CodingKeys.auxiliaryDataHash)] = auxiliaryDataHash.toPrimitive()
         }
         if let validityStart = validityStart {
-            dictionary[.int(8)] = .int(Int(validityStart))
+            dictionary[key(CodingKeys.validityStart)] = 
+                .uint(UInt(validityStart))
         }
         if let mint = mint {
-            dictionary[.int(9)] = mint.toPrimitive()
+            dictionary[key(CodingKeys.mint)] = mint.toPrimitive()
         }
         if let scriptDataHash = scriptDataHash {
-            dictionary[.int(11)] = scriptDataHash.toPrimitive()
+            dictionary[key(CodingKeys.scriptDataHash)] = scriptDataHash.toPrimitive()
         }
         if let collateral = collateral {
-            dictionary[.int(13)] = try collateral.toPrimitive()
+            dictionary[key(CodingKeys.collateral)] = try collateral.toPrimitive()
         }
         if let requiredSigners = requiredSigners {
-            dictionary[.int(14)] = try requiredSigners.toPrimitive()
+            dictionary[key(CodingKeys.requiredSigners)] = try requiredSigners.toPrimitive()
         }
         if let networkId = networkId {
-            dictionary[.int(15)] = .int(Int(networkId))
+            dictionary[key(CodingKeys.networkId)] = .uint(UInt(networkId))
         }
         if let collateralReturn = collateralReturn {
-            dictionary[.int(16)] = try collateralReturn.toPrimitive()
+            dictionary[key(CodingKeys.collateralReturn)] = try collateralReturn.toPrimitive()
         }
         if let totalCollateral = totalCollateral {
-            dictionary[.int(17)] = .int(Int(totalCollateral))
+            dictionary[key(CodingKeys.totalCollateral)] = 
+                .uint(UInt(Int(totalCollateral)))
         }
         if let referenceInputs = referenceInputs {
-            dictionary[.int(18)] = try referenceInputs.toPrimitive()
+            dictionary[key(CodingKeys.referenceInputs)] = try referenceInputs.toPrimitive()
         }
         if let votingProcedures = votingProcedures {
-            dictionary[.int(19)] = try votingProcedures.toPrimitive()
+            dictionary[key(CodingKeys.votingProcedures)] = try votingProcedures.toPrimitive()
         }
         if let proposalProcedures = proposalProcedures {
-            dictionary[.int(20)] = try proposalProcedures.toPrimitive()
+            dictionary[key(CodingKeys.proposalProcedures)] = try proposalProcedures.toPrimitive()
         }
         if let currentTreasuryAmount = currentTreasuryAmount {
-            dictionary[.int(21)] = .int(Int(currentTreasuryAmount))
+            dictionary[key(CodingKeys.currentTreasuryAmount)] = 
+                .uint(UInt(currentTreasuryAmount))
         }
         if let treasuryDonation = treasuryDonation {
-            dictionary[.int(22)] = try treasuryDonation.toPrimitive()
+            dictionary[key(CodingKeys.treasuryDonation)] = try treasuryDonation.toPrimitive()
         }
         
         return .orderedDict(dictionary)

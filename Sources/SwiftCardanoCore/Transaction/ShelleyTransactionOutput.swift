@@ -11,20 +11,6 @@ public struct ShelleyTransactionOutput: CBORSerializable, Equatable, Hashable {
         self.datumHash = datumHash
     }
     
-    public init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        address = try container.decode(Address.self)
-        amount = try container.decode(Value.self)
-        datumHash = try container.decodeIfPresent(DatumHash.self)
-    }
-    
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.unkeyedContainer()
-        try container.encode(address)
-        try container.encode(amount)
-        try container.encode(datumHash)
-    }
-    
     public init(from primitive: Primitive) throws {
         guard case let .list(elements) = primitive else {
             throw CardanoCoreError.deserializeError("Invalid ShelleyTransactionOutput primitive")

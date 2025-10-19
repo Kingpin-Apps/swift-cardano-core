@@ -12,16 +12,16 @@ public protocol SetTaggable<Element>: CBORTaggable {
 
 extension SetTaggable {
     public var tag: UInt64 { 258 }
-    public var value: AnyValue {
+    public var value: Primitive {
         get {
-            return .array(
+            return .list(
                 elements.map {
-                    try! AnyValue.Encoder.default.encode($0)
+                    try! Primitive.fromAny($0)
                 }
             )
         }
         set(newValue) {
-            guard case .array(_) = newValue else {
+            guard case .list(_) = newValue else {
                 fatalError("SetWrapper must contain an array")
             }
         }
@@ -56,9 +56,9 @@ extension SetTaggable {
             let elements = Set(decodedElements)
             try self.init(
                 tag: tag.rawValue,
-                value: AnyValue.array(
+                value: .list(
                     elements.map {
-                        try! AnyValue.Encoder.default.encode($0)
+                        try Primitive.fromAny($0)
                     }
                 )
             )
@@ -70,9 +70,7 @@ extension SetTaggable {
             let elements = Set(decodedElements)
             try self.init(
                 tag: Self.TAG,
-                value:
-                    AnyValue
-                    .array(elements.map { try! AnyValue.wrapped($0) })
+                value: .list(elements.map { try Primitive.fromAny($0)     })
             )
         } else {
             throw CardanoCoreError.valueError("Invalid CBOR format for SetWrapper")
@@ -98,13 +96,13 @@ public struct OrderedSet<T: CBORSerializable & Hashable>: SetTaggable {
         Array(Set(elements))
     }
 
-    public init(tag: UInt64 = 258, value: AnyValue) throws {
+    public init(tag: UInt64 = 258, value: Primitive) throws {
         guard tag == Self.TAG else {
             fatalError("Invalid CBOR tag: expected \(Self.TAG) but found \(tag)")
         }
         self.value = value
         self.elements = Set(
-            try value.arrayValue!.map {
+            try value.listValue!.map {
                 try T.init(from: $0.toPrimitive())
             }
         )
@@ -113,12 +111,10 @@ public struct OrderedSet<T: CBORSerializable & Hashable>: SetTaggable {
     public init(_ elements: Set<Element>) throws {
         try self.init(
             tag: Self.TAG,
-            value:
-                AnyValue
-                .array(
-                    elements.map {
-                        try! AnyValue.Encoder.default.encode($0)
-                    })
+            value: .list(
+                elements.map {
+                    try! $0.toPrimitive()
+                })
         )
         self.elements = elements
     }
@@ -137,9 +133,9 @@ public struct OrderedSet<T: CBORSerializable & Hashable>: SetTaggable {
     public mutating func append(_ element: Element) -> (inserted: Bool, memberAfterInsert: Element) {
         let result = elements.insert(element)
         // Update the value to reflect the new elements
-        self.value = AnyValue.array(
+        self.value = .list(
             elements.map {
-                try! AnyValue.Encoder.default.encode($0)
+                try! Primitive.fromAny($0)
             }
         )
         return result
@@ -161,9 +157,9 @@ public struct OrderedSet<T: CBORSerializable & Hashable>: SetTaggable {
     public mutating func remove(_ element: Element) -> Element? {
         let removed = elements.remove(element)
         // Update the value to reflect the new elements
-        self.value = AnyValue.array(
+        self.value = .list(
             elements.map {
-                try! AnyValue.Encoder.default.encode($0)
+                try! Primitive.fromAny($0)
             }
         )
         return removed
@@ -172,7 +168,7 @@ public struct OrderedSet<T: CBORSerializable & Hashable>: SetTaggable {
     /// Removes all elements from the set
     public mutating func removeAll() {
         elements.removeAll()
-        self.value = AnyValue.array([])
+        self.value = .list([])
     }
     
     /// Returns true if the set is empty
@@ -187,9 +183,9 @@ public struct OrderedSet<T: CBORSerializable & Hashable>: SetTaggable {
             elements.insert(element)
         }
         // Update the value to reflect the new elements
-        self.value = AnyValue.array(
+        self.value = .list(
             elements.map {
-                try! AnyValue.Encoder.default.encode($0)
+                try! Primitive.fromAny($0)
             }
         )
     }
@@ -291,9 +287,12 @@ public struct NonEmptyOrderedSet<T: CBORSerializable & Hashable>: SetTaggable {
         Array(Set(elements))
     }
 
-    public init(tag: UInt64 = Self.TAG, value: AnyValue) throws {
+    public init(tag: UInt64 = Self.TAG, value: Primitive) throws {
+        guard case let .list(list) = value else {
+            fatalError("NonEmptySet must contain an array")
+        }
         precondition(
-            (value.isEmpty == nil) || (value.isEmpty == false),
+            list.isEmpty == false,
             "NonEmptySet must contain at least one element"
         )
         guard tag == Self.TAG else {
@@ -301,7 +300,7 @@ public struct NonEmptyOrderedSet<T: CBORSerializable & Hashable>: SetTaggable {
         }
         self.value = value
         self.elements = Set(
-            try value.arrayValue!.map {
+            try value.listValue!.map {
                 try T.init(from: $0.toPrimitive())
             })
     }
@@ -333,8 +332,10 @@ public struct NonEmptyOrderedSet<T: CBORSerializable & Hashable>: SetTaggable {
             try self.init(
                 tag: Self.TAG,
                 value:
-                    AnyValue
-                    .array(decodedElements.map { try! AnyValue.wrapped($0) })
+                        .list(
+                            decodedElements
+                                .map { try! Primitive.fromAny($0 as Any) }
+                        )
             )
         } else if case let .array(arrayData) = cborData, !arrayData.isEmpty {
             let decodedElements = arrayData.map {
@@ -343,9 +344,7 @@ public struct NonEmptyOrderedSet<T: CBORSerializable & Hashable>: SetTaggable {
             let elements = Array(Set(decodedElements))
             try self.init(
                 tag: Self.TAG,
-                value:
-                    AnyValue
-                    .array(elements.map { try! AnyValue.wrapped($0) })
+                value: .list(elements.map { try! Primitive.fromAny($0) })
             )
         } else {
             throw CardanoCoreError.valueError("Invalid CBOR format for NonEmptyOrderedSet")
@@ -362,9 +361,9 @@ public struct NonEmptyOrderedSet<T: CBORSerializable & Hashable>: SetTaggable {
     public mutating func append(_ element: Element) -> (inserted: Bool, memberAfterInsert: Element) {
         let result = elements.insert(element)
         // Update the value to reflect the new elements
-        self.value = AnyValue.array(
+        self.value = .list(
             elements.map {
-                try! AnyValue.Encoder.default.encode($0)
+                try! Primitive.fromAny($0)
             }
         )
         return result
@@ -392,9 +391,9 @@ public struct NonEmptyOrderedSet<T: CBORSerializable & Hashable>: SetTaggable {
         
         let removed = elements.remove(element)
         // Update the value to reflect the new elements
-        self.value = AnyValue.array(
+        self.value = .list(
             elements.map {
-                try! AnyValue.Encoder.default.encode($0)
+                try! Primitive.fromAny($0)
             }
         )
         return removed
@@ -415,9 +414,9 @@ public struct NonEmptyOrderedSet<T: CBORSerializable & Hashable>: SetTaggable {
         }
         
         // Update the value to reflect the new elements
-        self.value = AnyValue.array(
+        self.value = .list(
             elements.map {
-                try! AnyValue.Encoder.default.encode($0)
+                try! Primitive.fromAny($0)
             }
         )
         return removed
@@ -440,9 +439,9 @@ public struct NonEmptyOrderedSet<T: CBORSerializable & Hashable>: SetTaggable {
             elements.insert(element)
         }
         // Update the value to reflect the new elements
-        self.value = AnyValue.array(
+        self.value = .list(
             elements.map {
-                try! AnyValue.Encoder.default.encode($0)
+                try! Primitive.fromAny($0)
             }
         )
     }
@@ -530,9 +529,9 @@ public struct NonEmptyOrderedSet<T: CBORSerializable & Hashable>: SetTaggable {
         elements.insert(newElement)
         
         // Update the value to reflect the new elements
-        self.value = AnyValue.array(
+        self.value = .list(
             elements.map {
-                try! AnyValue.Encoder.default.encode($0)
+                try! Primitive.fromAny($0)
             }
         )
         

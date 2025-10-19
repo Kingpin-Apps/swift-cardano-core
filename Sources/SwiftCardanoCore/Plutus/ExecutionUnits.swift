@@ -39,13 +39,13 @@ public struct ExecutionUnits: CBORSerializable, Equatable, Hashable {
     public init(from primitive: Primitive) throws {
         guard case let .list(primitive) = primitive,
               primitive.count == 2,
-              case let .int(mem) = primitive[0],
-              case let .int(steps) = primitive[1] else {
+              case let .uint(mem) = primitive[0],
+              case let .uint(steps) = primitive[1] else {
             throw CardanoCoreError.deserializeError("Invalid ExecutionUnits primitive")
         }
         
-        self.mem = mem
-        self.steps = steps
+        self.mem = Int(mem)
+        self.steps = Int(steps)
     }
     
     public func toPrimitive() throws -> Primitive {

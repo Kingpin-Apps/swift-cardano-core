@@ -57,11 +57,11 @@ public struct PoolRetirement: CertificateSerializable {
     public init(from primitive: Primitive) throws {
         guard case let .list(primitive) = primitive,
                 primitive.count == 3,
-                case let .int(code) = primitive[0],
-              case let .int(epoch) = primitive[2] else {
+                case let .uint(code) = primitive[0],
+              case let .uint(epoch) = primitive[2] else {
             throw CardanoCoreError.deserializeError("Invalid PoolRetirement type")
         }
-        guard case Self.CODE.rawValue = code else {
+        guard case UInt(Self.CODE.rawValue) = code else {
             throw CardanoCoreError.deserializeError("Invalid PoolRetirement type: \(code)")
         }
         let poolKeyHash = try PoolKeyHash(from: primitive[1])
@@ -70,9 +70,9 @@ public struct PoolRetirement: CertificateSerializable {
 
     public func toPrimitive() throws -> Primitive {
         return .list([
-            .int(Int(Self.CODE.rawValue)),
+            .uint(UInt(Int(Self.CODE.rawValue))),
             poolKeyHash.toPrimitive(),
-            .int(epoch)
+            .int(Int(epoch))
         ])
     }
 

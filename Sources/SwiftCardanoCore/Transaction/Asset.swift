@@ -30,7 +30,7 @@ public struct AssetName: ConstrainedBytes, Sendable {
     }
 }
 
-public struct Asset: CBORSerializable, Comparable, Hashable, Equatable, AdditiveArithmetic, Sendable {
+public struct Asset: CBORSerializable, Comparable, AdditiveArithmetic, Sendable {
     public static var zero: Asset {
         return Asset([:])
     }
@@ -92,18 +92,26 @@ public struct Asset: CBORSerializable, Comparable, Hashable, Equatable, Additive
                 default:
                     throw CardanoCoreError.deserializeError("Invalid AssetName type: \(key)")
             }
-                    
-            guard case let .int(intValue) = value else {
-                throw CardanoCoreError.deserializeError("Invalid Asset amount type: \(value)")
+            
+            // Extract coin from first element which can be .int or .uint\
+            let coinValue: Int
+            switch value {
+                case .int(let v):
+                    coinValue = v
+                case .uint(let v):
+                    coinValue = Int(v)
+                default:
+                    throw CardanoCoreError.deserializeError("Invalid Asset amount type: \(value)")
             }
-            self.data[AssetName(from: assetName)] = intValue
+            
+            self.data[AssetName(from: assetName)] = Int(coinValue)
         }
     }
     
     public func toPrimitive() -> Primitive {
         var result: OrderedDictionary<Primitive, Primitive> = [:]
         for (key, value) in data {
-            result[key.toPrimitive()] = .int(value)
+            result[key.toPrimitive()] = .uint(UInt(value))
         }
         return .orderedDict(result)
     }

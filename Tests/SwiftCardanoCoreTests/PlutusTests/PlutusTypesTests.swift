@@ -10,7 +10,7 @@ struct DatumTests {
     @Test("Test Datum with Unit")
     func testDatumUnit() async throws {
         let unit = SwiftCardanoCore.Unit()
-        let datum: Datum = .plutusData(unit)
+        let datum: Datum = .plutusData(try unit.toPlutusData())
         
         let encoder = CBOREncoder()
         

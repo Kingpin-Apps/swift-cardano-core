@@ -1,7 +1,7 @@
 import Foundation
 import PotentCBOR
 
-public struct VerificationKeyWitness: PayloadCBORSerializable, Equatable, Hashable {
+public struct VerificationKeyWitness: PayloadCBORSerializable {
     public var vkey: VerificationKeyType
     public var signature: Data
     
@@ -103,13 +103,13 @@ public struct VerificationKeyWitness: PayloadCBORSerializable, Equatable, Hashab
     }
 }
 
-public struct TransactionWitnessSet<T: CBORSerializable & Hashable>: CBORSerializable, Equatable, Hashable {
+public struct TransactionWitnessSet: CBORSerializable {
     public var vkeyWitnesses: ListOrNonEmptyOrderedSet<VerificationKeyWitness>?
     public var nativeScripts: ListOrNonEmptyOrderedSet<NativeScript>?
     public var bootstrapWitness: ListOrNonEmptyOrderedSet<BootstrapWitness>?
     public var plutusV1Script: ListOrNonEmptyOrderedSet<PlutusV1Script>?
-    public var plutusData: ListOrNonEmptyOrderedSet<RawPlutusData>?
-    public var redeemers: Redeemers<T>?
+    public var plutusData: ListOrNonEmptyOrderedSet<PlutusData>?
+    public var redeemers: Redeemers?
     public var plutusV2Script: ListOrNonEmptyOrderedSet<PlutusV2Script>?
     public var plutusV3Script: ListOrNonEmptyOrderedSet<PlutusV3Script>?
 
@@ -119,8 +119,8 @@ public struct TransactionWitnessSet<T: CBORSerializable & Hashable>: CBORSeriali
         bootstrapWitness: ListOrNonEmptyOrderedSet<BootstrapWitness>? = nil,
         plutusV1Script: ListOrNonEmptyOrderedSet<PlutusV1Script>? = nil,
         plutusV2Script: ListOrNonEmptyOrderedSet<PlutusV2Script>? = nil,
-        plutusData: ListOrNonEmptyOrderedSet<RawPlutusData>? = nil,
-        redeemers: Redeemers<T>? = nil,
+        plutusData: ListOrNonEmptyOrderedSet<PlutusData>? = nil,
+        redeemers: Redeemers? = nil,
         plutusV3Script: ListOrNonEmptyOrderedSet<PlutusV3Script>? = nil
     ) {
         self.vkeyWitnesses = vkeyWitnesses
@@ -153,8 +153,12 @@ public struct TransactionWitnessSet<T: CBORSerializable & Hashable>: CBORSeriali
             throw CardanoCoreError.deserializeError("Invalid TransactionWitnessSet primitive")
         }
         
+        func key(_ codingKey: CodingKeys) -> Primitive {
+            return .uint(UInt(codingKey.rawValue))
+        }
+        
         // vkeyWitnesses (key 0)
-        if let vkeyWitnessesPrimitive = dict[.int(CodingKeys.vkeyWitnesses.rawValue)] {
+        if let vkeyWitnessesPrimitive = dict[key(CodingKeys.vkeyWitnesses)] {
             vkeyWitnesses = try ListOrNonEmptyOrderedSet<VerificationKeyWitness>(from: vkeyWitnessesPrimitive)
         } else {
             self.vkeyWitnesses = nil
@@ -162,49 +166,49 @@ public struct TransactionWitnessSet<T: CBORSerializable & Hashable>: CBORSeriali
             
         
         // nativeScripts (key 1)
-        if let nativeScriptsPrimitive = dict[.int(CodingKeys.nativeScripts.rawValue)] {
+        if let nativeScriptsPrimitive = dict[key(CodingKeys.nativeScripts)] {
             nativeScripts = try ListOrNonEmptyOrderedSet<NativeScript>(from: nativeScriptsPrimitive)
         } else {
             self.nativeScripts = nil
         }
         
         // bootstrapWitness (key 2)
-        if let bootstrapWitnessPrimitive = dict[.int(CodingKeys.bootstrapWitness.rawValue)] {
+        if let bootstrapWitnessPrimitive = dict[key(CodingKeys.bootstrapWitness)] {
             bootstrapWitness = try ListOrNonEmptyOrderedSet<BootstrapWitness>(from: bootstrapWitnessPrimitive)
         } else {
             self.bootstrapWitness = nil
         }
         
         // plutusV1Script (key 3)
-        if let plutusV1ScriptPrimitive = dict[.int(CodingKeys.plutusV1Script.rawValue)] {
+        if let plutusV1ScriptPrimitive = dict[key(CodingKeys.plutusV1Script)] {
             plutusV1Script = try ListOrNonEmptyOrderedSet<PlutusV1Script>(from: plutusV1ScriptPrimitive)
         } else {
             self.plutusV1Script = nil
         }
         
         // plutusData (key 4)
-        if let plutusDataPrimitive = dict[.int(CodingKeys.plutusData.rawValue)] {
-            plutusData = try ListOrNonEmptyOrderedSet<RawPlutusData>(from: plutusDataPrimitive)
+        if let plutusDataPrimitive = dict[key(CodingKeys.plutusData)] {
+            plutusData = try ListOrNonEmptyOrderedSet<PlutusData>(from: plutusDataPrimitive)
         } else {
             self.plutusData = nil
         }
         
         // redeemers (key 5)
-        if let redeemersPrimitive = dict[.int(CodingKeys.redeemers.rawValue)] {
-            self.redeemers = try Redeemers<T>(from: redeemersPrimitive)
+        if let redeemersPrimitive = dict[key(CodingKeys.redeemers)] {
+            self.redeemers = try Redeemers(from: redeemersPrimitive)
         } else {
             self.redeemers = nil
         }
         
         // plutusV2Script (key 6)
-        if let plutusV2ScriptPrimitive = dict[.int(CodingKeys.plutusV2Script.rawValue)] {
+        if let plutusV2ScriptPrimitive = dict[key(CodingKeys.plutusV2Script)] {
             plutusV2Script = try ListOrNonEmptyOrderedSet<PlutusV2Script>(from: plutusV2ScriptPrimitive)
         } else {
             self.plutusV2Script = nil
         }
         
         // plutusV3Script (key 7)
-        if let plutusV3ScriptPrimitive = dict[.int(CodingKeys.plutusV3Script.rawValue)] {
+        if let plutusV3ScriptPrimitive = dict[key(CodingKeys.plutusV3Script)] {
             plutusV3Script = try ListOrNonEmptyOrderedSet<PlutusV3Script>(from: plutusV3ScriptPrimitive)
         } else {
             self.plutusV3Script = nil

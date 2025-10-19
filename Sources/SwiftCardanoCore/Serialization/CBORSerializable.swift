@@ -1,7 +1,7 @@
 import Foundation
 import PotentCBOR
 
-public protocol CBORSerializable: Codable, Hashable {
+public protocol CBORSerializable: Codable, Equatable, Hashable {
     init(from primitive: Primitive) throws
     func toPrimitive() throws -> Primitive
     func toCBORData(deterministic: Bool) throws -> Data

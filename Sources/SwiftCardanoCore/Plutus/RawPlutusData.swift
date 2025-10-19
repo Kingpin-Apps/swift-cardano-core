@@ -3,7 +3,7 @@ import OrderedCollections
 import PotentCBOR
 import PotentCodables
 
-public struct RawPlutusData: CBORSerializable, Equatable, Hashable {
+public struct RawPlutusData: PlutusDataProtocol {
     public let data: RawDatum
 
     public init(data: RawDatum) {
@@ -13,6 +13,67 @@ public struct RawPlutusData: CBORSerializable, Equatable, Hashable {
     enum CodingKeys: String, CodingKey {
         case data
     }
+    
+    init(from plutusData: PlutusData) throws {
+        switch plutusData {
+            case .bigInt(let bigInt):
+                self.data = .int(Int(bigInt.intValue))
+            case .bytes(let bytes):
+                self.data = .bytes(bytes.bytes)
+            case .array(let array):
+                let anyValueList = IndefiniteList<AnyValue>(
+                    array.map { try! RawPlutusData(from: $0).toAnyValue() })
+                self.data = .indefiniteList(anyValueList)
+            case .indefiniteArray(let array):
+                let anyValueList = IndefiniteList<AnyValue>(
+                    array.map { try! RawPlutusData(from: $0).toAnyValue() })
+                self.data = .indefiniteList(anyValueList)
+            case .map(let dict):
+                var resultDict = OrderedDictionary<AnyValue, AnyValue>()
+                for (key, value) in dict {
+                    let keyRawPlutusData = try RawPlutusData(from: key).toAnyValue()
+                    let valueRawPlutusData = try RawPlutusData(from: value).toAnyValue()
+                    resultDict[keyRawPlutusData] = valueRawPlutusData
+                }
+                self.data = .dict(resultDict.reduce(into: [:]) { result, entry in
+                    result[entry.key] = entry.value
+                })
+            case .constructor(_):
+                throw CardanoCoreError.typeError("Constructor PlutusData is not supported in RawPlutusData")
+        }
+    }
+    
+    func toPlutusData() throws -> PlutusData {
+        switch data {
+            case let .plutusData(plutusData):
+                return plutusData
+            case let .dict(dict):
+                var resultDict = OrderedDictionary<PlutusData, PlutusData>()
+                for (key, value) in dict {
+                    let keyPlutusData = try PlutusData(from: key.toPrimitive())
+                    let valuePlutusData = try PlutusData(from: value.toPrimitive())
+                    resultDict[keyPlutusData] = valuePlutusData
+                }
+                return .map(OrderedDictionary(uniqueKeysWithValues: resultDict))
+            case let .int(intValue):
+                return .bigInt(.int(Int64(intValue)))
+            case let .bytes(data):
+                return .bytes(try BoundedBytes(bytes: data))
+            case let .indefiniteList(list):
+                let plutusDataList = try list.getAll().map {
+                    try PlutusData(from: $0.toPrimitive())
+                }
+                return .array(plutusDataList)
+            case let .cbor(cbor):
+                return .bytes(
+                    try BoundedBytes(
+                        bytes: try CBORSerialization.data(from: cbor)
+                    )
+                )
+            case let .cborTag(cborTag):
+                return try PlutusData(from: cborTag.toPrimitive())
+        }
+    }
 
     public init(from decoder: Decoder) throws {
         if String(describing: type(of: decoder)).contains("JSONDecoder") {
@@ -20,7 +81,8 @@ public struct RawPlutusData: CBORSerializable, Equatable, Hashable {
             self.data = try container.decode(RawDatum.self, forKey: .data)
         } else {
             let container = try decoder.singleValueContainer()
-            self.data = try container.decode(RawDatum.self)
+            let primitive = try container.decode(Primitive.self)
+            self = try RawPlutusData(from: primitive)
         }
     }
 
@@ -30,7 +92,7 @@ public struct RawPlutusData: CBORSerializable, Equatable, Hashable {
             try container.encode(data, forKey: .data)
         } else {
             var container = encoder.singleValueContainer()
-            try container.encode(data)
+            try container.encode(try toPrimitive())
         }
     }
     
@@ -43,6 +105,8 @@ public struct RawPlutusData: CBORSerializable, Equatable, Hashable {
             })
         } else if case let .int(intValue) = primitive {
             self.data = .int(intValue)
+        } else if case let .uint(uintValue) = primitive {
+            self.data = .int(Int(uintValue))
         } else if case let .bytes(data) = primitive {
             self.data = .bytes(data)
         } else if case let .indefiniteList(list) = primitive {
@@ -56,7 +120,7 @@ public struct RawPlutusData: CBORSerializable, Equatable, Hashable {
         } else if case let .cborTag(tag) = primitive {
             self.data = .cborTag(tag)
         } else {
-            throw CardanoCoreError.typeError("Unsupported primitive type: \(type(of: primitive))")
+            throw CardanoCoreError.typeError("Unsupported primitive type: \(primitive))")
         }
     }
 
@@ -112,7 +176,7 @@ public struct RawPlutusData: CBORSerializable, Equatable, Hashable {
                         uniqueKeysWithValues: dict.map { (dfs($0.key), dfs($0.value)) }))
             } else if let tag = obj as? CBORTag {
                 if tag.tag != 102 {
-                    let value = tag.value.arrayValue!.map { dfs($0) }
+                    let value = tag.value.listValue!.map { dfs($0) }
                     return try! AnyValue.wrapped(
                         CBOR.tagged(
                             CBOR.Tag(rawValue: tag.tag),
@@ -203,14 +267,14 @@ public struct RawPlutusData: CBORSerializable, Equatable, Hashable {
                     if let tag = getTag(constrID: constructor) {
                         return CBORTag(
                             tag: UInt64(tag),
-                            value: .array(try convertedFields.map { try AnyValue.wrapped($0) })
+                            value: .list(try convertedFields.map { try Primitive.fromAny($0) })
                         )
                     } else {
                         return CBORTag(
                             tag: 102,
-                            value: .array([
+                            value: .list([
                                 .int(constructor),
-                                .array(try convertedFields.map { try AnyValue.wrapped($0) }),
+                                .list(try convertedFields.map { try Primitive.fromAny($0) }),
                             ])
                         )
                     }

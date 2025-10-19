@@ -12,11 +12,11 @@ public struct UTxO: Codable, CustomStringConvertible, Hashable {
     
     public init(from
                 inputPrimitives: (String, UInt16),
-                outputPrimitives: (String, Int, Datum?, ScriptType?, Bool?)) throws {
+                outputPrimitives: (String, Int, DatumOption?, ScriptType?, Bool?)) throws {
         input = try TransactionInput(from: inputPrimitives.0, index: inputPrimitives.1)
         output = try TransactionOutput(from: outputPrimitives.0,
                                    amount: outputPrimitives.1,
-                                   datum: outputPrimitives.2,
+                                   datumOption: outputPrimitives.2,
                                    script: outputPrimitives.3,
                                    postAlonzo: outputPrimitives.4 ?? true)
     }

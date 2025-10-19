@@ -148,7 +148,7 @@ let witness = VerificationKeyWitness(
 )
 
 // Create complete transaction
-let witnessSet = TransactionWitnessSet<Never>(
+let witnessSet = TransactionWitnessSet(
     vkeyWitnesses: .nonEmptyOrderedSet(NonEmptyOrderedSet([witness])),
     nativeScripts: nil,
     bootstrapWitness: nil,
@@ -224,8 +224,8 @@ let cborData = try transaction.toCBORData()
 let cborHex = try transaction.toCBORHex()
 
 // Deserialize from CBOR
-let restoredTransaction = try Transaction<Never>.fromCBOR(data: cborData)
-let transactionFromHex = try Transaction<Never>.fromCBOR(hex: cborHex)
+let restoredTransaction = try Transaction.fromCBOR(data: cborData)
+let transactionFromHex = try Transaction.fromCBOR(hex: cborHex)
 ```
 
 ### Certificates
@@ -258,11 +258,11 @@ let delegCert = Certificate.stakeDelegation(delegation)
 // Create transaction metadata
 let metadata = Metadata([
     1: .text("Hello Cardano!"),
-    2: .int(42),
+    2: .uint(42),
     3: .list([.text("item1"), .text("item2")]),
     4: .map([
         .text("key1"): .text("value1"),
-        .text("key2"): .int(123)
+        .text("key2"): .uint(123)
     ])
 ])
 

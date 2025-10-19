@@ -57,8 +57,8 @@ public struct UnregisterDRep: CertificateSerializable {
     public init(from primitive: Primitive) throws {
         guard case let .list(primitive) = primitive,
               primitive.count == 3,
-              case let .int(code) = primitive[0],
-              case let .int(coin) = primitive[2],
+              case let .uint(code) = primitive[0],
+              case let .uint(coin) = primitive[2],
               code == Self.CODE.rawValue else {
             throw CardanoCoreError.deserializeError("Invalid UnregisterDRep type")
         }
@@ -70,7 +70,7 @@ public struct UnregisterDRep: CertificateSerializable {
     
     public func toPrimitive() throws -> Primitive {
         return .list([
-            .int(Int(Self.CODE.rawValue)),
+            .uint(UInt(Self.CODE.rawValue)),
             try drepCredential.toPrimitive(),
             .int(Int(coin))
         ])

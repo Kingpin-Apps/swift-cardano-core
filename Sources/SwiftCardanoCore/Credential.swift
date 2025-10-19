@@ -62,7 +62,7 @@ public struct Credential: Codable, Hashable, Sendable {
     public init(from primitive: Primitive) throws {
         guard case let .list(primitive) = primitive,
                 primitive.count == 2,
-              case let .int(code) = primitive[0] else {
+              case let .uint(code) = primitive[0] else {
             throw CardanoCoreError.deserializeError("Invalid Credential type")
         }
         
@@ -98,7 +98,7 @@ public struct Credential: Codable, Hashable, Sendable {
     
     public func toPrimitive() throws -> Primitive {
         return .list([
-            .int(code),
+            .uint(UInt(code)),
             try self.credential.toPrimitive()
         ])
     }

@@ -10,15 +10,15 @@ struct RedeemerTests {
     
     @Test("Test Redeemer initialization")
     func testRedeemerInit() async throws {
-        let plutusData = try PlutusData(fields: [])
+        let unit = SwiftCardanoCore.Unit()
         let exUnits = ExecutionUnits(mem: 1000, steps: 2000)
         
         let redeemer = Redeemer(
-            data: plutusData,
+            data: try unit.toPlutusData(),
             exUnits: exUnits
         )
         
-        #expect(redeemer.data == plutusData)
+        #expect(try unit.toPlutusData() == redeemer.data)
         #expect(redeemer.exUnits == exUnits)
         #expect(redeemer.index == 0)
         #expect(redeemer.tag == nil)
@@ -36,16 +36,15 @@ struct RedeemerTests {
     
     @Test("Test Redeemer encoding and decoding")
     func testRedeemerCoding() async throws {
-        let plutusData = try PlutusData(
-            fields: [-1]
-        )
+        let plutusData = PlutusData.bigInt(.int(-1))
         let exUnits = ExecutionUnits(mem: 1000, steps: 2000)
-        let redeemer = Redeemer<PlutusData>(data: plutusData, exUnits: exUnits)
+        let redeemer = Redeemer(data: plutusData, exUnits: exUnits)
         redeemer.tag = .spend
         redeemer.index = 1
         
         let encoded = try redeemer.toCBORData()
-        let decoded = try Redeemer<PlutusData>(from: encoded)
+        print("Encoded Redeemer CBOR: \(encoded.hexEncodedString())")
+        let decoded = try Redeemer(from: encoded)
         
         #expect(decoded.tag == redeemer.tag)
         #expect(decoded.index == redeemer.index)
@@ -71,7 +70,10 @@ struct RedeemerTests {
             }()
         )
         let exUnits = ExecutionUnits(mem: 1_000_000, steps: 1_000_000)
-        let redeemer = Redeemer(data: data, exUnits: exUnits)
+        let redeemer = Redeemer(
+            data: try data.toPlutusData(),
+            exUnits: exUnits
+        )
         redeemer.tag = .spend
 
         let encoded = try redeemer.toCBORData()
@@ -79,14 +81,17 @@ struct RedeemerTests {
 
         #expect(hex == "840000d8668218829f187b433233349f040506ffa2014131024132ff821a000f42401a000f4240")
         
-        let decoded = try Redeemer<MyTest>(from: encoded)
+        let decoded = try Redeemer(from: encoded)
+        
+        let decodedMyTest = try MyTest(from: decoded.data)
+        let redeemerMyTest = try MyTest(from: redeemer.data)
         
         #expect(decoded.tag == redeemer.tag)
         #expect(decoded.index == redeemer.index)
-        #expect(decoded.data.a == redeemer.data.a)
-        #expect(decoded.data.b == redeemer.data.b)
-        #expect(decoded.data.c == redeemer.data.c)
-//        #expect(decoded.data.d == redeemer.data.d)
+        #expect(decodedMyTest.a == redeemerMyTest.a)
+        #expect(decodedMyTest.b == redeemerMyTest.b)
+        #expect(decodedMyTest.c == redeemerMyTest.c)
+        #expect(decodedMyTest.d == redeemerMyTest.d)
         #expect(decoded.exUnits == redeemer.exUnits)
     }
 
@@ -104,7 +109,10 @@ struct RedeemerTests {
             }()
         )
         let exUnits = ExecutionUnits(mem: 1_000_000, steps: 1_000_000)
-        let redeemer = Redeemer(data: data, exUnits: exUnits)
+        let redeemer = Redeemer(
+            data: try data.toPlutusData(),
+            exUnits: exUnits
+        )
         redeemer.tag = .spend
         
         
@@ -113,13 +121,16 @@ struct RedeemerTests {
 
         #expect(hex == "840000d8668218829f187b433233349fffa2014131024132ff821a000f42401a000f4240")
         
-        let decoded = try Redeemer<MyTest>(from: encoded)
+        let decoded = try Redeemer(from: encoded)
+        
+        let decodedMyTest = try MyTest(from: decoded.data)
+        let redeemerMyTest = try MyTest(from: redeemer.data)
         
         #expect(decoded.tag == redeemer.tag)
         #expect(decoded.index == redeemer.index)
-        #expect(decoded.data.a == redeemer.data.a)
-        #expect(decoded.data.b == redeemer.data.b)
-        #expect(decoded.data.c == redeemer.data.c)
+        #expect(decodedMyTest.a == redeemerMyTest.a)
+        #expect(decodedMyTest.b == redeemerMyTest.b)
+        #expect(decodedMyTest.c == redeemerMyTest.c)
 //        #expect(decoded.data.d == redeemer.data.d)
         #expect(decoded.exUnits == redeemer.exUnits)
     }
@@ -128,11 +139,11 @@ struct RedeemerTests {
     @Test("Test Redeemers list with Unit data")
     func testRedeemersUnit() throws {
         let unit = SwiftCardanoCore.Unit()
-        let redeemers: Redeemers<SwiftCardanoCore.Unit> = .list([
-            Redeemer<SwiftCardanoCore.Unit>(
+        let redeemers: Redeemers = .list([
+            Redeemer(
                 tag: .spend,
                 index: 0,
-                data: unit,
+                data: try unit.toPlutusData(),
                 exUnits: ExecutionUnits(mem: 1_000_000, steps: 1_000_000)
             )
         ])
@@ -170,13 +181,16 @@ struct RedeemerTests {
     func testRedeemerValue() throws {
         let data = RawPlutusData(data: .int(42))
         let exUnits = ExecutionUnits(mem: 10, steps: 20)
-        let value = RedeemerValue<RawPlutusData>(data: data, exUnits: exUnits)
+        let value = RedeemerValue(
+            data: try data.toPlutusData(),
+            exUnits: exUnits
+        )
 
-        #expect(value.data == data)
+        #expect(try data.toPlutusData() == value.data)
         #expect(value.exUnits == exUnits)
 
         let encoded = try CBOREncoder().encode(value)
-        let decoded = try CBORDecoder().decode(RedeemerValue<RawPlutusData>.self, from: encoded)
+        let decoded = try CBORDecoder().decode(RedeemerValue.self, from: encoded)
 
         #expect(decoded.data == value.data)
         #expect(decoded.exUnits == value.exUnits)
@@ -184,13 +198,19 @@ struct RedeemerTests {
 
     @Test("Test RedeemerMap creation and serialization")
     func testRedeemerMap() throws {
-        var redeemerMap = RedeemerMap<RawPlutusData>()
+        var redeemerMap = RedeemerMap()
         let data1 = RawPlutusData(data: .int(42))
         let data2 = RawPlutusData(data: .bytes(Data("test".utf8)))
         let key1 = RedeemerKey(tag: .spend, index: 0)
-        let value1 = RedeemerValue<RawPlutusData>(data: data1, exUnits: ExecutionUnits(mem: 10, steps: 20))
+        let value1 = RedeemerValue(
+            data: try data1.toPlutusData(),
+            exUnits: ExecutionUnits(mem: 10, steps: 20)
+        )
         let key2 = RedeemerKey(tag: .mint, index: 1)
-        let value2 = RedeemerValue<RawPlutusData>(data: data2, exUnits: ExecutionUnits(mem: 30, steps: 40))
+        let value2 = RedeemerValue(
+            data: try data2.toPlutusData(),
+            exUnits: ExecutionUnits(mem: 30, steps: 40)
+        )
 
         redeemerMap[key1] = value1
         redeemerMap[key2] = value2
@@ -200,7 +220,7 @@ struct RedeemerTests {
         #expect(redeemerMap[key2] == value2)
 
         let encoded = try CBOREncoder().encode(redeemerMap)
-        let decoded = try CBORDecoder().decode(RedeemerMap<RawPlutusData>.self, from: encoded)
+        let decoded = try CBORDecoder().decode(RedeemerMap.self, from: encoded)
 
         #expect(decoded.count == 2)
         #expect(decoded[key1]?.data == value1.data)
@@ -211,11 +231,11 @@ struct RedeemerTests {
 
     @Test("Test empty RedeemerMap in TransactionWitnessSet serialization")
     func testEmptyMapDeserialization() throws {
-        let emptyMap = RedeemerMap<Never>()
-        let witness = TransactionWitnessSet<Never>(redeemers: .map(emptyMap))
+        let emptyMap = RedeemerMap()
+        let witness = TransactionWitnessSet(redeemers: .map(emptyMap))
 
         let encoded = try witness.toCBORData()
-        let decoded = try TransactionWitnessSet<Never>.fromCBOR(data: encoded)
+        let decoded = try TransactionWitnessSet.fromCBOR(data: encoded)
 
         #expect(decoded.redeemers == .map(emptyMap))
     }

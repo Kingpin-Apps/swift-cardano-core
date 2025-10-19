@@ -16,11 +16,18 @@ struct DatumOptionTests {
     
     @Test("Test inline datum initialization")
     func testInlineDatumInitialization() throws {
-        let plutusData = try PlutusData(fields: [])
-        let datumOption = DatumOption(datum: .anyValue(plutusData.toAnyValue()))
+        let plutusData = try SwiftCardanoCore.Unit().toPlutusData()
+        let datumOption = DatumOption(datum: .data(plutusData))
+        
+        let _ = try plutusData.toPrimitive()
+        
+        guard case .data(let datumData) = datumOption.datum else {
+            Issue.record("DatumOption datum does not match expected inline datum")
+            return
+        }
         
         #expect(datumOption.type == 1)
-        #expect(datumOption.datum == .anyValue(plutusData.toAnyValue()))
+        #expect(datumOption.datum == .data(datumData))
     }
     
     @Test("Test datum hash encoding and decoding")
@@ -37,14 +44,15 @@ struct DatumOptionTests {
     
     @Test("Test inline datum encoding and decoding")
     func testInlineDatumCoding() throws {
-        let plutusData = PlutusData()
-        let datumOption = DatumOption(datum: .anyValue(plutusData.toAnyValue()))
+        let plutusData = try SwiftCardanoCore.Unit().toPlutusData()
+        let datumOption = DatumOption(datum: .data(plutusData))
         
-        let encoded = try CBOREncoder().encode(datumOption)
-        let decoded = try CBORDecoder().decode(DatumOption.self, from: encoded)
+        let encoded = try datumOption.toCBORData()
+        let decoded = try DatumOption.fromCBOR(data: encoded)
         
+        let toCheck = try PlutusData(from: try plutusData.toPrimitive())
         #expect(decoded.type == datumOption.type)
-//        #expect(decoded.datum == .plutusData(plutusData))
+        #expect(decoded.datum == .data(toCheck))
     }
 }
 

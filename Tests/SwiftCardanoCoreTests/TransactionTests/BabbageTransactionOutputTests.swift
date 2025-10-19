@@ -23,7 +23,7 @@ struct BabbageTransactionOutputTests {
         let output = BabbageTransactionOutput(
             address: address,
             amount: amount,
-            datum: datum,
+            datumOption: datum,
             scriptRef: scriptRef
         )
         
@@ -49,7 +49,7 @@ struct BabbageTransactionOutputTests {
         let output = BabbageTransactionOutput(
             address: address,
             amount: amount,
-            datum: datum,
+            datumOption: datum,
             scriptRef: scriptRef
         )
         
@@ -71,11 +71,11 @@ struct BabbageTransactionOutputTests {
         let output = BabbageTransactionOutput(
             address: address,
             amount: amount,
-            datum: nil,
+            datumOption: nil,
             scriptRef: nil
         )
         
-        #expect(output.datum == nil)
+        #expect(output.datumOption == nil)
         #expect(output.scriptRef == nil)
         #expect(output.script == nil)
     }
@@ -93,7 +93,7 @@ struct BabbageTransactionOutputTests {
         let output = BabbageTransactionOutput(
             address: address,
             amount: amount,
-            datum: nil,
+            datumOption: nil,
             scriptRef: scriptRef
         )
         

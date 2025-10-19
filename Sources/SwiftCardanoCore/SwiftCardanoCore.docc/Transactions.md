@@ -83,7 +83,7 @@ let witness = VerificationKeyWitness(
 )
 
 // Create witness set
-let witnessSet = TransactionWitnessSet<Never>(
+let witnessSet = TransactionWitnessSet(
     vkeyWitnesses: .nonEmptyOrderedSet(NonEmptyOrderedSet([witness])),
     nativeScripts: nil,
     bootstrapWitness: nil,
@@ -138,7 +138,7 @@ let witness2 = VerificationKeyWitness(
     signature: signature2
 )
 
-let multiSigWitnessSet = TransactionWitnessSet<Never>(
+let multiSigWitnessSet = TransactionWitnessSet(
     vkeyWitnesses: .nonEmptyOrderedSet(NonEmptyOrderedSet([witness1, witness2])),
     nativeScripts: nil,
     bootstrapWitness: nil,
@@ -156,7 +156,7 @@ let multiSigWitnessSet = TransactionWitnessSet<Never>(
 let keyHash = try paymentKeyPair.verificationKey.hash()
 let nativeScript = NativeScript.scriptPubkey(.verificationKeyHash(keyHash))
 
-let scriptWitnessSet = TransactionWitnessSet<Never>(
+let scriptWitnessSet = TransactionWitnessSet(
     vkeyWitnesses: .nonEmptyOrderedSet(NonEmptyOrderedSet([witness])),
     nativeScripts: .nonEmptyOrderedSet(NonEmptyOrderedSet([nativeScript])),
     bootstrapWitness: nil,
@@ -201,10 +201,10 @@ print("CBOR: \(cborHex)")
 
 ```swift
 // From CBOR data
-let restoredTransaction = try Transaction<Never>.fromCBOR(data: cborData)
+let restoredTransaction = try Transaction.fromCBOR(data: cborData)
 
 // From CBOR hex string
-let transactionFromHex = try Transaction<Never>.fromCBOR(hex: cborHex)
+let transactionFromHex = try Transaction.fromCBOR(hex: cborHex)
 ```
 
 ## Transaction File Operations
@@ -226,7 +226,7 @@ try transaction.save(to: "transaction.json")
 print("Transaction saved to transaction.json")
 
 // Load transaction from file
-let loadedTransaction = try Transaction<Never>.load(from: "transaction.json")
+let loadedTransaction = try Transaction.load(from: "transaction.json")
 print("Transaction loaded successfully")
 
 // Verify they match
@@ -268,7 +268,7 @@ try mintingTransaction.save(to: "minting-tx.json")
 ```swift
 // Load and inspect transaction details
 func inspectTransaction(from filename: String) throws {
-    let transaction = try Transaction<Never>.load(from: filename)
+    let transaction = try Transaction.load(from: filename)
     
     print("Transaction ID: \(transaction.id?.payload.toHex ?? "unknown")")
     print("Number of inputs: \(transaction.transactionBody.inputs.count)")

@@ -16,7 +16,7 @@ struct TransactionOutputTests {
         #expect(output.amount == amount)
         #expect(output.lovelace == 1000000)
         #expect(output.datumHash == nil)
-        #expect(output.datum == nil)
+        #expect(output.datumOption == nil)
         #expect(output.script == nil)
         #expect(output.postAlonzo == false)
     }
@@ -33,7 +33,7 @@ struct TransactionOutputTests {
         #expect(output.address == address)
         #expect(output.lovelace == 1000000)
         #expect(output.datumHash == nil)
-        #expect(output.datum == nil)
+        #expect(output.datumOption == nil)
         #expect(output.script == nil)
     }
     

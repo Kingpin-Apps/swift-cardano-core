@@ -2,11 +2,11 @@ import Foundation
 import PotentCBOR
 import PotentCodables
 
-public protocol CBORTaggable: CBORSerializable, Equatable, Hashable {
+public protocol CBORTaggable: CBORSerializable {
     var tag: UInt64 { get }
-    var value: AnyValue { get set }
+    var value: Primitive { get set }
 
-    init(tag: UInt64, value: AnyValue) throws
+    init(tag: UInt64, value: Primitive) throws
 }
 
 extension CBORTaggable {
@@ -24,7 +24,7 @@ extension CBORTaggable {
         }
         return try Self(
             tag: tag.rawValue,
-            value: try AnyValue.wrapped(value.unwrapped)
+            value: try value.toPrimitive()
         )
     }
 
@@ -34,8 +34,8 @@ extension CBORTaggable {
 
         if case let .tagged(tag, cborData) = cborData {
             let tag = tag.rawValue
-            let value = try AnyValue.wrapped(cborData.unwrapped)
-            try self.init(tag: tag, value: value)
+//            let value = try AnyValue.wrapped(cborData.unwrapped)
+            try self.init(tag: tag, value: cborData.toPrimitive())
         } else {
             throw CardanoCoreError.valueError("CBORTag must be tagged")
         }
@@ -62,9 +62,9 @@ extension CBORTaggable {
 
 public struct CBORTag: CBORTaggable {
     public var tag: UInt64
-    public var value: AnyValue
+    public var value: Primitive
 
-    public init(tag: UInt64, value: AnyValue) {
+    public init(tag: UInt64, value: Primitive) {
         self.tag = tag
         self.value = value
     }

@@ -3,7 +3,7 @@ import Foundation
 public struct BabbageTransactionOutput: CBORSerializable, Hashable, Equatable {
     public var address: Address
     public var amount: Value
-    public var datum: DatumOption?
+    public var datumOption: DatumOption?
     public var scriptRef: ScriptRef?
     
     enum CodingKeys: Int, CodingKey {
@@ -15,11 +15,11 @@ public struct BabbageTransactionOutput: CBORSerializable, Hashable, Equatable {
     
     public init(address: Address,
                 amount: Value,
-                datum: DatumOption? = nil,
+                datumOption: DatumOption? = nil,
                 scriptRef: ScriptRef? = nil) {
         self.address = address
         self.amount = amount
-        self.datum = datum
+        self.datumOption = datumOption
         self.scriptRef = scriptRef
     }
     
@@ -27,7 +27,7 @@ public struct BabbageTransactionOutput: CBORSerializable, Hashable, Equatable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         address = try container.decode(Address.self, forKey: .address)
         amount = try container.decode(Value.self, forKey: .amount)
-        datum = try container.decode(DatumOption.self, forKey: .datum)
+        datumOption = try container.decode(DatumOption.self, forKey: .datum)
         scriptRef = try container.decode(ScriptRef.self, forKey: .scriptRef)
     }
 
@@ -35,7 +35,7 @@ public struct BabbageTransactionOutput: CBORSerializable, Hashable, Equatable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(address, forKey: .address)
         try container.encode(amount, forKey: .amount)
-        try container.encode(datum, forKey: .datum)
+        try container.encode(datumOption, forKey: .datum)
         try container.encode(scriptRef, forKey: .scriptRef)
     }
     
@@ -63,12 +63,12 @@ public struct BabbageTransactionOutput: CBORSerializable, Hashable, Equatable {
         // datum (optional)
         if let datumPrimitive = dict[.int(2)] {
             if case .null = datumPrimitive {
-                self.datum = nil
+                self.datumOption = nil
             } else {
-                self.datum = try DatumOption(from: datumPrimitive)
+                self.datumOption = try DatumOption(from: datumPrimitive)
             }
         } else {
-            self.datum = nil
+            self.datumOption = nil
         }
         
         // scriptRef (optional)
@@ -93,7 +93,7 @@ public struct BabbageTransactionOutput: CBORSerializable, Hashable, Equatable {
         dict[.int(1)] = amount.toPrimitive()
         
         // datum (optional)
-        if let datum = datum {
+        if let datum = datumOption {
             dict[.int(2)] = try datum.toPrimitive()
         }
         

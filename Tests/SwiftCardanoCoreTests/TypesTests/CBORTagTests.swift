@@ -7,7 +7,7 @@ import PotentCodables
 
     @Test func testInitialization() async throws {
         let tag: UInt64 = 24
-        let value: AnyValue = "testValue"
+        let value: Primitive = .string("testValue")
         
         let cborTag = CBORTag(tag: tag, value: value)
         
@@ -18,16 +18,13 @@ import PotentCodables
     @Test func testEncodingDecodingCBOR() async throws {
         let testCBORHex = "d81e82011864"
         let tag: UInt64 = 30
-        let value: AnyValue = .array([
-            .uint64(1), .uint64(100)
+        let value: Primitive = .list([
+            .uint(1), .uint(100)
         ])
         let cborTag = CBORTag(tag: tag, value: value)
         
-        let encodedCBOR = try CBOREncoder().encode(cborTag)
-        let decodedCBOR = try CBORDecoder().decode(
-            CBORTag.self,
-            from: encodedCBOR
-        )
+        let encodedCBOR = try cborTag.toCBORData()
+        let decodedCBOR = try CBORTag.fromCBOR(data: encodedCBOR)
         
         #expect(decodedCBOR == cborTag)
         #expect(decodedCBOR.tag == 30)

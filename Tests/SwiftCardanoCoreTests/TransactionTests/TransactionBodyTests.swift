@@ -149,7 +149,7 @@ struct TransactionBodyTests {
         )
         let auxiliaryDataHash = AuxiliaryDataHash(payload: Data(repeating: 0x01, count: 32))
         let validityStart = 100
-        let mint = try MultiAsset(from: .dict([.string("policyId"): .dict([.string("assetName"): .int(5)])]))
+        let mint = try MultiAsset(from: .dict([.string("policyId"): .dict([.string("assetName"): .uint(5)])]))
         let scriptDataHash = ScriptDataHash(payload: Data(repeating: 0x02, count: 32))
         let collateral = [TransactionInput(transactionId: transactionId, index: 1)]
         let requiredSigners = [VerificationKeyHash(payload: Data(repeating: 0x03, count: 32))]
@@ -259,7 +259,7 @@ struct TransactionBodyTests {
         let input = TransactionInput(transactionId: transactionId, index: 0)
         let output = TransactionOutput(address: address, amount: amount)
         let fee = Coin(100000)
-        let mint = try MultiAsset(from: .dict([.string("policyId"): .dict([.string("assetName"): .int(5)])]))
+        let mint = try MultiAsset(from: .dict([.string("policyId"): .dict([.string("assetName"): .uint(5)])]))
         
         let body = TransactionBody(
             inputs: .orderedSet(try OrderedSet([input])),

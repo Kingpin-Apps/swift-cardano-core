@@ -34,12 +34,10 @@ struct RawPlutusDataTests {
         
         for original in testCases {
             // Test CBOR encoding
-            let cborEncoder = CBOREncoder()
-            let encodedData = try cborEncoder.encode(original)
+            let encodedData = try original.toCBORData()
             
             // Test CBOR decoding
-            let cborDecoder = CBORDecoder()
-            let decoded = try cborDecoder.decode(RawPlutusData.self, from: encodedData)
+            let decoded = try RawPlutusData.fromCBOR(data: encodedData)
             
             #expect(decoded == original)
             #expect(decoded.data == original.data)

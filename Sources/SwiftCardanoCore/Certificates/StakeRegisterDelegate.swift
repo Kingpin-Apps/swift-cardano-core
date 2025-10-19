@@ -67,7 +67,7 @@ public struct StakeRegisterDelegate: CertificateSerializable {
             throw CardanoCoreError.deserializeError("Invalid StakeRegisterDelegate: wrong number of elements")
         }
         
-        guard case let .int(code) = elements[0], code == Self.CODE.rawValue else {
+        guard case let .uint(code) = elements[0], code == Self.CODE.rawValue else {
             throw CardanoCoreError.deserializeError("Invalid StakeRegisterDelegate: invalid type code")
         }
         
@@ -75,7 +75,7 @@ public struct StakeRegisterDelegate: CertificateSerializable {
         let poolKeyHash = try PoolKeyHash(from: elements[2])
         let coin: Coin
         
-        if case let .int(coinValue) = elements[3] {
+        if case let .uint(coinValue) = elements[3] {
             coin = Coin(coinValue)
         } else {
             throw CardanoCoreError.deserializeError("Invalid StakeRegisterDelegate: invalid coin value")
@@ -86,7 +86,7 @@ public struct StakeRegisterDelegate: CertificateSerializable {
 
     public func toPrimitive() throws -> Primitive {
         return .list([
-            .int(Self.CODE.rawValue),
+            .uint(UInt(Self.CODE.rawValue)),
             try stakeCredential.toPrimitive(),
             poolKeyHash.toPrimitive(),
             .int(Int(coin))

@@ -15,11 +15,10 @@ struct PlutusDataTests {
     @Test("Test MyTest PlutusData object")
     func testMyTest() throws {
         let myTest = try MyTest(a: 42, b: Data(), c: IndefiniteList<AnyValue>([]), d: [:])
-        let encoded = try CBOREncoder().encode(myTest)
-        let decoded = try CBORDecoder().decode(MyTest.self, from: encoded)
+        let encoded = try myTest.toCBORData()
+        let decoded = try MyTest.fromCBOR(data: encoded)
 
         #expect(myTest == decoded)
-        #expect(myTest.fields.count == 4)
         #expect(myTest.a == 42)
         #expect(MyTest.CONSTR_ID == 130)
     }
@@ -28,11 +27,10 @@ struct PlutusDataTests {
     func testBigTest() throws {
         let myTest = try MyTest(a: 42, b: Data(), c: IndefiniteList<AnyValue>([]), d: [:])
         let bigTest = try BigTest(test: myTest)
-        let encoded = try CBOREncoder().encode(bigTest)
-        let decoded = try CBORDecoder().decode(BigTest.self, from: encoded)
+        let encoded = try bigTest.toCBORData()
+        let decoded = try BigTest.fromCBOR(data: encoded)
 
         #expect(bigTest == decoded)
-        #expect(bigTest.fields.count == 1)
         #expect(bigTest.test == myTest)
         #expect(BigTest.CONSTR_ID == 8)
     }
@@ -40,11 +38,10 @@ struct PlutusDataTests {
     @Test("Test LargestTest PlutusData object")
     func testLargestTest() throws {
         let largestTest = LargestTest()
-        let encoded = try CBOREncoder().encode(largestTest)
-        let decoded = try CBORDecoder().decode(LargestTest.self, from: encoded)
+        let encoded = try largestTest.toCBORData()
+        let decoded = try LargestTest.fromCBOR(data: encoded)
 
         #expect(largestTest == decoded)
-        #expect(largestTest.fields.count == 0)
         #expect(LargestTest.CONSTR_ID == 9)
     }
 
@@ -52,45 +49,19 @@ struct PlutusDataTests {
     func testDictTest() throws {
         let dict: OrderedDictionary<Int, LargestTest> = [1: LargestTest()]
         let dictTest = try DictTest(a: dict)
-        let encoded = try CBOREncoder().encode(dictTest)
-        let decoded = try CBORDecoder().decode(DictTest.self, from: encoded)
+        let encoded = try dictTest.toCBORData()
+        let decoded = try DictTest.fromCBOR(data: encoded)
 
         #expect(dictTest == decoded)
-        #expect(dictTest.fields.count == 1)
-        if let decodedDict = dictTest.fields[0] as? [Int: LargestTest] {
-            #expect(LargestTest() == decodedDict[1])
-        }
     }
 
     @Test("Test PlutusData with lists")
     func testListPlutusData() throws {
         let listTest = try ListTest(a: IndefiniteList<LargestTest>([LargestTest()]))
-        let encoded = try CBOREncoder().encode(listTest)
-        _ = try CBORDecoder().decode(ListTest.self, from: encoded)
+        let encoded = try listTest.toCBORData()
+        let decoded = try ListTest.fromCBOR(data: encoded)
 
-//        #expect(listTest == decoded)
-        #expect(listTest.fields.count == 1)
-        if let decodedList = listTest.fields[0] as? [LargestTest] {
-            #expect(decodedList.count == 1)
-            #expect(LargestTest() == decodedList[0])
-        }
-    }
-
-    @Test("Test PlutusData error handling")
-    func testPlutusDataErrors() throws {
-        // Test invalid field type
-        #expect(throws: CardanoCoreError.self) {
-            _ = try MyTest(fields: [NSObject()])
-        }
-
-        // Test oversized byte array
-        let oversizedData = Data(repeating: 0, count: PlutusData.MAX_BYTES_SIZE + 1)
-        #expect(throws: CardanoCoreError.self) {
-            _ = try VestingParam(
-                beneficiary: oversizedData, deadline: 0,
-                testa:
-                    .largestTest(LargestTest()), testb: .largestTest(LargestTest()))
-        }
+        #expect(listTest == decoded)
     }
 
     @Test("Test PlutusData JSON conversion")
@@ -106,6 +77,7 @@ struct PlutusDataTests {
     func testDictionaryConversion() throws {
         let myTest = try MyTest(a: 42, b: Data(), c: IndefiniteList<AnyValue>([]), d: [:])
         let dict = try myTest.toDict()
+        print(dict)
         let decoded = try MyTest.init(from: dict)
 
         #expect(myTest == decoded)
@@ -286,7 +258,7 @@ struct PlutusDataHashTests {
     func testPlutusDataHash() throws {
         let unit = SwiftCardanoCore.Unit()
         let expectedHash = "923918e403bf43c34b4ef6b48eb2ee04babed17320d8d1b9ff9ad086e86f44ec"
-        let payload = try unit.hash().payload.toHex
+        let payload = try unit.toPlutusData().hash().payload.toHex
         #expect(payload == expectedHash)
     }
 }

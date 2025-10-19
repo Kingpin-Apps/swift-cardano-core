@@ -91,8 +91,8 @@ import PotentCBOR
         let votingProcedures = VotingProcedures([voter: [govActionID: votingProcedure]]
         )
 
-        let encoded = try CBOREncoder().encode(votingProcedures)
-        let decoded = try CBORDecoder().decode(VotingProcedures.self, from: encoded)
+        let encoded = try votingProcedures.toCBORData()
+        let decoded = try VotingProcedures.fromCBOR(data: encoded)
 
         #expect(decoded == votingProcedures)
     }

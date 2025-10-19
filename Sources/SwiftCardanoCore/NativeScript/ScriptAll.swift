@@ -65,7 +65,7 @@ public struct ScriptAll: NativeScriptable {
             throw CardanoCoreError.deserializeError("Invalid ScriptAll type")
         }
         
-        guard case let .int(code) = primitiveArray[0],
+        guard case let .uint(code) = primitiveArray[0],
               code == Self.TYPE.rawValue else {
             throw CardanoCoreError.deserializeError("Invalid ScriptAll type")
             }

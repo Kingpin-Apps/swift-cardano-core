@@ -108,11 +108,9 @@ extension CBOR {
                 }
                 return .orderedDict(resultDict)
             case .tagged(let tag, let value):
-                let taggedValue = try AnyValue(from: value.toPrimitive())
-//                return taggedValue.toPrimitive()
                 let cborTag = CBORTag(
                     tag: tag.rawValue,
-                    value: taggedValue
+                    value: try value.toPrimitive()
                 )
                 return .cborTag(cborTag)
             case .simple(let simpleValue):
@@ -122,7 +120,7 @@ extension CBOR {
             case .double(let doubleValue):
                 return .float(doubleValue)
             case .unsignedInt(let value):
-                return .int(Int(value))
+                return .uint(UInt(value))
             case .negativeInt(let value):
                 return .int(-Int(value) - 1) // CBOR negative integers are encoded as -1 - n
             case .indefiniteByteString(let data):
@@ -280,6 +278,8 @@ extension AnyValue: CBORSerializable {
                 self = .bool(value)
             case .int(let value):
                 self = .int64(Int64(value))
+            case .uint(let value):
+                self = .unsignedInteger(BigUInt(UInt64(value)))
             case .float(let value):
                 self = .double(value)
             case .decimal(let value):
@@ -314,6 +314,14 @@ extension AnyValue: CBORSerializable {
                     orderedDict[anyKey] = anyValue
                 }
                 self = .dictionary(orderedDict)
+            case .indefiniteDictionary(let orderedDictionary):
+                var orderedDict = OrderedDictionary<AnyValue, AnyValue>()
+                for (key, value) in orderedDictionary {
+                    let anyKey = try AnyValue(from: key)
+                    let anyValue = try AnyValue(from: value)
+                    orderedDict[anyKey] = anyValue
+                }
+                self = .indefiniteDictionary(orderedDict)
             case .tuple(let tuple):
                 let anyValueArray = try tuple.elements.map { try AnyValue(from: $0) }
                 self = .array(anyValueArray)
@@ -404,7 +412,11 @@ extension AnyValue: CBORSerializable {
                 }
             case .plutusData(let plutusData):
                 // Convert PlutusData to its AnyValue representation
-                self = plutusData.toAnyValue()
+                self = try plutusData.toPrimitive().toAnyValue()
+            case .bigInt(let bigInt):
+                self = .integer(bigInt)
+            case .bigUInt(let bigUInt):
+                self = .unsignedInteger(bigUInt)
         }
     }
     

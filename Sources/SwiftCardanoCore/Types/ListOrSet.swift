@@ -59,7 +59,7 @@ public enum ListOrOrderedSet<T: CBORSerializable & Hashable>: CBORSerializable, 
                 if tag.tag == 258 {
                     self = .orderedSet(
                         try OrderedSet(
-                            try tag.value.arrayValue!.map {
+                            try tag.value.listValue!.map {
                                 try T.init(from: $0.toPrimitive())
                             }
                         )
@@ -174,7 +174,7 @@ public enum ListOrNonEmptyOrderedSet<T: CBORSerializable & Hashable>: CBORSerial
                 if tag.tag == 258 {
                     self = .nonEmptyOrderedSet(
                         NonEmptyOrderedSet(
-                            try tag.value.arrayValue!.map {
+                            try tag.value.listValue!.map {
                                 try T.init(from: $0.toPrimitive())
                             }
                         )

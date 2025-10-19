@@ -52,22 +52,22 @@ public struct AfterScript: NativeScriptable {
             throw CardanoCoreError.deserializeError("Invalid AfterScript type: \(primitive)")
         }
         
-        guard case let .int(code) = primitiveArray[0],
+        guard case let .uint(code) = primitiveArray[0],
               code == Self.TYPE.rawValue else {
             throw CardanoCoreError.deserializeError("Invalid AfterScript type: \(primitiveArray[0])")
             }
         
-        guard case let .int(slot) = primitiveArray[1] else {
+        guard case let .uint(slot) = primitiveArray[1] else {
             throw CardanoCoreError.deserializeError("Invalid AfterScript slot: \(primitiveArray[1])")
         }
         
-        self.slot = slot
+        self.slot = Int(slot)
     }
 
     public func toPrimitive() throws -> Primitive {
         return .list([
-            .int(Self.TYPE.rawValue),
-            .int(slot)
+            .uint(UInt(Self.TYPE.rawValue)),
+            .uint(UInt(slot))
         ])
     }
 

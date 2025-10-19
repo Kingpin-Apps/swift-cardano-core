@@ -57,7 +57,7 @@ public struct StakeDelegation: CertificateSerializable {
     public init(from primitive: Primitive) throws {
         guard case let .list(primitive) = primitive,
                 primitive.count == 3,
-              case let .int(code) = primitive[0],
+              case let .uint(code) = primitive[0],
               code == Self.CODE.rawValue else {
             throw CardanoCoreError.deserializeError("Invalid StakeDelegation type")
         }
@@ -69,7 +69,7 @@ public struct StakeDelegation: CertificateSerializable {
 
     public func toPrimitive() throws -> Primitive {
         return .list([
-            .int(Int(Self.CODE.rawValue)),
+            .uint(UInt(Self.CODE.rawValue)),
             try stakeCredential.toPrimitive(),
             poolKeyHash.toPrimitive()
         ])

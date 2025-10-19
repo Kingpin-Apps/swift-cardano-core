@@ -16,7 +16,7 @@ public enum TransactionMetadatum: CBORSerializable, Hashable, Sendable {
     
     public init(from primitive: Primitive) throws {
         switch primitive {
-            case .int(let value):
+            case .uint(let value):
                 if value >= Int.min && value <= Int.max {
                     self = .int(Int(value))
                 } else {
@@ -53,7 +53,7 @@ public enum TransactionMetadatum: CBORSerializable, Hashable, Sendable {
     public func toPrimitive() throws -> Primitive {
         switch self {
             case .int(let value):
-                return .int(Int(value))
+                return .uint(UInt(value))
             case .bytes(let data):
                 return .bytes(data)
             case .text(let string):
@@ -195,7 +195,7 @@ public struct Metadata: CBORSerializable, Hashable, Equatable {
         }
         
         for (key, value) in primitiveDict {
-            guard case let .int(keyValue) = key,
+            guard case let .uint(keyValue) = key,
                   keyValue >= 0 && keyValue <= UInt64.max else {
                 throw CardanoCoreError.deserializeError("Invalid Metadata key type")
             }
@@ -212,7 +212,7 @@ public struct Metadata: CBORSerializable, Hashable, Equatable {
     public func toPrimitive() throws -> Primitive {
         var result = [Primitive: Primitive]()
         for (key, value) in data {
-            result[.int(Int(key))] = try value.toPrimitive()
+            result[.uint(UInt(key))] = try value.toPrimitive()
         }
         return .dict(result)
     }
@@ -318,60 +318,62 @@ public struct AlonzoMetadata: CBORSerializable, Hashable, Equatable {
         }
         
         // Handle the case where tag value is a dictionary/map structure
-        var cborDict: OrderedDictionary<AnyValue, AnyValue> = OrderedDictionary<AnyValue, AnyValue>()
+        var cborDict: OrderedDictionary<Primitive, Primitive> = OrderedDictionary<Primitive, Primitive>()
         
         switch cborTag.value {
-            case .dictionary(let dict):
+            case .dict(let dict):
+                cborDict.merge(dict) { (_, new) in new }
+            case .orderedDict(let dict):
                 cborDict = dict
             case .indefiniteDictionary(let dict):
                 cborDict = dict
-        default:
-            // For any other value type (including maps converted to dictionaries), 
-            // we'll create an empty dictionary and proceed with no metadata
-            // This handles edge cases where the tag exists but has no structured content
-            break
+            default:
+                // For any other value type (including maps converted to dictionaries),
+                // we'll create an empty dictionary and proceed with no metadata
+                // This handles edge cases where the tag exists but has no structured content
+                break
         }
         
-        if let metadataPrimitive = cborDict[.int(Int(0))] {
+        if let metadataPrimitive = cborDict[.uint(0)] {
             self.metadata = try Metadata(from: metadataPrimitive.toPrimitive())
         } else {
             self.metadata = nil
         }
         
-        if let nativeScriptsPrimitive = cborDict[.int(Int(1))],
-           case let .array(scriptsList) = nativeScriptsPrimitive {
+        if let nativeScriptsPrimitive = cborDict[.uint(1)],
+           case let .list(scriptsList) = nativeScriptsPrimitive {
             self.nativeScripts = try scriptsList.compactMap { primitive -> NativeScript? in
-                let primValue = primitive.toPrimitive()
+                let primValue = try primitive.toPrimitive()
                 return try NativeScript(from: primValue)
             }
         } else {
             self.nativeScripts = nil
         }
         
-        if let plutusV1ScriptPrimitive = cborDict[.int(Int(2))],
-           case let .array(scriptsList) = plutusV1ScriptPrimitive {
+        if let plutusV1ScriptPrimitive = cborDict[.uint(2)],
+           case let .list(scriptsList) = plutusV1ScriptPrimitive {
             self.plutusV1Script = try scriptsList.compactMap { primitive -> PlutusV1Script? in
-                let primValue = primitive.toPrimitive()
+                let primValue = try primitive.toPrimitive()
                 return try PlutusV1Script(from: primValue)
             }
         } else {
             self.plutusV1Script = nil
         }
         
-        if let plutusV2ScriptPrimitive = cborDict[.int(Int(3))],
-           case let .array(scriptsList) = plutusV2ScriptPrimitive {
+        if let plutusV2ScriptPrimitive = cborDict[.uint(3)],
+           case let .list(scriptsList) = plutusV2ScriptPrimitive {
             self.plutusV2Script = try scriptsList.compactMap { primitive -> PlutusV2Script? in
-                let primValue = primitive.toPrimitive()
+                let primValue = try primitive.toPrimitive()
                 return try PlutusV2Script(from: primValue)
             }
         } else {
             self.plutusV2Script = nil
         }
         
-        if let plutusV3ScriptPrimitive = cborDict[.int(Int(4))],
-              case let .array(scriptsList) = plutusV3ScriptPrimitive {
+        if let plutusV3ScriptPrimitive = cborDict[.uint(4)],
+              case let .list(scriptsList) = plutusV3ScriptPrimitive {
             self.plutusV3Script = try scriptsList.compactMap { primitive -> PlutusV3Script? in
-                let primValue = primitive.toPrimitive()
+                let primValue = try primitive.toPrimitive()
                 return try PlutusV3Script(from: primValue)
             }
         } else {
@@ -380,44 +382,36 @@ public struct AlonzoMetadata: CBORSerializable, Hashable, Equatable {
     }
 
     public func toPrimitive() throws -> Primitive {
-        var cborDict = [Primitive: Primitive]()
+        var cborDict = OrderedDictionary<Primitive, Primitive>()
         
         if let metadata = metadata {
-            cborDict[.int(0)] = try metadata.toPrimitive()
+            cborDict[.uint(0)] = try metadata.toPrimitive()
         }
         
         if let nativeScripts = nativeScripts {
             let scriptsPrimitive = try nativeScripts.map { try $0.toPrimitive() }
-            cborDict[.int(1)] = .list(scriptsPrimitive)
+            cborDict[.uint(1)] = .list(scriptsPrimitive)
         }
         
         if let plutusV1Script = plutusV1Script {
             let scriptsPrimitive = try plutusV1Script.map { try $0.toPrimitive() }
-            cborDict[.int(2)] = .list(scriptsPrimitive)
+            cborDict[.uint(2)] = .list(scriptsPrimitive)
         }
         
         if let plutusV2Script = plutusV2Script {
             let scriptsPrimitive = try plutusV2Script.map { try $0.toPrimitive() }
-            cborDict[.int(3)] = .list(scriptsPrimitive)
+            cborDict[.uint(3)] = .list(scriptsPrimitive)
         }
         
         if let plutusV3Script = plutusV3Script {
             let scriptsPrimitive = try plutusV3Script.map { try $0.toPrimitive() }
-            cborDict[.int(4)] = .list(scriptsPrimitive)
+            cborDict[.uint(4)] = .list(scriptsPrimitive)
         }
         
         return .cborTag(
             CBORTag(
                 tag: Self.TAG,
-                value: .dictionary(
-                    OrderedDictionary(
-                        uniqueKeysWithValues:
-                            cborDict.map(
-                                { ($0.key.toAnyValue(), $0.value.toAnyValue()) }
-                            )
-                    )
-                    
-                )
+                value: .orderedDict(cborDict)
             )
         )
     }

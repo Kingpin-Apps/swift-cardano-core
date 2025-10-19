@@ -106,7 +106,7 @@ public struct UnitInterval: CBORSerializable, Equatable, Hashable {
                     throw CardanoCoreError.valueError(
                         "UnitInterval must be tagged with tag \(UnitInterval.tag)")
                 }
-                guard case let .array(arrayData) = tagged.value else {
+                guard case let .list(arrayData) = tagged.value else {
                     throw CardanoCoreError.valueError("UnitInterval must be an array")
                 }
                 guard arrayData.count == 2 else {
@@ -114,8 +114,8 @@ public struct UnitInterval: CBORSerializable, Equatable, Hashable {
                         "UnitInterval must contain exactly 2 elements")
                 }
                 self.init(
-                    numerator: arrayData[0].integerValue(UInt64.self)!,
-                    denominator: arrayData[1].integerValue(UInt64.self)!
+                    numerator: UInt64(arrayData[0].intValue!),
+                    denominator: UInt64(arrayData[1].intValue!)
                 )
             case let .unitInterval(interval):
                 self = interval
@@ -141,9 +141,9 @@ public struct UnitInterval: CBORSerializable, Equatable, Hashable {
     public func toPrimitive() throws -> Primitive {
         let cborTag = CBORTag(
             tag: UInt64(UnitInterval.tag),
-            value: .array([
-                .uint64(UInt64(numerator)),
-                .uint64(UInt64(denominator))
+            value: .list([
+                .uint(UInt(numerator)),
+                .uint(UInt(denominator))
             ])
         )
         return .cborTag(cborTag)

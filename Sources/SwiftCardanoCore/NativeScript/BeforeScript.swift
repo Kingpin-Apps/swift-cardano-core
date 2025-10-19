@@ -51,7 +51,6 @@ public struct BeforeScript: NativeScriptable {
     public static func fromDict(_ dict: Dictionary<AnyHashable, Any>) throws -> BeforeScript {
         guard let slot = dict["slot"] as? Int else {
             throw CardanoCoreError.decodingError("Invalid BeforeScript slot")
-            
         }
         
         return BeforeScript(slot: slot)
@@ -60,16 +59,16 @@ public struct BeforeScript: NativeScriptable {
     public init(from primitive: Primitive) throws {
         guard case let .list(primitive) = primitive,
                 primitive.count == 2,
-                case let .int(code) = primitive[0],
+                case let .uint(code) = primitive[0],
                 code == Self.TYPE.rawValue,
-              case let .int(slot) = primitive[1] else {
+              case let .uint(slot) = primitive[1] else {
             throw CardanoCoreError.deserializeError("Invalid BeforeScript type")
         }
-        self.slot = slot
+        self.slot = Int(slot)
     }
 
     public func toPrimitive() throws -> Primitive {
-        return .list([.int(Self.TYPE.rawValue), .int(slot)])
+        return .list([.uint(UInt(Self.TYPE.rawValue)), .uint(UInt(slot))])
     }
 
 }

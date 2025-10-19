@@ -61,7 +61,7 @@ public struct PoolRegistration: CertificateSerializable {
         }
         
         // Verify the certificate code
-        guard case let .int(code) = elements[0], code == Self.CODE.rawValue else {
+        guard case let .uint(code) = elements[0], code == Self.CODE.rawValue else {
             throw CardanoCoreError.deserializeError("Invalid PoolRegistration type")
         }
         
@@ -83,7 +83,7 @@ public struct PoolRegistration: CertificateSerializable {
 
     public func toPrimitive() throws -> Primitive {
         var elements: [Primitive] = []
-        elements.append(.int(Self.CODE.rawValue))
+        elements.append(.uint(UInt(Self.CODE.rawValue)))
         
         let poolParamList = try poolParams.toPrimitive()
         if case let .list(poolParamsElements) = poolParamList {

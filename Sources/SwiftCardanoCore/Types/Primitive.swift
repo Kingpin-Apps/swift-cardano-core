@@ -2,12 +2,16 @@ import Foundation
 import PotentCBOR
 import PotentCodables
 import OrderedCollections
+import BigInt
 
-public indirect enum Primitive: CBORSerializable, Equatable, Hashable {
+public indirect enum Primitive: CBORSerializable {
     case bytes(Data)
     case byteArray([UInt8])
     case string(String)
     case int(Int)
+    case uint(UInt)
+    case bigInt(BigInt)
+    case bigUInt(BigUInt)
     case float(Double)
     case decimal(Decimal)
     case bool(Bool)
@@ -15,6 +19,7 @@ public indirect enum Primitive: CBORSerializable, Equatable, Hashable {
     case list([Primitive])
     case indefiniteList(IndefiniteList<Primitive>)
     case dict([Primitive: Primitive])
+    case indefiniteDictionary(OrderedDictionary<Primitive, Primitive>)
     case orderedDict(OrderedDictionary<Primitive, Primitive>)
     case datetime(Date)
     case regex(NSRegularExpression)
@@ -39,7 +44,7 @@ public indirect enum Primitive: CBORSerializable, Equatable, Hashable {
         case let v as Int:
             return .int(v)
         case let v as UInt8:
-            return .int(Int(v))
+            return .uint(UInt(v))
         case let v as UInt:
             return .int(Int(v))
         case let v as Int8:
@@ -51,11 +56,11 @@ public indirect enum Primitive: CBORSerializable, Equatable, Hashable {
         case let v as Int64:
             return .int(Int(v))
         case let v as UInt16:
-            return .int(Int(v))
+            return .uint(UInt(v))
         case let v as UInt32:
-            return .int(Int(v))
+            return .uint(UInt(v))
         case let v as UInt64:
-            return .int(Int(v))
+            return .uint(UInt(v))
         case let v as Double:
             return .float(v)
         case let v as Float:
@@ -126,7 +131,7 @@ public indirect enum Primitive: CBORSerializable, Equatable, Hashable {
             case .utf8String(let string):
                 return .string(string)
             case .unsignedInt(let value):
-                return .int(Int(value))
+                return .uint(UInt(value))
             case .negativeInt(let value):
                 return .int(Int(bitPattern: ~UInt(value)))
             case .float(let value):
@@ -216,8 +221,7 @@ public indirect enum Primitive: CBORSerializable, Equatable, Hashable {
                 
                 let wrapped = CBORTag(
                     tag: tag.rawValue,
-//                    value: try AnyValue.wrapped(value.unwrapped)
-                    value: try value.toPrimitive().toAnyValue()
+                    value: try value.toPrimitive()
                 )
                 return .cborTag(wrapped)
             case .indefiniteByteString(let string):
@@ -246,6 +250,8 @@ public indirect enum Primitive: CBORSerializable, Equatable, Hashable {
                 return .utf8String(string)
             case .int(let value):
                 return value >= 0 ? .unsignedInt(UInt64(value)) : .negativeInt(~UInt64(bitPattern: Int64(value)))
+            case .uint(let value):
+                return .unsignedInt(UInt64(value))
             case .float(let value):
                 return .double(value)
             case .decimal(let decimal):
@@ -260,6 +266,13 @@ public indirect enum Primitive: CBORSerializable, Equatable, Hashable {
                 return .indefiniteArray(try list.getAll().map { try $0.toCBOR() })
             case .dict(let dict):
                 return .map(OrderedDictionary(uniqueKeysWithValues: try dict.map { (try $0.key.toCBOR(), try $0.value.toCBOR()) }))
+            case .indefiniteDictionary(let dict):
+                return .indefiniteMap(
+                    OrderedDictionary(
+                        uniqueKeysWithValues: try dict
+                            .map { (try $0.key.toCBOR(), try $0.value.toCBOR())
+                            })
+                )
             case .orderedDict(let dict):
                 return .map(OrderedDictionary(uniqueKeysWithValues: try dict.map { (try $0.key.toCBOR(), try $0.value.toCBOR()) }))
             case .datetime(let date):
@@ -296,6 +309,10 @@ public indirect enum Primitive: CBORSerializable, Equatable, Hashable {
                 return try plutusData.toCBORData().toCBOR
             case .null:
                 return CBOR.null
+            case .bigInt(let bigInt):
+                return try CBOREncoder().encode(bigInt).toCBOR
+            case .bigUInt(let bigUInt):
+                return try CBOREncoder().encode(bigUInt).toCBOR
         }
     }
     
@@ -308,6 +325,8 @@ public indirect enum Primitive: CBORSerializable, Equatable, Hashable {
             case (.string(let a), .string(let b)):
                 return a == b
             case (.int(let a), .int(let b)):
+                return a == b
+            case (.uint(let a), .uint(let b)):
                 return a == b
             case (.float(let a), .float(let b)):
                 return a == b
@@ -324,6 +343,8 @@ public indirect enum Primitive: CBORSerializable, Equatable, Hashable {
             case (.dict(let a), .dict(let b)):
                 return a == b
             case (.orderedDict(let a), .orderedDict(let b)):
+                return a == b
+            case (.indefiniteDictionary(let a), .indefiniteDictionary(let b)):
                 return a == b
             case (.datetime(let a), .datetime(let b)):
                 return a == b
@@ -349,6 +370,10 @@ public indirect enum Primitive: CBORSerializable, Equatable, Hashable {
                 return a == b
             case (.byteString(let a), .byteString(let b)):
                 return a == b
+            case (.bigInt(let a), .bigInt(let b)):
+                return a == b
+            case (.bigUInt(let a), .bigUInt(let b)):
+                return a == b
             default:
                 return false
         }
@@ -365,6 +390,8 @@ public indirect enum Primitive: CBORSerializable, Equatable, Hashable {
                 return .string(string)
             case .int(let intVal):
                 return .int64(Int64(intVal))
+            case .uint(let intVal):
+                return .uint64(UInt64(intVal))
             case .float(let floatVal):
                 return .double(floatVal)
             case .decimal(let decimalVal):
@@ -389,12 +416,14 @@ public indirect enum Primitive: CBORSerializable, Equatable, Hashable {
                 return .dictionary(OrderedDictionary(uniqueKeysWithValues: dict.map { ($0.key.toAnyValue(), $0.value.toAnyValue()) }))
             case .orderedDict(let dict):
                 return .dictionary(OrderedDictionary(uniqueKeysWithValues: dict.map { ($0.key.toAnyValue(), $0.value.toAnyValue()) }))
+            case .indefiniteDictionary(let dict):
+                return .indefiniteDictionary(OrderedDictionary(uniqueKeysWithValues: dict.map { ($0.key.toAnyValue(), $0.value.toAnyValue()) }))
             case .regex(let regex):
                 return .string(regex.pattern)
             case .cborSimpleValue(let cbor):
                 return try! AnyValue.wrapped(cbor)
             case .cborTag(let tag):
-                return tag.value
+                return .array([.int(Int(tag.tag)), tag.value.toAnyValue()])
             case .orderedSet(let set):
                 return .array(set.elements.map { $0.toAnyValue() })
             case .nonEmptyOrderedSet(let set):
@@ -418,6 +447,10 @@ public indirect enum Primitive: CBORSerializable, Equatable, Hashable {
                 return .data(byteString.value)
             case .plutusData(let plutus):
                 return try! AnyValue.wrapped(plutus)
+            case .bigInt(let bigInt):
+                return .integer(bigInt)
+            case .bigUInt(let bigUInt):
+                return .unsignedInteger(bigUInt)
         }
     }
     
@@ -427,5 +460,30 @@ public indirect enum Primitive: CBORSerializable, Equatable, Hashable {
 
     public func toPrimitive() throws -> Primitive {
         return self
+    }
+    
+    public var listValue: [Primitive]? {
+        guard case .list(let value) = self else { return nil }
+        return value
+    }
+    
+    public var indefiniteListValue: IndefiniteList<Primitive>? {
+        guard case .indefiniteList(let value) = self else { return nil }
+        return value
+    }
+    
+    public var intValue: Int? {
+        if MemoryLayout<Int>.size == 8 {
+            guard case .int(let value) = self else {
+                return nil
+            }
+            return Int(value)
+        }
+        else {
+            guard case .int(let value) = self else {
+                return nil
+            }
+            return Int(value)
+        }
     }
 }

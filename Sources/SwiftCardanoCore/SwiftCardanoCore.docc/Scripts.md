@@ -157,7 +157,7 @@ let scriptAddress = try Address(
 )
 
 // Transaction with script witness
-let witnessSet = TransactionWitnessSet<Never>(
+let witnessSet = TransactionWitnessSet(
     vkeyWitnesses: .nonEmptyOrderedSet(NonEmptyOrderedSet([
         // Signatures for keys referenced in script
         VerificationKeyWitness(
@@ -182,7 +182,7 @@ let witnessSet = TransactionWitnessSet<Never>(
 
 ```swift
 // Transaction with Plutus script
-let plutusWitnessSet = TransactionWitnessSet<Never>(
+let plutusWitnessSet = TransactionWitnessSet(
     vkeyWitnesses: nil,
     nativeScripts: nil,
     bootstrapWitness: nil,

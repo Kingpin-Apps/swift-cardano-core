@@ -2,7 +2,7 @@ import Foundation
 import PotentCBOR
 
 
-public struct Fraction: CBORSerializable, Equatable, Hashable {
+public struct Fraction: CBORSerializable {
     public let numerator: Int
     public let denominator: Int
     
@@ -68,7 +68,7 @@ public struct Fraction: CBORSerializable, Equatable, Hashable {
             throw CardanoCoreError.valueError(
                 "UnitInterval must be tagged with tag \(UnitInterval.tag)")
         }
-        guard case let .array(arrayData) = tagged.value else {
+        guard case let .list(arrayData) = tagged.value else {
             throw CardanoCoreError.valueError("UnitInterval must be an array")
         }
         guard arrayData.count == 2 else {
@@ -85,9 +85,9 @@ public struct Fraction: CBORSerializable, Equatable, Hashable {
     public func toPrimitive() throws -> Primitive {
         let cborTag = CBORTag(
             tag: UInt64(UnitInterval.tag),
-            value: .array([
-                .uint64(UInt64(numerator)),
-                .uint64(UInt64(denominator))
+            value: .list([
+                .uint(UInt(numerator)),
+                .uint(UInt(denominator))
             ])
         )
         return .cborTag(cborTag)

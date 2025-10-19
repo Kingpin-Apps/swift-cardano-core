@@ -149,7 +149,7 @@ let txBody = TransactionBody(
 
 // Add minting policy script to witnesses
 let mintingScript = NativeScript.scriptPubkey(.verificationKeyHash(keyHash))
-let witnessSet = TransactionWitnessSet<Never>(
+let witnessSet = TransactionWitnessSet(
     vkeyWitnesses: .nonEmptyOrderedSet(NonEmptyOrderedSet([witness])),
     nativeScripts: .nonEmptyOrderedSet(NonEmptyOrderedSet([mintingScript])),
     bootstrapWitness: nil,

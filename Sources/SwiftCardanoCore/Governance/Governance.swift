@@ -57,7 +57,7 @@ public struct GovActionID: CBORSerializable, Hashable, Equatable {
         }
         self.transactionID = try TransactionId(from: primitive[0])
         
-        guard case let .int(govActionIndex) = primitive[1] else {
+        guard case let .uint(govActionIndex) = primitive[1] else {
             throw CardanoCoreError.deserializeError("Invalid GovActionID type")
         }
         self.govActionIndex = UInt16(govActionIndex)
@@ -72,7 +72,7 @@ public struct GovActionID: CBORSerializable, Hashable, Equatable {
     public func toPrimitive() throws -> Primitive {
         return .list([
             .string(transactionID.payload.toHex),
-            .int(Int(govActionIndex))
+            .uint(UInt(govActionIndex))
         ])
     }
 }

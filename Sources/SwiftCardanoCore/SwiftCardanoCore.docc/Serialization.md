@@ -113,7 +113,7 @@ let deserialized = try CustomData.fromCBOR(data: serialized)
 // Create dynamic CBOR content
 let dynamicValue = AnyValue.map([
     "name": .string("Alice"),
-    "age": .int(30),
+    "age": .uint(30),
     "tokens": .array([
         .string("TokenA"),
         .string("TokenB")
@@ -138,9 +138,9 @@ let metadata = Metadata([
         .text("image"): .text("ipfs://QmHash...")
     ]),
     3: .list([
-        .int(1),
-        .int(2),
-        .int(3)
+        .uint(1),
+        .uint(2),
+        .uint(3)
     ])
 ])
 
@@ -185,7 +185,7 @@ try transaction.save(to: "my-transaction.tx")
 print("Transaction saved successfully")
 
 // Load transaction from file
-let loadedTransaction = try Transaction<Never>.load(from: "my-transaction.tx")
+let loadedTransaction = try Transaction.load(from: "my-transaction.tx")
 print("Transaction loaded: \(loadedTransaction.id?.payload.toHex ?? "unknown")")
 
 // Verify integrity
@@ -214,24 +214,6 @@ let loadedScript = try Address.load(from: "script.addr")
 assert(paymentAddr.toBech32() == loadedPayment.toBech32())
 ```
 
-### Key File Operations
-
-```swift
-// Save cryptographic keys
-let privateKey = try Ed25519PrivateKey.generateNew()
-let publicKey = privateKey.publicKey
-
-// Save keys to files (JSON format)
-try privateKey.save(to: "payment.skey")
-try publicKey.save(to: "payment.vkey")
-
-// Load keys from files
-let loadedPrivateKey = try Ed25519PrivateKey.load(from: "payment.skey")
-let loadedPublicKey = try Ed25519PublicKey.load(from: "payment.vkey")
-
-// Verify key pairs match
-assert(loadedPrivateKey.publicKey.rawData == loadedPublicKey.rawData)
-```
 
 ### Metadata File Operations
 

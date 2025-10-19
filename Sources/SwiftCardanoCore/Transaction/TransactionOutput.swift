@@ -6,7 +6,7 @@ public struct TransactionOutput: CBORSerializable, Hashable, Equatable {
     public var address: Address
     public var amount: Value
     public var datumHash: DatumHash?
-    public var datum: Datum?
+    public var datumOption: DatumOption?
     public var script: ScriptType?
     public var postAlonzo: Bool = false
 
@@ -14,11 +14,18 @@ public struct TransactionOutput: CBORSerializable, Hashable, Equatable {
         return amount.coin
     }
     
-    public init(address: Address, amount: Value, datumHash: DatumHash? = nil, datum: Datum? = nil, script: ScriptType? = nil, postAlonzo: Bool = false) {
+    public init(
+        address: Address,
+        amount: Value,
+        datumHash: DatumHash? = nil,
+        datumOption: DatumOption? = nil,
+        script: ScriptType? = nil,
+        postAlonzo: Bool = false
+    ) {
         self.address = address
         self.amount = amount
         self.datumHash = datumHash
-        self.datum = datum
+        self.datumOption = datumOption
         self.script = script
         self.postAlonzo = postAlonzo
     }
@@ -27,7 +34,7 @@ public struct TransactionOutput: CBORSerializable, Hashable, Equatable {
                 address: String,
                 amount: Int,
                 datumHash: String? = nil,
-                datum: Datum? = nil,
+                datumOption: DatumOption? = nil,
                 script: ScriptType? = nil,
                 postAlonzo: Bool = false
     ) throws {
@@ -40,7 +47,7 @@ public struct TransactionOutput: CBORSerializable, Hashable, Equatable {
             self.datumHash = nil
         }
         
-        self.datum = datum
+        self.datumOption = datumOption
         self.script = script
         self.postAlonzo = postAlonzo
     }
@@ -51,7 +58,7 @@ public struct TransactionOutput: CBORSerializable, Hashable, Equatable {
             self.address = output.address
             self.amount = output.amount
             self.datumHash = output.datumHash
-            self.datum = nil
+            self.datumOption = nil
             self.script = nil
             self.postAlonzo = false  // Legacy format
         } else if case .orderedDict(_) = primitives {
@@ -59,18 +66,18 @@ public struct TransactionOutput: CBORSerializable, Hashable, Equatable {
             self.address = output.address
             self.amount = output.amount
             self.script = output.script
-            let datum = output.datum?.datum ?? nil
+            let datum = output.datumOption?.datum ?? nil
             
             switch datum {
                 case .datumHash(let hash):
                     self.datumHash = hash
-                    self.datum = nil
-                case .anyValue(let any):
+                    self.datumOption = nil
+                case .data(let data):
                     self.datumHash = nil
-                    self.datum = try Datum(from: any.toPrimitive())
+                    self.datumOption = DatumOption(datum: data)
                 case .none:
                     self.datumHash = nil
-                    self.datum = nil
+                    self.datumOption = nil
             }
             
             self.postAlonzo = true  // Post-Alonzo format
@@ -80,24 +87,14 @@ public struct TransactionOutput: CBORSerializable, Hashable, Equatable {
     }
     
     public func toPrimitive() throws -> Primitive {
-        if self.datum != nil || self.script != nil || self.postAlonzo {
+        if self.datumOption != nil || self.script != nil || self.postAlonzo {
             let datumOption: DatumOption?
             let scriptRef: ScriptRef?
             
             if let datumHash = self.datumHash {
                 datumOption = DatumOption(datum: datumHash)
-            } else if let datum = datum {
-                // For inline datum, we need to encode it directly as AnyValue
-                let anyValue: AnyValue
-                switch datum {
-                case .int(let intValue):
-                    anyValue = AnyValue.int(intValue)
-                case .bytes(let data):
-                    anyValue = AnyValue.data(data)
-                default:
-                    anyValue = try datum.toPrimitive().toAnyValue()
-                }
-                datumOption = DatumOption(datum: anyValue)
+            } else if let datum = self.datumOption {
+                datumOption = datum
             } else {
                 datumOption = nil
             }
@@ -111,7 +108,7 @@ public struct TransactionOutput: CBORSerializable, Hashable, Equatable {
             return try TransactionOutputPostAlonzo(
                 address: address,
                 amount: amount,
-                datum: datumOption,
+                datumOption: datumOption,
                 scriptRef: scriptRef
             ).toPrimitive()
         } else {
@@ -136,7 +133,7 @@ public struct TransactionOutput: CBORSerializable, Hashable, Equatable {
         return lhs.address == rhs.address &&
         lhs.amount == rhs.amount &&
         lhs.datumHash == rhs.datumHash &&
-        lhs.datum == rhs.datum &&
+        lhs.datumOption == rhs.datumOption &&
         lhs.script == rhs.script &&
         lhs.postAlonzo == rhs.postAlonzo
     }
@@ -145,7 +142,7 @@ public struct TransactionOutput: CBORSerializable, Hashable, Equatable {
         hasher.combine(address)
         hasher.combine(amount)
         hasher.combine(datumHash)
-        hasher.combine(datum)
+        hasher.combine(datumOption)
         hasher.combine(script)
     }
 }
@@ -154,7 +151,7 @@ public struct TransactionOutput: CBORSerializable, Hashable, Equatable {
 public struct TransactionOutputPostAlonzo: CBORSerializable, Hashable, Equatable {
     let address: Address
     let amount: Value
-    let datum: DatumOption?
+    let datumOption: DatumOption?
     let scriptRef: ScriptRef?
 
     var script: ScriptType? {
@@ -168,10 +165,15 @@ public struct TransactionOutputPostAlonzo: CBORSerializable, Hashable, Equatable
         case scriptRef = 3
     }
     
-    public init(address: Address, amount: Value, datum: DatumOption? = nil, scriptRef: ScriptRef? = nil) {
+    public init(
+        address: Address,
+        amount: Value,
+        datumOption: DatumOption? = nil,
+        scriptRef: ScriptRef? = nil
+    ) {
         self.address = address
         self.amount = amount
-        self.datum = datum
+        self.datumOption = datumOption
         self.scriptRef = scriptRef
     }
     
@@ -193,17 +195,19 @@ public struct TransactionOutputPostAlonzo: CBORSerializable, Hashable, Equatable
                 
         
         self.address = try Address(
-            from: primitiveDict[.int(CodingKeys.address.rawValue)]!
+            from: primitiveDict[.uint(UInt(CodingKeys.address.rawValue))]!
         )
-        self.amount = try Value(from: primitiveDict[.int(CodingKeys.amount.rawValue)]!)
+        self.amount = try Value(
+            from: primitiveDict[.uint(UInt(CodingKeys.amount.rawValue))]!
+        )
         
-        if let datum = primitiveDict[.int(CodingKeys.datum.rawValue)] {
-            self.datum = try DatumOption(from: datum)
+        if let datum = primitiveDict[.uint(UInt(CodingKeys.datum.rawValue))] {
+            self.datumOption = try DatumOption(from: datum)
         } else {
-            self.datum = nil
+            self.datumOption = nil
         }
         
-        if let scriptRef = primitiveDict[.int(CodingKeys.scriptRef.rawValue)] {
+        if let scriptRef = primitiveDict[.uint(UInt(CodingKeys.scriptRef.rawValue))] {
             self.scriptRef = try ScriptRef(from: scriptRef)
         } else {
             self.scriptRef = nil
@@ -216,12 +220,13 @@ public struct TransactionOutputPostAlonzo: CBORSerializable, Hashable, Equatable
             .int(CodingKeys.amount.rawValue): amount.toPrimitive()
         ]
         
-        if datum != nil {
-            dict[.int(CodingKeys.datum.rawValue)] = try datum!.toPrimitive()
+        if datumOption != nil {
+            dict[.uint(UInt(CodingKeys.datum.rawValue))] = try datumOption!
+                .toPrimitive()
         }
         
         if scriptRef != nil {
-            dict[.int(CodingKeys.scriptRef.rawValue)] = try scriptRef!
+            dict[.uint(UInt(CodingKeys.scriptRef.rawValue))] = try scriptRef!
                 .toPrimitive()
         }
         

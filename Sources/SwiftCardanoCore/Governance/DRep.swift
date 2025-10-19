@@ -9,7 +9,7 @@ public enum DRepType: CBORSerializable, Hashable, Sendable {
     public init(from primitive: Primitive) throws {
         guard case let .list(elements) = primitive,
               elements.count >= 1,
-              case let .int(tag) = elements[0] else {
+              case let .uint(tag) = elements[0] else {
             throw CardanoCoreError.deserializeError("Invalid DRepType primitive")
         }
         
@@ -36,13 +36,13 @@ public enum DRepType: CBORSerializable, Hashable, Sendable {
     public func toPrimitive() throws -> Primitive {
         switch self {
             case .verificationKeyHash(let hash):
-                return .list([.int(0), hash.toPrimitive()])
+                return .list([.uint(0), hash.toPrimitive()])
             case .scriptHash(let hash):
-                return .list([.int(1), hash.toPrimitive()])
+                return .list([.uint(1), hash.toPrimitive()])
             case .alwaysAbstain:
-                return .list([.int(2)])
+                return .list([.uint(2)])
             case .alwaysNoConfidence:
-                return .list([.int(3)])
+                return .list([.uint(3)])
         }
     }
     

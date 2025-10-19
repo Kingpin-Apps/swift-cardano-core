@@ -1,6 +1,6 @@
 import Foundation
 
-public struct TransactionInput: CBORSerializable, Equatable, Hashable {
+public struct TransactionInput: CBORSerializable {
     public let transactionId: TransactionId
     public let index: UInt16
     
@@ -22,7 +22,7 @@ public struct TransactionInput: CBORSerializable, Equatable, Hashable {
         self.transactionId = try TransactionId(from: primitive[0])
         
         switch primitive[1] {
-            case let .int(intValue):
+            case let .uint(intValue):
                 self.index = UInt16(intValue)
             default:
                 throw CardanoCoreError.deserializeError("Invalid TransactionInput type")
@@ -32,24 +32,7 @@ public struct TransactionInput: CBORSerializable, Equatable, Hashable {
     public func toPrimitive() throws -> Primitive {
         return .list([
             .bytes(transactionId.payload),
-            .int(Int(index))
+            .uint(UInt(index))
         ])
-    }
-    
-    public init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        transactionId = try container.decode(TransactionId.self)
-        index = try container.decode(UInt16.self)
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.unkeyedContainer()
-        try container.encode(transactionId)
-        try container.encode(index)
-    }
-
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(transactionId)
-        hasher.combine(index)
     }
 }

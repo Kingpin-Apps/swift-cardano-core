@@ -173,7 +173,7 @@ func idMap(cls: Any, skipConstructor: Bool = false) throws -> String {
     }
 
     // Handle PlutusData types
-    if let plutusType = cls as? PlutusData.Type {
+    if let plutusType = cls as? Constr.Type {
         let mirror = Mirror(reflecting: plutusType)
         let fieldsDescription = try mirror.children.map {
             "\($0.label ?? ""):\(try idMap(cls: $0.value.self as! AnyClass))"

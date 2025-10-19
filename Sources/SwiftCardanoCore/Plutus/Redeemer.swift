@@ -13,9 +13,9 @@ public enum RedeemerTag: Int, CBORSerializable {
     case proposing = 5
     
     public init(from primitive: Primitive) throws {
-        guard case let .int(value) = primitive,
-              let tag = RedeemerTag(rawValue: value) else {
-            throw CardanoCoreError.deserializeError("Invalid RedeemerTag primitive")
+        guard case let .uint(value) = primitive,
+              let tag = RedeemerTag(rawValue: Int(value)) else {
+            throw CardanoCoreError.deserializeError("Invalid RedeemerTag primitive: \(primitive)")
         }
         self = tag
     }
@@ -37,37 +37,21 @@ public enum RedeemerTag: Int, CBORSerializable {
 }
 
 
-public class Redeemer<T: CBORSerializable & Hashable>: CBORSerializable, Equatable, Hashable {
+public class Redeemer: CBORSerializable, Equatable, Hashable {
     public var tag: RedeemerTag?
     public var index: Int = 0
-    public var data: T
+    public var data: PlutusData
     public var exUnits: ExecutionUnits?
 
     public init(tag: RedeemerTag? = nil,
                 index: Int = 0,
-                data: T,
+                data: PlutusData,
                 exUnits: ExecutionUnits? = nil) {
         self.tag = tag
         self.index = index
         self.data = data
         self.exUnits = exUnits
     }
-    
-//    required public init(from decoder: Decoder) throws {
-//        var container = try decoder.unkeyedContainer()
-//        tag = try container.decode(RedeemerTag.self)
-//        index = try container.decode(Int.self)
-//        data = try container.decode(T.self)
-//        exUnits = try container.decode(ExecutionUnits.self)
-//    }
-//
-//    public func encode(to encoder: Encoder) throws {
-//        var container = encoder.unkeyedContainer()
-//        try container.encode(tag)
-//        try container.encode(index)
-//        try container.encode(data)
-//        try container.encode(exUnits)
-//    }
     
     public func hash(into hasher: inout Hasher) {
         hasher.combine(tag)
@@ -90,21 +74,16 @@ public class Redeemer<T: CBORSerializable & Hashable>: CBORSerializable, Equatab
         }
         
         let tag = try RedeemerTag(from: primitive[0])
-        guard case let .int(index) = primitive[1] else {
+        
+        guard case let .uint(index) = primitive[1] else {
             throw CardanoCoreError.deserializeError("Invalid Redeemer index")
         }
         
-        // For data, we need to handle T being Codable
-//        let dataValue = primitive[2].toAnyValue()
-//        guard let data = dataValue.unwrapped as? T else {
-//            throw CardanoCoreError.deserializeError("Invalid Redeemer data: \(dataValue)")
-//        }
-        
         let exUnits = try ExecutionUnits(from: primitive[3])
-        let data = try T.init(from: primitive[2])
+        let data = try PlutusData.init(from: primitive[2])
         
         self.tag = tag
-        self.index = index
+        self.index = Int(index)
         self.data = data
         self.exUnits = exUnits
     }
@@ -113,7 +92,7 @@ public class Redeemer<T: CBORSerializable & Hashable>: CBORSerializable, Equatab
         return .list([
             try tag?.toPrimitive() ?? .null,
             .int(index),
-            try Primitive.fromAny(data),
+            try data.toPrimitive(),
             try exUnits?.toPrimitive() ?? .null
         ])
     }
@@ -168,18 +147,18 @@ public struct RedeemerKey: CBORSerializable, Equatable, Hashable {
 }
 
 /// Represents the value of a Redeemer, including data and execution units.
-public struct RedeemerValue<T: Codable & Hashable>: CBORSerializable, Equatable, Hashable {
-    public var data: T
+public struct RedeemerValue: CBORSerializable, Equatable, Hashable {
+    public var data: PlutusData
     public var exUnits: ExecutionUnits
 
-    public init(data: T, exUnits: ExecutionUnits) {
+    public init(data: PlutusData, exUnits: ExecutionUnits) {
         self.data = data
         self.exUnits = exUnits
     }
 
     public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
-        data = try container.decode(T.self)
+        data = try container.decode(PlutusData.self)
         exUnits = try container.decode(ExecutionUnits.self)
     }
 
@@ -195,11 +174,7 @@ public struct RedeemerValue<T: Codable & Hashable>: CBORSerializable, Equatable,
             throw CardanoCoreError.deserializeError("Invalid RedeemerValue primitive")
         }
         
-        let dataValue = primitive[0].toAnyValue()
-        guard let data = dataValue.unwrapped as? T else {
-            throw CardanoCoreError.deserializeError("Invalid RedeemerValue data")
-        }
-        
+        let data = try PlutusData.init(from: primitive[2])
         let exUnits = try ExecutionUnits(from: primitive[1])
         
         self.data = data
@@ -215,31 +190,30 @@ public struct RedeemerValue<T: Codable & Hashable>: CBORSerializable, Equatable,
 }
 
 /// Represents a mapping of RedeemerKeys to RedeemerValues.
-//public typealias RedeemerMap<T: Codable & Hashable> = [RedeemerKey: RedeemerValue<T>]
-public struct RedeemerMap<T: CBORSerializable & Hashable>: CBORSerializable, Equatable, Hashable {
-    private var storage: [RedeemerKey: RedeemerValue<T>]
+public struct RedeemerMap: CBORSerializable, Equatable, Hashable {
+    private var storage: [RedeemerKey: RedeemerValue]
 
     public init() {
         self.storage = [:]
     }
 
-    public init(_ map: [RedeemerKey: RedeemerValue<T>]) {
+    public init(_ map: [RedeemerKey: RedeemerValue]) {
         self.storage = map
     }
     
-    public init(uniqueKeysWithValues elements: [(RedeemerKey, RedeemerValue<T>)]) {
+    public init(uniqueKeysWithValues elements: [(RedeemerKey, RedeemerValue)]) {
         self.storage = [:]
         for (key, value) in elements {
             storage[key] = value
         }
     }
 
-    public subscript(key: RedeemerKey) -> RedeemerValue<T>? {
+    public subscript(key: RedeemerKey) -> RedeemerValue? {
         get { storage[key] }
         set { storage[key] = newValue }
     }
 
-    public var dictionary: [RedeemerKey: RedeemerValue<T>] {
+    public var dictionary: [RedeemerKey: RedeemerValue] {
         return storage
     }
     
@@ -275,7 +249,7 @@ public struct RedeemerMap<T: CBORSerializable & Hashable>: CBORSerializable, Equ
             let keyData = try CBORSerialization.data(from: key)
             let valueData = try CBORSerialization.data(from: value)
             let redeemerKey = try RedeemerKey.fromCBOR(data: keyData)
-            let redeemerValue = try RedeemerValue<T>.fromCBOR(data: valueData)
+            let redeemerValue = try RedeemerValue.fromCBOR(data: valueData)
             storage[redeemerKey] = redeemerValue
         }
     }
@@ -284,7 +258,7 @@ public struct RedeemerMap<T: CBORSerializable & Hashable>: CBORSerializable, Equ
         hasher.combine(storage)
     }
 
-    public static func ==(lhs: RedeemerMap<T>, rhs: RedeemerMap<T>) -> Bool {
+    public static func == (lhs: RedeemerMap, rhs: RedeemerMap) -> Bool {
         lhs.storage == rhs.storage
     }
     
@@ -303,7 +277,7 @@ public struct RedeemerMap<T: CBORSerializable & Hashable>: CBORSerializable, Equ
         storage = [:]
         for (keyPrimitive, valuePrimitive) in primitiveDict {
             let key = try RedeemerKey(from: keyPrimitive)
-            let value = try RedeemerValue<T>(from: valuePrimitive)
+            let value = try RedeemerValue(from: valuePrimitive)
             storage[key] = value
         }
     }
@@ -322,9 +296,9 @@ public struct RedeemerMap<T: CBORSerializable & Hashable>: CBORSerializable, Equ
 }
 
 /// Redeemers can be a list of Redeemer objects or a map of Redeemer keys to values.
-public enum Redeemers<T: CBORSerializable & Hashable>: CBORSerializable, Equatable, Hashable {
-    case list([Redeemer<T>])
-    case map(RedeemerMap<T>)
+public enum Redeemers: CBORSerializable, Equatable, Hashable {
+    case list([Redeemer])
+    case map(RedeemerMap)
     
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
@@ -334,7 +308,7 @@ public enum Redeemers<T: CBORSerializable & Hashable>: CBORSerializable, Equatab
         if case let .array(cborArray) = cbor {
             self = .list(
                 try cborArray
-                    .compactMap { try Redeemer<T>.fromCBOR(
+                    .compactMap { try Redeemer.fromCBOR(
                         data: try CBORSerialization.data(from: $0)
                     )
                     })
@@ -345,14 +319,14 @@ public enum Redeemers<T: CBORSerializable & Hashable>: CBORSerializable, Equatab
                             .fromCBOR(
                                 data: try CBORSerialization.data(from: $0.key)
                             ),
-                        try RedeemerValue<T>
+                        try RedeemerValue
                             .fromCBOR(
                                 data: try CBORSerialization.data(from: $0.value)
                             )
                     )
                 }
             )
-            self = .map(RedeemerMap<T>(
+            self = .map(RedeemerMap(
                 uniqueKeysWithValues: map.map(
                     { (key, value) in
                         (key, value)
@@ -376,33 +350,33 @@ public enum Redeemers<T: CBORSerializable & Hashable>: CBORSerializable, Equatab
     
     public init(from primitive: Primitive) throws {
         switch primitive {
-        case .list(let list):
-            var redeemers: [Redeemer<T>] = []
-            for item in list {
-                let redeemer = try Redeemer<T>(from: item)
-                redeemers.append(redeemer)
-            }
-            self = .list(redeemers)
-            
-        case .dict(_):
-            let redeemerMap = try RedeemerMap<T>(from: primitive)
-            self = .map(redeemerMap)
-            
-        case .orderedDict(_):
-            let redeemerMap = try RedeemerMap<T>(from: primitive)
-            self = .map(redeemerMap)
-            
-        default:
-            throw CardanoCoreError.deserializeError("Invalid Redeemers primitive")
+            case .list(let list):
+                var redeemers: [Redeemer] = []
+                for item in list {
+                    let redeemer = try Redeemer(from: item)
+                    redeemers.append(redeemer)
+                }
+                self = .list(redeemers)
+                
+            case .dict(_):
+                let redeemerMap = try RedeemerMap(from: primitive)
+                self = .map(redeemerMap)
+                
+            case .orderedDict(_):
+                let redeemerMap = try RedeemerMap(from: primitive)
+                self = .map(redeemerMap)
+                
+            default:
+                throw CardanoCoreError.deserializeError("Invalid Redeemers primitive")
         }
     }
     
     public func toPrimitive() throws -> Primitive {
         switch self {
-        case .list(let redeemers):
-            return .list(try redeemers.map { try $0.toPrimitive() })
-        case .map(let redeemerMap):
-            return try redeemerMap.toPrimitive()
+            case .list(let redeemers):
+                return .list(try redeemers.map { try $0.toPrimitive() })
+            case .map(let redeemerMap):
+                return try redeemerMap.toPrimitive()
         }
     }
 }

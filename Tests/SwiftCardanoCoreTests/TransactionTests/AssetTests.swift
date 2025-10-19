@@ -42,7 +42,7 @@ struct AssetTests {
     
     @Test("Asset initialization from primitive")
     func testInitializationFromPrimitive() throws {
-        let asset = try Asset(from: .dict([.string("MY_NFT_1"):.int(100)]))
+        let asset = try Asset(from: .dict([.string("MY_NFT_1"):.uint(100)]))
         
         #expect(asset.count == 1)
     }
@@ -134,13 +134,10 @@ struct AssetTests {
     
     @Test("Test Codable conformance")
     func testCodable() throws {
-        let asset = try Asset(from: .dict([.string("MY_NFT_1"):.int(100)]))
+        let asset = try Asset(from: .dict([.string("MY_NFT_1"):.uint(100)]))
         
-        let encodedData = try CBOREncoder().encode(asset)
-        let decodedInput = try CBORDecoder().decode(
-            Asset.self,
-            from: encodedData
-        )
+        let encodedData = try asset.toCBORData()
+        let decodedInput = try Asset.fromCBOR(data: encodedData)
         
         #expect(asset == decodedInput)
     }

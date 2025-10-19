@@ -43,14 +43,14 @@ public struct SingleHostAddr: CBORSerializable, Equatable, Hashable {
         }
         var iterator = elements.makeIterator()
         guard let codeElement = iterator.next(),
-                case let .int(code) = codeElement,
+                case let .uint(code) = codeElement,
               code == Self.code else {
             throw CardanoCoreError.deserializeError("Invalid SingleHostAddr type")
         }
         
         if let portElement = iterator.next() {
             switch portElement {
-                case .int(let portValue):
+                case .uint(let portValue):
                     self.port = Int(portValue)
                 case .null:
                     self.port = nil
@@ -98,10 +98,10 @@ public struct SingleHostAddr: CBORSerializable, Equatable, Hashable {
 
     public func toPrimitive() throws -> Primitive {
         var elements: [Primitive] = []
-        elements.append(.int(Int(Self.code)))
+        elements.append(.uint(UInt(Self.code)))
         
         if let port = self.port {
-            elements.append(.int(Int(port)))
+            elements.append(.uint(UInt(port)))
         } else {
             elements.append(.null)
         }
@@ -159,14 +159,14 @@ public struct SingleHostName: CBORSerializable, Equatable, Hashable {
         
         var iterator = elements.makeIterator()
         guard let codeElement = iterator.next(),
-                case let .int(code) = codeElement,
+                case let .uint(code) = codeElement,
               code == Self.code else {
             throw CardanoCoreError.deserializeError("Invalid SingleHostName type")
         }
         
         if let portElement = iterator.next() {
             switch portElement {
-                case .int(let portValue):
+                case .uint(let portValue):
                     self.port = Int(portValue)
                 case .null:
                     self.port = nil
@@ -193,10 +193,10 @@ public struct SingleHostName: CBORSerializable, Equatable, Hashable {
 
     public func toPrimitive() throws -> Primitive {
         var elements: [Primitive] = []
-        elements.append(.int(Int(Self.code)))
+        elements.append(.uint(UInt(Self.code)))
         
         if let port = self.port {
-            elements.append(.int(Int(port)))
+            elements.append(.uint(UInt(port)))
         } else {
             elements.append(.null)
         }
@@ -242,7 +242,7 @@ public struct MultiHostName: CBORSerializable, Equatable, Hashable {
         }
         var iterator = elements.makeIterator()
         guard let codeElement = iterator.next(),
-                case let .int(code) = codeElement,
+                case let .uint(code) = codeElement,
               code == Self.code else {
             throw CardanoCoreError.deserializeError("Invalid MultiHostName type")
         }
@@ -262,7 +262,7 @@ public struct MultiHostName: CBORSerializable, Equatable, Hashable {
 
     public func toPrimitive() throws -> Primitive {
         var elements: [Primitive] = []
-        elements.append(.int(Int(Self.code)))
+        elements.append(.uint(UInt(Self.code)))
         
         if let dnsName = self.dnsName {
             elements.append(.string(dnsName))
@@ -312,7 +312,7 @@ public enum Relay: CBORSerializable, Equatable, Hashable {
             throw CardanoCoreError.deserializeError("Invalid Relay primitive")
         }
         guard let firstElement = elements.first,
-              case let .int(code) = firstElement else {
+              case let .uint(code) = firstElement else {
             throw CardanoCoreError.deserializeError("Invalid Relay type")
         }
         
@@ -392,16 +392,16 @@ public struct PoolParams: CBORSerializable, Equatable, Hashable {
         self.vrfKeyHash = try VrfKeyHash(from: elements[1])
         
         // pledge (Int)
-        guard case let .int(pledge) = elements[2] else {
+        guard case let .uint(pledge) = elements[2] else {
             throw CardanoCoreError.deserializeError("Invalid pledge value in PoolParams")
         }
-        self.pledge = pledge
+        self.pledge = Int(pledge)
         
         // cost (Int)
-        guard case let .int(cost) = elements[3] else {
+        guard case let .uint(cost) = elements[3] else {
             throw CardanoCoreError.deserializeError("Invalid cost value in PoolParams")
         }
-        self.cost = cost
+        self.cost = Int(cost)
         
         // margin (UnitInterval)
         self.margin = try UnitInterval(from: elements[4])
