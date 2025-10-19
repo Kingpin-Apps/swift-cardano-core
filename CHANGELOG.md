@@ -1,3 +1,9 @@
+## 0.2.5 (2025-10-19)
+
+### Fix
+
+- refactor to use Primitives instead of AnyValue and use PlutusData
+
 ## 0.2.4 (2025-10-16)
 
 ### Fix
