@@ -1,7 +1,7 @@
 import Foundation
 
 /// Stake address info model class
-public struct StakeAddressInfo: Codable, Equatable {
+public struct StakeAddressInfo: Codable, Equatable, Sendable {
     
     /// Stake address
     public let address: String

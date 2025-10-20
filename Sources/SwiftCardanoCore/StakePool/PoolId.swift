@@ -1,6 +1,6 @@
 import Foundation
 
-public struct PoolId: CBORSerializable, CustomStringConvertible, CustomDebugStringConvertible, Equatable, Hashable {
+public struct PoolId: CBORSerializable, CustomStringConvertible, CustomDebugStringConvertible, Sendable {
     public var description: String { return bech32 }
 
     public var debugDescription: String { return bech32 }
