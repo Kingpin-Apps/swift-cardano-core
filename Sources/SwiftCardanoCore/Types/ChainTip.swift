@@ -76,8 +76,8 @@ public struct ChainTip: Codable, Equatable, Sendable {
         case era
         case hash
         case slot
-        case slotInEpoch = "slot_in_epoch"
-        case slotsToEpochEnd = "slots_to_epoch_end"
-        case syncProgress = "sync_progress"
+        case slotInEpoch
+        case slotsToEpochEnd
+        case syncProgress
     }
 }
