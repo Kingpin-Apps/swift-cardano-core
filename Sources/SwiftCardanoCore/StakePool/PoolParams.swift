@@ -350,7 +350,6 @@ public struct PoolParams: CBORSerializable, Equatable, Hashable {
     public let poolOwners: ListOrOrderedSet<VerificationKeyHash>
     public let relays: [Relay]?
     public let poolMetadata: PoolMetadata?
-    public let id: PoolId?
     
     public init(
         poolOperator: PoolKeyHash,
@@ -362,7 +361,6 @@ public struct PoolParams: CBORSerializable, Equatable, Hashable {
         poolOwners: ListOrOrderedSet<VerificationKeyHash>,
         relays: [Relay]?,
         poolMetadata: PoolMetadata?,
-        id: PoolId? = nil
     ) {
         self.poolOperator = poolOperator
         self.vrfKeyHash = vrfKeyHash
@@ -373,7 +371,6 @@ public struct PoolParams: CBORSerializable, Equatable, Hashable {
         self.poolOwners = poolOwners
         self.relays = relays
         self.poolMetadata = poolMetadata
-        self.id = id
     }
     
     public init(from primitive: Primitive) throws {
@@ -431,9 +428,6 @@ public struct PoolParams: CBORSerializable, Equatable, Hashable {
         } else {
             self.poolMetadata = nil
         }
-        
-        // id is derived, not from primitive
-        self.id = nil
     }
 
     public func toPrimitive() throws -> Primitive {

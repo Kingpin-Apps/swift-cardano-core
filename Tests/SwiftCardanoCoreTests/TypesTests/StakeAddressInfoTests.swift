@@ -58,7 +58,7 @@ struct StakeAddressInfoTests {
             address: sampleAddress,
             govActionDeposits: sampleGovActionDeposits,
             rewardAccountBalance: sampleRewardBalance,
-            stakeDelegation: try PoolId(from: sampleStakeDelegation),
+            stakeDelegation: try PoolOperator(from: sampleStakeDelegation),
             stakeRegistrationDeposit: sampleStakeRegistrationDeposit,
             voteDelegation: try DRep(from: sampleDelegateRepresentative)
         )
@@ -66,7 +66,7 @@ struct StakeAddressInfoTests {
         #expect(info.address == sampleAddress)
         #expect(info.govActionDeposits == sampleGovActionDeposits)
         #expect(info.rewardAccountBalance == sampleRewardBalance)
-        #expect(info.stakeDelegation?.bech32 == sampleStakeDelegation)
+        #expect(try info.stakeDelegation?.id() == sampleStakeDelegation)
         #expect(info.stakeRegistrationDeposit == sampleStakeRegistrationDeposit)
         #expect(try info.voteDelegation?.id() == sampleDelegateRepresentative)
     }
@@ -125,7 +125,7 @@ struct StakeAddressInfoTests {
             address: sampleAddress,
             govActionDeposits: sampleGovActionDeposits,
             rewardAccountBalance: sampleRewardBalance,
-            stakeDelegation: try PoolId(from: sampleStakeDelegation),
+            stakeDelegation: try PoolOperator(from: sampleStakeDelegation),
             stakeRegistrationDeposit: sampleStakeRegistrationDeposit,
             voteDelegation: try DRep(from: sampleDelegateRepresentative)
         )
@@ -134,7 +134,7 @@ struct StakeAddressInfoTests {
             address: sampleAddress,
             govActionDeposits: sampleGovActionDeposits,
             rewardAccountBalance: sampleRewardBalance,
-            stakeDelegation: try PoolId(from: sampleStakeDelegation),
+            stakeDelegation: try PoolOperator(from: sampleStakeDelegation),
             stakeRegistrationDeposit: sampleStakeRegistrationDeposit,
             voteDelegation: try DRep(from: sampleDelegateRepresentative)
         )
@@ -147,7 +147,7 @@ struct StakeAddressInfoTests {
             address: sampleAddress,
             govActionDeposits: sampleGovActionDeposits,
             rewardAccountBalance: sampleRewardBalance + 3000,
-            stakeDelegation: try PoolId(from: sampleStakeDelegation),
+            stakeDelegation: try PoolOperator(from: sampleStakeDelegation),
             stakeRegistrationDeposit: sampleStakeRegistrationDeposit,
             voteDelegation: try DRep(from: sampleDelegateRepresentative)
         )
@@ -242,7 +242,7 @@ struct StakeAddressInfoTests {
             address: sampleAddress,
             govActionDeposits: sampleGovActionDeposits,
             rewardAccountBalance: sampleRewardBalance,
-            stakeDelegation: try PoolId(from: sampleStakeDelegation),
+            stakeDelegation: try PoolOperator(from: sampleStakeDelegation),
             stakeRegistrationDeposit: sampleStakeRegistrationDeposit,
             voteDelegation: try DRep(from: sampleDelegateRepresentative)
         )
@@ -287,7 +287,7 @@ struct StakeAddressInfoTests {
         #expect(decodedInfo[0].address == sampleAddress)
         #expect(decodedInfo[0].govActionDeposits == sampleGovActionDeposits)
         #expect(decodedInfo[0].rewardAccountBalance == sampleRewardBalance)
-        #expect(decodedInfo[0].stakeDelegation?.bech32 == sampleStakeDelegation)
+        #expect(try decodedInfo[0].stakeDelegation?.id() == sampleStakeDelegation)
         #expect(decodedInfo[0].stakeRegistrationDeposit == sampleStakeRegistrationDeposit)
         #expect(try decodedInfo[0].voteDelegation?.id() == sampleDelegateRepresentative)
     }
@@ -336,7 +336,7 @@ struct StakeAddressInfoTests {
         #expect(decodedInfo.address == sampleAddress)
         #expect(decodedInfo.stakeRegistrationDeposit == nil)
         #expect(decodedInfo.rewardAccountBalance == 0)
-        #expect(decodedInfo.stakeDelegation?.bech32 == sampleStakeDelegation)
+        #expect(try decodedInfo.stakeDelegation?.id() == sampleStakeDelegation)
         #expect(decodedInfo.voteDelegation == nil)
     }
     

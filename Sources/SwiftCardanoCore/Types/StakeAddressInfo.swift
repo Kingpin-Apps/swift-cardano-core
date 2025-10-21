@@ -13,7 +13,7 @@ public struct StakeAddressInfo: Codable, Equatable, Sendable {
     public let rewardAccountBalance: Int
     
     /// Stake delegation pool ID
-    public let stakeDelegation: PoolId?
+    public let stakeDelegation: PoolOperator?
     
     /// StakeRegistration deposit
     public let stakeRegistrationDeposit: Int?
@@ -35,7 +35,7 @@ public struct StakeAddressInfo: Codable, Equatable, Sendable {
         address: String,
         govActionDeposits: [String:UInt64]? = nil,
         rewardAccountBalance: Int,
-        stakeDelegation: PoolId? = nil,
+        stakeDelegation: PoolOperator? = nil,
         stakeRegistrationDeposit: Int? = nil,
         voteDelegation: DRep? = nil
     ) {
@@ -60,7 +60,7 @@ public struct StakeAddressInfo: Codable, Equatable, Sendable {
             )
         self.stakeRegistrationDeposit = try container.decodeIfPresent(Int.self, forKey: .stakeRegistrationDeposit)
         self.rewardAccountBalance = try container.decodeIfPresent(Int.self, forKey: .rewardAccountBalance) ?? 0
-        self.stakeDelegation = try? container.decodeIfPresent(PoolId.self, forKey: .stakeDelegation)
+        self.stakeDelegation = try? container.decodeIfPresent(PoolOperator.self, forKey: .stakeDelegation)
         self.voteDelegation = try? container.decodeIfPresent(DRep.self, forKey: .voteDelegation)
     }
     

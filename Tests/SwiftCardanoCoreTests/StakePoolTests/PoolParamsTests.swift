@@ -39,8 +39,7 @@ import PotentCBOR
             rewardAccount: testRewardAccount,
             poolOwners: testPoolOwners,
             relays: testRelays,
-            poolMetadata: testPoolMetadata,
-            id: nil
+            poolMetadata: testPoolMetadata
         )
 
         #expect(poolParams.poolOperator == testPoolOperator)
@@ -65,8 +64,7 @@ import PotentCBOR
             rewardAccount: testRewardAccount,
             poolOwners: testPoolOwners,
             relays: testRelays,
-            poolMetadata: testPoolMetadata,
-            id: nil
+            poolMetadata: testPoolMetadata
         )
 
         let encodedCBOR = try poolParams.toCBORData()
@@ -86,8 +84,7 @@ import PotentCBOR
             rewardAccount: testRewardAccount,
             poolOwners: testPoolOwners,
             relays: testRelays,
-            poolMetadata: testPoolMetadata,
-            id: nil
+            poolMetadata: testPoolMetadata
         )
 
         let poolParams2 = PoolParams(
@@ -99,8 +96,7 @@ import PotentCBOR
             rewardAccount: testRewardAccount,
             poolOwners: testPoolOwners,
             relays: testRelays,
-            poolMetadata: testPoolMetadata,
-            id: nil
+            poolMetadata: testPoolMetadata
         )
 
         var hasher1 = Hasher()
@@ -123,8 +119,7 @@ import PotentCBOR
             rewardAccount: testRewardAccount,
             poolOwners: testPoolOwners,
             relays: testRelays,
-            poolMetadata: testPoolMetadata,
-            id: nil
+            poolMetadata: testPoolMetadata
         )
 
         let poolParams2 = PoolParams(
@@ -136,8 +131,7 @@ import PotentCBOR
             rewardAccount: testRewardAccount,
             poolOwners: testPoolOwners,
             relays: testRelays,
-            poolMetadata: testPoolMetadata,
-            id: nil
+            poolMetadata: testPoolMetadata
         )
 
         let differentPoolParams = PoolParams(
@@ -149,8 +143,7 @@ import PotentCBOR
             rewardAccount: testRewardAccount,
             poolOwners: testPoolOwners,
             relays: testRelays,
-            poolMetadata: testPoolMetadata,
-            id: nil
+            poolMetadata: testPoolMetadata
         )
 
         #expect(poolParams1 == poolParams2)

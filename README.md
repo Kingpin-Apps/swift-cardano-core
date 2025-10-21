@@ -244,10 +244,10 @@ let regCert = Certificate.stakeRegistration(stakeRegistration)
 #### Stake Delegation
 
 ```swift
-let poolKeyHash = try PoolKeyHash(from: .string("pool1pu5jlj4q9w9jlxeu370a3c9myx47md5j5m2str0naunn2q3lkdy"))
+let poolOperator = try PoolOperator(from: "pool1pu5jlj4q9w9jlxeu370a3c9myx47md5j5m2str0naunn2q3lkdy")
 let delegation = StakeDelegationCertificate(
     stakeCredential: stakeCredential,
-    poolKeyHash: poolKeyHash
+    poolKeyHash: poolOperator.poolKeyHash
 )
 let delegCert = Certificate.stakeDelegation(delegation)
 ```

@@ -31,8 +31,8 @@ struct DRepTests {
         #expect(drepcip105 == drepcip129)
         #expect(drepFromHash == drepcip129)
         
-        #expect(try drepcip105.id(.cip129) == cip129)
-        #expect(try drepcip129.id(.cip105) == cip105)
+        #expect(try drepcip105.id((.bech32, .cip129)) == cip129)
+        #expect(try drepcip129.id((.bech32, .cip105)) == cip105)
         
         #expect(drepId! == excpectedDrepId)
         #expect(drepHexId! == excpectedDrepHexId)

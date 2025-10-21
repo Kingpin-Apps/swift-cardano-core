@@ -30,27 +30,27 @@ var poolMetadataHash: String? {
     }
 }
 
-var poolId: PoolId? {
+var poolId: PoolOperator? {
     do {
         let filePath = try getFilePath(
             forResource: poolIdFilePath.forResource,
             ofType: poolIdFilePath.ofType,
             inDirectory: poolIdFilePath.inDirectory
         )
-        return try PoolId.load(from: filePath!)
+        return try PoolOperator.load(from: filePath!)
     } catch {
         return nil
     }
 }
 
-var poolIdHex: PoolId? {
+var poolIdHex: PoolOperator? {
     do {
         let filePath = try getFilePath(
             forResource: poolIdHexFilePath.forResource,
             ofType: poolIdHexFilePath.ofType,
             inDirectory: poolIdHexFilePath.inDirectory
         )
-        return try PoolId.load(from: filePath!)
+        return try PoolOperator.load(from: filePath!)
     } catch {
         return nil
     }

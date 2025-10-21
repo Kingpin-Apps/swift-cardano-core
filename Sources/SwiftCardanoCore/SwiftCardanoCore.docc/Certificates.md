@@ -55,12 +55,12 @@ let certificate = Certificate.stakeRegistration(stakeRegistration)
 
 ```swift
 // Pool ID to delegate to
-let poolKeyHash = try PoolKeyHash(from: .string("pool1pu5jlj4q9w9jlxeu370a3c9myx47md5j5m2str0naunn2q3lkdy"))
+let poolOperator = try PoolOperator(from: "pool1pu5jlj4q9w9jlxeu370a3c9myx47md5j5m2str0naunn2q3lkdy")
 
 // Create delegation certificate
 let stakeDelegation = StakeDelegationCertificate(
     stakeCredential: stakeCredential,
-    poolKeyHash: poolKeyHash
+    poolKeyHash: poolOperator.poolKeyHash
 )
 
 let delegationCert = Certificate.stakeDelegation(stakeDelegation)
@@ -229,10 +229,10 @@ The save and load methods are fully compatible with Cardano CLI certificate file
 
 ```swift
 // Save different certificate types
-let poolKeyHash = try PoolKeyHash(from: .string("pool1pu5jlj4q9w9jlxeu370a3c9myx47md5j5m2str0naunn2q3lkdy"))
+let poolOperator = try PoolOperator(from: "pool1pu5jlj4q9w9jlxeu370a3c9myx47md5j5m2str0naunn2q3lkdy")
 let delegationCert = StakeDelegationCertificate(
     stakeCredential: stakeCredential,
-    poolKeyHash: poolKeyHash
+    poolKeyHash: poolOperator.poolKeyHash
 )
 
 let drepKeyPair = try DRepKeyPair.generate()

@@ -5,6 +5,12 @@ public typealias DRepCredential = Credential
 public typealias CommitteeColdCredential = Credential
 public typealias CommitteeHotCredential = Credential
 
+/// Enum representing the different ID formats.
+public enum CredentialFormat {
+    case bech32
+    case hex
+}
+
 /// Enum representing the different types of credentials.
 public enum CredentialType: Codable, Hashable, Sendable {
     case verificationKeyHash(VerificationKeyHash)
