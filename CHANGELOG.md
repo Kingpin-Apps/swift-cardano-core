@@ -1,3 +1,9 @@
+## 0.2.8 (2025-10-21)
+
+### Fix
+
+- refactor PoolId to PoolOperator and handle ids
+
 ## 0.2.7 (2025-10-20)
 
 ### Fix
