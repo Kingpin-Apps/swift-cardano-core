@@ -87,12 +87,10 @@ public enum PlutusData: CBORSerializable, CustomStringConvertible {
                     try array.map { try PlutusData(from: $0) }
                 )
                 self = .indefiniteArray(plutusArray)
-            case .int(_):
-                let bigInt = try BigInteger(from: primitive)
-                self = .bigInt(bigInt)
-            case .uint(_):
-                let bigUInt = try BigInteger(from: primitive)
-                self = .bigInt(bigUInt)
+            case .int(_), .uint(_):
+                self = .bigInt(try BigInteger(from: primitive))
+            case .string(_), .byteString(_):
+                self = .bytes(try Bytes(from: primitive))
             case .bytes(let data):
                 let cborTag = try? CBORTag.fromCBOR(data: data)
                 if cborTag != nil {
