@@ -111,7 +111,7 @@ public struct Asset: CBORSerializable, Comparable, AdditiveArithmetic, Sendable 
     public func toPrimitive() -> Primitive {
         var result: OrderedDictionary<Primitive, Primitive> = [:]
         for (key, value) in data {
-            result[key.toPrimitive()] = .uint(UInt(value))
+            result[key.toPrimitive()] = .int(value)
         }
         return .orderedDict(result)
     }
