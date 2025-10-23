@@ -14,10 +14,10 @@ public struct IPv4Address: CBORSerializable, LosslessStringConvertible, Equatabl
     
     /// Returns an array of octets representing the parts of the IP address.
     public var octets: [UInt8] {
-        return [UInt8(ip & 0xFF),
-                UInt8((ip >> 8) & 0xFF),
+        return [UInt8(ip >> 24),
                 UInt8((ip >> 16) & 0xFF),
-                UInt8(ip >> 24)]
+                UInt8((ip >> 8) & 0xFF),
+                UInt8(ip & 0xFF)]
     }
     
     public var rawValue: Data {
@@ -45,7 +45,7 @@ public struct IPv4Address: CBORSerializable, LosslessStringConvertible, Equatabl
             throw CardanoCoreError.valueError("Data must be exactly 4 bytes to represent an IPv4 address.")
         }
         
-        self.ip = data.withUnsafeBytes { $0.load(as: UInt32.self) }
+        self.ip = data.withUnsafeBytes { $0.load(as: UInt32.self).bigEndian }
     }
     
     public init(address: String) throws {
@@ -73,15 +73,18 @@ public struct IPv4Address: CBORSerializable, LosslessStringConvertible, Equatabl
     }
     
     public init(from primitive: Primitive) throws {
-        guard case let .string(addressString) = primitive else {
-            throw CardanoCoreError.deserializeError("Invalid IPv4 address type")
+        switch primitive {
+            case let .string(addressString):
+                try self.init(address: addressString)
+            case let .bytes(data):
+                try self.init(data)
+            default:
+                throw CardanoCoreError.deserializeError("Invalid IPv4 address type: \(primitive)")
         }
-        
-        try self.init(address: addressString)
     }
     
     public func toPrimitive() throws -> Primitive {
-        return .string(address)
+        return .bytes(self.rawValue)
     }
     
     // MARK: - Codable Implementation Override
@@ -134,14 +137,14 @@ public struct  IPv6Address: CBORSerializable, LosslessStringConvertible, Equatab
         
     
     public var octets: [UInt8] {
-        return [UInt8(high & 0xFF), UInt8((high >> 8) & 0xFF),
-                UInt8((high >> 16) & 0xFF), UInt8((high >> 24) & 0xFF),
-                UInt8((high >> 32) & 0xFF), UInt8((high >> 40) & 0xFF),
-                UInt8((high >> 48) & 0xFF), UInt8(high >> 56),
-                UInt8(low & 0xFF), UInt8((low >> 8) & 0xFF),
-                UInt8((low >> 16) & 0xFF), UInt8((low >> 24) & 0xFF),
-                UInt8((low >> 32) & 0xFF), UInt8((low >> 40) & 0xFF),
-                UInt8((low >> 48) & 0xFF), UInt8(low >> 56)]
+        return [UInt8(high >> 56), UInt8((high >> 48) & 0xFF),
+                UInt8((high >> 40) & 0xFF), UInt8((high >> 32) & 0xFF),
+                UInt8((high >> 24) & 0xFF), UInt8((high >> 16) & 0xFF),
+                UInt8((high >> 8) & 0xFF), UInt8(high & 0xFF),
+                UInt8(low >> 56), UInt8((low >> 48) & 0xFF),
+                UInt8((low >> 40) & 0xFF), UInt8((low >> 32) & 0xFF),
+                UInt8((low >> 24) & 0xFF), UInt8((low >> 16) & 0xFF),
+                UInt8((low >> 8) & 0xFF), UInt8(low & 0xFF)]
     }
     
     
@@ -166,8 +169,8 @@ public struct  IPv6Address: CBORSerializable, LosslessStringConvertible, Equatab
             throw CardanoCoreError.valueError("Data must be exactly 16 bytes to represent an IPv6 address.")
         }
         
-        self.high = data.prefix(8).withUnsafeBytes { $0.load(as: UInt64.self) }
-        self.low = data.suffix(8).withUnsafeBytes { $0.load(as: UInt64.self) }
+        self.high = data.prefix(8).withUnsafeBytes { $0.load(as: UInt64.self).bigEndian }
+        self.low = data.suffix(8).withUnsafeBytes { $0.load(as: UInt64.self).bigEndian }
     }
     
     public init(address: String) throws {
@@ -205,15 +208,18 @@ public struct  IPv6Address: CBORSerializable, LosslessStringConvertible, Equatab
     }
     
     public init(from primitive: Primitive) throws {
-        guard case let .string(addressString) = primitive else {
-            throw CardanoCoreError.deserializeError("Invalid IPv6 address type")
+        switch primitive {
+            case let .string(addressString):
+                try self.init(address: addressString)
+            case let .bytes(data):
+                try self.init(data)
+            default:
+                throw CardanoCoreError.deserializeError("Invalid IPv4 address type: \(primitive)")
         }
-        
-        try self.init(address: addressString)
     }
     
     public func toPrimitive() throws -> Primitive {
-        return .string(address)
+        return .bytes(self.rawValue)
     }
     
     // MARK: - Codable Implementation Override
@@ -240,11 +246,8 @@ public struct  IPv6Address: CBORSerializable, LosslessStringConvertible, Equatab
     }
     
     // MARK: - Helper Methods
-    public static func debugNormalizeIPv6(_ address: String) throws -> String {
-        return try normalizeIPv6(address)
-    }
     
-    private static func normalizeIPv6(_ address: String) throws -> String {
+    public static func normalizeIPv6(_ address: String) throws -> String {
         // Handle :: shorthand notation by expanding it
         if address.contains("::") {
             let parts = address.components(separatedBy: "::")

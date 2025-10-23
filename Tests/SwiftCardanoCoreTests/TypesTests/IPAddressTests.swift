@@ -1,18 +1,22 @@
 import Testing
 import Foundation
+import PotentCBOR
 @testable import SwiftCardanoCore
 
 // MARK: - IPv4Address Test Suite
 struct IPv4AddressTests {
     @Test func testEncodingDecoding() async throws {
-        let address = IPv4Address("192.168.1.1")
+        let address = IPv4Address("192.168.0.1")
         
-        let encodedData = try JSONEncoder().encode(address)
-        _ = String(data: encodedData, encoding: .utf8) ?? "invalid"
+        let encodedJSONData = try JSONEncoder().encode(address)
+        let jsonDecodedAddress = try JSONDecoder().decode(IPv4Address.self, from: encodedJSONData)
         
-        let decodedAddress = try JSONDecoder().decode(IPv4Address.self, from: encodedData)
+        let encodedCBORData = try CBOREncoder().encode(address)
+        let cborDecodedAddress = try CBORDecoder().decode(IPv4Address.self, from: encodedCBORData)
         
-        #expect(decodedAddress == address)
+        #expect(try address!.toPrimitive() == .bytes(Data([0xC0, 0xA8, 0x00, 0x01])))
+        #expect(jsonDecodedAddress == address)
+        #expect(cborDecodedAddress == address)
     }
     
     @Test func testInvalidDecoding() async throws {
@@ -32,7 +36,7 @@ struct IPv6AddressTests {
         
         // Test normalization first
         do {
-            let normalized = try IPv6Address.debugNormalizeIPv6(testAddress)
+            let normalized = try IPv6Address.normalizeIPv6(testAddress)
             #expect(!normalized.isEmpty)
         } catch {
             Issue.record("Normalization failed for \(testAddress): \(error)")
@@ -50,15 +54,23 @@ struct IPv6AddressTests {
     
     @Test func testEncodingDecoding() async throws {
         // Use a simpler address first to test encoding
-        let address = IPv6Address("2001:0db8:0000:0000:ff00:0042:8329:0000")
+        let address = IPv6Address("::1")
         guard let address = address else {
             throw CardanoCoreError.valueError("Failed to create IPv6Address")
         }
         
-        let encodedData = try JSONEncoder().encode(address)
-        let decodedAddress = try JSONDecoder().decode(IPv6Address.self, from: encodedData)
+        let encodedJSONData = try JSONEncoder().encode(address)
+        let jsonDecodedAddress = try JSONDecoder().decode(IPv6Address.self, from: encodedJSONData)
         
-        #expect(decodedAddress == address)
+        let encodedCBORData = try CBOREncoder().encode(address)
+        let cborDecodedAddress = try CBORDecoder().decode(IPv6Address.self, from: encodedCBORData)
+        
+        #expect(try address.toPrimitive() == .bytes(Data([
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01
+        ])))
+        #expect(jsonDecodedAddress == address)
+        #expect(cborDecodedAddress == address)
     }
     
     @Test func testInvalidDecoding() async throws {
