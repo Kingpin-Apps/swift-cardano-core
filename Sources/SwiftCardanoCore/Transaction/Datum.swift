@@ -126,7 +126,7 @@ public enum RawDatum: PlutusDataProtocol {
             case .int(let int):
                 return .bigInt(.int(Int64(int)))
             case .bytes(let bytes):
-                return .bytes(try BoundedBytes(bytes: bytes))
+                return .bytes(try Bytes(from: bytes))
             case .indefiniteList(let list):
                 let plutusDataList = try list.getAll().map {
                     try PlutusData(from: $0.toPrimitive())
@@ -134,9 +134,7 @@ public enum RawDatum: PlutusDataProtocol {
                 return .array(plutusDataList)
             case .cbor(let cbor):
                 return .bytes(
-                    try BoundedBytes(
-                        bytes: try CBORSerialization.data(from: cbor)
-                    )
+                    try Bytes(from: try CBORSerialization.data(from: cbor))
                 )
             case .cborTag(let cborTag):
                 return try PlutusData(from: cborTag.toPrimitive())
@@ -292,7 +290,7 @@ public enum Datum: PlutusDataProtocol {
             case .int(let int):
                 return .bigInt(.int(Int64(int)))
             case .bytes(let bytes):
-                return .bytes(try BoundedBytes(bytes: bytes))
+                return .bytes(try Bytes(from: bytes))
             case .indefiniteList(let list):
                 let plutusDataList = try list.getAll().map {
                     try PlutusData(from: $0.toPrimitive())
@@ -300,9 +298,7 @@ public enum Datum: PlutusDataProtocol {
                 return .array(plutusDataList)
             case .cbor(let cbor):
                 return .bytes(
-                    try BoundedBytes(
-                        bytes: try CBORSerialization.data(from: cbor)
-                    )
+                    try Bytes(from: try CBORSerialization.data(from: cbor))
                 )
             case .rawPlutusData(let data):
                 return try data.toPlutusData()

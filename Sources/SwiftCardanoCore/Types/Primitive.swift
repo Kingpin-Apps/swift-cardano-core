@@ -304,7 +304,7 @@ public indirect enum Primitive: CBORSerializable {
             case .indefiniteFrozenList(let list):
                 return .indefiniteArray(try list.getAll().map { try $0.toCBOR() })
             case .byteString(let byteString):
-                return .byteString(byteString.value)
+                return .byteString(byteString.bytes)
             case .plutusData(let plutusData):
                 return try plutusData.toCBORData().toCBOR
             case .null:
@@ -444,7 +444,7 @@ public indirect enum Primitive: CBORSerializable {
             case .indefiniteFrozenList(let list):
                 return .indefiniteArray(list.map { $0.toAnyValue() })
             case .byteString(let byteString):
-                return .data(byteString.value)
+                return .data(byteString.bytes)
             case .plutusData(let plutus):
                 return try! AnyValue.wrapped(plutus)
             case .bigInt(let bigInt):

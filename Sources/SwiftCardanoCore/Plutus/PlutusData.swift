@@ -33,7 +33,7 @@ public enum PlutusData: CBORSerializable, CustomStringConvertible {
     case array([PlutusData])
     case indefiniteArray(IndefiniteList<PlutusData>)
     case bigInt(BigInteger)
-    case bytes(BoundedBytes)
+    case bytes(Bytes)
     
     public var description: String {
         switch self {
@@ -44,7 +44,7 @@ public enum PlutusData: CBORSerializable, CustomStringConvertible {
             case .array(let arr): return "array(\(arr))"
             case .indefiniteArray(let arr): return "indefiniteArray(\(arr))"
             case .bigInt(let bi): return "bigInt(\(bi))"
-            case .bytes(let b): return "bytes(size: \(b.bytes.count))"
+            case .bytes(let b): return "bytes(size: \(b.count))"
         }
     }
     
@@ -99,8 +99,8 @@ public enum PlutusData: CBORSerializable, CustomStringConvertible {
                     let constr = try Constr(from: .cborTag(cborTag!))
                     self = .constructor(constr)
                 } else {
-                    let boundedBytes = try BoundedBytes(from: primitive)
-                    self = .bytes(boundedBytes)
+                    let bytes = try Bytes(from: primitive)
+                    self = .bytes(bytes)
                 }
             default:
                 throw CardanoCoreError.deserializeError("Invalid PlutusData type: \(primitive)")
@@ -234,8 +234,7 @@ public enum PlutusData: CBORSerializable, CustomStringConvertible {
             return .bigInt(.int(intData.intValue))
         } else if let bytesHex = data["bytes"] as? String {
             let bytesData = Data(fromHex: bytesHex)
-            let boundedBytes = try BoundedBytes(bytes: bytesData)
-            return .bytes(boundedBytes)
+            return .bytes(try Bytes(from: bytesData))
         } else {
             throw CardanoCoreError.deserializeError("Invalid PlutusData dict: \(data)")
         }
@@ -512,48 +511,91 @@ public enum BigInteger: CBORSerializable, CustomStringConvertible {
     }
 }
 
-/// Bounded bytes with enforced maximum length (0..64).
-/// Mirrors the CDDL `bounded_bytes = bytes .size (0 .. 64)`
-public struct BoundedBytes: CBORSerializable, CustomStringConvertible {
-    public let bytes: Data
-    
-    /// Creates a `BoundedBytes` if `bytes.count` is <= 64. Returns nil otherwise.
-    public init(bytes: Data) throws {
-        guard bytes.count <= 64 else {
-            throw CardanoCoreError.valueError("BoundedBytes length exceeds 64 bytes")
-        }
-        self.bytes = bytes
-    }
-    
-    /// Create from an array of bytes
-    public init(_ bytesArray: [UInt8]) throws {
-        try self.init(bytes: Data(bytesArray))
-    }
+public enum Bytes: CBORSerializable, CustomStringConvertible {
+    case boundedBytes(BoundedBytes)
+    case byteString(ByteString)
     
     public var description: String {
-        "BoundedBytes(length: \(bytes.count))"
+        switch self {
+            case .boundedBytes(let b): return "BoundedBytes(size: \(b.bytes.count))"
+            case .byteString(let b): return "ByteString(size: \(b.bytes.count))"
+        }
     }
     
-    public var toHex: String {
-        return self.bytes.toHex
+    public var data : Data {
+        switch self {
+            case .boundedBytes(let b):
+                return b.bytes
+            case .byteString(let b):
+                return b.bytes
+        }
+    }
+    
+    public var count : Int {
+        switch self {
+            case .boundedBytes(let boundedBytes):
+                return boundedBytes.bytes.count
+            case .byteString(let byteString):
+                return byteString.bytes.count
+        }
+    }
+    
+    public init(from data: Data) throws {
+        if data.count > 64 {
+            self = .byteString(ByteString(bytes: data))
+        } else {
+            self = .boundedBytes(try BoundedBytes(bytes: data))
+        }
+    }
+    
+    /// Convenience initializer for unsigned magnitude bytes.
+    public init(from boundedBytes: BoundedBytes) throws {
+        self = .boundedBytes(boundedBytes)
+    }
+    
+    /// Convenience initializer for unsigned magnitude bytes.
+    public init(from byteString: ByteString) throws {
+        self = .byteString(byteString)
     }
     
     public init(from primitive: Primitive) throws {
-        guard case let .bytes(data) = primitive else {
-            throw CardanoCoreError.deserializeError("Invalid BoundedBytes type")
+        switch primitive {
+            case .string(let stringValue):
+                let byteString = try ByteString(from: .bytes(stringValue.toData))
+                self = .byteString(byteString)
+            case .byteString(let byteString):
+                self = .byteString(byteString)
+            case .bytes(let data):
+                if data.count > 64 {
+                    let byteString = try ByteString(from: primitive)
+                    self = .byteString(byteString)
+                } else {
+                    let boundedBytes = try BoundedBytes(from: primitive)
+                    self = .boundedBytes(boundedBytes)
+                }
+            default:
+                throw CardanoCoreError.deserializeError("Invalid Bytes type: \(primitive)")
         }
-        try self.init(bytes: data)
     }
     
     public func toPrimitive() throws -> Primitive {
-        return .bytes(self.bytes)
+        switch self {
+            case .boundedBytes(let boundedBytes):
+                return try boundedBytes.toPrimitive()
+            case .byteString(let byteString):
+                return try byteString.toPrimitive()
+        }
     }
     
     public func toDict() throws -> [String: String] {
-        return ["bytes": bytes.toHex]
+        switch self {
+            case .boundedBytes(let boundedBytes):
+                return ["bytes": boundedBytes.toHex]
+            case .byteString(let byteString):
+                return ["bytes": byteString.toHex]
+        }
     }
 }
-
 // MARK: - PlutusDataProtocol
 
 protocol PlutusDataProtocol: CBORSerializable {

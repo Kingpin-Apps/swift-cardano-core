@@ -19,7 +19,7 @@ public struct RawPlutusData: PlutusDataProtocol {
             case .bigInt(let bigInt):
                 self.data = .int(Int(bigInt.intValue))
             case .bytes(let bytes):
-                self.data = .bytes(bytes.bytes)
+                self.data = .bytes(bytes.data)
             case .array(let array):
                 let anyValueList = IndefiniteList<AnyValue>(
                     array.map { try! RawPlutusData(from: $0).toAnyValue() })
@@ -58,7 +58,7 @@ public struct RawPlutusData: PlutusDataProtocol {
             case let .int(intValue):
                 return .bigInt(.int(Int64(intValue)))
             case let .bytes(data):
-                return .bytes(try BoundedBytes(bytes: data))
+                return .bytes(try Bytes(from: data))
             case let .indefiniteList(list):
                 let plutusDataList = try list.getAll().map {
                     try PlutusData(from: $0.toPrimitive())
@@ -66,9 +66,7 @@ public struct RawPlutusData: PlutusDataProtocol {
                 return .array(plutusDataList)
             case let .cbor(cbor):
                 return .bytes(
-                    try BoundedBytes(
-                        bytes: try CBORSerialization.data(from: cbor)
-                    )
+                    try Bytes(from: try CBORSerialization.data(from: cbor))
                 )
             case let .cborTag(cborTag):
                 return try PlutusData(from: cborTag.toPrimitive())
@@ -165,7 +163,7 @@ public struct RawPlutusData: PlutusDataProtocol {
             } else if let bytesValue = obj as? Data {
                 return ["bytes": bytesValue.toHex]
             } else if let byteString = obj as? ByteString {
-                return ["bytes": byteString.value.toHex]
+                return ["bytes": byteString.bytes.toHex]
             } else if let list = obj as? IndefiniteList<AnyValue> {
                 return ["list": try list.getAll().map { try dfs($0) }]
             } else if let list = obj as? [Any] {
@@ -257,7 +255,7 @@ public struct RawPlutusData: PlutusDataProtocol {
                     guard let bytes = Data(hexString: bytesHex) else {
                         throw CardanoCoreError.deserializeError("Invalid hex string")
                     }
-                    return bytes.count > 64 ? ByteString(value: bytes) : bytes
+                    return try Bytes(from: bytes)
                 } else if let list = dict["list"] as? [Any] {
                     return try list.map { try dfs($0) }
                 }

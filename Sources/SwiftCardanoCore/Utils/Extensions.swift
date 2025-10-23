@@ -359,7 +359,7 @@ extension AnyValue: CBORSerializable {
                 let anyValueArray = try indefiniteArray.map { try AnyValue(from: $0) }
                 self = .indefiniteArray(anyValueArray)
             case .byteString(let byteString):
-                self = .data(byteString.value)
+                self = .data(byteString.bytes)
             case .cborTag(let tag):
                 // Handle CBOR tags by attempting to decode the tagged value
                 let taggedValue = try AnyValue(from: tag.value.toPrimitive())

@@ -46,7 +46,7 @@ public struct MyTest: PlutusDataProtocol {
         
         // Parse field 'b'
         if case .bytes(let boundedBytesB) = constr.fields[1] {
-            self.b = boundedBytesB.bytes
+            self.b = boundedBytesB.data
         } else {
             throw CardanoCoreError.invalidArgument("Invalid field type for MyTest.b: \(constr.fields[1])")
         }
@@ -80,7 +80,7 @@ public struct MyTest: PlutusDataProtocol {
                 tag: MyTest.CONSTR_ID,
                 fields: [
                     .bigInt(.int(Int64(a))),
-                    .bytes(try BoundedBytes(bytes: b)),
+                    .bytes(try Bytes(from: b)),
                     .indefiniteArray( IndefiniteList<PlutusData>(
                             try c.map { try PlutusData(from: $0.toPrimitive())
                         }
@@ -470,7 +470,7 @@ public struct VestingParam: PlutusDataProtocol {
         
         // Parse beneficiary
         if case .bytes(let boundedBytesBeneficiary) = constr.fields[0] {
-            self.beneficiary = boundedBytesBeneficiary.bytes
+            self.beneficiary = boundedBytesBeneficiary.data
         } else {
             throw CardanoCoreError.invalidArgument("Invalid field type for VestingParam.beneficiary: \(constr.fields[0])")
         }
@@ -576,7 +576,7 @@ public struct VestingParam: PlutusDataProtocol {
             Constr(
                 tag: VestingParam.CONSTR_ID,
                 fields: [
-                    .bytes(try BoundedBytes(bytes: beneficiary)),
+                    .bytes(try Bytes(from: beneficiary)),
                     .bigInt(.int(Int64(deadline))),
                     anyA,
                     anyB
