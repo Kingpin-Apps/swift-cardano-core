@@ -1,3 +1,9 @@
+## 0.2.13 (2025-10-23)
+
+### Fix
+
+- use bigEndian for IP encoding
+
 ## 0.2.12 (2025-10-23)
 
 ### Fix
