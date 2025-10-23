@@ -1,3 +1,9 @@
+## 0.2.10 (2025-10-23)
+
+### Fix
+
+- improve handling of PutusData bytes
+
 ## 0.2.9 (2025-10-22)
 
 ### Fix
