@@ -107,11 +107,11 @@ public enum RawDatum: PlutusDataProtocol {
     case cbor(CBOR)
     case cborTag(CBORTag)
     
-    init(from plutusData: PlutusData) throws {
+    public init(from plutusData: PlutusData) throws {
         self = try RawDatum(from: plutusData.toPrimitive())
     }
     
-    func toPlutusData() throws -> PlutusData {
+    public func toPlutusData() throws -> PlutusData {
         switch self {
             case .plutusData(let data):
                 return data
@@ -273,11 +273,11 @@ public enum Datum: PlutusDataProtocol {
     case cbor(CBOR)
     case rawPlutusData(RawPlutusData)
     
-    init(from plutusData: PlutusData) throws {
+    public init(from plutusData: PlutusData) throws {
         self = try Datum(from: plutusData.toPrimitive())
     }
     
-    func toPlutusData() throws -> PlutusData {
+    public func toPlutusData() throws -> PlutusData {
         switch self {
             case .plutusData(let data):
                 return data

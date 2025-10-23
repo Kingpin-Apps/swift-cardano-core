@@ -10,11 +10,11 @@ public struct RawPlutusData: PlutusDataProtocol {
         self.data = data
     }
 
-    enum CodingKeys: String, CodingKey {
+    public enum CodingKeys: String, CodingKey {
         case data
     }
     
-    init(from plutusData: PlutusData) throws {
+    public init(from plutusData: PlutusData) throws {
         switch plutusData {
             case .bigInt(let bigInt):
                 self.data = .int(Int(bigInt.intValue))
@@ -43,7 +43,7 @@ public struct RawPlutusData: PlutusDataProtocol {
         }
     }
     
-    func toPlutusData() throws -> PlutusData {
+    public func toPlutusData() throws -> PlutusData {
         switch data {
             case let .plutusData(plutusData):
                 return plutusData
@@ -126,43 +126,6 @@ public struct RawPlutusData: PlutusDataProtocol {
 
     // Convert to primitive CBOR format
     public func toPrimitive() throws -> Primitive {
-//        func dfs(_ obj: Any) throws -> Primitive {
-//            if let list = obj as? [Any] {
-//                return .list(try list.map { try dfs($0) })
-//            } else if let dict = obj as? [AnyValue: AnyValue] {
-//                return .dict(
-//                    Dictionary(uniqueKeysWithValues:
-//                                try dict.map { (try dfs($0.key), try dfs($0.value)) }
-//                              )
-//                )
-//            } else if let tag = obj as? CBORTag {
-//                if tag.tag != 102 {
-//                    let value = try tag.value.arrayValue!.map { try dfs($0) }
-//                    return .cborTag(
-//                        CBORTag(
-//                            tag: tag.tag,
-//                            value: AnyValue
-//                                .indefiniteArray(
-//                                    try! value.map { try AnyValue.wrapped($0)
-//                                    })
-//                        )
-//                    )
-//                } else {
-//                    let value = try tag.value.arrayValue!.map { try dfs($0) }
-//                    return .cborTag(
-//                        CBORTag(
-//                            tag: tag.tag,
-//                            value: AnyValue
-//                                .array(
-//                                    try! value.map { try AnyValue.wrapped($0)
-//                                    })
-//                        )
-//                    )
-//                }
-//            }
-//            return try Primitive.fromAny(obj)
-//        }
-
         return try self.data.toPrimitive()
     }
     

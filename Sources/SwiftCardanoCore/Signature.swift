@@ -1,6 +1,6 @@
 import Foundation
 
-let SIGNATURE_SIZE = 28
+public let SIGNATURE_SIZE = 28
 
 
 public struct Signature: ConstrainedBytes {

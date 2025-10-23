@@ -4,27 +4,27 @@ import PotentCodables
 import SwiftNcal
 
 /// Protocol for types that can be parameterized with generic type arguments
-protocol ParameterizedType {
+public protocol ParameterizedType {
     static var baseType: Any.Type { get }
     static var parameterTypes: [Any.Type] { get }
 }
 
 /// Generic list type
-struct List<T>: ParameterizedType {
-    static var baseType: Any.Type { List<T>.self }
-    static var parameterTypes: [Any.Type] { [T.self] }
+public struct List<T>: ParameterizedType {
+    public static var baseType: Any.Type { List<T>.self }
+    public static var parameterTypes: [Any.Type] { [T.self] }
 }
 
 /// Generic map type
-struct Map<K, V>: ParameterizedType {
-    static var baseType: Any.Type { Map<K, V>.self }
-    static var parameterTypes: [Any.Type] { [K.self, V.self] }
+public struct Map<K, V>: ParameterizedType {
+    public static var baseType: Any.Type { Map<K, V>.self }
+    public static var parameterTypes: [Any.Type] { [K.self, V.self] }
 }
 
 /// Generic union type
-struct Union<T, U>: ParameterizedType {
-    static var baseType: Any.Type { Union<T, U>.self }
-    static var parameterTypes: [Any.Type] { [T.self, U.self] }
+public struct Union<T, U>: ParameterizedType {
+    public static var baseType: Any.Type { Union<T, U>.self }
+    public static var parameterTypes: [Any.Type] { [T.self, U.self] }
 }
 
 public func datumHash(datum: Datum) throws -> DatumHash {
@@ -141,7 +141,7 @@ public func getConstructorIDAndFields(value: CBOR) throws -> (Int, [AnyValue]) {
 ///   - skipConstructor: Whether to skip the constructor ID.
 /// - Throws: CardanoException if the type is not supported.
 /// - Returns: A unique representation of the PlutusData type.
-func idMap(cls: Any, skipConstructor: Bool = false) throws -> String {
+public func idMap(cls: Any, skipConstructor: Bool = false) throws -> String {
     if ((cls as? Data) != nil) || ((cls as? [UInt8]) != nil) {
         return "bytes"
     } else if cls as? any Any.Type == Int.self || cls is any BinaryInteger.Type {

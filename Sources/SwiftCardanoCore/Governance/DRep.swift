@@ -144,10 +144,6 @@ public struct DRep: CBORSerializable, CustomStringConvertible, CustomDebugString
         } else {
             throw CardanoCoreError.valueError("Invalid DRepId format. The DRepId should be a valid bech32 format.")
         }
-//        guard Self.isValidBech32(bech32) else {
-//            throw CardanoCoreError.valueError("Invalid DRepId format. The DRepId should be a valid bech32 format.")
-//        }
-//        try self.init(from: .string(bech32))
     }
     
     public init(from hex: Data, as credentialType: GovernanceCredentialType) throws {
@@ -352,7 +348,7 @@ public struct DRep: CBORSerializable, CustomStringConvertible, CustomDebugString
     /// - Parameters:
     ///  - path: The path to save the file
     ///  - format: The credential format (bech32 or hex)
-    func save(to path: String, format: (CredentialFormat, IdFormat) = (.bech32, .cip105)) throws {
+    public func save(to path: String, format: (CredentialFormat, IdFormat) = (.bech32, .cip105)) throws {
         if FileManager.default.fileExists(atPath: path) {
             throw CardanoCoreError.ioError("File already exists: \(path)")
         }

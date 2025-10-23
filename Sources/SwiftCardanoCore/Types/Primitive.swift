@@ -124,7 +124,7 @@ public indirect enum Primitive: CBORSerializable {
         self = try Primitive.from(cbor: cbor)
     }
     
-    private static func from(cbor: CBOR) throws -> Primitive {
+    public static func from(cbor: CBOR) throws -> Primitive {
         switch cbor {
             case .byteString(let data):
                 return .bytes(data)
