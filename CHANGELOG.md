@@ -1,3 +1,9 @@
+## 0.2.14 (2025-10-26)
+
+### Fix
+
+- handle governance credentials and CIP129 ids
+
 ## 0.2.13 (2025-10-23)
 
 ### Fix
