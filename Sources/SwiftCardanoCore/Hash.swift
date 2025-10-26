@@ -16,7 +16,7 @@ GENESIS_HASH_SIZE = 28,
 GENESIS_DELEGATE_HASH_SIZE = 28,
 ADDRESS_KEY_HASH_SIZE = 28,
 ANCHOR_DATA_HASH_SIZE = 32,
-DREP_CIP129_PAYLOAD_SIZE = 29
+CIP129_PAYLOAD_SIZE = 29
 
 /// A protocol for byte arrays with constraints on their size.
 public protocol ConstrainedBytes: CBORSerializable, Equatable, Hashable, CustomStringConvertible, CustomDebugStringConvertible, Sendable {

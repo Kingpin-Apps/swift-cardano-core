@@ -37,11 +37,16 @@ import PotentCBOR
             govAction: govAction,
             anchor: anchor
         )
-
-        let encodedData = try CBOREncoder().encode(originalProposal)
-        let decodedProposal = try CBORDecoder().decode(ProposalProcedure.self, from: encodedData)
+        
+        let encodedPayload = try originalProposal.toCBORData()
+        let decodedProposal = try ProposalProcedure.fromCBOR(data: encodedPayload)
 
         #expect(decodedProposal == originalProposal)
+        
+        #expect(decodedProposal.deposit == deposit)
+        #expect(decodedProposal.rewardAccount == rewardAccount)
+        #expect(decodedProposal.govAction == govAction)
+        #expect(decodedProposal.anchor == anchor)
     }
 
     @Test("Test ProposalProcedure JSON Encoding")
@@ -57,24 +62,6 @@ import PotentCBOR
         #expect(jsonString != nil)
         #expect(jsonString!.contains("\"type\": \"Governance proposal\""))
         #expect(jsonString!.contains("\"description\": \"New constitutional committee and/or threshold and/or terms proposal\""))
-    }
-
-    @Test("Test ProposalProcedure Decoding from CBOR Payload")
-    func testProposalProcedureDecodingFromCBOR() async throws {
-        let originalProposal = ProposalProcedure(
-            deposit: deposit,
-            rewardAccount: rewardAccount,
-            govAction: govAction,
-            anchor: anchor
-        )
-
-        let encodedPayload = try CBOREncoder().encode(originalProposal)
-        let decodedProposal = ProposalProcedure(payload: encodedPayload, type: nil, description: nil)
-
-        #expect(decodedProposal.deposit == deposit)
-        #expect(decodedProposal.rewardAccount == rewardAccount)
-        #expect(decodedProposal.govAction == govAction)
-        #expect(decodedProposal.anchor == anchor)
     }
 
     @Test("Test ProposalProcedures Collection Initialization")

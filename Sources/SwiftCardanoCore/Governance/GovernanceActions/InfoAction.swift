@@ -21,13 +21,17 @@ public struct InfoAction: GovernanceAction {
     }
     
     public init(from primitive: Primitive) throws {
-        guard case let .int(code) = primitive,
+        guard case let .list(elements) = primitive,
+              elements.count == 1,
+              case let .uint(code) = elements[0],
               code == Self.code.rawValue else {
-            throw CardanoCoreError.deserializeError("Invalid InfoAction primitive")
+            throw CardanoCoreError.deserializeError("Invalid InfoAction primitive: \(primitive)")
         }
     }
     
     public func toPrimitive() throws -> Primitive {
-        return .int(Self.code.rawValue)
+        return .list([
+            .int(Self.code.rawValue)
+        ])
     }
 }

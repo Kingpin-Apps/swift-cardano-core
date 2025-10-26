@@ -36,6 +36,30 @@ import PotentCBOR
         #expect(decodedID == originalID)
     }
 
+    @Test("Test GovActionID Bech32")
+    func testGovActionIDCIP129() async throws {
+        let govActionID_1 = GovActionID(
+            transactionID: TransactionId(payload: Data(repeating: 0x00, count: 32)),
+            govActionIndex: UInt16(17)
+        )
+        let govActionID_2 = GovActionID(
+            transactionID: TransactionId(payload: Data(repeating: 0x11, count: 32)),
+            govActionIndex: UInt16(0)
+        )
+        
+        let idHex_1 = "000000000000000000000000000000000000000000000000000000000000000011"
+        let idBech32_1 = "gov_action1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqpzklpgpf"
+        
+        let idHex_2 = "111111111111111111111111111111111111111111111111111111111111111100"
+        let idBech32_2 = "gov_action1zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsq6dmejn"
+
+        #expect(try govActionID_1.id(.bech32) == idBech32_1)
+        #expect(try govActionID_1.id(.hex) == idHex_1)
+
+        #expect(try govActionID_2.id(.bech32) == idBech32_2)
+        #expect(try govActionID_2.id(.hex) == idHex_2)
+    }
+
     @Test("Test PoolVotingThresholds Initialization")
     func testPoolVotingThresholdsInitialization() async throws {
         let thresholds: [UnitInterval] = [

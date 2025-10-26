@@ -10,10 +10,10 @@ struct CredentialTests {
     @Test func testVerificationKeyHashInitialization() async throws {
         let payload = Data(repeating: 0, count: VERIFICATION_KEY_HASH_SIZE)
         let verificationKeyHash = VerificationKeyHash(payload: payload)
-        let credential = Credential(credential: .verificationKeyHash(verificationKeyHash))
+        let credential = StakeCredential(credential: .verificationKeyHash(verificationKeyHash))
         
         let cborData = try CBOREncoder().encode(credential)
-        let decoded = try CBORDecoder().decode(Credential.self, from: cborData)
+        let decoded = try CBORDecoder().decode(StakeCredential.self, from: cborData)
         
         #expect(credential.code == 0)
         #expect(credential.credential == .verificationKeyHash(verificationKeyHash))
@@ -23,9 +23,9 @@ struct CredentialTests {
     @Test func testScriptHashInitialization() async throws {
         let payload = Data(repeating: 1, count: SCRIPT_HASH_SIZE)
         let scriptHash = ScriptHash(payload: payload)
-        let credential = Credential(credential: .scriptHash(scriptHash))
+        let credential = StakeCredential(credential: .scriptHash(scriptHash))
         let cborData = try CBOREncoder().encode(credential)
-        let decoded = try CBORDecoder().decode(Credential.self, from: cborData)
+        let decoded = try CBORDecoder().decode(StakeCredential.self, from: cborData)
         
         #expect(credential.code == 1)
         #expect(credential.credential == .scriptHash(scriptHash))
@@ -39,11 +39,58 @@ struct CredentialTests {
         let verificationKeyHash1 = VerificationKeyHash(payload: payload1)
         let verificationKeyHash2 = VerificationKeyHash(payload: payload2)
         
-        let credential1 = Credential(credential: .verificationKeyHash(verificationKeyHash1))
-        let credential2 = Credential(credential: .verificationKeyHash(verificationKeyHash1))
-        let credential3 = Credential(credential: .verificationKeyHash(verificationKeyHash2))
+        let credential1 = StakeCredential(credential: .verificationKeyHash(verificationKeyHash1))
+        let credential2 = StakeCredential(credential: .verificationKeyHash(verificationKeyHash1))
+        let credential3 = StakeCredential(credential: .verificationKeyHash(verificationKeyHash2))
         
         #expect(credential1 == credential2)
         #expect(credential1 != credential3)
+    }
+    
+    @Test func testDRepCredential() async throws {
+        let payload = Data(repeating: 0, count: VERIFICATION_KEY_HASH_SIZE)
+        let bech32 = "drep1ygqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq7vlc9n"
+        
+        let verificationKeyHash = VerificationKeyHash(payload: payload)
+        let credential1 = DRepCredential(credential: .verificationKeyHash(verificationKeyHash))
+        let credential2 = try DRepCredential(from: bech32)
+        let credential3 = try DRepCredential(from: payload, as: .keyHash)
+        
+        #expect(credential1 == credential2)
+        #expect(credential1 == credential3)
+        #expect(try credential1.id() == bech32)
+    }
+    
+    @Test func testCommitteeColdCredential() async throws {
+        let payload = Data(repeating: 0, count: VERIFICATION_KEY_HASH_SIZE)
+        let bech32 = "cc_cold1zvqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq6kflvs"
+        
+        let verificationKeyHash = ScriptHash(payload: payload)
+        let credential1 = CommitteeColdCredential(
+            credential: .scriptHash(verificationKeyHash)
+        )
+        let credential2 = try CommitteeColdCredential(from: bech32)
+        let credential3 = try CommitteeColdCredential(
+            from: payload,
+            as: .scriptHash
+        )
+        
+        #expect(credential1 == credential2)
+        #expect(credential1 == credential3)
+        #expect(try credential1.id() == bech32)
+    }
+    
+    @Test func testCommitteeHotCredential() async throws {
+        let payload = Data(repeating: 0, count: VERIFICATION_KEY_HASH_SIZE)
+        let bech32 = "cc_hot1qgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqvcdjk7"
+        
+        let verificationKeyHash = VerificationKeyHash(payload: payload)
+        let credential1 = CommitteeHotCredential(credential: .verificationKeyHash(verificationKeyHash))
+        let credential2 = try CommitteeHotCredential(from: bech32)
+        let credential3 = try CommitteeHotCredential(from: payload, as: .keyHash)
+        
+        #expect(credential1 == credential2)
+        #expect(credential1 == credential3)
+        #expect(try credential1.id() == bech32)
     }
 }

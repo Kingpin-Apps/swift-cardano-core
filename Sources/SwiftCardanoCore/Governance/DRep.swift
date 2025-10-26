@@ -6,6 +6,15 @@ public enum DRepType: CBORSerializable, Hashable, Sendable {
     case alwaysAbstain
     case alwaysNoConfidence
     
+    public init(from drepCredential: DRepCredential) throws {
+        switch drepCredential.credential {
+            case .verificationKeyHash(let verificationKeyHash):
+                self = .verificationKeyHash(verificationKeyHash)
+            case .scriptHash(let scriptHash):
+                self = .scriptHash(scriptHash)
+        }
+    }
+    
     public init(from primitive: Primitive) throws {
         guard case let .list(elements) = primitive,
               elements.count >= 1,
@@ -46,6 +55,17 @@ public enum DRepType: CBORSerializable, Hashable, Sendable {
         }
     }
     
+    public func toDRepCredential() throws -> DRepCredential {
+        switch self {
+            case .verificationKeyHash(let verificationKeyHash):
+                return DRepCredential(credential: .verificationKeyHash(verificationKeyHash))
+            case .scriptHash(let scriptHash):
+                return DRepCredential(credential: .scriptHash(scriptHash))
+            default:
+                throw CardanoCoreError.typeError("Cannot convert DRepType to DRepCredential: \(self)")
+        }
+    }
+    
     public func toGovernanceCredentialType() throws -> GovernanceCredentialType {
         switch self {
             case .verificationKeyHash:
@@ -62,11 +82,6 @@ public enum DRepType: CBORSerializable, Hashable, Sendable {
 ///
 /// DReps are entities that can represent stake holders in governance decisions.
 public struct DRep: CBORSerializable, CustomStringConvertible, CustomDebugStringConvertible, Sendable {
-    
-    public enum IdFormat {
-        case cip105
-        case cip129
-    }
     
     public var code: Int {
         get {
@@ -100,49 +115,15 @@ public struct DRep: CBORSerializable, CustomStringConvertible, CustomDebugString
     }
     
     public init(from bech32: String) throws {
-        let _bech32 = Bech32()
-        let (hrp, checksum, _) = try _bech32.bech32Decode(bech32)
-        let data = _bech32.convertBits(data: checksum, fromBits: 5, toBits: 8, pad: false)
-        
-        guard let data else {
-            throw CardanoCoreError.decodingError("Invalid bech32 string")
-        }
-        
-        if data.count == VERIFICATION_KEY_HASH_SIZE {
-            // CIP-0105
-            if hrp == "drep" {
-                try self.init(from: data, as: .keyHash)
-            } else if hrp == "drep_script" {
-                try self.init(from: data, as: .scriptHash)
-            } else {
-                throw CardanoCoreError.decodingError("Unhandled HRP")
-            }
-        }
-        else if data.count == DREP_CIP129_PAYLOAD_SIZE {
-            // CIP-0129
-            let header = data[0]
-            let payload = data.dropFirst()
-            
-            let keyTypeBits = (UInt8(header) & 0xF0) >> 4
-            let credentialTypeBits = UInt8(header & 0x0F)
-            
-            guard let keyType = GovernanceKeyType(rawValue: Int(keyTypeBits)),
-                  case .drep = keyType else {
-                throw CardanoCoreError.decodingError("Invalid key type type in header: \(header)")
-            }
-            
-            guard let credentialType = GovernanceCredentialType(rawValue: Int(credentialTypeBits)) else {
-                throw CardanoCoreError.decodingError("Invalid credential type in header: \(header)")
-            }
-            
-            switch credentialType {
-                case .keyHash:
-                    try self.init(from: payload, as: .keyHash)
-                case .scriptHash:
-                    try self.init(from: payload, as: .scriptHash)
-            }
+        if bech32 == "drep_always_abstain" {
+            self.credential = .alwaysAbstain
+            return
+        } else if bech32 == "drep_always_no_confidence" {
+            self.credential = .alwaysNoConfidence
+            return
         } else {
-            throw CardanoCoreError.valueError("Invalid DRepId format. The DRepId should be a valid bech32 format.")
+            let drepCredential = try DRepCredential(from: bech32)
+            self.credential = try DRepType(from: drepCredential)
         }
     }
     
@@ -257,10 +238,9 @@ public struct DRep: CBORSerializable, CustomStringConvertible, CustomDebugString
     public func toBytes(_ format: IdFormat = .cip105) throws -> Data {
         let payload: Data
         switch credential {
-            case .verificationKeyHash(let verificationKeyHash):
-                payload = verificationKeyHash.payload
-            case .scriptHash(let scriptHash):
-                payload = scriptHash.payload
+            case .verificationKeyHash(_), .scriptHash(_):
+                let drepCredential = try credential.toDRepCredential()
+                return try drepCredential.toBytes(format)
             case .alwaysAbstain:
                 payload = Data([2])
             case .alwaysNoConfidence:
@@ -271,7 +251,7 @@ public struct DRep: CBORSerializable, CustomStringConvertible, CustomDebugString
             case .cip105:
                 return payload
             case .cip129:
-                let headerByte = Self.computeHeaderByte(
+                let headerByte = DRepCredential.computeHeaderByte(
                     keyType: .drep,
                     credentialType: try credential.toGovernanceCredentialType()
                 )
@@ -283,47 +263,21 @@ public struct DRep: CBORSerializable, CustomStringConvertible, CustomDebugString
         return try credential.toPrimitive()
     }
     
-    /// Compute the header byte for the DRepId.
-    /// - Parameters:
-    ///   - keyType: Type of key.
-    ///   - credentialType: Type of credential.
-    /// - Returns: Data containing the header byte.
-    public static func computeHeaderByte(keyType: GovernanceKeyType, credentialType: GovernanceCredentialType) -> Data {
-        let header = (keyType.rawValue << 4 | credentialType.rawValue)
-        return Data([UInt8(header)])
-    }
-    
-    /// Compute human-readable prefix for bech32 encoder.
-    ///
-    /// Based on [miscellaneous section](https://github.com/cardano-foundation/CIPs/tree/master/CIP-0005#miscellaneous) in CIP-5.
-    /// - Parameters:
-    ///   - credentialType: Type of credential.
-    /// - Returns: The human-readable prefix.
-    public static func computeHrp(credentialType: GovernanceCredentialType) -> String {
-        switch credentialType {
-            case .keyHash:
-                return "drep"
-            case .scriptHash:
-                return "drep_script"
-        }
-    }
-    
     /// Encode the DRepId in Bech32 format.
     ///
     /// More info about Bech32 (here)[https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki#Bech32].
     
     /// - Returns: Encoded DRepId in Bech32.
     public func toBech32(_ format: IdFormat = .cip105) throws -> String {
-        let hrp = Self.computeHrp(
-            credentialType: try credential.toGovernanceCredentialType()
-        )
-        
-        let data = try self.toBytes(format)
-        
-        guard let encoded =  Bech32().encode(hrp: hrp, witprog: data) else {
-            throw CardanoCoreError.encodingError("Error encoding data: \(data)")
+        switch credential {
+            case .verificationKeyHash(_), .scriptHash(_):
+                let drepCredential = try credential.toDRepCredential()
+                return try drepCredential.toBech32(format)
+            case .alwaysAbstain:
+                return "drep_always_abstain"
+            case .alwaysNoConfidence:
+                return "drep_always_no_confidence"
         }
-        return encoded
     }
     
     /// Decode a bech32 string into an DRep object.

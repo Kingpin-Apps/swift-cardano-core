@@ -2,7 +2,7 @@ import Foundation
 import PotentCBOR
 
 
-public struct Fraction: CBORSerializable {
+public struct Fraction: CBORSerializable, Sendable {
     public let numerator: Int
     public let denominator: Int
     

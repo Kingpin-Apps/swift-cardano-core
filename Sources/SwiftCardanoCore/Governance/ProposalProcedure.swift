@@ -9,7 +9,7 @@ public struct ProposalProcedure: PayloadJSONSerializable, CBORSerializable {
     
     public static var TYPE: String { "Governance proposal" }
     public static var DESCRIPTION: String { "New constitutional committee and/or threshold and/or terms proposal" }
-
+    
     public let deposit: Coin
     public let rewardAccount: RewardAccount
     public let govAction: GovAction
@@ -53,41 +53,64 @@ public struct ProposalProcedure: PayloadJSONSerializable, CBORSerializable {
         self.anchor = cbor.anchor
     }
     
-    public init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        let deposit = try container.decode(Coin.self)
-        let rewardAccount = try container.decode(RewardAccount.self)
-        let govAction = try container.decode(GovAction.self)
-        let anchor = try container.decode(Anchor.self)
+//    public init(from decoder: Decoder) throws {
+//        var container = try decoder.unkeyedContainer()
+//        let deposit = try container.decode(Coin.self)
+//        let rewardAccount = try container.decode(RewardAccount.self)
+//        let govAction = try container.decode(GovAction.self)
+//        let anchor = try container.decode(Anchor.self)
+//        
+//        self.init(
+//            deposit: deposit,
+//            rewardAccount: rewardAccount,
+//            govAction: govAction,
+//            anchor: anchor
+//        )
+//    }
+//    
+//    public func encode(to encoder: Encoder) throws {
+//        var container = encoder.unkeyedContainer()
+//        try container.encode(deposit)
+//        try container.encode(rewardAccount)
+//        try container.encode(govAction)
+//        try container.encode(anchor)
+//    }
+    
+    public init(from primitive: Primitive) throws {
+        guard case let .list(primitiveArray) = primitive else {
+            throw CardanoCoreError.deserializeError("Invalid ProposalProcedure type: \(primitive)")
+        }
+        
+        guard primitiveArray.count == 4 else {
+            throw CardanoCoreError.deserializeError("Invalid ProposalProcedure array size: \(primitiveArray.count)")
+        }
+        
+        guard case let .uint(deposit) = primitiveArray[0] else {
+            throw CardanoCoreError.deserializeError("Invalid ProposalProcedure deposit: \(primitiveArray[0])")
+        }
+        
+        guard case let .bytes(rewardAccount) = primitiveArray[1] else {
+            throw CardanoCoreError.deserializeError("Invalid ProposalProcedure deposit: \(primitiveArray[0])")
+        }
+        
+        let govAction = try GovAction(from: primitiveArray[2])
+        let anchor = try Anchor(from: primitiveArray[3])
         
         self.init(
-            deposit: deposit,
+            deposit: Coin(deposit),
             rewardAccount: rewardAccount,
             govAction: govAction,
             anchor: anchor
         )
     }
     
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.unkeyedContainer()
-        try container.encode(deposit)
-        try container.encode(rewardAccount)
-        try container.encode(govAction)
-        try container.encode(anchor)
-    }
-    
-    public init(from primitive: Primitive) throws {
-        // Note: GovAction doesn't currently have primitive methods implemented
-        // This is a placeholder implementation that will need to be completed
-        // when GovAction gets CBORSerializable conformance
-        throw CardanoCoreError.deserializeError("ProposalProcedure primitive deserialization not yet implemented - GovAction needs CBORSerializable conformance")
-    }
-    
     public func toPrimitive() throws -> Primitive {
-        // Note: GovAction doesn't currently have primitive methods implemented  
-        // This is a placeholder implementation that will need to be completed
-        // when GovAction gets CBORSerializable conformance
-        throw CardanoCoreError.serializeError("ProposalProcedure primitive serialization not yet implemented - GovAction needs CBORSerializable conformance")
+        return .list([
+            .uint(UInt(deposit)),
+            .bytes(rewardAccount),
+            try govAction.toPrimitive(),
+            try anchor.toPrimitive()
+        ])
     }
     
     /// Serialize to JSON.
