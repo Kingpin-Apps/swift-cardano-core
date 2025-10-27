@@ -1,10 +1,11 @@
 import Foundation
 import SwiftNcal
 import PotentCBOR
+import OrderedCollections
 
 
 // MARK: - MetadataType
-public enum NativeScript: CBORSerializable, Equatable, Hashable {
+public enum NativeScript: Serializable {
     case scriptPubkey(ScriptPubkey)
     case scriptAll(ScriptAll)
     case scriptAny(ScriptAny)
@@ -27,91 +28,7 @@ public enum NativeScript: CBORSerializable, Equatable, Hashable {
         }
     }
     
-    public init(from decoder: Swift.Decoder) throws {
-        if String(describing: type(of: decoder)).contains("JSONDecoder") {
-            let container = try decoder.container(keyedBy: CodingKeys.self)
-            let typeString = try container.decode(String.self, forKey: .type)
-            
-            switch typeString {
-                case ScriptPubkey.TYPE.description():
-                    self = .scriptPubkey(try ScriptPubkey(from: decoder))
-                case ScriptAll.TYPE.description():
-                    self = .scriptAll(try ScriptAll(from: decoder))
-                case ScriptAny.TYPE.description():
-                    self = .scriptAny(try ScriptAny(from: decoder))
-                case ScriptNofK.TYPE.description():
-                    self = .scriptNofK(try ScriptNofK(from: decoder))
-                case BeforeScript.TYPE.description():
-                    self = .invalidBefore(try BeforeScript(from: decoder))
-                case AfterScript.TYPE.description():
-                    self = .invalidHereAfter(try AfterScript(from: decoder))
-                default:
-                    throw CardanoCoreError.decodingError("Invalid NativeScripts type: \(typeString)")
-            }
-            
-        } else {
-            var container = try decoder.unkeyedContainer()
-            let code = try container.decode(Int.self)
-            
-            switch code {
-                case ScriptPubkey.TYPE.rawValue:
-                    self = .scriptPubkey(try ScriptPubkey(from: decoder))
-                case ScriptAll.TYPE.rawValue:
-                    self = .scriptAll(try ScriptAll(from: decoder))
-                case ScriptAny.TYPE.rawValue:
-                    self = .scriptAny(try ScriptAny(from: decoder))
-                case ScriptNofK.TYPE.rawValue:
-                    self = .scriptNofK(try ScriptNofK(from: decoder))
-                case BeforeScript.TYPE.rawValue:
-                    self = .invalidBefore(try BeforeScript(from: decoder))
-                case AfterScript.TYPE.rawValue:
-                    self = .invalidHereAfter(try AfterScript(from: decoder))
-                default:
-                    throw CardanoCoreError.decodingError("Invalid NativeScripts type: \(code)")
-            }
-        }
-    }
-    
-    public func encode(to encoder: Swift.Encoder) throws {
-        if String(describing: type(of: encoder)).contains("JSONEncoder") {
-            var container = encoder.container(keyedBy: CodingKeys.self)
-            switch self {
-                case .scriptPubkey(let script):
-                    try container.encode(ScriptPubkey.TYPE.description(), forKey: .type)
-                    try script.encode(to: encoder)
-                case .scriptAll(let script):
-                    try container.encode(ScriptAll.TYPE.description(), forKey: .type)
-                    try script.encode(to: encoder)
-                case .scriptAny(let script):
-                    try container.encode(ScriptAny.TYPE.description(), forKey: .type)
-                    try script.encode(to: encoder)
-                case .scriptNofK(let script):
-                    try container.encode(ScriptNofK.TYPE.description(), forKey: .type)
-                    try script.encode(to: encoder)
-                case .invalidBefore(let script):
-                    try container.encode(BeforeScript.TYPE.description(), forKey: .type)
-                    try script.encode(to: encoder)
-                case .invalidHereAfter(let script):
-                    try container.encode(AfterScript.TYPE.description(), forKey: .type)
-                    try script.encode(to: encoder)
-            }
-        } else {
-            switch self {
-                case .scriptPubkey(let script):
-                    try script.encode(to: encoder)
-                case .scriptAll(let script):
-                    try script.encode(to: encoder)
-                case .scriptAny(let script):
-                    try script.encode(to: encoder)
-                case .scriptNofK(let script):
-                    try script.encode(to: encoder)
-                case .invalidBefore(let script):
-                    try script.encode(to: encoder)
-                case .invalidHereAfter(let script):
-                    try script.encode(to: encoder)
-            }
-        }
-    }
+    // MARK: - CBORSerializable
     
     public init(from primitive: Primitive) throws {
         guard case let .list(elements) = primitive, let head = elements.first else {
@@ -157,9 +74,10 @@ public enum NativeScript: CBORSerializable, Equatable, Hashable {
         }
     }
 
+    // MARK: - JSONSerializable
     
-    public static func fromDict(_ dict: Dictionary<AnyHashable, Any>) throws -> NativeScript {
-        guard let type = dict["type"] as? String else {
+    public static func fromDict(_ dict: OrderedDictionary<Primitive, Primitive>) throws -> NativeScript {
+        guard case let .string(type) = dict[.string("type")] else {
             throw CardanoCoreError.decodingError("Missing type for NativeScript")
         }
         
@@ -173,6 +91,27 @@ public enum NativeScript: CBORSerializable, Equatable, Hashable {
             default: throw CardanoCoreError.decodingError("Unknown NativeScript type: \(type)")
         }
     }
+    
+    public func toDict() throws -> OrderedDictionary<Primitive, Primitive> {
+        var dict: OrderedDictionary<Primitive, Primitive> = [:]
+        switch self {
+            case .scriptPubkey(let script):
+                dict[.string("type")] = .string("sig")
+                dict.merge(try script.toDict(), uniquingKeysWith: { lhs, _ in lhs })
+            case .scriptAll(_):
+                dict[.string("type")] = .string("all")
+            case .scriptAny(_):
+                dict[.string("type")] = .string("any")
+            case .scriptNofK(_):
+                dict[.string("type")] = .string("atLeast")
+            case .invalidBefore(_):
+                dict[.string("type")] = .string("before")
+            case .invalidHereAfter(_):
+                dict[.string("type")] = .string("after")
+        }
+        return dict
+    }
+
 }
 
 // MARK: - NativeScriptType
@@ -198,31 +137,12 @@ public enum NativeScriptType: Int, Sendable {
 
 // MARK: - NativeScript Protocol
 /// The metadata for a native script.
-public protocol NativeScriptable: JSONSerializable, CBORSerializable {
+public protocol NativeScriptable: Serializable {
     static var TYPE: NativeScriptType { get }
 }
 
 // Extend the protocol for JSON encoding
-public extension NativeScriptable {
-    static func fromJSON(_ json: String) throws -> Self {
-        let data = json.data(using: .utf8)!
-        return try JSONDecoder().decode(Self.self, from: data)
-    }
-    
-    func toJSON() -> String? {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = .prettyPrinted
-        if let data = try? encoder.encode(self) {
-            return String(data: data, encoding: .utf8)
-        }
-        return nil
-    }
-    
-    func toCBORData() throws -> Data {
-        let cborEncoder = CBOREncoder()
-        return try cborEncoder.encode(self)
-    }
-    
+public extension NativeScriptable {    
     func hash() throws -> ScriptHash {
         let cbor = try self.toCBORData()
         let hash = try Hash().blake2b(

@@ -3,21 +3,14 @@ import PotentCBOR
 import OrderedCollections
 import SwiftNcal
 
-public struct PoolMetadata: JSONSerializable, CBORSerializable {
+public struct PoolMetadata: Serializable {
     public let name: String?
-    public let description: String?
+    public let desc: String?
     public let ticker: String?
     public let homepage: Url?
     
     public let url: Url?
     public let poolMetadataHash: PoolMetadataHash?
-    
-    enum CodingKeys: String, CodingKey {
-        case name
-        case description
-        case ticker
-        case homepage
-    }
     
     public init(
         name: String? = nil,
@@ -47,57 +40,11 @@ public struct PoolMetadata: JSONSerializable, CBORSerializable {
         }
         
         self.name = name
-        self.description = description
+        self.desc = description
         self.ticker = ticker
         self.homepage = homepage
         self.url = url
         self.poolMetadataHash = poolMetadataHash
-    }
-    
-    public init(from decoder: Decoder) throws {
-        if let container = try? decoder.container(keyedBy: CodingKeys.self) {
-            let name = try container.decodeIfPresent(String.self, forKey: .name)
-            let description = try container.decodeIfPresent(String.self, forKey: .description)
-            let ticker = try container.decodeIfPresent(String.self, forKey: .ticker)
-            let homepage: Url? = try {
-                if let homepageString = try container.decodeIfPresent(String.self, forKey: .homepage) {
-                    return try? Url(homepageString)
-                }
-                return nil
-            }()
-            
-            try self.init(name: name, description: description, ticker: ticker, homepage: homepage)
-        } else {
-            var container = try decoder.unkeyedContainer()
-            
-            let url = try container.decode(String.self)
-            let poolMetadataHash = try container.decode(PoolMetadataHash.self)
-            
-            try self.init(
-                name: nil,
-                description: nil,
-                ticker: nil,
-                homepage: nil,
-                url: Url(url),
-                poolMetadataHash: poolMetadataHash
-            )
-        }
-    }
-    
-    public func encode(to encoder: Swift.Encoder) throws {
-        if String(describing: type(of: encoder)).contains("JSONEncoder") {
-            var container = encoder.container(keyedBy: CodingKeys.self)
-            
-            try container.encode(name, forKey: .name)
-            try container.encode(description, forKey: .description)
-            try container.encode(ticker, forKey: .ticker)
-            try container.encode(homepage!.absoluteString, forKey: .homepage)
-        } else  {
-            var container = encoder.unkeyedContainer()
-            
-            try container.encode(url!.absoluteString)
-            try container.encode(poolMetadataHash?.payload)
-        }
     }
     
     public func hash() throws -> String {
@@ -117,18 +64,11 @@ public struct PoolMetadata: JSONSerializable, CBORSerializable {
         return hash.toHex
     }
     
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(name)
-        hasher.combine(description)
-        hasher.combine(ticker)
-        hasher.combine(homepage)
-    }
-    
     public func toJSON() throws -> String? {
         let jsonString = """
         {
             "name": "\(name ?? "")",
-            "description": "\(description ?? "")",
+            "description": "\(desc ?? "")",
             "ticker": "\(ticker ?? "")",
             "homepage": "\(homepage?.absoluteString ?? "")"
         }
@@ -137,20 +77,8 @@ public struct PoolMetadata: JSONSerializable, CBORSerializable {
         
         return jsonString
     }
-
-    public static func fromDict(_ dict: Dictionary<AnyHashable, Any>) throws -> PoolMetadata {
-        let name = dict["name"] as? String
-        let description = dict["description"] as? String
-        let ticker = dict["ticker"] as? String
-        let homepage: Url? = {
-            if let homepageString = dict["homepage"] as? String {
-                return try? Url(homepageString)
-            }
-            return nil
-        }()
-        
-        return try PoolMetadata(name: name, description: description, ticker: ticker, homepage: homepage)
-    }
+    
+    // MARK: - CBORSerializable
     
     public init(from primitive: Primitive) throws {
         guard case let .list(elements) = primitive else {
@@ -189,6 +117,50 @@ public struct PoolMetadata: JSONSerializable, CBORSerializable {
             .string(url.absoluteString),
             .bytes(poolMetadataHash.payload)
         ])
+        
+    }
+    
+    // MARK: - JSONSerializable
+    
+    public static func fromDict(_ dict: OrderedDictionary<Primitive, Primitive>) throws -> PoolMetadata {
+        let name = dict[.string("name")]
+        let description = dict[.string("description")]
+        let ticker = dict[.string("ticker")]
+        let homepage: Url? = {
+            if case let .string(homepageString) = dict[.string("homepage")] {
+                return try? Url(homepageString)
+            }
+            return nil
+        }()
+        
+        return try PoolMetadata(
+            name: name?.stringValue,
+            description: description?.stringValue,
+            ticker: ticker?.stringValue,
+            homepage: homepage
+        )
+    }
+    
+    public func toDict() throws -> OrderedDictionary<Primitive, Primitive> {
+        var dict: OrderedDictionary<Primitive, Primitive> = [:]
+        
+        if let name = name {
+            dict[.string("name")] = .string(name)
+        }
+        
+        if let desc = desc {
+            dict[.string("description")] = .string(desc)
+        }
+        
+        if let ticker = ticker {
+            dict[.string("ticker")] = .string(ticker)
+        }
+        
+        if let homepage = homepage {
+            dict[.string("homepage")] = .string(homepage.absoluteString)
+        }
+        
+        return dict
     }
 
 }

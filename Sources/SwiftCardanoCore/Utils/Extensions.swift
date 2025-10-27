@@ -2,6 +2,7 @@ import Foundation
 import FractionNumber
 import OrderedCollections
 import PotentCBOR
+import PotentJSON
 import PotentCodables
 import BigInt
 

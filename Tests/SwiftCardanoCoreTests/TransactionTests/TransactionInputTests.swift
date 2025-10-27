@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 import PotentCBOR
 @testable import SwiftCardanoCore
@@ -15,18 +16,26 @@ struct TransactionInputTests {
         
         #expect(input.transactionId == transactionId)
         #expect(input.index == index)
+        #expect(input.description == "732bfd67e66be8e8288349fcaaa2294973ef6271cc189a239bb431275401b8e5#1")
     }
     
     @Test("Test Codable conformance")
     func testCodable() throws {
         let originalInput = TransactionInput(transactionId: transactionId, index: index)
         
-        let encodedData = try CBOREncoder().encode(originalInput)
-        let decodedInput = try CBORDecoder().decode(TransactionInput.self, from: encodedData)
+        let cborEncodedData = try CBOREncoder().encode(originalInput)
+        let cborDecodedInput = try CBORDecoder().decode(TransactionInput.self, from: cborEncodedData)
         
-        #expect(decodedInput == originalInput)
-        #expect(decodedInput.transactionId == originalInput.transactionId)
-        #expect(decodedInput.index == originalInput.index)
+        let jsonEncodedData = try JSONEncoder().encode(originalInput)
+        let jsonDecodedInput = try JSONDecoder().decode(TransactionInput.self, from: jsonEncodedData)
+        
+        #expect(cborDecodedInput == originalInput)
+        #expect(cborDecodedInput.transactionId == originalInput.transactionId)
+        #expect(cborDecodedInput.index == originalInput.index)
+        
+        #expect(jsonDecodedInput == originalInput)
+        #expect(jsonDecodedInput.transactionId == originalInput.transactionId)
+        #expect(jsonDecodedInput.index == originalInput.index)
     }
     
     @Test("Test Hashable conformance")

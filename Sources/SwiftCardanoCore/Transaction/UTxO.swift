@@ -1,9 +1,41 @@
 import Foundation
+import OrderedCollections
+import SwiftNcal
 
-public struct UTxO: Codable, CustomStringConvertible, Hashable {
-
+public struct UTxO: Serializable {
     public var input: TransactionInput
     public var output: TransactionOutput
+    
+//    public var debugDescription: String { self.description }
+//    
+//    public var description: String {
+//        let jsonString = """
+//        {
+//            "input": \(input.description),
+//            "output": \(output.description)
+//        }
+//        """
+//        guard let data = jsonString.data(using: .utf8) else {
+//            return jsonString
+//        }
+//        
+//        guard let jsonObject = try? JSONSerialization.jsonObject(with: data) else {
+//            return jsonString
+//        }
+//        
+//        guard let prettyData = try? JSONSerialization.data(
+//            withJSONObject: jsonObject,
+//            options: [
+//                .prettyPrinted,
+//                .sortedKeys,
+//                .withoutEscapingSlashes
+//            ]
+//        ) else {
+//            return jsonString
+//        }
+//        
+//        return String(data: prettyData, encoding: .utf8) ?? jsonString
+//    }
     
     public init(input: TransactionInput, output: TransactionOutput) {
         self.input = input
@@ -21,17 +53,19 @@ public struct UTxO: Codable, CustomStringConvertible, Hashable {
                                    postAlonzo: outputPrimitives.4 ?? true)
     }
     
-    public init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        input = try container.decode(TransactionInput.self)
-        output = try container.decode(TransactionOutput.self)
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.unkeyedContainer()
-        try container.encode(input)
-        try container.encode(output)
-    }
+//    public init(from decoder: Decoder) throws {
+//        var container = try decoder.unkeyedContainer()
+//        input = try container.decode(TransactionInput.self)
+//        output = try container.decode(TransactionOutput.self)
+//    }
+//
+//    public func encode(to encoder: Swift.Encoder) throws {
+//        var container = encoder.unkeyedContainer()
+//        try container.encode(input)
+//        try container.encode(output)
+//    }
+    
+    // MARK: - CBORSerializable
     
     public init(from primitive: Primitive) throws {
         guard case let .list(array) = primitive else {
@@ -52,17 +86,46 @@ public struct UTxO: Codable, CustomStringConvertible, Hashable {
             try output.toPrimitive()
         ])
     }
+    
+    // MARK: - JSONSerializable
+    
+    public static func fromDict(_ dict: OrderedDictionary<Primitive, Primitive>) throws -> UTxO {
+        guard let inputPrimitive = dict[.string("input")] else {
+            throw CardanoCoreError.deserializeError("Missing 'input' key in UTxO dictionary")
+        }
+        
+        guard let outputPrimitive = dict[.string("output")] else {
+            throw CardanoCoreError.deserializeError("Missing 'output' key in UTxO dictionary")
+        }
+        
+        let input = try TransactionInput(from: inputPrimitive)
+        let output = try TransactionOutput(from: outputPrimitive)
+        
+        return UTxO(input: input, output: output)
+    }
+    
+    public func toDict() throws -> OrderedDictionary<Primitive, Primitive> {
+        var dict = OrderedDictionary<Primitive, Primitive>()
+        dict[.string("input")] = .orderedDict(try input.toDict())
+        dict[.string("output")] = .orderedDict(try output.toDict())
+        return dict
+    }
 
+    // MARK: - Equatable
+    
     public static func == (lhs: UTxO, rhs: UTxO) -> Bool {
         return lhs.input == rhs.input && lhs.output == rhs.output
     }
-
-    public var description: String {
-        return "\(input) -> \(output)"
-    }
-
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(input)
-        hasher.combine(output)
+    
+    // MARK: - Hashable
+    
+    public func hash() throws -> String {
+        let hash =  try SwiftNcal.Hash().blake2b(
+            data: input.toCBORData() + output.toCBORData(),
+            digestSize: UTXO_HASH_SIZE,
+            encoder: RawEncoder.self
+        )
+        
+        return hash.toHex
     }
 }

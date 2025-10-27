@@ -18,7 +18,7 @@ struct PoolMetadataTests {
         )
         
         #expect(metadata.name == name)
-        #expect(metadata.description == description)
+        #expect(metadata.desc == description)
         #expect(metadata.ticker == ticker)
         #expect(metadata.homepage?.absoluteString == homepage)
     }

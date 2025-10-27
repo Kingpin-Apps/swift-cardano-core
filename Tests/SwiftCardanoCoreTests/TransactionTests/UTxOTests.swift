@@ -1,4 +1,5 @@
 import Testing
+import Foundation
 import PotentCBOR
 @testable import SwiftCardanoCore
 
@@ -37,10 +38,10 @@ struct UTxOTests {
         
         let input = try TransactionInput(from: inputPrimitives.0, index: inputPrimitives.1)
         let output = try TransactionOutput(from: outputPrimitives.0,
-                                   amount: outputPrimitives.1,
-                                   datumOption: outputPrimitives.2,
-                                   script: outputPrimitives.3,
-                                   postAlonzo: outputPrimitives.4)
+                                           amount: outputPrimitives.1,
+                                           datumOption: outputPrimitives.2,
+                                           script: outputPrimitives.3,
+                                           postAlonzo: outputPrimitives.4)
         
         #expect(utxo.input == input)
         #expect(utxo.output == output)
@@ -93,7 +94,35 @@ struct UTxOTests {
         let output = TransactionOutput(address: address, amount: amount)
         let utxo = UTxO(input: input, output: output)
         
-        let expectedDescription = "\(input) -> \(output)"
-        #expect(utxo.description == expectedDescription)
+        // Parse both strings as JSON and compare deterministically by re-encoding with sorted keys
+        let descriptionData = try #require(utxo.description.data(using: .utf8))
+        let expectedJSONString = try #require(try utxo.toJSON())
+        let expectedData = try #require(expectedJSONString.data(using: .utf8))
+
+        let descriptionObject = try JSONSerialization.jsonObject(with: descriptionData, options: [])
+        let expectedObject = try JSONSerialization.jsonObject(with: expectedData, options: [])
+
+        // Re-encode both as canonical JSON Data (sorted keys) to avoid dictionary order differences
+        func canonicalJSONData(from object: Any) throws -> Data {
+            if JSONSerialization.isValidJSONObject(object) {
+                // Convert to Data using JSONSerialization, then through a JSONDecoder/Encoder round trip for sorted keys
+                let raw = try JSONSerialization.data(withJSONObject: object, options: [])
+                // Decode to a generic structure and re-encode with sorted keys using JSONSerialization
+                let json = try JSONSerialization.jsonObject(with: raw, options: [])
+                return try JSONSerialization.data(withJSONObject: json, options: [.sortedKeys])
+            } else {
+                // If it's already Data-compatible (like a primitive), wrap in array to serialize deterministically
+                return try JSONSerialization.data(withJSONObject: [object], options: [.sortedKeys])
+            }
+        }
+
+        let canonicalDescription = try canonicalJSONData(from: descriptionObject)
+        let canonicalExpected = try canonicalJSONData(from: expectedObject)
+
+        #expect(canonicalDescription == canonicalExpected)
+
+        // Check for substrings individually
+        #expect(utxo.description.contains("input"))
+        #expect(utxo.description.contains("output"))
     }
-} 
+}

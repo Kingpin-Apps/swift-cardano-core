@@ -81,6 +81,25 @@ public struct MultiAsset: CBORSerializable, Hashable, Equatable, Comparable, Sen
         }
         return .orderedDict(primitives)
     }
+    
+    public func encode(to encoder: Swift.Encoder) throws {
+        if String(describing: type(of: encoder)).contains("JSONEncoder") {
+            var container = encoder.singleValueContainer()
+            
+            let toEncode = data.reduce(into: [String: [String: Int]]()) { result, item in
+                let (policyId, asset) = item
+                let assetDict = asset.data.reduce(into: [String: Int]()) { res, assetItem in
+                    let (assetName, amount) = assetItem
+                    res[assetName.description] = amount
+                }
+                result[policyId.description] = assetDict
+            }
+            try container.encode(toEncode)
+        } else  {
+            var container = encoder.singleValueContainer()
+            try container.encode(toPrimitive())
+        }
+    }
 
     public func union(_ other: MultiAsset) -> MultiAsset {
         return self + other

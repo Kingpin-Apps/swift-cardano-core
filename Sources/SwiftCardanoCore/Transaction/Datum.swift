@@ -3,9 +3,11 @@ import PotentCBOR
 import PotentCodables
 import OrderedCollections
 
-public enum DatumType: CBORSerializable {
+public enum DatumType: Serializable {
     case datumHash(DatumHash)
     case data(PlutusData)
+    
+    // MARK: - CBORSerializable
     
     public init(from primitive: Primitive) throws {
         if case let .cborTag(cborTag) = primitive {
@@ -40,9 +42,81 @@ public enum DatumType: CBORSerializable {
                 )
         }
     }
+    
+    // MARK: - JSONSerializable
+    
+    public static func fromDict(_ dict: OrderedDictionary<Primitive, Primitive>) throws -> DatumType {
+        if let datumHashPrimitive = dict[.string("datumHash")] {
+            // When coming from JSON, the hash is base64-encoded
+            let datumHash: DatumHash
+            if case let .string(base64Str) = datumHashPrimitive {
+                guard let data = Data(base64Encoded: base64Str) else {
+                    throw CardanoCoreError.deserializeError("Invalid DatumHash base64: \(base64Str)")
+                }
+                datumHash = DatumHash(payload: data)
+            } else {
+                datumHash = try DatumHash(from: datumHashPrimitive)
+            }
+            return .datumHash(datumHash)
+        } else if let dataPrimitive = dict[.string("data")] {
+            guard case let .orderedDict(dataDict) = dataPrimitive else {
+                throw CardanoCoreError.deserializeError("Invalid DatumType data")
+            }
+            let plutusData = try PlutusData.fromDict(dataDict)
+            return .data(plutusData)
+        } else {
+            throw CardanoCoreError.deserializeError("Invalid DatumType dict")
+        }
+    }
+    
+    public func toDict() throws -> OrderedDictionary<Primitive, Primitive> {
+        var dict = OrderedDictionary<Primitive, Primitive>()
+        switch self {
+            case .datumHash(let datumHash):
+                // Encode as base64 for JSON compatibility
+                dict[.string("datumHash")] = .string(datumHash.payload.base64EncodedString())
+            case .data(let plutusData):
+                dict[.string("data")] = .orderedDict(try plutusData.toDict())
+        }
+        return dict
+    }
+
+    
+    // MARK: - Codable
+    
+//    public init(from decoder: Decoder) throws {
+//        if String(describing: Swift.type(of: decoder)).contains("JSONDecoder") {
+//            let container = try decoder.singleValueContainer()
+//            if let datumHash = try? container.decode(DatumHash.self) {
+//                self = .datumHash(datumHash)
+//            } else {
+//                let plutusData = try container.decode(PlutusData.self)
+//                self = .data(plutusData)
+//            }
+//        } else {
+//            let container = try decoder.singleValueContainer()
+//            let primitive = try container.decode(Primitive.self)
+//            try self.init(from: primitive)
+//        }
+//    }
+//    
+//    public func encode(to encoder: Swift.Encoder) throws {
+//        if String(describing: Swift.type(of: encoder)).contains("JSONEncoder") {
+//            var container = encoder.singleValueContainer()
+//            switch self {
+//                case .datumHash(let datumHash):
+//                    try container.encode(datumHash.payload.toHex)
+//                case .data(let plutusData):
+//                    try container.encode(plutusData.toJSON())
+//            }
+//        } else  {
+//            var container = encoder.singleValueContainer()
+//            try container.encode(try toPrimitive())
+//        }
+//    }
 }
 
-public struct DatumOption: CBORSerializable {
+public struct DatumOption: Serializable {
     public var type: Int
     public var datum: DatumType
     
@@ -71,6 +145,8 @@ public struct DatumOption: CBORSerializable {
         case datum
     }
     
+    // MARK: - CBORSerializable
+    
     public init(from primitive: Primitive) throws {
         guard case let .list(primitive) = primitive else {
             throw CardanoCoreError.deserializeError("Invalid DatumOption type")
@@ -94,6 +170,52 @@ public struct DatumOption: CBORSerializable {
                 return .list([.int(1), try datum.toPrimitive()])
         }
     }
+    
+    // MARK: - JSONSerializable
+    
+    public static func fromDict(_ dict: OrderedCollections.OrderedDictionary<Primitive, Primitive>) throws -> DatumOption {
+        guard case let .orderedDict(datumPrimitive) = dict[.string("datum")] else {
+            throw CardanoCoreError.deserializeError("Invalid DatumOption dict: \(dict)")
+        }
+        
+        let datumType = try DatumType.fromDict(datumPrimitive)
+        
+        return DatumOption(datum: datumType)
+    }
+    
+    public func toDict() throws -> OrderedCollections.OrderedDictionary<Primitive, Primitive> {
+        var dict = OrderedCollections.OrderedDictionary<Primitive, Primitive>()
+        dict[.string("_TYPE")] = .uint(UInt(type))
+        dict[.string("datum")] = .orderedDict(try datum.toDict())
+        return dict
+    }
+
+    
+    // MARK: - Codable
+    
+//    public init(from decoder: Decoder) throws {
+//        if String(describing: Swift.type(of: decoder)).contains("JSONDecoder") {
+//            let container = try decoder.container(keyedBy: CodingKeys.self)
+//            let _type = try container.decode(Int.self, forKey: .type)
+//            let datum = try container.decode(DatumType.self, forKey: .datum)
+//            self.init(datum: datum)
+//        } else {
+//            let container = try decoder.singleValueContainer()
+//            let primitive = try container.decode(Primitive.self)
+//            try self.init(from: primitive)
+//        }
+//    }
+//    
+//    public func encode(to encoder: Swift.Encoder) throws {
+//        if String(describing: Swift.type(of: encoder)).contains("JSONEncoder") {
+//            var container = encoder.container(keyedBy: CodingKeys.self)
+//            try container.encode(type, forKey: .type)
+//            try container.encode(datum, forKey: .datum)
+//        } else  {
+//            var container = encoder.singleValueContainer()
+//            try container.encode(try toPrimitive())
+//        }
+//    }
 }
 
 

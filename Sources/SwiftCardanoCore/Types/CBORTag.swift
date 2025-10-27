@@ -1,8 +1,8 @@
 import Foundation
 import PotentCBOR
-import PotentCodables
+import OrderedCollections
 
-public protocol CBORTaggable: CBORSerializable {
+public protocol CBORTaggable: Serializable {
     var tag: UInt64 { get }
     var value: Primitive { get set }
 
@@ -46,6 +46,8 @@ extension CBORTaggable {
         try container.encode(taggedCBOR())
     }
     
+    // MARK: - CBORSerializable
+    
     public init(from primitive: Primitive) throws {
         guard case let .cborTag(tagged) = primitive else {
             throw CardanoCoreError.valueError("Invalid CBORTag type")
@@ -57,7 +59,27 @@ extension CBORTaggable {
     public func toPrimitive() throws -> Primitive {
         return .cborTag(CBORTag(tag: tag, value: value))
     }
-
+    
+    // MARK: - JSONSerializable
+    
+    public static func fromDict(_ dict: OrderedDictionary<Primitive, Primitive>) throws -> Self {
+        guard case let .int(tag) = dict[.string("tag")],
+              case let valuePrimitive = dict[.string("value")] else {
+            throw CardanoCoreError.valueError("Invalid CBORTag dictionary: \(dict)")
+        }
+        
+        return try Self(
+            tag: UInt64(tag),
+            value: valuePrimitive!
+        )
+    }
+    
+    public func toDict() throws -> OrderedDictionary<Primitive, Primitive> {
+        var dict = OrderedDictionary<Primitive, Primitive>()
+        dict[.string("tag")] = .uint(UInt(tag))
+        dict[.string("value")] = value
+        return dict
+    }
 }
 
 public struct CBORTag: CBORTaggable {

@@ -43,7 +43,6 @@ struct RedeemerTests {
         redeemer.index = 1
         
         let encoded = try redeemer.toCBORData()
-        print("Encoded Redeemer CBOR: \(encoded.hexEncodedString())")
         let decoded = try Redeemer(from: encoded)
         
         #expect(decoded.tag == redeemer.tag)

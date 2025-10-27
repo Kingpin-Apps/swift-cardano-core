@@ -156,7 +156,8 @@ public struct RawPlutusData: PlutusDataProtocol {
     }
 
     // Convert to dictionary format
-    public func toDict() throws -> [String: Any] {
+    public func toDict() throws -> OrderedDictionary<String, AnyValue> {
+        
         func dfs(_ obj: Any) throws -> [String: Any] {
             if let intValue = obj as? Int {
                 return ["int": intValue]
@@ -179,12 +180,25 @@ public struct RawPlutusData: PlutusDataProtocol {
                     "fields": try fields.map { try dfs($0) },
                 ]
             } else if let rawCBOR = obj as? CBOR {
-                return try RawPlutusData(data: .cbor(rawCBOR)).toDict()
+                let odict = try RawPlutusData(data: .cbor(rawCBOR)).toDict()
+                var result: [String: Any] = [:]
+                for (k, v) in odict {
+                    result[k] = v
+                }
+                return result
             }
             throw CardanoCoreError.typeError("Unexpected type \(type(of: obj))")
         }
-
-        return try dfs(self.toPrimitive())
+        
+        
+        let dictAny = try dfs(self.toPrimitive())
+        return OrderedDictionary<String, AnyValue>(
+            uniqueKeysWithValues: try dictAny
+                .map {
+                    (String(describing: $0.key), try AnyValue.wrapped($0.value))
+                }
+        )
+//        return try dfs(self.toPrimitive())
     }
 
     // Convert to JSON string
@@ -287,3 +301,4 @@ public struct RawPlutusData: PlutusDataProtocol {
         return try Self.fromCBOR(data: try self.toCBORData())
     }
 }
+

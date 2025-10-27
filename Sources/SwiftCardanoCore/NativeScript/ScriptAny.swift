@@ -1,60 +1,15 @@
 import Foundation
+import OrderedCollections
 
 public struct ScriptAny: NativeScriptable {
     public static let TYPE = NativeScriptType.scriptAny
     public let scripts: [NativeScript]
     
-    enum CodingKeys: String, CodingKey {
-        case type
-        case scripts
-    }
-    
     public init (scripts: [NativeScript]) {
         self.scripts = scripts
     }
     
-    public init(from decoder: Swift.Decoder) throws {
-        if String(describing: type(of: decoder)).contains("JSONDecoder") {
-            let container = try decoder.container(keyedBy: CodingKeys.self)
-            let typeString = try container.decode(String.self, forKey: .type)
-            
-            guard typeString == Self.TYPE.description() else {
-                throw CardanoCoreError.decodingError("Invalid ScriptAny type string")
-            }
-            
-            scripts = try container
-                .decode([NativeScript].self, forKey: .scripts)
-        } else {
-            var container = try decoder.unkeyedContainer()
-            let code = try container.decode(Int.self)
-            
-            guard code == Self.TYPE.rawValue else {
-                throw CardanoCoreError.decodingError("Invalid ScriptAny type: \(code)")
-            }
-            scripts = try container.decode([NativeScript].self)
-        }
-    }
-
-    public func encode(to encoder: Swift.Encoder) throws {
-        if String(describing: type(of: encoder)).contains("JSONEncoder") {
-            var container = encoder.container(keyedBy: CodingKeys.self)
-            try container.encode(Self.TYPE.description(), forKey: .type)
-            try container.encode(scripts, forKey: .scripts)
-        } else {
-            var container = encoder.unkeyedContainer()
-            try container.encode(Self.TYPE.rawValue)
-            try container.encode(scripts)
-        }
-    }
-    
-    public static func fromDict(_ dict: Dictionary<AnyHashable, Any>) throws -> ScriptAny {
-        guard let scripts = dict["scripts"] as? [Dictionary<AnyHashable, Any>] else {
-            throw CardanoCoreError.decodingError("Invalid ScriptAny scripts")
-        }
-        
-        let nativeScripts = try scripts.map { try NativeScript.fromDict($0) }
-        return ScriptAny(scripts: nativeScripts)
-    }
+    // MARK: - CBORSerializable
     
     public init(from primitive: Primitive) throws {
         guard case let .list(primitiveArray) = primitive else {
@@ -79,6 +34,32 @@ public struct ScriptAny: NativeScriptable {
     public func toPrimitive() throws -> Primitive {
         let scriptPrimitives = try scripts.map { try $0.toPrimitive() }
         return .list([.uint(UInt(Self.TYPE.rawValue)), .list(scriptPrimitives)])
+    }
+    
+    // MARK: - JSONSerializable
+    
+    public static func fromDict(_ dict: OrderedDictionary<Primitive, Primitive>) throws -> ScriptAny {
+        guard case let .list(scripts) = dict[.string("scripts")]else {
+            throw CardanoCoreError.decodingError("Invalid ScriptAny scripts")
+        }
+        
+        let nativeScripts = try scripts.map {
+            guard case let .orderedDict(scriptDict) = $0 else {
+                throw CardanoCoreError.decodingError("Invalid NativeScript dictionary")
+            }
+            return try NativeScript.fromDict(scriptDict)
+        }
+        
+        return ScriptAny(scripts: nativeScripts)
+    }
+    
+    public func toDict() throws -> OrderedDictionary<Primitive, Primitive> {
+        var dict = OrderedDictionary<Primitive, Primitive>()
+        dict[.string("type")] = .string(Self.TYPE.description())
+        dict[.string("scripts")] = .list(try scripts.map({
+            .orderedDict(try $0.toDict() )
+        }))
+        return dict
     }
 
 }

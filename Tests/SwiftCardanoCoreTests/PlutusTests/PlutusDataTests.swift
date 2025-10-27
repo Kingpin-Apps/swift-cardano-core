@@ -68,7 +68,7 @@ struct PlutusDataTests {
     func testJSONConversion() throws {
         let myTest = try MyTest(a: 42, b: Data(), c: IndefiniteList<AnyValue>([]), d: [:])
         let jsonString = try myTest.toJSON()
-        let decoded = try MyTest.fromJSON(jsonString)
+        let decoded = try MyTest.fromJSON(jsonString!)
 
         #expect(myTest == decoded)
     }
@@ -77,7 +77,6 @@ struct PlutusDataTests {
     func testDictionaryConversion() throws {
         let myTest = try MyTest(a: 42, b: Data(), c: IndefiniteList<AnyValue>([]), d: [:])
         let dict = try myTest.toDict()
-        print(dict)
         let decoded = try MyTest.init(from: dict)
 
         #expect(myTest == decoded)

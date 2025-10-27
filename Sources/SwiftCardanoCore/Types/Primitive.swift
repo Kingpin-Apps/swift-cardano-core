@@ -1,5 +1,6 @@
 import Foundation
 import PotentCBOR
+import PotentJSON
 import PotentCodables
 import OrderedCollections
 import BigInt
@@ -36,92 +37,23 @@ public indirect enum Primitive: CBORSerializable {
     case plutusData(PlutusData)
     case null
     
-    /// Convert an arbitrary value to a Primitive.
-    public static func fromAny(_ value: Any) throws -> Primitive {
-        switch value {
-        case let v as Primitive:
-            return v
-        case let v as Int:
-            return .int(v)
-        case let v as UInt8:
-            return .uint(UInt(v))
-        case let v as UInt:
-            return .int(Int(v))
-        case let v as Int8:
-            return .int(Int(v))
-        case let v as Int16:
-            return .int(Int(v))
-        case let v as Int32:
-            return .int(Int(v))
-        case let v as Int64:
-            return .int(Int(v))
-        case let v as UInt16:
-            return .uint(UInt(v))
-        case let v as UInt32:
-            return .uint(UInt(v))
-        case let v as UInt64:
-            return .uint(UInt(v))
-        case let v as Double:
-            return .float(v)
-        case let v as Float:
-            return .float(Double(v))
-        case let v as Decimal:
-            return .decimal(v)
-        case let v as Bool:
-            return .bool(v)
-        case let v as String:
-            return .string(v)
-        case let v as Data:
-            return .bytes(v)
-        case let v as [UInt8]:
-            return .byteArray(v)
-        case let v as [Any]:
-            return .list(try v.map { try Primitive.fromAny($0) })
-        case let v as OrderedDictionary<AnyHashable, Any>:
-            var dict: OrderedDictionary<Primitive, Primitive> = [:]
-            for (key, value) in v {
-                let keyPrimitive = try Primitive.fromAny(key)
-                let valuePrimitive = try Primitive.fromAny(value)
-                dict[keyPrimitive] = valuePrimitive
-            }
-            return .orderedDict(dict)
-        case let v as [AnyHashable: Any]:
-            var dict: [Primitive: Primitive] = [:]
-            for (key, value) in v {
-                let keyPrimitive = try Primitive.fromAny(key)
-                let valuePrimitive = try Primitive.fromAny(value)
-                dict[keyPrimitive] = valuePrimitive
-            }
-            return .dict(dict)
-        case let v as Date:
-            return .datetime(v)
-        case let v as NSRegularExpression:
-            return .regex(v)
-        case let v as ByteString:
-            return .byteString(v)
-        case let v as UnitInterval:
-            return .unitInterval(v)
-        case let v as CBORTag:
-            return .cborTag(v)
-        case let v as OrderedSet<Primitive>:
-            return .orderedSet(v)
-        case let v as NonEmptyOrderedSet<Primitive>:
-            return .nonEmptyOrderedSet(v)
-        case let v as CBOR:
-            return .cborSimpleValue(v)
-        case let v as PlutusData:
-            return .plutusData(v)
-        case Optional<Any>.none:
-            return .null
-        default:
-            throw CardanoCoreError.typeError("Cannot convert type \(type(of: value)) to Primitive")
-        }
-    }
-    
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let cbor = try container.decode(CBOR.self)
         self = try Primitive.from(cbor: cbor)
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        if String(describing: type(of: encoder)).contains("JSONEncoder") {
+            var container = encoder.singleValueContainer()
+            let json = try self.toJSON()
+            // Convert JSON to string representation before encoding
+            let jsonString = String(describing: json)
+            try container.encode(jsonString)
+        } else  {
+            var container = encoder.singleValueContainer()
+            try container.encode(try toCBOR())
+        }
     }
     
     public static func from(cbor: CBOR) throws -> Primitive {
@@ -235,11 +167,6 @@ public indirect enum Primitive: CBORSerializable {
         }
     }
     
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-        try container.encode(try toCBOR())
-    }
-    
     public func toCBOR() throws -> CBOR {
         switch self {
             case .bytes(let data):
@@ -316,6 +243,99 @@ public indirect enum Primitive: CBORSerializable {
         }
     }
     
+    public static func from(json: JSON) throws -> Primitive {
+        switch json {
+            case .string(let string):
+                return .string(string)
+            case .number(let number):
+                if let intValue = number.integerValue {
+                    return .int(intValue)
+                } else if let uintValue = number.unsignedIntegerValue {
+                    return .uint(UInt(uintValue))
+                } else if let doubleValue = number.doubleValue {
+                    return .float(doubleValue)
+                } else {
+                    throw CardanoCoreError.typeError("Cannot convert JSON number to Primitive")
+                }
+            case .bool(let value):
+                return .bool(value)
+            case .array(let array):
+                return .list(try array.map { try Primitive.from(json: $0) })
+            case .object(let dict):
+                var primitiveDict: OrderedDictionary<Primitive, Primitive> = [:]
+                for (key, value) in dict {
+                    primitiveDict[.string(key)] = try Primitive.from(json: value)
+                }
+                return .orderedDict(primitiveDict)
+            case .null:
+                return .null
+        }
+    }
+    
+    public func toJSON() throws -> JSON {
+        switch self {
+            case .bytes(let data):
+                return .string(data.base64EncodedString())
+            case .byteArray(let array):
+                return .string(Data(array).base64EncodedString())
+            case .string(let string):
+                return .string(string)
+            case .int(let value):
+                return .number(JSON.Number(value))
+            case .uint(let value):
+                return .number(JSON.Number(value))
+            case .float(let value):
+                return .number(JSON.Number(value))
+            case .decimal(let decimal):
+                return .string(decimal.description)
+            case .bool(let value):
+                return .bool(value)
+            case .tuple(let tup):
+                return .array(try tup.elements.map { try $0.toJSON() })
+            case .list(let list):
+                return .array(try list.map { try $0.toJSON() })
+            case .indefiniteList(let list):
+                return .array(try list.getAll().map { try $0.toJSON() })
+            case .dict(let dict):
+                var jsonDict: OrderedDictionary<String, JSON> = [:]
+                for (key, value) in dict {
+                    jsonDict[String(describing: key)] = try value.toJSON()
+                }
+                return .object(jsonDict)
+            case .orderedDict(let dict):
+                var jsonDict: OrderedDictionary<String, JSON> = [:]
+                for (key, value) in dict {
+                    // Extract the actual string value from Primitive.string
+                    guard case let .string(keyStr) = key else {
+                        throw CardanoCoreError.valueError("JSON object keys must be strings, got: \(key)")
+                    }
+                    jsonDict[keyStr] = try value.toJSON()
+                }
+                return .object(jsonDict)
+            case .indefiniteDictionary(let dict):
+                var jsonDict: OrderedDictionary<String, JSON> = [:]
+                for (key, value) in dict {
+                    jsonDict[String(describing: key)] = try value.toJSON()
+                }
+                return .object(jsonDict)
+            case .datetime(let date):
+                return .string(date.ISO8601Format())
+            case .regex(let regex):
+                return .string(regex.pattern)
+            case .cborSimpleValue(let simple):
+                return try simple.toPrimitive().toJSON()
+            case .cborTag(let tag):
+                return .object([
+                    "tag": .number(JSON.Number(tag.tag)),
+                    "value": try tag.value.toJSON()
+                ])
+            case .null:
+                return .null
+            default:
+                throw CardanoCoreError.typeError("Cannot convert Primitive type \(type(of: self)) to JSON")
+        }
+    }
+    
     public static func == (lhs: Primitive, rhs: Primitive) -> Bool {
         switch (lhs, rhs) {
             case (.bytes(let a), .bytes(let b)):
@@ -376,6 +396,90 @@ public indirect enum Primitive: CBORSerializable {
                 return a == b
             default:
                 return false
+        }
+    }
+    
+    /// Convert an arbitrary value to a Primitive.
+    public static func fromAny(_ value: Any) throws -> Primitive {
+        switch value {
+            case let v as Primitive:
+                return v
+            case let v as OrderedDictionary<Primitive, Primitive>:
+                return .orderedDict(v)
+            case let v as Int:
+                return .int(v)
+            case let v as UInt8:
+                return .uint(UInt(v))
+            case let v as UInt:
+                return .int(Int(v))
+            case let v as Int8:
+                return .int(Int(v))
+            case let v as Int16:
+                return .int(Int(v))
+            case let v as Int32:
+                return .int(Int(v))
+            case let v as Int64:
+                return .int(Int(v))
+            case let v as UInt16:
+                return .uint(UInt(v))
+            case let v as UInt32:
+                return .uint(UInt(v))
+            case let v as UInt64:
+                return .uint(UInt(v))
+            case let v as Double:
+                return .float(v)
+            case let v as Float:
+                return .float(Double(v))
+            case let v as Decimal:
+                return .decimal(v)
+            case let v as Bool:
+                return .bool(v)
+            case let v as String:
+                return .string(v)
+            case let v as Data:
+                return .bytes(v)
+            case let v as [UInt8]:
+                return .byteArray(v)
+            case let v as [Any]:
+                return .list(try v.map { try Primitive.fromAny($0) })
+            case let v as OrderedDictionary<AnyHashable, Any>:
+                var dict: OrderedDictionary<Primitive, Primitive> = [:]
+                for (key, value) in v {
+                    let keyPrimitive = try Primitive.fromAny(key)
+                    let valuePrimitive = try Primitive.fromAny(value)
+                    dict[keyPrimitive] = valuePrimitive
+                }
+                return .orderedDict(dict)
+            case let v as [AnyHashable: Any]:
+                var dict: [Primitive: Primitive] = [:]
+                for (key, value) in v {
+                    let keyPrimitive = try Primitive.fromAny(key)
+                    let valuePrimitive = try Primitive.fromAny(value)
+                    dict[keyPrimitive] = valuePrimitive
+                }
+                return .dict(dict)
+            case let v as Date:
+                return .datetime(v)
+            case let v as NSRegularExpression:
+                return .regex(v)
+            case let v as ByteString:
+                return .byteString(v)
+            case let v as UnitInterval:
+                return .unitInterval(v)
+            case let v as CBORTag:
+                return .cborTag(v)
+            case let v as OrderedSet<Primitive>:
+                return .orderedSet(v)
+            case let v as NonEmptyOrderedSet<Primitive>:
+                return .nonEmptyOrderedSet(v)
+            case let v as CBOR:
+                return .cborSimpleValue(v)
+            case let v as PlutusData:
+                return .plutusData(v)
+            case Optional<Any>.none:
+                return .null
+            default:
+                throw CardanoCoreError.typeError("Cannot convert type \(type(of: value)) to Primitive")
         }
     }
     
@@ -460,6 +564,11 @@ public indirect enum Primitive: CBORSerializable {
 
     public func toPrimitive() throws -> Primitive {
         return self
+    }
+    
+    public var stringValue: String? {
+        guard case .string(let value) = self else { return nil }
+        return value
     }
     
     public var listValue: [Primitive]? {

@@ -8,6 +8,11 @@ public struct Value: CBORSerializable, Comparable, Sendable {
     /// Multi-assets associated with the UTx
     public var multiAsset: MultiAsset
     
+    enum CodingKeys: CodingKey {
+        case coin
+        case multiAsset
+    }
+    
     public init(coin: Int = 0, multiAsset: MultiAsset = MultiAsset([:])) {
         self.coin = coin
         self.multiAsset = multiAsset
@@ -123,6 +128,36 @@ public struct Value: CBORSerializable, Comparable, Sendable {
     public func hash(into hasher: inout Hasher) {
         hasher.combine(coin)
         hasher.combine(multiAsset)
+    }
+    
+    // MARK: - Codable
+    
+    public init(from decoder: Decoder) throws {
+        if String(describing: type(of: decoder)).contains("JSONDecoder") {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            let coin = try container.decode(Int.self, forKey: .coin)
+            let multiAsset = try container.decodeIfPresent(MultiAsset.self, forKey: .multiAsset) ?? MultiAsset([:])
+            self.init(coin: coin, multiAsset: multiAsset)
+        } else {
+            let container = try decoder.singleValueContainer()
+            let primitive = try container.decode(Primitive.self)
+            try self.init(from: primitive)
+        }
+    }
+    
+    public func encode(to encoder: Swift.Encoder) throws {
+        if String(describing: type(of: encoder)).contains("JSONEncoder") {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            
+            try container.encode(coin, forKey: .coin)
+            
+            if !multiAsset.isEmpty {
+                try container.encodeIfPresent(multiAsset, forKey: .multiAsset)
+            }
+        } else  {
+            var container = encoder.singleValueContainer()
+            try container.encode(toPrimitive())
+        }
     }
 }
 
