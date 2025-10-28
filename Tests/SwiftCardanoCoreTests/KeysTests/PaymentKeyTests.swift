@@ -48,10 +48,10 @@ let extendedPaymentVKey = [
     
     
     @Test func testPaymentSigningKey() async throws {
-        let SK = try! PaymentSigningKey.fromJSON(paymentSKeyJSON)
+        let SK = try! PaymentSigningKey.fromTextEnvelope(paymentSKeyJSON)
         let cborData = try CBOREncoder().encode(SK)
         let cborHex = cborData.toHex
-        let json = try SK.toJSON()
+        let json = try SK.toTextEnvelope()
         let expectedPayload = Data([
             0x09, 0x3b, 0xe5, 0xcd, 0x39, 0x87, 0xd0, 0xc9,
             0xfd, 0x88, 0x54, 0xef, 0x90, 0x8f, 0x77, 0x46,
@@ -65,10 +65,10 @@ let extendedPaymentVKey = [
     }
     
     @Test func testPaymentVKey() async throws {
-        let VK = try! PaymentVerificationKey.fromJSON(paymentVKeyJSON)
+        let VK = try! PaymentVerificationKey.fromTextEnvelope(paymentVKeyJSON)
         let cborData = try CBOREncoder().encode(VK)
         let cborHex = cborData.toHex
-        let json = try VK.toJSON()
+        let json = try VK.toTextEnvelope()
         let expectedPayload = Data([
             0x8b, 0xe8, 0x33, 0x9e, 0x9f, 0x3a, 0xdd, 0xfa,
             0x68, 0x10, 0xd5, 0x9e, 0x2f, 0x07, 0x2f, 0x85,

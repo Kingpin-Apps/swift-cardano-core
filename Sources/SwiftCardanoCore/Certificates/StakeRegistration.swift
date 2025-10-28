@@ -1,5 +1,6 @@
 import Foundation
 import PotentCBOR
+import OrderedCollections
 
 
 /// Stake Address Registration Certificate
@@ -16,6 +17,10 @@ public struct StakeRegistration: CertificateSerializable {
     public static var CODE: CertificateCode { get { return .stakeRegistration } }
 
     public let stakeCredential: StakeCredential
+    
+    public enum CodingKeys: String, CodingKey {
+        case stakeCredential
+    }
     
     public init(stakeCredential: StakeCredential) {
         self.stakeCredential = stakeCredential
@@ -47,6 +52,8 @@ public struct StakeRegistration: CertificateSerializable {
         self.stakeCredential = cbor.stakeCredential
     }
     
+    // MARK: - CBORSerializable
+    
     public init(from primitive: Primitive) throws {
         guard case let .list(list) = primitive,
               list.count == 2 else {
@@ -68,5 +75,26 @@ public struct StakeRegistration: CertificateSerializable {
             .uint(UInt(Self.CODE.rawValue)),
             try stakeCredential.toPrimitive()
         ])
+    }
+    
+    // MARK: - JSONSerializable
+    
+    public static func fromDict(_ dict: Primitive) throws -> StakeRegistration {
+        guard case let .orderedDict(dictValue) = dict,
+              let stakeCredentialPrimitive = dictValue[.string(CodingKeys.stakeCredential.rawValue)],
+              case let .string(stakeCredentialHex) = stakeCredentialPrimitive else {
+            throw CardanoCoreError.deserializeError("Invalid stakeCredential in StakeRegistration dict")
+        }
+        
+        let stakeCredentialData = Data(hex: stakeCredentialHex)
+        let stakeCredential = try StakeCredential(from: .bytes(stakeCredentialData))
+        
+        return StakeRegistration(stakeCredential: stakeCredential)
+    }
+    
+    public func toDict() throws -> Primitive {
+        var dict = OrderedDictionary<Primitive, Primitive>()
+        dict[.string(CodingKeys.stakeCredential.rawValue)] = .string(stakeCredential.credential.payload.toHex)
+        return .orderedDict(dict)
     }
 }

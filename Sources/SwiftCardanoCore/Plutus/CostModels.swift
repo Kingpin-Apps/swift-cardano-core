@@ -3,7 +3,7 @@ import PotentCBOR
 import OrderedCollections
 
 
-public struct CostModels: CBORSerializable, Hashable {
+public struct CostModels: CBORSerializable, Sendable {
     typealias KEY_TYPE = Int
     typealias VALUE_TYPE = OrderedDictionary<String, Int>
     

@@ -38,28 +38,23 @@ public struct ScriptAll: NativeScriptable {
 
     // MARK: - JSONSerializable
     
-    public static func fromDict(_ dict: OrderedDictionary<Primitive, Primitive>) throws -> ScriptAll {
-        guard case let .list(scripts) = dict[.string("scripts")] else {
+    public static func fromDict(_ dict: Primitive) throws -> ScriptAll {
+        guard case let .orderedDict(dictValue) = dict,
+              case let .list(scripts) = dictValue[.string("scripts")] else {
             throw CardanoCoreError.decodingError("Invalid ScriptAll scripts")
         }
         
         let nativeScripts = try scripts.map {
-            guard case let .orderedDict(scriptDict) = $0 else {
-                throw CardanoCoreError.decodingError("Invalid ScriptAll script")
-            }
-            return try NativeScript.fromDict(scriptDict)
+            try NativeScript.fromDict($0)
         }
         
         return ScriptAll(scripts: nativeScripts)
     }
     
-    public func toDict() throws -> OrderedDictionary<Primitive, Primitive> {
+    public func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
-        let scriptsArray = try scripts.map {
-            try Primitive.orderedDict($0.toDict())
-        }
         dict[.string("type")] = .string(Self.TYPE.description())
-        dict[.string("scripts")] = .list(scriptsArray)
-        return dict
+        dict[.string("scripts")] = .list(try scripts.map({ try $0.toDict() }))
+        return .orderedDict(dict)
     }
 }

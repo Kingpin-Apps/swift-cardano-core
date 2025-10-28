@@ -1,8 +1,8 @@
 import Foundation
-
+import OrderedCollections
 
 /// A type that can represent transaction inputs as either an array or an OrderedSet
-public enum ListOrOrderedSet<T: CBORSerializable & Hashable>: CBORSerializable, Equatable, Hashable {
+public enum ListOrOrderedSet<T: Serializable>: Serializable {
     public typealias Element = T
     
     case list([Element])
@@ -45,6 +45,8 @@ public enum ListOrOrderedSet<T: CBORSerializable & Hashable>: CBORSerializable, 
         }
     }
     
+    // MARK: - CBORSerializable
+    
     public init(from primitive: Primitive) throws {
         switch primitive {
             case .list(let elements):
@@ -81,6 +83,25 @@ public enum ListOrOrderedSet<T: CBORSerializable & Hashable>: CBORSerializable, 
                 return .orderedSet(try OrderedSet(primitives))
         }
     }
+    
+    // MARK: - JSONSerializable
+    
+    public static func fromDict(_ primitive: Primitive) throws -> ListOrOrderedSet<T> {
+        // For JSON, ListOrOrderedSet is represented as a list
+        guard case let .list(elements) = primitive else {
+            throw CardanoCoreError.deserializeError("Expected list primitive for ListOrOrderedSet")
+        }
+        
+        let items = try elements.map { try T.init(from: $0) }
+        return .list(items)
+    }
+    
+    public func toDict() throws -> Primitive {
+        // For JSON, serialize as a list (JSON doesn't have sets)
+        let elements = self.asArray
+        return .list(try elements.map { try $0.toDict() })
+    }
+
     
     public func contains(_ element: Element) -> Bool {
         switch self {
@@ -119,7 +140,7 @@ public enum ListOrOrderedSet<T: CBORSerializable & Hashable>: CBORSerializable, 
 }
 
 /// A type that can represent transaction inputs as either an array or a NonEmptyOrderedSet
-public enum ListOrNonEmptyOrderedSet<T: CBORSerializable & Hashable>: CBORSerializable, Equatable, Hashable {
+public enum ListOrNonEmptyOrderedSet<T: Serializable>: Serializable {
     public typealias Element = T
     
     case list([Element])
@@ -162,6 +183,8 @@ public enum ListOrNonEmptyOrderedSet<T: CBORSerializable & Hashable>: CBORSerial
         }
     }
     
+    // MARK: - CBORSerializable
+    
     public init(from primitive: Primitive) throws {
         switch primitive {
             case .list(let elements):
@@ -195,6 +218,24 @@ public enum ListOrNonEmptyOrderedSet<T: CBORSerializable & Hashable>: CBORSerial
                 let primitives = try set.elements.map { try $0.toPrimitive() }
                 return .nonEmptyOrderedSet(NonEmptyOrderedSet(primitives))
         }
+    }
+    
+    // MARK: - JSONSerializable
+    
+    public static func fromDict(_ primitive: Primitive) throws -> ListOrNonEmptyOrderedSet<T> {
+        // For JSON, ListOrNonEmptyOrderedSet is represented as a list
+        guard case let .list(elements) = primitive else {
+            throw CardanoCoreError.deserializeError("Expected list primitive for ListOrNonEmptyOrderedSet")
+        }
+        
+        let items = try elements.map { try T.init(from: $0) }
+        return .list(items)
+    }
+    
+    public func toDict() throws -> Primitive {
+        // For JSON, serialize as a list (JSON doesn't have sets)
+        let elements = self.asList
+        return .list(try elements.map { try $0.toDict() })
     }
     
     public func contains(_ element: Element) -> Bool {

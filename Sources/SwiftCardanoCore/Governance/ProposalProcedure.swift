@@ -2,7 +2,7 @@ import Foundation
 import PotentCBOR
 
 
-public struct ProposalProcedure: PayloadJSONSerializable, CBORSerializable {
+public struct ProposalProcedure: TextEnvelopable, CBORSerializable, Sendable {
     public var _payload: Data
     public var _type: String
     public var _description: String
@@ -52,29 +52,6 @@ public struct ProposalProcedure: PayloadJSONSerializable, CBORSerializable {
         self.govAction = cbor.govAction
         self.anchor = cbor.anchor
     }
-    
-//    public init(from decoder: Decoder) throws {
-//        var container = try decoder.unkeyedContainer()
-//        let deposit = try container.decode(Coin.self)
-//        let rewardAccount = try container.decode(RewardAccount.self)
-//        let govAction = try container.decode(GovAction.self)
-//        let anchor = try container.decode(Anchor.self)
-//        
-//        self.init(
-//            deposit: deposit,
-//            rewardAccount: rewardAccount,
-//            govAction: govAction,
-//            anchor: anchor
-//        )
-//    }
-//    
-//    public func encode(to encoder: Encoder) throws {
-//        var container = encoder.unkeyedContainer()
-//        try container.encode(deposit)
-//        try container.encode(rewardAccount)
-//        try container.encode(govAction)
-//        try container.encode(anchor)
-//    }
     
     public init(from primitive: Primitive) throws {
         guard case let .list(primitiveArray) = primitive else {

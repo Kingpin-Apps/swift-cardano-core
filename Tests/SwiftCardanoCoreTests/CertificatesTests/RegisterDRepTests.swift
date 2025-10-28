@@ -35,8 +35,8 @@ import PotentCBOR
     @Test func testJSON() async throws {
         let cert = registerDRepCertificate!
         
-        let json = try cert.toJSON()
-        let certFromJSON = try RegisterDRep.fromJSON(json!)
+        let json = try cert.toTextEnvelope()
+        let certFromJSON = try RegisterDRep.fromTextEnvelope(json!)
         
         #expect(cert == certFromJSON)
     }

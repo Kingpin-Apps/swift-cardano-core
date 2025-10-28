@@ -1,5 +1,6 @@
 import Foundation
 import PotentCBOR
+import OrderedCollections
 
 /// Stake Address Deregistration Certificate
 public struct StakeDeregistration: CertificateSerializable {
@@ -15,6 +16,10 @@ public struct StakeDeregistration: CertificateSerializable {
     public static var CODE: CertificateCode { get { return .stakeDeregistration } }
     
     public let stakeCredential: StakeCredential
+    
+    public enum CodingKeys: String, CodingKey {
+        case stakeCredential
+    }
     
     /// Initialize StakeDeregistration from stake credential
     /// - Parameters:
@@ -49,6 +54,8 @@ public struct StakeDeregistration: CertificateSerializable {
         self.stakeCredential = cbor.stakeCredential
     }
     
+    // MARK: - CBORSerializable
+    
     public init(from primitive: Primitive) throws {
         guard case let .list(primitive) = primitive,
               primitive.count == 2,
@@ -66,5 +73,28 @@ public struct StakeDeregistration: CertificateSerializable {
             .uint(UInt(Self.CODE.rawValue)),
             try stakeCredential.toPrimitive()
         ])
+    }
+    
+    // MARK: - JSONSerializable
+    
+    public static func fromDict(_ dict: Primitive) throws -> StakeDeregistration {
+        guard case let .orderedDict(orderedDict) = dict else {
+            throw CardanoCoreError.deserializeError("Invalid StakeDeregistration dict format")
+        }
+        guard let stakeCredentialPrimitive = orderedDict[.string(CodingKeys.stakeCredential.rawValue)],
+              case let .string(stakeCredentialHex) = stakeCredentialPrimitive else {
+            throw CardanoCoreError.deserializeError("Invalid stakeCredential in StakeDeregistration dict")
+        }
+        
+        let stakeCredentialData = Data(hex: stakeCredentialHex)
+        let stakeCredential = try StakeCredential(from: .bytes(stakeCredentialData))
+        
+        return StakeDeregistration(stakeCredential: stakeCredential)
+    }
+
+    public func toDict() throws -> Primitive {
+        var dict = OrderedDictionary<Primitive, Primitive>()
+        dict[.string(CodingKeys.stakeCredential.rawValue)] = .string(stakeCredential.credential.payload.toHex)
+        return .orderedDict(dict)
     }
 }

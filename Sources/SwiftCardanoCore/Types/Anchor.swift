@@ -1,7 +1,7 @@
 import Foundation
+import OrderedCollections
 
-public struct Anchor: CBORSerializable, Hashable {
-
+public struct Anchor: Serializable, Sendable {
     public let anchorUrl: Url
     public let anchorDataHash: AnchorDataHash
 
@@ -9,15 +9,8 @@ public struct Anchor: CBORSerializable, Hashable {
         self.anchorUrl = anchorUrl
         self.anchorDataHash = anchorDataHash
     }
-
-    public init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        let url = try container.decode(String.self)
-        let dataHash = try container.decode(Data.self)
-
-        self.anchorUrl = try Url(url)
-        self.anchorDataHash = AnchorDataHash(payload: dataHash)
-    }
+    
+    // MARK: - CBORSerializable
     
     public init(from primitive: Primitive) throws {
         guard case let .list(elements) = primitive else {
@@ -42,10 +35,31 @@ public struct Anchor: CBORSerializable, Hashable {
             anchorDataHash.toPrimitive()
         ])
     }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.unkeyedContainer()
-        try container.encode(anchorUrl.value.absoluteString)
-        try container.encode(anchorDataHash.payload)
+    
+    // MARK: - JSONSerializable
+    
+    public static func fromDict(_ dict: Primitive) throws -> Anchor {
+        guard case let .orderedDict(orderedDict) = dict else {
+            throw CardanoCoreError.valueError("Invalid Anchor dict format")
+        }
+        guard let urlPrimitive = orderedDict[.string("anchorUrl")],
+              let dataHashPrimitive = orderedDict[.string("anchorDataHash")] else {
+            throw CardanoCoreError.valueError("Missing required Anchor fields")
+        }
+        guard case let .string(urlString) = urlPrimitive,
+              case let .bytes(dataHashData) = dataHashPrimitive else {
+            throw CardanoCoreError.valueError("Invalid Anchor field types")
+        }
+        let anchorUrl = try Url(urlString)
+        let anchorDataHash = AnchorDataHash(payload: dataHashData)
+        return Anchor(anchorUrl: anchorUrl, anchorDataHash: anchorDataHash)
     }
+    
+    public func toDict() throws -> Primitive {
+        var dict = OrderedDictionary<Primitive, Primitive>()
+        dict[.string("anchorUrl")] = try anchorUrl.toPrimitive()
+        dict[.string("anchorDataHash")] = anchorDataHash.toPrimitive()
+        return .orderedDict(dict)
+    }
+
 }

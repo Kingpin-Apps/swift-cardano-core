@@ -3,7 +3,7 @@ import PotentCodables
 
 
 // MARK: - ByteString
-public struct ByteString: CBORSerializable, CustomStringConvertible {
+public struct ByteString: CBORSerializable, CustomStringConvertible, Sendable {
     public let bytes: Data
     
     public var toHex: String {
@@ -52,7 +52,7 @@ public struct ByteString: CBORSerializable, CustomStringConvertible {
 
 /// Bounded bytes with enforced maximum length (0..64).
 /// Mirrors the CDDL `bounded_bytes = bytes .size (0 .. 64)`
-public struct BoundedBytes: CBORSerializable, CustomStringConvertible {
+public struct BoundedBytes: CBORSerializable, CustomStringConvertible, Sendable {
     public let bytes: Data
     
     /// Creates a `BoundedBytes` if `bytes.count` is <= 64. Returns nil otherwise.

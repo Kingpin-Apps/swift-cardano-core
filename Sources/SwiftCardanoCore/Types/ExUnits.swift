@@ -6,7 +6,7 @@ import OrderedCollections
 
 
 // MARK: - ExUnitPrices
-public struct ExUnitPrices: CBORSerializable, Hashable, Equatable {
+public struct ExUnitPrices: CBORSerializable, Sendable {
     public var memPrice: NonNegativeInterval
     public var stepPrice: NonNegativeInterval
 
@@ -48,7 +48,7 @@ public struct ExUnitPrices: CBORSerializable, Hashable, Equatable {
 }
 
 // MARK: - ExUnits
-public struct ExUnits: CBORSerializable, Hashable, Equatable {
+public struct ExUnits: CBORSerializable, Sendable {
     public var mem: UInt
     public var steps: UInt
 

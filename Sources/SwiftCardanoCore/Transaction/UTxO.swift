@@ -89,26 +89,27 @@ public struct UTxO: Serializable {
     
     // MARK: - JSONSerializable
     
-    public static func fromDict(_ dict: OrderedDictionary<Primitive, Primitive>) throws -> UTxO {
-        guard let inputPrimitive = dict[.string("input")] else {
+    public static func fromDict(_ dict: Primitive) throws -> UTxO {
+        guard case let .orderedDict(dictValue) = dict,
+              let inputPrimitive = dictValue[.string("input")] else {
             throw CardanoCoreError.deserializeError("Missing 'input' key in UTxO dictionary")
         }
         
-        guard let outputPrimitive = dict[.string("output")] else {
+        guard let outputPrimitive = dictValue[.string("output")] else {
             throw CardanoCoreError.deserializeError("Missing 'output' key in UTxO dictionary")
         }
         
-        let input = try TransactionInput(from: inputPrimitive)
-        let output = try TransactionOutput(from: outputPrimitive)
+        let input = try TransactionInput.fromDict(inputPrimitive)
+        let output = try TransactionOutput.fromDict(outputPrimitive)
         
         return UTxO(input: input, output: output)
     }
     
-    public func toDict() throws -> OrderedDictionary<Primitive, Primitive> {
+    public func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
-        dict[.string("input")] = .orderedDict(try input.toDict())
-        dict[.string("output")] = .orderedDict(try output.toDict())
-        return dict
+        dict[.string("input")] = try input.toDict()
+        dict[.string("output")] = try output.toDict()
+        return .orderedDict(dict)
     }
 
     // MARK: - Equatable

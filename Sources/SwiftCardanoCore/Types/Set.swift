@@ -89,7 +89,7 @@ extension SetTaggable {
     }
 }
 
-public struct OrderedSet<T: CBORSerializable & Hashable>: SetTaggable {
+public struct OrderedSet<T: CBORSerializable & Hashable & Sendable>: SetTaggable {
     public typealias Element = T
     public var elements: Set<Element> = Set()
     public var elementsOrdered: [Element] {
@@ -280,7 +280,7 @@ public struct OrderedSet<T: CBORSerializable & Hashable>: SetTaggable {
     }
 }
 
-public struct NonEmptyOrderedSet<T: CBORSerializable & Hashable>: SetTaggable {
+public struct NonEmptyOrderedSet<T: CBORSerializable & Hashable & Sendable>: SetTaggable {
     public typealias Element = T
     public var elements: Set<Element> = Set()
     public var elementsOrdered: [Element] {

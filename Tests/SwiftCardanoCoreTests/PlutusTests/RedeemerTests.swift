@@ -2,7 +2,7 @@ import Foundation
 import Testing
 import OrderedCollections
 import PotentCBOR
-import PotentCodables
+@preconcurrency import PotentCodables
 @testable import SwiftCardanoCore
 
 @Suite("Redeemer Tests")
@@ -38,7 +38,7 @@ struct RedeemerTests {
     func testRedeemerCoding() async throws {
         let plutusData = PlutusData.bigInt(.int(-1))
         let exUnits = ExecutionUnits(mem: 1000, steps: 2000)
-        let redeemer = Redeemer(data: plutusData, exUnits: exUnits)
+        var redeemer = Redeemer(data: plutusData, exUnits: exUnits)
         redeemer.tag = .spend
         redeemer.index = 1
         
@@ -69,7 +69,7 @@ struct RedeemerTests {
             }()
         )
         let exUnits = ExecutionUnits(mem: 1_000_000, steps: 1_000_000)
-        let redeemer = Redeemer(
+        var redeemer = Redeemer(
             data: try data.toPlutusData(),
             exUnits: exUnits
         )
@@ -108,7 +108,7 @@ struct RedeemerTests {
             }()
         )
         let exUnits = ExecutionUnits(mem: 1_000_000, steps: 1_000_000)
-        let redeemer = Redeemer(
+        var redeemer = Redeemer(
             data: try data.toPlutusData(),
             exUnits: exUnits
         )

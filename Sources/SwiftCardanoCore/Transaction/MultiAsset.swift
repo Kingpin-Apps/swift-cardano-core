@@ -3,7 +3,7 @@ import PotentCBOR
 import PotentCodables
 import OrderedCollections
 
-public struct MultiAsset: CBORSerializable, Hashable, Equatable, Comparable, Sendable {
+public struct MultiAsset: Serializable, Comparable {
     public var data: [ScriptHash: Asset] {
         get { _data }
         set { _data = newValue }
@@ -80,6 +80,26 @@ public struct MultiAsset: CBORSerializable, Hashable, Equatable, Comparable, Sen
             primitives[.bytes(policyId.payload)] = asset.toPrimitive()
         }
         return .orderedDict(primitives)
+    }
+    
+    public static func fromDict(_ primitive: Primitive) throws -> MultiAsset {
+        guard case let .orderedDict(dict) = primitive else {
+            throw CardanoCoreError.deserializeError("Invalid MultiAsset dict type")
+        }
+        var data: [ScriptHash: Asset] = [:]
+        for (policyId, asset) in dict {
+            let pid = try ScriptHash(from: policyId)
+            data[pid] = try Asset.fromDict(asset)
+        }
+        return MultiAsset(data)
+    }
+    
+    public func toDict() throws -> Primitive {
+        var dict: OrderedDictionary<Primitive, Primitive> = [:]
+        for (policyId, asset) in data {
+            dict[.string(policyId.payload.toHex)] = try asset.toDict()
+        }
+        return .orderedDict(dict)
     }
     
     public func encode(to encoder: Swift.Encoder) throws {

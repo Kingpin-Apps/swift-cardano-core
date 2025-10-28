@@ -1,6 +1,6 @@
 import Foundation
 import PotentCBOR
-import PotentCodables
+@preconcurrency import PotentCodables
 import SwiftNcal
 
 /// Protocol for types that can be parameterized with generic type arguments

@@ -43,8 +43,8 @@ import FractionNumber
     @Test func testJSON() async throws {
         let cert = poolRegistrationCertificate!
         
-        let json = try cert.toJSON()
-        let certFromJSON = try PoolRegistration.fromJSON(json!)
+        let json = try cert.toTextEnvelope()
+        let certFromJSON = try PoolRegistration.fromTextEnvelope(json!)
         
         #expect(cert == certFromJSON)
     }

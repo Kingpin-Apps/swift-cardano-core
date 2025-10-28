@@ -1,5 +1,6 @@
 import Foundation
 import PotentCBOR
+import OrderedCollections
 
 /// Resign Committee Cold certificate
 public struct ResignCommitteeCold: CertificateSerializable {
@@ -16,6 +17,11 @@ public struct ResignCommitteeCold: CertificateSerializable {
     
     public let committeeColdCredential: CommitteeColdCredential
     public let anchor: Anchor?
+    
+    public enum CodingKeys: String, CodingKey {
+        case committeeColdCredential
+        case anchor
+    }
     
     /// Initialize a new `ResignCommitteeCold` certificate
     /// - Parameters:
@@ -54,6 +60,8 @@ public struct ResignCommitteeCold: CertificateSerializable {
         self.anchor = cbor.anchor
     }
     
+    // MARK: - CBORSerializable
+    
     public init(from primitive: Primitive) throws {
         guard case let .list(primitive) = primitive,
               primitive.count == 3,
@@ -75,5 +83,38 @@ public struct ResignCommitteeCold: CertificateSerializable {
             try anchor?.toPrimitive() ?? .null
         ])
     }
+    
+    // MARK: - JSONSerializable
+    
+    public static func fromDict(_ dict: Primitive) throws -> ResignCommitteeCold {
+        guard case let .orderedDict(dictValue) = dict,
+              case let .string(committeeColdCredentialId) = dictValue[.string(CodingKeys.committeeColdCredential.rawValue)] else {
+            throw CardanoCoreError.deserializeError("Missing or invalid committeeColdCredential in ResignCommitteeCold")
+        }
+        
+        let committeeColdCredential = try CommitteeColdCredential(
+            from: committeeColdCredentialId
+        )
+        
+        var anchor: Anchor? = nil
+        if case let .orderedDict(anchorPrimitive) = dictValue[.string(CodingKeys.anchor.rawValue)] {
+            anchor = try Anchor.fromDict(.orderedDict(anchorPrimitive))
+        }
+        
+        return ResignCommitteeCold(committeeColdCredential: committeeColdCredential, anchor: anchor)
+    }
+    
+    public func toDict() throws -> Primitive {
+        var dict = OrderedDictionary<Primitive, Primitive>()
+        
+        dict[.string(CodingKeys.committeeColdCredential.rawValue)] = .string(try committeeColdCredential.id())
+        
+        if let anchor = anchor {
+            dict[.string(CodingKeys.anchor.rawValue)] = try anchor.toDict()
+        }
+        
+        return .orderedDict(dict)
+    }
+
 }
 

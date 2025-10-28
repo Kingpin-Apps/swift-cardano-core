@@ -1,7 +1,7 @@
 import Foundation
 
 // MARK: - IPv4Address Extensions
-public struct IPv4Address: CBORSerializable, LosslessStringConvertible, Equatable {
+public struct IPv4Address: CBORSerializable, LosslessStringConvertible, Sendable {
     public let ip: UInt32
     
     public var description: String {
@@ -112,7 +112,7 @@ public struct IPv4Address: CBORSerializable, LosslessStringConvertible, Equatabl
 }
 
 // MARK: - IPv6Address Extensions
-public struct  IPv6Address: CBORSerializable, LosslessStringConvertible, Equatable {
+public struct  IPv6Address: CBORSerializable, LosslessStringConvertible, Sendable {
     public let high, low: UInt64
     
     public var description: String {

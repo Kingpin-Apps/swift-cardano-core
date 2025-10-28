@@ -1,5 +1,6 @@
 import Foundation
 import PotentCBOR
+import OrderedCollections
 
 /// Stake Pool Retirement Certificate
 public struct PoolRetirement: CertificateSerializable {
@@ -16,6 +17,11 @@ public struct PoolRetirement: CertificateSerializable {
     
     public let poolKeyHash: PoolKeyHash
     public let epoch: Int
+    
+    public enum CodingKeys: String, CodingKey {
+        case poolKeyHash
+        case epoch
+    }
     
     /// Initialize a new PoolRetirement certificate
     /// - Parameters:
@@ -54,6 +60,8 @@ public struct PoolRetirement: CertificateSerializable {
         self.epoch = cbor.epoch
     }
     
+    // MARK: - CBORSerializable
+    
     public init(from primitive: Primitive) throws {
         guard case let .list(primitive) = primitive,
                 primitive.count == 3,
@@ -75,5 +83,32 @@ public struct PoolRetirement: CertificateSerializable {
             .int(Int(epoch))
         ])
     }
-
+    
+    // MARK: - JSONSerializable
+    
+    public static func fromDict(_ dict: Primitive) throws -> PoolRetirement {
+        guard case let .orderedDict(dictValue) = dict,
+              case let .string(poolId) = dictValue[.string(CodingKeys.poolKeyHash.rawValue)],
+              let epochPrimitive = dictValue[.string(CodingKeys.epoch.rawValue)] else {
+            throw CardanoCoreError.deserializeError("Missing keys in PoolRetirement dictionary")
+        }
+        
+        let poolOperator = try PoolOperator(from: poolId)
+        
+        guard case let .int(epochValue) = epochPrimitive else {
+            throw CardanoCoreError.deserializeError("Invalid epoch value in PoolRetirement dictionary")
+        }
+        
+        return PoolRetirement(poolKeyHash: poolOperator.poolKeyHash, epoch: Int(epochValue))
+    }
+    
+    public func toDict() throws -> Primitive {
+        var dict = OrderedDictionary<Primitive, Primitive>()
+        let poolOperator = PoolOperator(poolKeyHash: poolKeyHash)
+        
+        dict[.string(CodingKeys.poolKeyHash.rawValue)] = .string(try poolOperator.id())
+        dict[.string(CodingKeys.epoch.rawValue)] = .int(Int(epoch))
+        
+        return .orderedDict(dict)
+    }
 }

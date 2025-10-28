@@ -54,9 +54,10 @@ public struct TransactionInput: Serializable {
     
     // MARK: - JSONSerializable
     
-    public static func fromDict(_ dict: OrderedDictionary<Primitive, Primitive>) throws -> TransactionInput {
-        guard case let .string(txIdData)? = dict[.string("transactionId")],
-              case let .int(indexValue)? = dict[.string("index")] else {
+    public static func fromDict(_ dict: Primitive) throws -> TransactionInput {
+        guard case let .orderedDict(dictValue) = dict,
+              case let .string(txIdData)? = dictValue[.string("transactionId")],
+              case let .int(indexValue)? = dictValue[.string("index")] else {
             throw CardanoCoreError.deserializeError("Invalid TransactionInput dictionary")
         }
         
@@ -66,11 +67,11 @@ public struct TransactionInput: Serializable {
         return TransactionInput(transactionId: transactionId, index: index)
     }
     
-    public func toDict() throws -> OrderedDictionary<Primitive, Primitive> {
+    public func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
         dict[.string("transactionId")] = .string(transactionId.payload.toHex)
         dict[.string("index")] = .uint(UInt(index))
-        return dict
+        return .orderedDict(dict)
     }
 
 }

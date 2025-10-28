@@ -1,7 +1,7 @@
 import OrderedCollections
 
 
-public struct TransactionOutputPostAlonzo: Serializable {
+public struct BabbageTransactionOutput: Serializable {
     let address: Address
     let amount: Value
     let datumOption: DatumOption?
@@ -90,35 +90,38 @@ public struct TransactionOutputPostAlonzo: Serializable {
     
     // MARK: - JSONSerializable
     
-    public static func fromDict(_ dict: OrderedDictionary<Primitive, Primitive>) throws -> TransactionOutputPostAlonzo {
-        guard case let .string(addressStr) = dict[.string("address")] else {
+    public static func fromDict(_ dict: Primitive) throws -> BabbageTransactionOutput {
+        guard case let .orderedDict(orderedDict) = dict else {
+            throw CardanoCoreError.deserializeError("Invalid BabbageTransactionOutput dict format")
+        }
+        guard case let .string(addressStr) = orderedDict[.string("address")] else {
             throw CardanoCoreError.deserializeError("Invalid TransactionOutputPostAlonzo JSON format")
         }
         
         // Handle both int and uint for amount
         let amountValue: Int
-        if case let .int(amountInt) = dict[.string("amount")] {
+        if case let .int(amountInt) = orderedDict[.string("amount")] {
             amountValue = amountInt
-        } else if case let .uint(amountUInt) = dict[.string("amount")] {
+        } else if case let .uint(amountUInt) = orderedDict[.string("amount")] {
             amountValue = Int(amountUInt)
         } else {
-            throw CardanoCoreError.deserializeError("Invalid TransactionOutputPostAlonzo JSON format: invalid amount: \(String(describing: dict[.string("amount")]))")
+            throw CardanoCoreError.deserializeError("Invalid TransactionOutputPostAlonzo JSON format: invalid amount: \(String(describing: orderedDict[.string("amount")]))")
         }
         
         let address = try Address(from: .string(addressStr))
         let amount = Value(coin: amountValue)
         
         var datumOption: DatumOption? = nil
-        if case let .orderedDict(datumDict) = dict[.string("datum")] {
-            datumOption = try DatumOption.fromDict(datumDict)
+        if case let .orderedDict(datumDict) = orderedDict[.string("datum")] {
+            datumOption = try DatumOption.fromDict(.orderedDict(datumDict))
         }
         
         var scriptRef: ScriptRef? = nil
-        if case let .orderedDict(scriptDict) = dict[.string("scriptRef")]  {
-            scriptRef = try ScriptRef.fromDict(scriptDict)
+        if case let .orderedDict(scriptDict) = orderedDict[.string("scriptRef")]  {
+            scriptRef = try ScriptRef.fromDict(.orderedDict(scriptDict))
         }
         
-        return TransactionOutputPostAlonzo(
+        return BabbageTransactionOutput(
             address: address,
             amount: amount,
             datumOption: datumOption,
@@ -126,17 +129,17 @@ public struct TransactionOutputPostAlonzo: Serializable {
         )
     }
     
-    public func toDict() throws -> OrderedDictionary<Primitive, Primitive> {
+    public func toDict() throws -> Primitive {
         var dict: OrderedDictionary<Primitive, Primitive> = [
             .string("address"): .string(try address.toBech32()),
             .string("amount"): .uint(UInt(amount.coin))
         ]
         if let datumOption = datumOption {
-            dict[.string("datum")] = .orderedDict(try datumOption.toDict())
+            dict[.string("datum")] = try datumOption.toDict()
         }
         if let scriptRef = scriptRef {
-            dict[.string("scriptRef")] = .orderedDict(try scriptRef.toDict())
+            dict[.string("scriptRef")] = try scriptRef.toDict()
         }
-        return dict
+        return .orderedDict(dict)
     }
 }

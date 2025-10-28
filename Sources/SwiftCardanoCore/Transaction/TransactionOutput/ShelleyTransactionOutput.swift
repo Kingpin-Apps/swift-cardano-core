@@ -2,7 +2,7 @@ import Foundation
 import OrderedCollections
 
 
-public struct TransactionOutputLegacy: Serializable {
+public struct ShelleyTransactionOutput: Serializable {
     let address: Address
     let amount: Value
     let datumHash: DatumHash?
@@ -45,16 +45,19 @@ public struct TransactionOutputLegacy: Serializable {
     
     // MARK: - JSONSerializable
     
-    public static func fromDict(_ dict: OrderedDictionary<Primitive, Primitive>) throws -> TransactionOutputLegacy {
-        guard case let .string(addressStr) = dict[.string("address")] else {
+    public static func fromDict(_ dict: Primitive) throws -> ShelleyTransactionOutput {
+        guard case let .orderedDict(orderedDict) = dict else {
+            throw CardanoCoreError.deserializeError("Invalid ShelleyTransactionOutput dict format")
+        }
+        guard case let .string(addressStr) = orderedDict[.string("address")] else {
             throw CardanoCoreError.deserializeError("Invalid TransactionOutputLegacy JSON format: missing address")
         }
         
         // Handle both int and uint for amount
         let amountValue: Int
-        if case let .int(amountInt) = dict[.string("amount")] {
+        if case let .int(amountInt) = orderedDict[.string("amount")] {
             amountValue = amountInt
-        } else if case let .uint(amountUInt) = dict[.string("amount")] {
+        } else if case let .uint(amountUInt) = orderedDict[.string("amount")] {
             amountValue = Int(amountUInt)
         } else {
             throw CardanoCoreError.deserializeError("Invalid TransactionOutputLegacy JSON format: invalid amount")
@@ -64,7 +67,7 @@ public struct TransactionOutputLegacy: Serializable {
         let amount = Value(coin: amountValue)
         
         var datumHash: DatumHash? = nil
-        if case let .string(datumHashStr) = dict[.string("datumHash")] {
+        if case let .string(datumHashStr) = orderedDict[.string("datumHash")] {
             // When coming from JSON, the hash is base64-encoded
             if let data = Data(base64Encoded: datumHashStr) {
                 datumHash = DatumHash(payload: data)
@@ -73,14 +76,14 @@ public struct TransactionOutputLegacy: Serializable {
             }
         }
         
-        return TransactionOutputLegacy(
+        return ShelleyTransactionOutput(
             address: address,
             amount: amount,
             datumHash: datumHash
         )
     }
     
-    public func toDict() throws -> OrderedDictionary<Primitive, Primitive> {
+    public func toDict() throws -> Primitive {
         var dict: OrderedDictionary<Primitive, Primitive> = [
             .string("address"): .string(try address.toBech32()),
             .string("amount"): .uint(UInt(amount.coin))
@@ -90,6 +93,6 @@ public struct TransactionOutputLegacy: Serializable {
             dict[.string("datumHash")] = .string(datumHash.payload.base64EncodedString())
         }
         
-        return dict
+        return .orderedDict(dict)
     }
 }

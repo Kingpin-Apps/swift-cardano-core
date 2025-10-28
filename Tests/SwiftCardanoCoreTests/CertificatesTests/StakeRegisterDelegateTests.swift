@@ -26,8 +26,8 @@ struct StakeRegisterDelegateTests {
     @Test func testJSON() async throws {
         let cert = stakeRegisterDelegateCertificate!
         
-        let json = try cert.toJSON()
-        let certFromJSON = try StakeRegisterDelegate.fromJSON(json!)
+        let json = try cert.toTextEnvelope()
+        let certFromJSON = try StakeRegisterDelegate.fromTextEnvelope(json!)
         
         #expect(cert == certFromJSON)
     }

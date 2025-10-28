@@ -1,5 +1,6 @@
 import Foundation
 import PotentCBOR
+import OrderedCollections
 
 /// Un-Register a stake credential with an optional refund amount
 public struct Unregister: CertificateSerializable {
@@ -16,6 +17,11 @@ public struct Unregister: CertificateSerializable {
     
     public let stakeCredential: StakeCredential
     public let coin: Coin
+    
+    public enum CodingKeys: String, CodingKey {
+        case stakeCredential
+        case coin
+    }
     
     /// Initialize a new `Unregister` certificate
     /// - Parameters:
@@ -55,6 +61,8 @@ public struct Unregister: CertificateSerializable {
         self.coin = cbor.coin
     }
     
+    // MARK: - CBORSerializable
+    
     public init(from primitive: Primitive) throws {
         guard case let .list(primitive) = primitive,
               primitive.count == 3,
@@ -75,6 +83,34 @@ public struct Unregister: CertificateSerializable {
             try stakeCredential.toPrimitive(),
             .int(Int(coin))
         ])
+    }
+    
+    // MARK: - JSONSerializable
+    
+    public static func fromDict(_ dict: Primitive) throws -> Unregister {
+        guard case let .orderedDict(dictValue) = dict,
+              let stakeCredentialPrimitive = dictValue[.string(CodingKeys.stakeCredential.rawValue)],
+              let coinPrimitive = dictValue[.string(CodingKeys.coin.rawValue)] else {
+            throw CardanoCoreError.deserializeError("Missing required fields in Unregister dictionary")
+        }
+         
+        guard case let .string(stakeCredentialHex) = stakeCredentialPrimitive,
+              case let .int(coinInt) = coinPrimitive else {
+            throw CardanoCoreError.deserializeError("Invalid field types in Unregister dictionary")
+        }
+        
+        let stakeCredentialData = Data(hex: stakeCredentialHex)
+        let stakeCredential = try StakeCredential(from: .bytes(stakeCredentialData))
+        let coin = Coin(coinInt)
+        
+        return Unregister(stakeCredential: stakeCredential, coin: coin)
+    }
+    
+    public func toDict() throws -> Primitive {
+        var dict = OrderedDictionary<Primitive, Primitive>()
+        dict[.string(CodingKeys.stakeCredential.rawValue)] = .string(stakeCredential.credential.payload.toHex)
+        dict[.string(CodingKeys.coin.rawValue)] = .int(Int(coin))
+        return .orderedDict(dict)
     }
 }
 

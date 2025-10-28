@@ -13,7 +13,7 @@ extension PlutusDataProtocol {
     }
     
     public init(from dict: OrderedDictionary<Primitive, Primitive>) throws {
-        let plutusData = try PlutusData.fromDict(dict)
+        let plutusData = try PlutusData.fromDict(.orderedDict(dict))
         try self.init(from: plutusData)
     }
     
@@ -31,7 +31,7 @@ extension PlutusDataProtocol {
         return try plutusData.toJSON()
     }
     
-    public func toDict() throws -> OrderedDictionary<Primitive, Primitive>{
+    public func toDict() throws -> Primitive {
         let plutusData = try self.toPlutusData()
         return try plutusData.toDict()
     }
@@ -41,7 +41,7 @@ extension PlutusDataProtocol {
         return try Self.init(from: plutusData)
     }
     
-    public static func fromDict(_ data: OrderedDictionary<Primitive, Primitive>) throws -> Self {
+    public static func fromDict(_ data: Primitive) throws -> Self {
         let plutusData = try PlutusData.fromDict(data)
         return try Self.init(from: plutusData)
     }

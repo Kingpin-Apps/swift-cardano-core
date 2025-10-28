@@ -1,6 +1,6 @@
 import Foundation
 
-public struct AnyTuple: CBORSerializable, Equatable, Hashable {
+public struct AnyTuple: CBORSerializable, Sendable {
     public let elements: [Primitive]
 
     public init(_ elements: [Primitive]) { self.elements = elements }

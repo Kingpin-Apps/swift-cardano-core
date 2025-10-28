@@ -4,7 +4,7 @@ import PotentCBOR
 import PotentCodables
 import OrderedCollections
 
-public struct Script: Codable, Equatable, Hashable {
+public struct Script: Codable, Equatable, Hashable, Sendable {
     public var type: Int
     public var script: ScriptType
     
@@ -158,12 +158,13 @@ public struct ScriptRef: CBORTaggable, Serializable {
         return .cborTag(CBORTag(tag: tag, value: value))
     }
     
-    public static func fromDict(_ dict: OrderedDictionary<Primitive, Primitive>) throws -> ScriptRef {
-        guard case let .int(tagValue) = dict[Primitive.string("tag")] else {
+    public static func fromDict(_ dict: Primitive) throws -> ScriptRef {
+        guard case let .orderedDict(dictValue) = dict,
+              case let .int(tagValue) = dictValue[Primitive.string("tag")] else {
             throw CardanoCoreError.deserializeError("Invalid ScriptRef JSON: missing tag")
         }
         
-        guard case let .string(valueStr) = dict[Primitive.string("value")] else {
+        guard case let .string(valueStr) = dictValue[Primitive.string("value")] else {
             throw CardanoCoreError.deserializeError("Invalid ScriptRef JSON: missing value")
         }
         
@@ -175,7 +176,7 @@ public struct ScriptRef: CBORTaggable, Serializable {
         return try ScriptRef(tag: UInt64(tagValue), value: .bytes(valueData))
     }
     
-    public func toDict() throws -> OrderedDictionary<Primitive, Primitive> {
+    public func toDict() throws -> Primitive {
         var dict: OrderedDictionary<Primitive, Primitive> = [:]
         dict[Primitive.string("tag")] = Primitive.int(Int(tag))
         
@@ -190,6 +191,6 @@ public struct ScriptRef: CBORTaggable, Serializable {
         }
         
         dict[Primitive.string("value")] = Primitive.string(valueBytes.base64EncodedString())
-        return dict
+        return .orderedDict(dict)
     }
 }

@@ -1,4 +1,4 @@
-import BigInt
+@preconcurrency import BigInt
 import PotentCBOR
 import OrderedCollections
 
@@ -9,7 +9,7 @@ import OrderedCollections
 ///
 /// This enum keeps small signed ints (that fit in Int64) separately and otherwise stores
 /// magnitude bytes for big unsigned/negative integers.
-public enum BigInteger: Serializable, CustomStringConvertible {
+public enum BigInteger: Serializable, CustomStringConvertible, Sendable {
     case int(Int64)         // small (fits in Int64)
     case bigUInt(BigUInt)      // magnitude bytes for a large unsigned integer (CBOR tag 2)
     case bigNInt(BigInt)      // magnitude bytes for a large negative integer (CBOR tag 3)
@@ -109,28 +109,31 @@ public enum BigInteger: Serializable, CustomStringConvertible {
     
     // MARK: - JSONSerializable
     
-    public static func fromDict(_ data: OrderedDictionary<Primitive, Primitive>) throws -> BigInteger {
-        if case let .int(intData) = data[.string("int")] {
+    public static func fromDict(_ data: Primitive) throws -> BigInteger {
+        guard case let .orderedDict(orderedDict) = data else {
+            throw CardanoCoreError.deserializeError("Invalid BigInteger dict format")
+        }
+        if case let .int(intData) = orderedDict[.string("int")] {
             return .int(Int64(intData))
-        } else if case let .uint(intData) = data[.string("int")] {
+        } else if case let .uint(intData) = orderedDict[.string("int")] {
             return .bigUInt(BigUInt(intData))
-        } else if case let .bigInt(intData) = data[.string("int")] {
+        } else if case let .bigInt(intData) = orderedDict[.string("int")] {
             return .bigNInt(intData)
-        } else if case let .bigUInt(intData) = data[.string("int")] {
+        } else if case let .bigUInt(intData) = orderedDict[.string("int")] {
             return .bigUInt(intData)
         } else {
-            throw CardanoCoreError.deserializeError("Invalid BigInteger dict: \(data)")
+            throw CardanoCoreError.deserializeError("Invalid BigInteger dict: \(orderedDict)")
         }
     }
     
-    public func toDict() throws -> OrderedDictionary<Primitive, Primitive> {
+    public func toDict() throws -> Primitive {
         switch self {
             case .int(let value):
-                return [.string("int"): .int(Int(value))]
+                return .orderedDict([.string("int"): .int(Int(value))])
             case .bigUInt(let value):
-                return [.string("int"): .bigUInt(value)]
+                return .orderedDict([.string("int"): .bigUInt(value)])
             case .bigNInt(let value):
-                return [.string("int"): .bigInt(value)]
+                return .orderedDict([.string("int"): .bigInt(value)])
         }
     }
 }

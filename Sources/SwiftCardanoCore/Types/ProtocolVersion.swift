@@ -1,6 +1,6 @@
 import Foundation
 
-public struct ProtocolVersion: CBORSerializable, Hashable, Equatable {
+public struct ProtocolVersion: CBORSerializable, Sendable {
     public var major: Int?
     public var minor: Int?
 

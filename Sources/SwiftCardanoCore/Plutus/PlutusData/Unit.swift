@@ -21,11 +21,11 @@ public struct Unit: PlutusDataProtocol {
     
     // MARK: - JSONSerializable
     
-    public func toDict() throws -> OrderedDictionary<Primitive, Primitive> {
-        return [:]
+    public func toDict() throws -> Primitive {
+        return .orderedDict([:  ])
     }
     
-    public static func fromDict(_ dict: OrderedDictionary<Primitive, Primitive>) throws -> Unit {
+    public static func fromDict(_ dict: Primitive) throws -> Unit {
         return self.init()
     }
 }

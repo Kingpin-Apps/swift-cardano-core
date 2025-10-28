@@ -20,7 +20,7 @@ CIP129_PAYLOAD_SIZE = 29,
 UTXO_HASH_SIZE = 32
 
 /// A protocol for byte arrays with constraints on their size.
-public protocol ConstrainedBytes: CBORSerializable, Equatable, Hashable, CustomStringConvertible, CustomDebugStringConvertible, Sendable {
+public protocol ConstrainedBytes: Serializable {
     
     var payload: Data { get set }
     static var maxSize: Int { get }
@@ -64,6 +64,20 @@ extension ConstrainedBytes {
     }
     
     public func toPrimitive() -> Primitive {
+        return .bytes(payload)
+    }
+    
+    public static func fromDict(_ primitive: Primitive) throws -> Self {
+        if case let .bytes(primitive) = primitive {
+            return try Self.init(payload: primitive)
+        } else if case let .string(primitive) = primitive {
+            return try Self.init(payload: primitive.hexStringToData)
+        } else {
+            throw CardanoCoreError.deserializeError("Invalid \(Self.self) type: \(primitive)")
+        }
+    }
+    
+    public func toDict() throws -> Primitive {
         return .bytes(payload)
     }
     

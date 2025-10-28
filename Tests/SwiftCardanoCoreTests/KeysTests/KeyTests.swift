@@ -38,10 +38,10 @@ let spVkJson = """
 
 // MARK: - Test Suite
 @Suite struct KeyTests {
-    let SK = try! PaymentSigningKey.fromJSON(skJson)
-    let VK = try! PaymentVerificationKey.fromJSON(vkJson)
-    let SPSK = try! StakePoolSigningKey.fromJSON(spSkJson)
-    let SPVK = try! StakePoolVerificationKey.fromJSON(spVkJson)
+    let SK = try! PaymentSigningKey.fromTextEnvelope(skJson)
+    let VK = try! PaymentVerificationKey.fromTextEnvelope(vkJson)
+    let SPSK = try! StakePoolSigningKey.fromTextEnvelope(spSkJson)
+    let SPVK = try! StakePoolVerificationKey.fromTextEnvelope(spVkJson)
     
     @Test func testVKey() async throws {
         let payload = Data([

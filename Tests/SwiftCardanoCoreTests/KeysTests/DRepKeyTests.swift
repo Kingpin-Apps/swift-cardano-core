@@ -11,7 +11,7 @@ import PotentCBOR
         let encodedData = try CBOREncoder().encode(VK)
         let encodedHex = encodedData.toHex
         
-        let json = try VK.toJSON()
+        let json = try VK.toTextEnvelope()
         
         let keyPath = try getFilePath(
             forResource: drepVerificationKeyFilePath.forResource,
@@ -47,7 +47,7 @@ import PotentCBOR
         let encodedData = try CBOREncoder().encode(SK)
         let encodedHex = encodedData.toHex
         
-        let json = try SK.toJSON()
+        let json = try SK.toTextEnvelope()
         
         let keyPath = try getFilePath(
             forResource: drepSigningKeyFilePath.forResource,

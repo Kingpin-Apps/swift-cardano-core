@@ -39,8 +39,8 @@ let voteDelegCerts =  [
     
     @Test("Test JSON", arguments: voteDelegCerts)
     func testJSON(cert: VoteDelegate) async throws {
-        let json = try cert.toJSON()
-        let certFromJSON = try VoteDelegate.fromJSON(json!)
+        let json = try cert.toTextEnvelope()
+        let certFromJSON = try VoteDelegate.fromTextEnvelope(json!)
         
         #expect(cert == certFromJSON)
     }

@@ -33,8 +33,8 @@ struct ResignCommitteeColdTests {
     @Test func testJSON() async throws {
         let cert = resignCommitteeColdCertificate!
         
-        let json = try cert.toJSON()
-        let certFromJSON = try ResignCommitteeCold.fromJSON(json!)
+        let json = try cert.toTextEnvelope()
+        let certFromJSON = try ResignCommitteeCold.fromTextEnvelope(json!)
         
         #expect(cert == certFromJSON)
     }

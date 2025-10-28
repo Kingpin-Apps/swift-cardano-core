@@ -7,12 +7,14 @@ import OrderedCollections
 public typealias TransactionMetadatumLabel = UInt64
 
 // Define an enum for TransactionMetadatum
-public enum TransactionMetadatum: CBORSerializable, Hashable, Sendable {
+public enum TransactionMetadatum: Serializable {
     case map([TransactionMetadatum: TransactionMetadatum])
     case list([TransactionMetadatum])
     case int(Int)
     case bytes(Data)
     case text(String)
+    
+    // MARK: - CBORSerializable
     
     public init(from primitive: Primitive) throws {
         switch primitive {
@@ -71,13 +73,88 @@ public enum TransactionMetadatum: CBORSerializable, Hashable, Sendable {
                 return .dict(map)
         }
     }
+    
+    // MARK: - JSONSerializable
+    
+    public static func fromDict(_ primitive: Primitive) throws -> TransactionMetadatum {
+        switch primitive {
+            case .uint(let value):
+                if value >= Int.min && value <= Int.max {
+                    return .int(Int(value))
+                } else {
+                    throw CardanoCoreError.deserializeError("Integer value out of bounds for Int type")
+                }
+            case .bytes(let data):
+                return .bytes(data)
+            case .string(let string):
+                return .text(string)
+            case .list(let array):
+                let list = try array.map { try TransactionMetadatum.fromDict($0) }
+                return .list(list)
+            case .dict(let dict):
+                var map = [TransactionMetadatum: TransactionMetadatum]()
+                for (key, value) in dict {
+                    let keyMeta = try TransactionMetadatum.fromDict(key)
+                    let valueMeta = try TransactionMetadatum.fromDict(value)
+                    map[keyMeta] = valueMeta
+                }
+                return .map(map)
+            case .orderedDict(let dict):
+                var map = [TransactionMetadatum: TransactionMetadatum]()
+                for (key, value) in dict {
+                    let keyMeta = try TransactionMetadatum.fromDict(key)
+                    let valueMeta = try TransactionMetadatum.fromDict(value)
+                    map[keyMeta] = valueMeta
+                }
+                return .map(map)
+            default:
+                throw CardanoCoreError.deserializeError("Unsupported CBOR type for TransactionMetadatum")
+        }
+    }
+    
+    public func toDict() throws -> Primitive {
+        switch self {
+            case .int(let value):
+                return .int(value)
+            case .bytes(let data):
+                return .string(data.base64EncodedString())
+            case .text(let string):
+                return .string(string)
+            case .list(let array):
+                let list = try array.map { try $0.toDict() }
+                return .list(list)
+            case .map(let map):
+                var orderedDict = OrderedDictionary<Primitive, Primitive>()
+                for (key, value) in map {
+                    // Convert key to string for JSON compatibility
+                    let keyStr: String
+                    switch key {
+                    case .int(let i):
+                        keyStr = String(i)
+                    case .bytes(let data):
+                        keyStr = data.base64EncodedString()
+                    case .text(let str):
+                        keyStr = str
+                    case .list(_), .map(_):
+                        // For complex keys, serialize to JSON string
+                        keyStr = try String(describing: key.toDict())
+                    }
+                    let valuePrim = try value.toDict()
+                    orderedDict[.string(keyStr)] = valuePrim
+                }
+                return .orderedDict(orderedDict)
+        }
+    }
+
 }
 
 // MARK: - MetadataType
-public enum MetadataType: CBORSerializable, Hashable, Equatable {
+public enum MetadataType: Serializable {
     case metadata(Metadata)
     case shelleyMaryMetadata(ShelleyMaryMetadata)
     case alonzoMetadata(AlonzoMetadata)
+    
+    // MARK: - CBORSerializable
     
     public init(from primitive: Primitive) throws {
         if case let .cborTag(cborTag) = primitive,
@@ -128,10 +205,44 @@ public enum MetadataType: CBORSerializable, Hashable, Equatable {
         }
     }
 
+    // MARK: - JSONSerializable
+    
+    public static func fromDict(_ primitive: Primitive) throws -> MetadataType {
+        // Try to detect the type based on structure
+        // AlonzoMetadata is a dict with numeric keys
+        if case let .dict(dict) = primitive,
+           dict.keys.contains(where: { if case .uint(_) = $0 { return true }; return false }) {
+            return .alonzoMetadata(try AlonzoMetadata.fromDict(primitive))
+        }
+        
+        // ShelleyMaryMetadata is a list with at least 1 element
+        if case let .list(elements) = primitive, elements.count >= 1 {
+            return .shelleyMaryMetadata(try ShelleyMaryMetadata.fromDict(primitive))
+        }
+        
+        // Otherwise try as plain Metadata (dict)
+        if case .dict(_) = primitive {
+            return .metadata(try Metadata.fromDict(primitive))
+        }
+        
+        throw CardanoCoreError.deserializeError("Invalid MetadataType primitive: \(primitive)")
+    }
+    
+    public func toDict() throws -> Primitive {
+        switch self {
+        case .metadata(let metadata):
+            return try metadata.toDict()
+        case .shelleyMaryMetadata(let shelleyMaryMetadata):
+            return try shelleyMaryMetadata.toDict()
+        case .alonzoMetadata(let alonzoMetadata):
+            return try alonzoMetadata.toDict()
+        }
+    }
+
 }
 
 // MARK: - Metadata
-public struct Metadata: CBORSerializable, Hashable, Equatable {
+public struct Metadata: Serializable {
     public typealias KEY_TYPE = TransactionMetadatumLabel
     public typealias VALUE_TYPE = TransactionMetadatum
     
@@ -180,6 +291,8 @@ public struct Metadata: CBORSerializable, Hashable, Equatable {
         try container.encode(data)
     }
     
+    // MARK: - CBORSerializable
+    
     public init(from primitive: Primitive) throws {
         self.data = [:]
         
@@ -217,6 +330,52 @@ public struct Metadata: CBORSerializable, Hashable, Equatable {
         return .dict(result)
     }
 
+    // MARK: - JSONSerializable
+    
+    public static func fromDict(_ primitive: Primitive) throws -> Metadata {
+        var dict: OrderedDictionary<Primitive, Primitive>
+        
+        switch primitive {
+        case let .dict(d):
+            dict = OrderedDictionary(uniqueKeysWithValues: d.map { ($0.key, $0.value) })
+        case let .orderedDict(d):
+            dict = d
+        default:
+            throw CardanoCoreError.deserializeError("Expected dictionary for Metadata")
+        }
+        
+        var metadata = [KEY_TYPE: VALUE_TYPE]()
+        
+        for (key, value) in dict {
+            let keyValue: UInt64
+            switch key {
+            case let .string(strValue):
+                guard let uint = UInt64(strValue) else {
+                    throw CardanoCoreError.deserializeError("Expected numeric string key in Metadata dictionary")
+                }
+                keyValue = uint
+            case let .uint(uintValue):
+                keyValue = UInt64(uintValue)
+            case let .int(intValue):
+                keyValue = UInt64(intValue)
+            default:
+                throw CardanoCoreError.deserializeError("Expected string or uint key in Metadata dictionary, got: \(key)")
+            }
+            
+            let metadatumValue = try VALUE_TYPE.fromDict(value)
+            metadata[KEY_TYPE(keyValue)] = metadatumValue
+        }
+        
+        return try Metadata(metadata)
+    }
+    
+    public func toDict() throws -> Primitive {
+        var result = OrderedDictionary<Primitive, Primitive>()
+        for (key, value) in data {
+            result[.string(String(key))] = try value.toDict()
+        }
+        return .orderedDict(result)
+    }
     
     private func validate() throws {
         func validateTypeAndSize(_ value: Any) throws {
@@ -242,7 +401,7 @@ public struct Metadata: CBORSerializable, Hashable, Equatable {
 }
 
 // MARK: - ShelleyMaryMetadata
-public struct ShelleyMaryMetadata: CBORSerializable, Hashable, Equatable {
+public struct ShelleyMaryMetadata: Serializable {
     public var metadata: Metadata
     public var nativeScripts: [NativeScript]?
     
@@ -250,6 +409,8 @@ public struct ShelleyMaryMetadata: CBORSerializable, Hashable, Equatable {
         self.metadata = metadata
         self.nativeScripts = nativeScripts
     }
+    
+    // MARK: - CBORSerializable
     
     public init(from primitive: Primitive) throws {
         guard case let .list(elements) = primitive, elements.count >= 1 else {
@@ -278,10 +439,39 @@ public struct ShelleyMaryMetadata: CBORSerializable, Hashable, Equatable {
         return .list(array)
     }
 
+    // MARK: - JSONSerializable
+    
+    public static func fromDict(_ primitive: Primitive) throws -> ShelleyMaryMetadata {
+        guard case let .list(elements) = primitive, elements.count >= 1 else {
+            throw CardanoCoreError.deserializeError("Expected list with at least 1 element for ShelleyMaryMetadata")
+        }
+        
+        let metadata = try Metadata.fromDict(elements[0])
+        
+        var nativeScripts: [NativeScript]?
+        if elements.count > 1, case let .list(scriptsList) = elements[1] {
+            nativeScripts = try scriptsList.map { try NativeScript.fromDict($0) }
+        }
+        
+        return ShelleyMaryMetadata(metadata: metadata, nativeScripts: nativeScripts)
+    }
+    
+    public func toDict() throws -> Primitive {
+        var array: [Primitive] = []
+        array.append(try metadata.toDict())
+        
+        if let nativeScripts = nativeScripts {
+            let scriptsPrimitive = try nativeScripts.map { try $0.toDict() }
+            array.append(.list(scriptsPrimitive))
+        }
+        
+        return .list(array)
+    }
+
 }
 
 // MARK: - AlonzoMetadata
-public struct AlonzoMetadata: CBORSerializable, Hashable, Equatable {
+public struct AlonzoMetadata: Serializable {
     public static let TAG: UInt64 = 259
     
     public var metadata: Metadata?
@@ -310,6 +500,8 @@ public struct AlonzoMetadata: CBORSerializable, Hashable, Equatable {
         self.plutusV2Script = plutusV2Script
         self.plutusV3Script = plutusV3Script
     }
+    
+    // MARK: - CBORSerializable
     
     public init(from primitive: Primitive) throws {
         guard case let .cborTag(cborTag) = primitive,
@@ -416,33 +608,107 @@ public struct AlonzoMetadata: CBORSerializable, Hashable, Equatable {
         )
     }
 
+    // MARK: - JSONSerializable
+    
+    public static func fromDict(_ primitive: Primitive) throws -> AlonzoMetadata {
+        var dict: OrderedDictionary<Primitive, Primitive>
+        
+        switch primitive {
+        case let .dict(d):
+            dict = OrderedDictionary(uniqueKeysWithValues: d.map { ($0.key, $0.value) })
+        case let .orderedDict(d):
+            dict = d
+        default:
+            throw CardanoCoreError.deserializeError("Expected dictionary for AlonzoMetadata")
+        }
+        
+        let metadata: Metadata?
+        if let metadataPrimitive = dict[.string("metadata")] {
+            metadata = try Metadata.fromDict(metadataPrimitive)
+        } else {
+            metadata = nil
+        }
+        
+        let nativeScripts: [NativeScript]?
+        if let nativeScriptsPrimitive = dict[.string("nativeScripts")],
+           case let .list(scriptsList) = nativeScriptsPrimitive {
+            nativeScripts = try scriptsList.map { try NativeScript.fromDict($0) }
+        } else {
+            nativeScripts = nil
+        }
+        
+        let plutusV1Script: [PlutusV1Script]?
+        if let plutusV1ScriptPrimitive = dict[.string("plutusV1Script")],
+           case let .list(scriptsList) = plutusV1ScriptPrimitive {
+            plutusV1Script = try scriptsList.map { try PlutusV1Script.fromDict($0) }
+        } else {
+            plutusV1Script = nil
+        }
+        
+        let plutusV2Script: [PlutusV2Script]?
+        if let plutusV2ScriptPrimitive = dict[.string("plutusV2Script")],
+           case let .list(scriptsList) = plutusV2ScriptPrimitive {
+            plutusV2Script = try scriptsList.map { try PlutusV2Script.fromDict($0) }
+        } else {
+            plutusV2Script = nil
+        }
+        
+        let plutusV3Script: [PlutusV3Script]?
+        if let plutusV3ScriptPrimitive = dict[.string("plutusV3Script")],
+           case let .list(scriptsList) = plutusV3ScriptPrimitive {
+            plutusV3Script = try scriptsList.map { try PlutusV3Script.fromDict($0) }
+        } else {
+            plutusV3Script = nil
+        }
+        
+        return AlonzoMetadata(
+            metadata: metadata,
+            nativeScripts: nativeScripts,
+            plutusV1Script: plutusV1Script,
+            plutusV2Script: plutusV2Script,
+            plutusV3Script: plutusV3Script
+        )
+    }
+    
+    public func toDict() throws -> Primitive {
+        var dict = OrderedDictionary<Primitive, Primitive>()
+        
+        if let metadata = metadata {
+            dict[.string("metadata")] = try metadata.toDict()
+        }
+        
+        if let nativeScripts = nativeScripts {
+            let scriptsPrimitive = try nativeScripts.map { try $0.toDict() }
+            dict[.string("nativeScripts")] = .list(scriptsPrimitive)
+        }
+        
+        if let plutusV1Script = plutusV1Script {
+            let scriptsPrimitive = try plutusV1Script.map { try $0.toDict() }
+            dict[.string("plutusV1Script")] = .list(scriptsPrimitive)
+        }
+        
+        if let plutusV2Script = plutusV2Script {
+            let scriptsPrimitive = try plutusV2Script.map { try $0.toDict() }
+            dict[.string("plutusV2Script")] = .list(scriptsPrimitive)
+        }
+        
+        if let plutusV3Script = plutusV3Script {
+            let scriptsPrimitive = try plutusV3Script.map { try $0.toDict() }
+            dict[.string("plutusV3Script")] = .list(scriptsPrimitive)
+        }
+        
+        return .orderedDict(dict)
+    }
+
 }
 
 // MARK: - AuxiliaryData
-public struct AuxiliaryData: CBORSerializable, Equatable, Hashable {
-    public init(from primitive: Primitive) throws {
-        self.data = try MetadataType(from: primitive)
-    }
-
-    public func toPrimitive() throws -> Primitive {
-        return try data.toPrimitive()
-    }
-
+public struct AuxiliaryData: Serializable {
     public var data: MetadataType
     
     public init(data: MetadataType) {
         self.data = data
     }
-    
-//    public init(from decoder: Decoder) throws {
-//        let container = try decoder.singleValueContainer()
-//        data = try container.decode(MetadataType.self)
-//    }
-//
-//    public func encode(to encoder: Swift.Encoder) throws {
-//        var container = encoder.singleValueContainer()
-//        try container.encode(data)
-//    }
     
     /// Compute a blake2b hash from the key
     /// - Returns: Hash output in bytes.
@@ -455,4 +721,26 @@ public struct AuxiliaryData: CBORSerializable, Equatable, Hashable {
             )
         )
     }
+    
+    // MARK: - CBORSerializable
+    
+    public init(from primitive: Primitive) throws {
+        self.data = try MetadataType(from: primitive)
+    }
+    
+    public func toPrimitive() throws -> Primitive {
+        return try data.toPrimitive()
+    }
+    
+    // MARK: - JSONSerializable
+
+    public static func fromDict(_ primitive: Primitive) throws -> AuxiliaryData {
+        let metadataType = try MetadataType.fromDict(primitive)
+        return AuxiliaryData(data: metadataType)
+    }
+    
+    public func toDict() throws -> Primitive {
+        return try data.toDict()
+    }
+
 }

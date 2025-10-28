@@ -55,7 +55,7 @@ public struct TransactionOutput: Serializable {
     
     public init(from primitives: Primitive) throws {
         if case .list(_) = primitives {
-            let output = try TransactionOutputLegacy(from: primitives)
+            let output = try ShelleyTransactionOutput(from: primitives)
             self.address = output.address
             self.amount = output.amount
             self.datumHash = output.datumHash
@@ -63,7 +63,7 @@ public struct TransactionOutput: Serializable {
             self.script = nil
             self.postAlonzo = false  // Legacy format
         } else if case .orderedDict(_) = primitives {
-            let output = try TransactionOutputPostAlonzo(from: primitives)
+            let output = try BabbageTransactionOutput(from: primitives)
             self.address = output.address
             self.amount = output.amount
             self.script = output.script
@@ -106,14 +106,14 @@ public struct TransactionOutput: Serializable {
                 scriptRef = nil
             }
             
-            return try TransactionOutputPostAlonzo(
+            return try BabbageTransactionOutput(
                 address: address,
                 amount: amount,
                 datumOption: datumOption,
                 scriptRef: scriptRef
             ).toPrimitive()
         } else {
-            return try TransactionOutputLegacy(
+            return try ShelleyTransactionOutput(
                 address: address,
                 amount: amount,
                 datumHash: datumHash
@@ -123,16 +123,19 @@ public struct TransactionOutput: Serializable {
     
     // MARK: - JSONSerializable
     
-    public static func fromDict(_ dict: OrderedCollections.OrderedDictionary<Primitive, Primitive>) throws -> TransactionOutput {
+    public static func fromDict(_ dict: Primitive) throws -> TransactionOutput {
+        guard case let .orderedDict(orderedDict) = dict else {
+            throw CardanoCoreError.deserializeError("Invalid TransactionOutput dict format")
+        }
         // Try to detect format based on presence of datum/scriptRef (post-Alonzo) vs datumHash (legacy)
         // Also check for postAlonzo flag if present
-        let hasDatum = dict[.string("datum")] != nil
-        let hasScriptRef = dict[.string("scriptRef")] != nil
-        let hasPostAlonzoFlag = dict[.string("postAlonzo")] != nil
-        let hasDatumHash = dict[.string("datumHash")] != nil
+        let hasDatum = orderedDict[.string("datum")] != nil
+        let hasScriptRef = orderedDict[.string("scriptRef")] != nil
+        let hasPostAlonzoFlag = orderedDict[.string("postAlonzo")] != nil
+        let hasDatumHash = orderedDict[.string("datumHash")] != nil
         
         // Check if it has numeric keys (CBOR format) - for PostAlonzo these are 0, 1, optionally 2, 3
-        let hasNumericKeys = dict.keys.contains(where: { key in
+        let hasNumericKeys = orderedDict.keys.contains(where: { key in
             if case .uint(let uint) = key, uint <= 3 {
                 return true
             } else if case .int(let int) = key, int >= 0 && int <= 3 {
@@ -145,7 +148,7 @@ public struct TransactionOutput: Serializable {
         // But respect explicit postAlonzo=false flag
         let explicitPostAlonzo: Bool?
         if hasPostAlonzoFlag {
-            let flagValue = dict[.string("postAlonzo")]
+            let flagValue = orderedDict[.string("postAlonzo")]
             if case let .bool(flag) = flagValue {
                 explicitPostAlonzo = flag
             } else if case let .int(intFlag) = flagValue {
@@ -172,7 +175,7 @@ public struct TransactionOutput: Serializable {
         }
         
         if isPostAlonzo {
-            let output = try TransactionOutputPostAlonzo.fromDict(dict)
+            let output = try BabbageTransactionOutput.fromDict(.orderedDict(orderedDict))
             let datum = output.datumOption?.datum ?? nil
             
             var datumHash: DatumHash?
@@ -191,7 +194,7 @@ public struct TransactionOutput: Serializable {
             }
             
             // Restore the separate datumHash if it was stored (when both were set)
-            if let extraDatumHashStr = dict[.string("_datumHash")] {
+            if let extraDatumHashStr = orderedDict[.string("_datumHash")] {
                 if case let .string(base64Str) = extraDatumHashStr {
                     if let data = Data(base64Encoded: base64Str) {
                         datumHash = DatumHash(payload: data)
@@ -221,7 +224,7 @@ public struct TransactionOutput: Serializable {
                 postAlonzo: postAlonzoValue
             )
         } else {
-            let output = try TransactionOutputLegacy.fromDict(dict)
+            let output = try ShelleyTransactionOutput.fromDict(.orderedDict(orderedDict))
             return TransactionOutput(
                 address: output.address,
                 amount: output.amount,
@@ -233,7 +236,7 @@ public struct TransactionOutput: Serializable {
         }
     }
     
-    public func toDict() throws -> OrderedCollections.OrderedDictionary<Primitive, Primitive> {
+    public func toDict() throws -> Primitive {
         if self.datumOption != nil || self.script != nil || self.postAlonzo {
             let datumOption: DatumOption?
             let scriptRef: ScriptRef?
@@ -253,12 +256,18 @@ public struct TransactionOutput: Serializable {
                 scriptRef = nil
             }
             
-            var dict = try TransactionOutputPostAlonzo(
+            let babbageOutput = try BabbageTransactionOutput(
                 address: address,
                 amount: amount,
                 datumOption: datumOption,
                 scriptRef: scriptRef
             ).toDict()
+            
+            guard case let .orderedDict(orderedDict) = babbageOutput else {
+                throw CardanoCoreError.serializeError("BabbageTransactionOutput toDict did not return orderedDict")
+            }
+            
+            var dict = orderedDict
             
             // Add extra fields for proper round-tripping
             dict[.string("postAlonzo")] = .bool(postAlonzo)
@@ -268,9 +277,9 @@ public struct TransactionOutput: Serializable {
                 dict[.string("_datumHash")] = .string(self.datumHash!.payload.base64EncodedString())
             }
             
-            return dict
+            return .orderedDict(dict)
         } else {
-            return try TransactionOutputLegacy(
+            return try ShelleyTransactionOutput(
                 address: address,
                 amount: amount,
                 datumHash: datumHash

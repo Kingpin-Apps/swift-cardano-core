@@ -1,5 +1,6 @@
 import Foundation
 import PotentCBOR
+import OrderedCollections
 
 
 /// Auth Committee Hot Key Registration Certificate
@@ -17,6 +18,11 @@ public struct AuthCommitteeHot: CertificateSerializable {
     
     public let committeeColdCredential: CommitteeColdCredential
     public let committeeHotCredential: CommitteeHotCredential
+    
+    public enum CodingKeys: String, CodingKey {
+        case committeeColdCredential
+        case committeeHotCredential
+    }
     
     /// Initialize AuthCommitteeHot from committeeColdCredential and committeeHotCredential
     /// - Parameters:
@@ -55,7 +61,8 @@ public struct AuthCommitteeHot: CertificateSerializable {
         self.committeeColdCredential = cbor.committeeColdCredential
         self.committeeHotCredential = cbor.committeeHotCredential
     }
-
+    
+    // MARK: - CBORSerializable
     
     public init(from primitive: Primitive) throws {
         guard case let .list(primitive) = primitive,
@@ -78,6 +85,35 @@ public struct AuthCommitteeHot: CertificateSerializable {
             try committeeColdCredential.toPrimitive(),
             try committeeHotCredential.toPrimitive()
         ])
+    }
+    
+    // MARK: - JSONSerializable
+
+    public static func fromDict(_ dict: Primitive) throws -> AuthCommitteeHot {
+        guard case let .orderedDict(dictValue) = dict,
+              let committeeColdCredentialPrimitive = dictValue[.string(CodingKeys.committeeColdCredential.rawValue)],
+              let committeeHotCredentialPrimitive = dictValue[.string(CodingKeys.committeeHotCredential.rawValue)] else {
+            throw CardanoCoreError.deserializeError("Missing keys in AuthCommitteeHot dictionary")
+        }
+        
+        guard case let .string(committeeColdCredentialId) = committeeColdCredentialPrimitive,
+              case let .string(committeeHotCredentialId) = committeeHotCredentialPrimitive else {
+            throw CardanoCoreError.deserializeError("Invalid types for AuthCommitteeHot credentials")
+        }
+        
+        return AuthCommitteeHot(
+            committeeColdCredential: try CommitteeColdCredential(from: committeeColdCredentialId),
+            committeeHotCredential: try CommitteeHotCredential(from: committeeHotCredentialId)
+        )
+    }
+    
+    public func toDict() throws -> Primitive {
+        var dict = OrderedDictionary<Primitive, Primitive>()
+        dict[.string(CodingKeys.committeeColdCredential.rawValue)] =
+            .string(try committeeColdCredential.id())
+        dict[.string(CodingKeys.committeeHotCredential.rawValue)] =
+            .string(try committeeHotCredential.id())
+        return .orderedDict(dict)
     }
 
 }

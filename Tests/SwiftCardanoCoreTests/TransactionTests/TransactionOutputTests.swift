@@ -173,14 +173,14 @@ struct TransactionOutputTests {
         let address = try Address(from: .string("stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n"))
         let amount = Value(coin: 1000000)
         
-        let output = TransactionOutputLegacy(
+        let output = ShelleyTransactionOutput(
             address: address,
             amount: amount,
             datumHash: DatumHash(payload: Data(repeating: 0x01, count: 32))
         )
         
         let encoded = try JSONEncoder().encode(output)
-        let decoded = try JSONDecoder().decode(TransactionOutputLegacy.self, from: encoded)
+        let decoded = try JSONDecoder().decode(ShelleyTransactionOutput.self, from: encoded)
         
         #expect(output.address == decoded.address)
         #expect(output.amount == decoded.amount)
@@ -192,7 +192,7 @@ struct TransactionOutputTests {
         let address = try Address(from: .string("stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n"))
         let amount = Value(coin: 1000000)
         
-        let output = TransactionOutputPostAlonzo(
+        let output = BabbageTransactionOutput(
             address: address,
             amount: amount,
             datumOption: DatumOption(
@@ -210,7 +210,7 @@ struct TransactionOutputTests {
         )
         
         let encoded = try JSONEncoder().encode(output)
-        let decoded = try JSONDecoder().decode(TransactionOutputPostAlonzo.self, from: encoded)
+        let decoded = try JSONDecoder().decode(BabbageTransactionOutput.self, from: encoded)
         
         #expect(output.address == decoded.address)
         #expect(output.amount == decoded.amount)

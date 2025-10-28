@@ -1,5 +1,6 @@
 import Foundation
 import PotentCBOR
+import OrderedCollections
 
 /// DRep registration certificate
 public struct RegisterDRep: CertificateSerializable {
@@ -26,6 +27,12 @@ public struct RegisterDRep: CertificateSerializable {
     public let drepCredential: DRepCredential
     public let coin: Coin
     public let anchor: Anchor?
+    
+    public enum CodingKeys: String, CodingKey {
+        case drepCredential
+        case coin
+        case anchor
+    }
     
     /// Initialize a new `RegisterDRep` certificate
     /// - Parameters:
@@ -68,6 +75,8 @@ public struct RegisterDRep: CertificateSerializable {
         self.anchor = cbor.anchor
     }
     
+    // MARK: - CBORSerializable
+    
     public init(from primitive: Primitive) throws {
         guard case let .list(primitive) = primitive,
               primitive.count == 4,
@@ -91,4 +100,47 @@ public struct RegisterDRep: CertificateSerializable {
             try anchor?.toPrimitive() ?? .null
         ])
     }
+    
+    // MARK: - JSONSerializable
+    
+    public static func fromDict(_ dict: Primitive) throws -> RegisterDRep {
+        guard case let .orderedDict(orderedDict) = dict else {
+            throw CardanoCoreError.deserializeError("Invalid RegisterDRep dict format")
+        }
+        guard let drepCredentialPrimitive = orderedDict[.string(CodingKeys.drepCredential.rawValue)],
+              case let .string(drepCredentialId) = drepCredentialPrimitive,
+              let coinPrimitive = orderedDict[.string(CodingKeys.coin.rawValue)],
+              case let .int(coinInt) = coinPrimitive else {
+            throw CardanoCoreError.deserializeError("Invalid RegisterDRep dictionary")
+        }
+        
+        let drepCredential = try DRepCredential(from: drepCredentialId)
+        let coin = Coin(coinInt)
+        
+        var anchor: Anchor? = nil
+        if let anchorPrimitive = orderedDict[.string(CodingKeys.anchor.rawValue)] {
+            if case .null = anchorPrimitive {
+                anchor = nil
+            } else if case let .orderedDict(anchorDict) = anchorPrimitive {
+                anchor = try Anchor.fromDict(.orderedDict(anchorDict))
+            } else {
+                throw CardanoCoreError.deserializeError("Invalid anchor in RegisterDRep dictionary")
+            }
+        }
+        
+        return RegisterDRep(drepCredential: drepCredential, coin: coin, anchor: anchor)
+    }
+    
+    public func toDict() throws -> Primitive {
+        var dict = OrderedDictionary<Primitive, Primitive>()
+        dict[.string(CodingKeys.drepCredential.rawValue)] = .string(try drepCredential.id())
+        dict[.string(CodingKeys.coin.rawValue)] = .int(Int(coin))
+        if let anchor = anchor {
+            dict[.string(CodingKeys.anchor.rawValue)] = try anchor.toDict()
+        } else {
+            dict[.string(CodingKeys.anchor.rawValue)] = .null
+        }
+        return .orderedDict(dict)
+    }
+
 }

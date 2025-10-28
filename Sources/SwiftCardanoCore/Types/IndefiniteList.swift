@@ -1,7 +1,7 @@
 import Foundation
 import PotentCBOR
 
-public struct IndefiniteList<T>: CBORSerializable, Hashable, Equatable where T: Hashable {
+public struct IndefiniteList<T: Sendable>: CBORSerializable, Sendable where T: Hashable {
     private var items: [T]
 
     public init(_ items: [T] = []) {

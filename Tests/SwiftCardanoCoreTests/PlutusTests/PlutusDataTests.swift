@@ -4,7 +4,7 @@ import FractionNumber
 import OrderedCollections
 import PotentASN1
 import PotentCBOR
-import PotentCodables
+@preconcurrency import PotentCodables
 import SwiftNcal
 import Testing
 
@@ -77,7 +77,7 @@ struct PlutusDataTests {
     func testDictionaryConversion() throws {
         let myTest = try MyTest(a: 42, b: Data(), c: IndefiniteList<AnyValue>([]), d: [:])
         let dict = try myTest.toDict()
-        let decoded = try MyTest.init(from: dict)
+        let decoded = try MyTest.fromDict(dict)
 
         #expect(myTest == decoded)
     }

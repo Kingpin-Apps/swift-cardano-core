@@ -1,5 +1,6 @@
 import Foundation
 import PotentCBOR
+import OrderedCollections
 
 public struct StakeVoteRegisterDelegate: CertificateSerializable {
     public var _payload: Data
@@ -17,6 +18,13 @@ public struct StakeVoteRegisterDelegate: CertificateSerializable {
     public let poolKeyHash: PoolKeyHash
     public let drep: DRep
     public let coin: Coin
+    
+    public enum CodingKeys: String, CodingKey {
+        case stakeCredential
+        case poolKeyHash
+        case drep
+        case coin
+    }
     
     /// Initialize a new `StakeVoteRegisterDelegate` certificate
     /// - Parameters:
@@ -69,6 +77,8 @@ public struct StakeVoteRegisterDelegate: CertificateSerializable {
         self.coin = cbor.coin
     }
     
+    // MARK: - CBORSerializable
+    
     public init(from primitive: Primitive) throws {
         guard case let .list(primitive) = primitive,
               primitive.count == 5,
@@ -98,5 +108,54 @@ public struct StakeVoteRegisterDelegate: CertificateSerializable {
             try drep.toPrimitive(),
             .int(Int(coin))
         ])
+    }
+    
+    // MARK: - JSONSerializable
+    
+    public static func fromDict(_ dict: Primitive) throws -> StakeVoteRegisterDelegate {
+        guard case let .orderedDict(dictValue) = dict,
+              let stakeCredentialPrimitive = dictValue[.string(CodingKeys.stakeCredential.rawValue)],
+              case let .string(stakeCredentialHex) = stakeCredentialPrimitive else {
+            throw CardanoCoreError.deserializeError("Invalid or missing stakeCredential in StakeVoteRegisterDelegate dict")
+        }
+        
+        let stakeCredentialData = Data(hex: stakeCredentialHex)
+        let stakeCredential = try StakeCredential(from: .bytes(stakeCredentialData))
+        
+        guard case let .string(poolId) = dictValue[.string(CodingKeys.poolKeyHash.rawValue)] else {
+            throw CardanoCoreError.deserializeError("Missing poolKeyHash in StakeVoteRegisterDelegate dict")
+        }
+        
+        let poolOperator = try PoolOperator(from: poolId)
+        
+        guard case let .string(drepPrimitive) = dictValue[.string(CodingKeys.drep.rawValue)] else {
+            throw CardanoCoreError.deserializeError("Missing drep in StakeVoteRegisterDelegate dict")
+        }
+        let drep = try DRep(from: drepPrimitive)
+        
+        guard let coinPrimitive = dictValue[.string(CodingKeys.coin.rawValue)],
+              case let .int(coinValue) = coinPrimitive else {
+            throw CardanoCoreError.deserializeError("Invalid or missing coin in StakeVoteRegisterDelegate dict")
+        }
+        let coin = Coin(coinValue)
+        
+        return StakeVoteRegisterDelegate(
+            stakeCredential: stakeCredential,
+            poolKeyHash: poolOperator.poolKeyHash,
+            drep: drep,
+            coin: coin
+        )
+    }
+    
+    public func toDict() throws -> Primitive {
+        var dict = OrderedDictionary<Primitive, Primitive>()
+        let poolOperator = PoolOperator(poolKeyHash: poolKeyHash)
+        
+        dict[.string(CodingKeys.stakeCredential.rawValue)] = .string(stakeCredential.credential.payload.toHex)
+        dict[.string(CodingKeys.poolKeyHash.rawValue)] = .string(try poolOperator.id())
+        dict[.string(CodingKeys.drep.rawValue)] = .string(try drep.id())
+        dict[.string(CodingKeys.coin.rawValue)] = .int(Int(coin))
+        
+        return .orderedDict(dict)
     }
 }

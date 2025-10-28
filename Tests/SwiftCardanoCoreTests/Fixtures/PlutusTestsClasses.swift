@@ -4,7 +4,7 @@ import FractionNumber
 import OrderedCollections
 import PotentASN1
 import PotentCBOR
-import PotentCodables
+@preconcurrency import PotentCodables
 import SwiftNcal
 import Testing
 
@@ -24,7 +24,6 @@ public struct MyTest: PlutusDataProtocol {
         self.b = Data()
         self.c = IndefiniteList<AnyValue>([])
         self.d = [:]
-//        super.init()
     }
     
     public init(from plutusData: PlutusData) throws {
@@ -133,23 +132,11 @@ public struct BigTest: PlutusDataProtocol {
 
     public init() {
         self.test = MyTest()
-//        super.init()
     }
 
     public init(test: MyTest) throws {
         self.test = test
-//        try super.init(fields: [test])
     }
-
-//    required public init(fields: [Any]) throws {
-//        guard fields.count == 1,
-//            let test = fields[0] as? AnyValue
-//        else {
-//            throw CardanoCoreError.invalidArgument("Invalid fields for BigTest: \(fields)")
-//        }
-//        self.test = try MyTest(fields: test.arrayValue![1].arrayValue ?? test.arrayValue!)
-//        try super.init(fields: [self.test])
-//    }
 }
 
 public struct LargestTest: PlutusDataProtocol {
@@ -175,17 +162,6 @@ public struct LargestTest: PlutusDataProtocol {
     }
 
     public init() {}
-
-    //    public init() throws {
-    //        try super.init(fields: [])
-    //    }
-
-//    required public init(fields: [Any]) throws {
-//        guard fields.isEmpty else {
-//            throw CardanoCoreError.invalidArgument("Invalid fields for LargestTest: \(fields)")
-//        }
-//        try super.init(fields: fields)
-//    }
 }
 
 public struct DictTest: PlutusDataProtocol {
@@ -239,38 +215,10 @@ public struct DictTest: PlutusDataProtocol {
 
     public init() {
         self.a = OrderedDictionary(uniqueKeysWithValues: [0: LargestTest()])
-//        super.init()
     }
 
     public init(a: OrderedDictionary<Int, LargestTest>) throws {
         self.a = a
-//        let newMap = OrderedDictionary(
-//            uniqueKeysWithValues:
-//                a.map { key, value in
-//                    (
-//                        AnyValue(integerLiteral: key),
-//                        value.toAnyValue()
-//                    )
-//                })
-//        try super.init(fields: [newMap])
-//    }
-
-//    required public init(fields: [Any]) throws {
-//        guard fields.count == 1,
-//            let a = fields[0] as? AnyValue
-//        else {
-//            throw CardanoCoreError.invalidArgument("Invalid fields for DictTest: \(fields)")
-//        }
-//        self.a = OrderedDictionary(
-//            uniqueKeysWithValues: a.dictionaryValue!.map { key, value in
-//                (Int(key.int64Value!), try! LargestTest(fields: value.arrayValue!))
-//            })
-//
-//        let field = OrderedDictionary(
-//            uniqueKeysWithValues: a.dictionaryValue!.map { key, value in
-//                (key, value)
-//            })
-//        try super.init(fields: [field])
     }
 }
 
@@ -308,32 +256,14 @@ public struct ListTest: PlutusDataProtocol {
 
     public init() {
         self.a = IndefiniteList([LargestTest()])
-//        super.init()
     }
 
     public init(a: IndefiniteList<LargestTest>) throws {
         self.a = a
-//        let field = try a.map {
-//            AnyValue.array(try $0.fields.map { try AnyValue.wrapped($0) })
-//        }
-//        try super.init(fields: [field])
     }
-
-//    required public init(fields: [Any]) throws {
-//        guard fields.count == 1,
-//            let a = fields[0] as? AnyValue
-//        else {
-//            throw CardanoCoreError.invalidArgument("Invalid fields for ListTest: \(fields)")
-//        }
-//        self.a = IndefiniteList<LargestTest>(
-//            a.arrayValue!.map { _ in LargestTest() }
-//        )
-//        let field = a.arrayValue!.map { $0 }
-//        try super.init(fields: [field])
-//    }
 }
 
-public enum MyTestType: Equatable, Hashable {
+public enum MyTestType: Equatable, Hashable, Sendable {
     case bigTest(BigTest)
     case largestTest(LargestTest)
 }
@@ -478,7 +408,6 @@ public struct VestingParam: PlutusDataProtocol {
         self.deadline = 0
         self.testa = .bigTest(BigTest())
         self.testb = .largestTest(LargestTest())
-//        super.init()
     }
 
     public init(beneficiary: Data, deadline: Int, testa: MyTestType, testb: MyTestType) throws {
@@ -486,70 +415,28 @@ public struct VestingParam: PlutusDataProtocol {
         self.deadline = deadline
         self.testa = testa
         self.testb = testb
-        
-//        let anyA: PlutusData
-//        let anyB: PlutusData
-//        
-//        switch testa {
-//            case .bigTest(let test):
-//                anyA = try test.toPlutusData()
-//            case .largestTest(let test):
-//                anyA = try test.toPlutusData()
-//        }
-//        
-//        switch testb {
-//            case .bigTest(let test):
-//                anyB = try test.toPlutusData()
-//            case .largestTest(let test):
-//                anyB = try test.toPlutusData()
-//        }
-        
-//        try super.init(fields: [beneficiary, deadline, anyA, anyB])
     }
-
-//    required public init(fields: [Any]) throws {
-//        guard fields.count == 4,
-//            let beneficiary = fields[0] as? AnyValue,
-//            let deadline = fields[1] as? AnyValue,
-//            let testa = fields[2] as? AnyValue,
-//            let testb = fields[3] as? AnyValue
-//        else {
-//            throw CardanoCoreError.invalidArgument("Invalid fields for VestingParam: \(fields)")
-//        }
-//        self.beneficiary = beneficiary.dataValue ?? Data()
-//        self.deadline = Int(
-//            deadline.int64Value ?? Int64(deadline.uint64Value ?? 0)
-//        )
-//        
-//        let testaInit: Any
-//        let testbInit: Any
-//        
-//        if testa.count == 0 {
-//            testaInit = LargestTest()
-//            self.testa = .largestTest(testaInit as! LargestTest)
-//        } else {
-//            testaInit = try BigTest(fields: testa.arrayValue!)
-//            self.testa = .bigTest(testaInit as! BigTest)
-//        }
-//        
-//        if testb.arrayValue?.count == 0 {
-//            testbInit = LargestTest()
-//            self.testb = .largestTest(testbInit as! LargestTest)
-//        } else {
-//            testbInit = try BigTest(fields: testb.arrayValue!)
-//            self.testb = .bigTest(testbInit as! BigTest)
-//        }
-//        
-////        try super.init(fields: [self.beneficiary, self.deadline, testaInit, testbInit])
-//    }
 }
 
-public final class MyRedeemer: Redeemer {
-    public init(data: MyTest) throws {
-        super.init(data: try data.toPlutusData())
+public struct MyRedeemer: RedeemerProtocol {
+    public var tag: RedeemerTag?
+    public var index: Int
+    public var data: PlutusData
+    public var exUnits: ExecutionUnits?
+
+    public init(
+        tag: RedeemerTag? = nil,
+        index: Int = 0,
+        data: PlutusData,
+        exUnits: ExecutionUnits? = nil
+    ) {
+        self.tag = tag
+        self.index = index
+        self.data = data
+        self.exUnits = exUnits
     }
 
-    required init(from primitive: Primitive) throws {
-        try super.init(from: primitive)
+    public init(myTest: MyTest) throws {
+        self.init(data: try myTest.toPlutusData())
     }
 }

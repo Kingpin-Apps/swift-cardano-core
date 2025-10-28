@@ -73,7 +73,7 @@ public struct ParameterChangeAction: GovernanceAction {
     }
 }
 
-public struct ProtocolParamUpdate: CBORSerializable, Hashable, Equatable {
+public struct ProtocolParamUpdate: CBORSerializable, Sendable {
     public var minFeeA: Coin?
     public var minFeeB: Coin?
     public var maxBlockBodySize: UInt32?

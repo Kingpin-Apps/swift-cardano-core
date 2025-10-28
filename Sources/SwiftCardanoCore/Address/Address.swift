@@ -8,7 +8,7 @@ import Foundation
 ///  - paymentPart: The payment part of the address.
 ///  - stakingPart: The staking part of the address.
 ///  - network: Type of network the address belongs to.
-public struct Address: CBORSerializable, CustomStringConvertible, Equatable {
+public struct Address: CBORSerializable, CustomStringConvertible, Equatable, Sendable {
     /// The payment part of the address.
     public var paymentPart: PaymentPart? { get { return _paymentPart } }
     private let _paymentPart: PaymentPart?

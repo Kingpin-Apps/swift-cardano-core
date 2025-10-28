@@ -1,5 +1,6 @@
 import Foundation
 import PotentCBOR
+import OrderedCollections
 
 public enum MoveInstantaneousRewardSource: Int, Codable, Sendable {
     case reserves = 0
@@ -10,10 +11,28 @@ public struct DeltaCoin: Codable, Hashable, Equatable, Sendable {
     public let deltaCoin: Int
 }
 
-public struct MoveInstantaneousReward: CBORSerializable, Hashable, Equatable {
+public struct MoveInstantaneousReward: Serializable, Sendable{
     public let source: MoveInstantaneousRewardSource
     public let rewards: [String: DeltaCoin]?
     public let coin: UInt64?
+    
+    public init(
+        source: MoveInstantaneousRewardSource,
+        rewards: [String: DeltaCoin]?,
+        coin: UInt64?
+    ) {
+        self.source = source
+        self.rewards = rewards
+        self.coin = coin
+    }
+    
+    public enum CodingKeys: String, CodingKey {
+        case source
+        case rewards
+        case coin
+    }
+    
+    // MARK: - CBORSerializable
     
     public init(from primitive: Primitive) throws {
         guard case let .list(primitive) = primitive else {
@@ -74,6 +93,78 @@ public struct MoveInstantaneousReward: CBORSerializable, Hashable, Equatable {
         return .list(elements)
     }
     
+    // MARK: - JSONSerializable
+    
+    public static func fromDict(_ dict: Primitive) throws -> MoveInstantaneousReward {
+        guard case let .orderedDict(orderedDict) = dict else {
+            throw CardanoCoreError.deserializeError("Invalid MoveInstantaneousReward dict format")
+        }
+        guard let sourcePrimitive = orderedDict[.string(CodingKeys.source.rawValue)],
+              case let .int(sourceValue) = sourcePrimitive else {
+            throw CardanoCoreError.deserializeError("Missing or invalid source in MoveInstantaneousReward")
+        }
+        
+        guard let source = MoveInstantaneousRewardSource(rawValue: sourceValue) else {
+            throw CardanoCoreError.deserializeError("Invalid source value in MoveInstantaneousReward")
+        }
+        
+        var rewards: [String: DeltaCoin]? = nil
+        if let rewardsPrimitive = orderedDict[.string(CodingKeys.rewards.rawValue)] {
+            if case .null = rewardsPrimitive {
+                rewards = nil
+            } else if case let .orderedDict(rewardsDict) = rewardsPrimitive {
+                var rewardsMap: [String: DeltaCoin] = [:]
+                for (key, value) in rewardsDict {
+                    guard case let .string(keyStr) = key,
+                          case let .int(delta) = value else {
+                        throw CardanoCoreError.deserializeError("Invalid rewards format in MoveInstantaneousReward")
+                    }
+                    rewardsMap[keyStr] = DeltaCoin(deltaCoin: delta)
+                }
+                rewards = rewardsMap
+            } else {
+                throw CardanoCoreError.deserializeError("Invalid rewards type in MoveInstantaneousReward")
+            }
+        }
+        
+        var coin: UInt64? = nil
+        if let coinPrimitive = orderedDict[.string(CodingKeys.coin.rawValue)] {
+            if case .null = coinPrimitive {
+                coin = nil
+            } else if case let .int(coinValue) = coinPrimitive {
+                coin = UInt64(coinValue)
+            } else {
+                throw CardanoCoreError.deserializeError("Invalid coin type in MoveInstantaneousReward")
+            }
+        }
+        
+        return MoveInstantaneousReward(source: source, rewards: rewards, coin: coin)
+    }
+    
+    public func toDict() throws -> Primitive {
+        var dict = OrderedDictionary<Primitive, Primitive>()
+        
+        dict[.string(CodingKeys.source.rawValue)] = .int(source.rawValue)
+        
+        if let rewards = rewards {
+            var rewardsDict = OrderedDictionary<Primitive, Primitive>()
+            for (key, value) in rewards {
+                rewardsDict[.string(key)] = .int(value.deltaCoin)
+            }
+            dict[.string(CodingKeys.rewards.rawValue)] = .orderedDict(rewardsDict)
+        } else {
+            dict[.string(CodingKeys.rewards.rawValue)] = .null
+        }
+        
+        if let coin = coin {
+            dict[.string(CodingKeys.coin.rawValue)] = .int(Int(coin))
+        } else {
+            dict[.string(CodingKeys.coin.rawValue)] = .null
+        }
+        
+        return .orderedDict(dict)
+    }
+    
     public static func == (lhs: MoveInstantaneousReward, rhs: MoveInstantaneousReward) -> Bool {
         return lhs.source == rhs.source &&
                 lhs.rewards == rhs.rewards &&
@@ -81,7 +172,7 @@ public struct MoveInstantaneousReward: CBORSerializable, Hashable, Equatable {
     }
 }
 
-public struct MoveInstantaneousRewards: CertificateSerializable {
+public struct MoveInstantaneousRewards: Serializable, Sendable{
     public var _payload: Data
     public var _type: String
     public var _description: String
@@ -94,6 +185,10 @@ public struct MoveInstantaneousRewards: CertificateSerializable {
     public static var CODE: CertificateCode { get { return .moveInstantaneousRewards } }
     
     public let moveInstantaneousRewards: MoveInstantaneousReward
+    
+    public enum CodingKeys: String, CodingKey {
+        case moveInstantaneousRewards
+    }
     
     /// Initialize a new `MoveInstantaneousRewards` certificate
     /// - Parameter moveInstantaneousRewards: The move instantaneous rewards
@@ -126,30 +221,8 @@ public struct MoveInstantaneousRewards: CertificateSerializable {
         
         self.moveInstantaneousRewards = cbor.moveInstantaneousRewards
     }
-
     
-    /// Initialize a new `MoveInstantaneousRewards` certificate from its CBOR representation
-    /// - Parameter decoder: The decoder
-    public init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        let code = try container.decode(Int.self)
-        
-        guard case Self.CODE.rawValue = code else {
-            throw CardanoCoreError.deserializeError("Invalid MoveInstantaneousRewards type: \(code)")
-        }
-        
-        let moveInstantaneousRewards = try container.decode(MoveInstantaneousReward.self)
-        
-        self.init(moveInstantaneousRewards: moveInstantaneousRewards)
-    }
-    
-    /// Encode the `MoveInstantaneousRewards` certificate to the given encoder
-    /// - Parameter encoder: The encoder
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.unkeyedContainer()
-        try container.encode(Self.CODE.rawValue)
-        try container.encode(moveInstantaneousRewards)
-    }
+    // MARK: - CBORSerializable
     
     public init(from primitive: Primitive) throws {
         guard case let .list(primitive) = primitive,
@@ -171,6 +244,31 @@ public struct MoveInstantaneousRewards: CertificateSerializable {
             .int(Int(Self.CODE.rawValue)),
             try moveInstantaneousRewards.toPrimitive()
         ])
+    }
+    
+    // MARK: - JSONSerializable
+    
+    public static func fromDict(_ dict: Primitive) throws -> MoveInstantaneousRewards {
+        guard case let .orderedDict(orderedDict) = dict else {
+            throw CardanoCoreError.deserializeError("Invalid MoveInstantaneousRewards dict format")
+        }
+        guard let moveInstantaneousRewardsPrimitive = orderedDict[.string(CodingKeys.moveInstantaneousRewards.rawValue)] else {
+            throw CardanoCoreError.deserializeError("Missing moveInstantaneousRewards in MoveInstantaneousRewards")
+        }
+        
+        guard case let .orderedDict(rewardsDict) = moveInstantaneousRewardsPrimitive else {
+            throw CardanoCoreError.deserializeError("Invalid moveInstantaneousRewards format in MoveInstantaneousRewards")
+        }
+        
+        let moveInstantaneousRewards = try MoveInstantaneousReward.fromDict(.orderedDict(rewardsDict))
+        
+        return MoveInstantaneousRewards(moveInstantaneousRewards: moveInstantaneousRewards)
+    }
+    
+    public func toDict() throws -> Primitive {
+        var dict = OrderedDictionary<Primitive, Primitive>()
+        dict[.string(CodingKeys.moveInstantaneousRewards.rawValue)] = try moveInstantaneousRewards.toDict()
+        return .orderedDict(dict)
     }
 
 }

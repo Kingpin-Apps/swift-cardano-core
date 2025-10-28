@@ -3,7 +3,7 @@ import PotentCBOR
 import OrderedCollections
 import SwiftNcal
 
-public struct PoolMetadata: Serializable {
+public struct PoolMetadata: Serializable, Sendable {
     public let name: String?
     public let desc: String?
     public let ticker: String?
@@ -122,12 +122,15 @@ public struct PoolMetadata: Serializable {
     
     // MARK: - JSONSerializable
     
-    public static func fromDict(_ dict: OrderedDictionary<Primitive, Primitive>) throws -> PoolMetadata {
-        let name = dict[.string("name")]
-        let description = dict[.string("description")]
-        let ticker = dict[.string("ticker")]
+    public static func fromDict(_ dict: Primitive) throws -> PoolMetadata {
+        guard case let .orderedDict(dictValue) = dict else {
+            throw CardanoCoreError.deserializeError("Invalid PoolMetadata dict")
+        }
+        let name = dictValue[.string("name")]
+        let description = dictValue[.string("description")]
+        let ticker = dictValue[.string("ticker")]
         let homepage: Url? = {
-            if case let .string(homepageString) = dict[.string("homepage")] {
+            if case let .string(homepageString) = dictValue[.string("homepage")] {
                 return try? Url(homepageString)
             }
             return nil
@@ -141,7 +144,7 @@ public struct PoolMetadata: Serializable {
         )
     }
     
-    public func toDict() throws -> OrderedDictionary<Primitive, Primitive> {
+    public func toDict() throws -> Primitive {
         var dict: OrderedDictionary<Primitive, Primitive> = [:]
         
         if let name = name {
@@ -160,7 +163,7 @@ public struct PoolMetadata: Serializable {
             dict[.string("homepage")] = .string(homepage.absoluteString)
         }
         
-        return dict
+        return .orderedDict(dict)
     }
 
 }

@@ -4,7 +4,7 @@ import OrderedCollections
 /// A disctionary of reward addresses to reward withdrawal amount.
 ///
 /// Key is address bytes, value is an integer.
-public struct Withdrawals: Codable, Equatable, Hashable {
+public struct Withdrawals: Serializable {
     public var data: OrderedDictionary<RewardAccount, Coin> {
         get { _data }
         set { _data = newValue }
@@ -14,6 +14,14 @@ public struct Withdrawals: Codable, Equatable, Hashable {
     public init(_ data: OrderedDictionary<RewardAccount, Coin>) {
         self._data = data
     }
+    
+    // Subscript for easier key-value access
+    public subscript(key: RewardAccount) -> Coin? {
+        get { _data[key] }
+        set { _data[key] = newValue }
+    }
+    
+    // MARK: - CBORSerializable
     
     public init(from primitive: Primitive) throws {
         self._data = [:]
@@ -46,9 +54,30 @@ public struct Withdrawals: Codable, Equatable, Hashable {
         return .orderedDict(result)
     }
     
-    // Subscript for easier key-value access
-    public subscript(key: RewardAccount) -> Coin? {
-        get { _data[key] }
-        set { _data[key] = newValue }
+    // MARK: - JSONSerializable
+    
+    public static func fromDict(_ dict: Primitive) throws -> Withdrawals {
+        guard case let .orderedDict(dictValue) = dict else {
+            throw CardanoCoreError.deserializeError("Invalid Withdrawals dict")
+        }
+        var data: OrderedDictionary<RewardAccount, Coin> = [:]
+        for (key, value) in dictValue {
+            guard case let .string(keyHex) = key,
+                  case let .int(intValue) = value else {
+                throw CardanoCoreError.deserializeError("Invalid Withdrawals dict")
+            }
+            let keyData = Data(hex: keyHex)
+            data[RewardAccount(keyData)] = Coin(intValue)
+        }
+        return Withdrawals(data)
     }
+    
+    public func toDict() throws -> Primitive {
+        var dict = OrderedDictionary<Primitive, Primitive>()
+        for (key, value) in _data {
+            dict[.string(key.toHexString())] = .int(Int(value))
+        }
+        return .orderedDict(dict)
+    }
+
 }

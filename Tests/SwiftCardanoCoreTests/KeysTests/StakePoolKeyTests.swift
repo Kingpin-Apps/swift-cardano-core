@@ -36,10 +36,10 @@ let stakePoolVKey = [
     
     
     @Test func testStakePoolSKey() async throws {
-        let SK = try! StakePoolSigningKey.fromJSON(stakePoolSKeyJSON)
+        let SK = try! StakePoolSigningKey.fromTextEnvelope(stakePoolSKeyJSON)
         let cborData = try SK.toCBORData()
         let cborHex = cborData.toHex
-        let json = try SK.toJSON()
+        let json = try SK.toTextEnvelope()
         let expectedPayload = Data([
             0x44, 0x18, 0x1b, 0xd0, 0xe6, 0xbe, 0x21, 0xce,
             0xa5, 0xb0, 0x75, 0x1b, 0x8c, 0x6d, 0x4f, 0x88,
@@ -53,10 +53,10 @@ let stakePoolVKey = [
     }
     
     @Test func testStakePoolVKey() async throws {
-        let VK = try! StakePoolVerificationKey.fromJSON(stakePoolVKeyJSON)
+        let VK = try! StakePoolVerificationKey.fromTextEnvelope(stakePoolVKeyJSON)
         let cborData = try CBOREncoder().encode(VK)
         let cborHex = cborData.toHex
-        let json = try VK.toJSON()
+        let json = try VK.toTextEnvelope()
         let expectedPayload = Data([
             0x35, 0x4c, 0xe3, 0x2d, 0xa9, 0x2e, 0x71, 0x16,
             0xf6, 0xc7, 0x0e, 0x9b, 0xe9, 0x9a, 0x3a, 0x60,

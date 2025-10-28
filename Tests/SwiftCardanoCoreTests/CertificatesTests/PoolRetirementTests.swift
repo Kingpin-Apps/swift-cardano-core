@@ -21,8 +21,8 @@ import PotentCBOR
     @Test func testJSON() async throws {
         let cert = poolRetirementCertificate!
         
-        let json = try cert.toJSON()
-        let certFromJSON = try PoolRetirement.fromJSON(json!)
+        let json = try cert.toTextEnvelope()
+        let certFromJSON = try PoolRetirement.fromTextEnvelope(json!)
         
         #expect(cert == certFromJSON)
     }

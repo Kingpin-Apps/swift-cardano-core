@@ -30,7 +30,7 @@ public struct AssetName: ConstrainedBytes, Sendable {
     }
 }
 
-public struct Asset: CBORSerializable, Comparable, AdditiveArithmetic, Sendable {
+public struct Asset: Serializable, Comparable, AdditiveArithmetic {
     public static var zero: Asset {
         return Asset([:])
     }
@@ -66,6 +66,8 @@ public struct Asset: CBORSerializable, Comparable, AdditiveArithmetic, Sendable 
     public init(_ data: OrderedDictionary<AssetName, Int>) {
         self.data = data
     }
+    
+    // MARK: - CBORSerializable
     
     public init(from primitive: Primitive) throws {
         self.data = [:]
@@ -116,6 +118,46 @@ public struct Asset: CBORSerializable, Comparable, AdditiveArithmetic, Sendable 
         return .orderedDict(result)
     }
     
+    // MARK: - JSONSerializable
+    
+    public static func fromDict(_ primitive: Primitive) throws -> Asset {
+        guard case let .orderedDict(dict) = primitive else {
+            throw CardanoCoreError.deserializeError("Invalid Asset type")
+        }
+        var assetData: OrderedDictionary<AssetName, Int> = [:]
+        for (key, value) in dict {
+            let assetName: String
+            switch key {
+                case let .string(keyValue):
+                    assetName = keyValue
+                case let .bytes(dataValue):
+                    assetName = dataValue.toHexString()
+                default:
+                    throw CardanoCoreError.deserializeError("Invalid AssetName type: \(key)")
+            }
+            // Extract coin from first element which can be .int or .uint
+            let coinValue: Int
+            switch value {
+                case .int(let v):
+                    coinValue = v
+                case .uint(let v):
+                    coinValue = Int(v)
+                default:
+                    throw CardanoCoreError.deserializeError("Invalid Asset amount type: \(value)")
+            }
+            assetData[AssetName(from: assetName)] = Int(coinValue)
+        }
+        return Asset(assetData)
+    }
+    
+    public func toDict() throws -> Primitive {
+        var result: OrderedDictionary<Primitive, Primitive> = [:]
+        for (key, value) in data {
+            result[.string(key.payload.toHex)] = .int(value)
+        }
+        return .orderedDict(result)
+    }
+
     private func normalizeData(_ data: OrderedDictionary<AssetName, Int>) -> OrderedDictionary<AssetName, Int> {
         return data.filter { $0.value != 0 }
     }

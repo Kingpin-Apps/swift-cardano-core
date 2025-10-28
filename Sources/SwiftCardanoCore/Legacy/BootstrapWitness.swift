@@ -1,11 +1,18 @@
 import Foundation
 
 // Define a struct for BootstrapWitness
-public struct BootstrapWitness: CBORSerializable, Equatable, Hashable {
+public struct BootstrapWitness: Serializable {
     public let publicKey: Data // $vkey - bytes of size 32
     public let signature: Data // $signature - bytes of size 64
     public let chainCode: Data // bytes of size 32
     public let attributes: Data // bytes of variable size
+    
+    public enum CodingKeys: String, CodingKey {
+        case publicKey
+        case signature
+        case chainCode
+        case attributes
+    }
     
     public init(publicKey: Data, signature: Data, chainCode: Data, attributes: Data) throws {
         // Validate data sizes according to comments
@@ -25,24 +32,7 @@ public struct BootstrapWitness: CBORSerializable, Equatable, Hashable {
         self.attributes = attributes
     }
     
-    public init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        
-        let publicKey = try container.decode(Data.self)
-        let signature = try container.decode(Data.self)
-        let chainCode = try container.decode(Data.self)
-        let attributes = try container.decode(Data.self)
-        
-        try self.init(publicKey: publicKey, signature: signature, chainCode: chainCode, attributes: attributes)
-    }
-    
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.unkeyedContainer()
-        try container.encode(publicKey)
-        try container.encode(signature)
-        try container.encode(chainCode)
-        try container.encode(attributes)
-    }
+    // MARK: - CBORSerializable
     
     public init(from primitive: Primitive) throws {
         guard case let .list(elements) = primitive else {
@@ -84,4 +74,34 @@ public struct BootstrapWitness: CBORSerializable, Equatable, Hashable {
             .bytes(attributes)
         ])
     }
+    
+    // MARK: - JSONSerializable
+    
+    public static func fromDict(_ primitive: Primitive) throws -> BootstrapWitness {
+        guard case let .list(elements) = primitive,
+              elements.count == 4,
+              case let .bytes(publicKeyData) = elements[0],
+              case let .bytes(signatureData) = elements[1],
+              case let .bytes(chainCodeData) = elements[2],
+              case let .bytes(attributesData) = elements[3] else {
+            throw CardanoCoreError.deserializeError("Invalid BootstrapWitness dictionary")
+        }
+        
+        return try BootstrapWitness(
+            publicKey: publicKeyData,
+            signature: signatureData,
+            chainCode: chainCodeData,
+            attributes: attributesData
+        )
+    }
+    
+    public func toDict() throws -> Primitive {
+        return .list([
+            .bytes(publicKey),
+            .bytes(signature),
+            .bytes(chainCode),
+            .bytes(attributes)
+        ])
+    }
+
 }

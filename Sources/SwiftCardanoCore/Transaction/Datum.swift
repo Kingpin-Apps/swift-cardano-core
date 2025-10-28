@@ -1,6 +1,6 @@
 import Foundation
-import PotentCBOR
-import PotentCodables
+@preconcurrency import PotentCBOR
+@preconcurrency import PotentCodables
 import OrderedCollections
 
 public enum DatumType: Serializable {
@@ -45,8 +45,11 @@ public enum DatumType: Serializable {
     
     // MARK: - JSONSerializable
     
-    public static func fromDict(_ dict: OrderedDictionary<Primitive, Primitive>) throws -> DatumType {
-        if let datumHashPrimitive = dict[.string("datumHash")] {
+    public static func fromDict(_ dict: Primitive) throws -> DatumType {
+        guard case let .orderedDict(dictValue) = dict else {
+            throw CardanoCoreError.deserializeError("Invalid DatumType dict")
+        }
+        if let datumHashPrimitive = dictValue[.string("datumHash")] {
             // When coming from JSON, the hash is base64-encoded
             let datumHash: DatumHash
             if case let .string(base64Str) = datumHashPrimitive {
@@ -58,27 +61,24 @@ public enum DatumType: Serializable {
                 datumHash = try DatumHash(from: datumHashPrimitive)
             }
             return .datumHash(datumHash)
-        } else if let dataPrimitive = dict[.string("data")] {
-            guard case let .orderedDict(dataDict) = dataPrimitive else {
-                throw CardanoCoreError.deserializeError("Invalid DatumType data")
-            }
-            let plutusData = try PlutusData.fromDict(dataDict)
+        } else if let dataPrimitive = dictValue[.string("data")] {
+            let plutusData = try PlutusData.fromDict(dataPrimitive)
             return .data(plutusData)
         } else {
             throw CardanoCoreError.deserializeError("Invalid DatumType dict")
         }
     }
     
-    public func toDict() throws -> OrderedDictionary<Primitive, Primitive> {
+    public func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
         switch self {
             case .datumHash(let datumHash):
                 // Encode as base64 for JSON compatibility
                 dict[.string("datumHash")] = .string(datumHash.payload.base64EncodedString())
             case .data(let plutusData):
-                dict[.string("data")] = .orderedDict(try plutusData.toDict())
+                dict[.string("data")] = try plutusData.toDict()
         }
-        return dict
+        return .orderedDict(dict)
     }
 
     
@@ -173,8 +173,9 @@ public struct DatumOption: Serializable {
     
     // MARK: - JSONSerializable
     
-    public static func fromDict(_ dict: OrderedCollections.OrderedDictionary<Primitive, Primitive>) throws -> DatumOption {
-        guard case let .orderedDict(datumPrimitive) = dict[.string("datum")] else {
+    public static func fromDict(_ dict: Primitive) throws -> DatumOption {
+        guard case let .orderedDict(dictValue) = dict,
+              let datumPrimitive = dictValue[.string("datum")] else {
             throw CardanoCoreError.deserializeError("Invalid DatumOption dict: \(dict)")
         }
         
@@ -183,11 +184,11 @@ public struct DatumOption: Serializable {
         return DatumOption(datum: datumType)
     }
     
-    public func toDict() throws -> OrderedCollections.OrderedDictionary<Primitive, Primitive> {
+    public func toDict() throws -> Primitive {
         var dict = OrderedCollections.OrderedDictionary<Primitive, Primitive>()
         dict[.string("_TYPE")] = .uint(UInt(type))
-        dict[.string("datum")] = .orderedDict(try datum.toDict())
-        return dict
+        dict[.string("datum")] = try datum.toDict()
+        return .orderedDict(dict)
     }
 
     

@@ -1,5 +1,6 @@
 import Foundation
 import PotentCBOR
+import OrderedCollections
 
 public struct GenesisKeyDelegation: CertificateSerializable {
     public var _payload: Data
@@ -16,6 +17,12 @@ public struct GenesisKeyDelegation: CertificateSerializable {
     public let genesisHash: GenesisHash
     public let genesisDelegateHash: GenesisDelegateHash
     public let vrfKeyHash: VrfKeyHash
+    
+    public enum CodingKeys: String, CodingKey {
+        case genesisHash
+        case genesisDelegateHash
+        case vrfKeyHash
+    }
     
     /// Initialize a new `GenesisKeyDelegation` certificate
     /// - Parameters:
@@ -58,30 +65,7 @@ public struct GenesisKeyDelegation: CertificateSerializable {
         self.vrfKeyHash = cbor.vrfKeyHash
     }
     
-    /// Initialize a new `GenesisKeyDelegation` certificate from its CBOR representation
-    /// - Parameter decoder: The decoder
-    public init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        let code = try container.decode(Int.self)
-        
-        guard case Self.CODE.rawValue = code else {
-            throw CardanoCoreError.deserializeError("Invalid GenesisKeyDelegation type: \(code)")
-        }
-        
-        let genesisHash = try container.decode(GenesisHash.self)
-        let genesisDelegateHash = try container.decode(GenesisDelegateHash.self)
-        let vrfKeyHash = try container.decode(VrfKeyHash.self)
-        
-        self.init(genesisHash: genesisHash, genesisDelegateHash: genesisDelegateHash, vrfKeyHash: vrfKeyHash)
-    }
-    
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.unkeyedContainer()
-        try container.encode(Self.CODE.rawValue)
-        try container.encode(genesisHash)
-        try container.encode(genesisDelegateHash)
-        try container.encode(vrfKeyHash)
-    }
+    // MARK: - CBORSerializable
     
     public init(from primitive: Primitive) throws {
         guard case let .list(primitive) = primitive,
@@ -113,5 +97,42 @@ public struct GenesisKeyDelegation: CertificateSerializable {
             .bytes(vrfKeyHash.payload)
         ])
     }
+    
+    // MARK: - JSONSerializable
+    
+    public static func fromDict(_ dict: Primitive) throws -> GenesisKeyDelegation {
+        guard case let .orderedDict(orderedDict) = dict else {
+            throw CardanoCoreError.deserializeError("Invalid GenesisKeyDelegation dict format")
+        }
+        guard let genesisHashPrimitive = orderedDict[.string(CodingKeys.genesisHash.rawValue)],
+              let genesisDelegateHashPrimitive = orderedDict[.string(CodingKeys.genesisDelegateHash.rawValue)],
+              let vrfKeyHashPrimitive = orderedDict[.string(CodingKeys.vrfKeyHash.rawValue)],
+              case let .string(genesisHashHex) = genesisHashPrimitive,
+              case let .string(genesisDelegateHashHex) = genesisDelegateHashPrimitive,
+              case let .string(vrfKeyHashHex) = vrfKeyHashPrimitive else {
+            throw CardanoCoreError.deserializeError("Invalid GenesisKeyDelegation dictionary")
+        }
+        let genesisHashData = Data(hex: genesisHashHex)
+        let genesisDelegateHashData = Data(hex: genesisDelegateHashHex)
+        let vrfKeyHashData = Data(hex: vrfKeyHashHex)
+        let genesisHash = GenesisHash(payload: genesisHashData)
+        let genesisDelegateHash = GenesisDelegateHash(payload: genesisDelegateHashData)
+        let vrfKeyHash = VrfKeyHash(payload: vrfKeyHashData)
+        
+        return GenesisKeyDelegation(
+            genesisHash: genesisHash,
+            genesisDelegateHash: genesisDelegateHash,
+            vrfKeyHash: vrfKeyHash
+        )
+    }
+    
+    public func toDict() throws -> Primitive {
+        var dict = OrderedDictionary<Primitive, Primitive>()
+        dict[.string(CodingKeys.genesisHash.rawValue)] = .string(genesisHash.payload.toHex)
+        dict[.string(CodingKeys.genesisDelegateHash.rawValue)] = .string(genesisDelegateHash.payload.toHex)
+        dict[.string(CodingKeys.vrfKeyHash.rawValue)] = .string(vrfKeyHash.payload.toHex)
+        return .orderedDict(dict)
+    }
+
 
 }

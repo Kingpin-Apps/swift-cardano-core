@@ -1,11 +1,11 @@
 import Foundation
-import PotentCBOR
+@preconcurrency import PotentCBOR
 import PotentJSON
 import PotentCodables
 import OrderedCollections
-import BigInt
+@preconcurrency import BigInt
 
-public indirect enum Primitive: CBORSerializable {
+public indirect enum Primitive: CBORSerializable, Sendable {
     case bytes(Data)
     case byteArray([UInt8])
     case string(String)
@@ -578,6 +578,11 @@ public indirect enum Primitive: CBORSerializable {
     
     public var indefiniteListValue: IndefiniteList<Primitive>? {
         guard case .indefiniteList(let value) = self else { return nil }
+        return value
+    }
+    
+    public var orderedDictValue: OrderedDictionary<Primitive, Primitive>? {
+        guard case .orderedDict(let value) = self else { return nil }
         return value
     }
     

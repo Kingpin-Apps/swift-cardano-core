@@ -17,7 +17,6 @@ public extension SigningKeyProtocol {
         return signedMessage.getSignature
     }
     
-    
     func toVerificationKey<T>() throws -> T where T: VerificationKeyProtocol {
         let signingKey = try SwiftNcal.SigningKey(seed: payload)
         var vkey =  try T(
@@ -28,7 +27,6 @@ public extension SigningKeyProtocol {
         vkey._payload = signingKey.verifyKey.bytes
         return vkey        
     }
-
     
     static func generate() throws -> Self {
         let signingKey = try SwiftNcal.SigningKey.generate()

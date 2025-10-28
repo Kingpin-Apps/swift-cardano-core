@@ -1,7 +1,7 @@
 import Foundation
 import PotentCBOR
 
-public struct ExecutionUnits: CBORSerializable, Equatable, Hashable {
+public struct ExecutionUnits: Serializable {
 
     public var mem: Int
     public var steps: Int
@@ -49,6 +49,26 @@ public struct ExecutionUnits: CBORSerializable, Equatable, Hashable {
     }
     
     public func toPrimitive() throws -> Primitive {
+        return .list([
+            .int(mem),
+            .int(steps)
+        ])
+    }
+    
+    // MARK: - JSONSerializable
+    
+    public static func fromDict(_ primitive: Primitive) throws -> ExecutionUnits {
+        guard case let .list(elements) = primitive,
+              elements.count == 2,
+              case let .int(mem) = elements[0],
+              case let .int(steps) = elements[1] else {
+            throw CardanoCoreError.deserializeError("Invalid ExecutionUnits dict: \(primitive)")
+        }
+        
+        return ExecutionUnits(mem: mem, steps: steps)
+    }
+    
+    public func toDict() throws -> Primitive {
         return .list([
             .int(mem),
             .int(steps)

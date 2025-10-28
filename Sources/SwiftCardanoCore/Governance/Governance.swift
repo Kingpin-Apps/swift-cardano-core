@@ -21,11 +21,11 @@ public enum GovActionCode: Int, Codable {
     case infoAction = 6
 }
 
-public protocol GovernanceAction: CBORSerializable {
+public protocol GovernanceAction: CBORSerializable, Sendable {
     static var code: GovActionCode { get }
 }
 
-public enum GovAction: CBORSerializable {
+public enum GovAction: CBORSerializable, Sendable {
     case parameterChangeAction(ParameterChangeAction)
     case hardForkInitiationAction(HardForkInitiationAction)
     case treasuryWithdrawalsAction(TreasuryWithdrawalsAction)
@@ -88,7 +88,7 @@ public enum GovAction: CBORSerializable {
     
 }
 
-public struct GovActionID: CBORSerializable, Hashable, Equatable {
+public struct GovActionID: CBORSerializable, Sendable {
     public let transactionID: TransactionId
     public let govActionIndex: UInt16
     
@@ -224,7 +224,7 @@ public struct GovActionID: CBORSerializable, Hashable, Equatable {
     }
 }
 
-public struct PoolVotingThresholds: CBORSerializable, Hashable, Equatable {
+public struct PoolVotingThresholds: CBORSerializable, Sendable {
     public var committeeNoConfidence: UnitInterval?
     public var committeeNormal: UnitInterval?
     public var hardForkInitiation: UnitInterval?
@@ -340,7 +340,7 @@ public struct PoolVotingThresholds: CBORSerializable, Hashable, Equatable {
     
 }
 
-public struct DrepVotingThresholds: CBORSerializable, Hashable, Equatable  {
+public struct DrepVotingThresholds: CBORSerializable, Sendable  {
     public var thresholds: [UnitInterval]
     
     public init(thresholds: [UnitInterval]) {
@@ -371,7 +371,7 @@ public struct DrepVotingThresholds: CBORSerializable, Hashable, Equatable  {
     }
 }
 
-public struct Constitution: CBORSerializable, Hashable, Equatable {
+public struct Constitution: CBORSerializable, Sendable {
     public let anchor: Anchor
     public let scriptHash: ScriptHash?
     

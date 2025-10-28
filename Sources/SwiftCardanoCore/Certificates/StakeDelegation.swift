@@ -1,5 +1,6 @@
 import Foundation
 import PotentCBOR
+import OrderedCollections
 
 /// Stake Delegation Certificate
 public struct StakeDelegation: CertificateSerializable {
@@ -16,6 +17,11 @@ public struct StakeDelegation: CertificateSerializable {
     
     public let stakeCredential: StakeCredential
     public let poolKeyHash: PoolKeyHash
+    
+    public enum CodingKeys: String, CodingKey {
+        case stakeCredential
+        case poolKeyHash
+    }
     
     /// Initialize StakeDelegation from stake credential and pool key hash
     /// - Parameters:
@@ -54,6 +60,8 @@ public struct StakeDelegation: CertificateSerializable {
         self.poolKeyHash = cbor.poolKeyHash
     }
     
+    // MARK: - CBORSerializable
+    
     public init(from primitive: Primitive) throws {
         guard case let .list(primitive) = primitive,
                 primitive.count == 3,
@@ -74,5 +82,34 @@ public struct StakeDelegation: CertificateSerializable {
             poolKeyHash.toPrimitive()
         ])
     }
-
+    
+    // MARK: - JSONSerializable
+    
+    public static func fromDict(_ dict: Primitive) throws -> StakeDelegation {
+        guard case let .orderedDict(dictValue) = dict,
+              let stakeCredentialPrimitive = dictValue[.string(CodingKeys.stakeCredential.rawValue)],
+              case let .string(stakeCredentialHex) = stakeCredentialPrimitive,
+              let stakeCredentialData = Data(hexString: stakeCredentialHex) else {
+            throw CardanoCoreError.deserializeError("Invalid stakeCredential in StakeDelegation dict")
+        }
+        
+        guard case let .string(poolId) = dictValue[.string(CodingKeys.poolKeyHash.rawValue)] else {
+            throw CardanoCoreError.deserializeError("Missing keys in PoolRetirement dictionary")
+        }
+        
+        let stakeCredential = try StakeCredential(from: .bytes(stakeCredentialData))
+        
+        let poolOperator = try PoolOperator(from: poolId)
+        
+        return StakeDelegation(stakeCredential: stakeCredential, poolKeyHash: poolOperator.poolKeyHash)
+    }
+    
+    public func toDict() throws -> Primitive {
+        var dict = OrderedDictionary<Primitive, Primitive>()
+        let poolOperator = PoolOperator(poolKeyHash: poolKeyHash)
+        
+        dict[.string(CodingKeys.stakeCredential.rawValue)] = .string(stakeCredential.credential.payload.toHex)
+        dict[.string(CodingKeys.poolKeyHash.rawValue)] = .string(try poolOperator.id())
+        return .orderedDict(dict)
+    }
 }

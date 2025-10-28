@@ -1,11 +1,12 @@
 import Testing
 import Foundation
 import PotentCBOR
+import OrderedCollections
 @testable import SwiftCardanoCore
 
 // MARK: - Test Data Helpers
 
-struct MockCBORSerializable: CBORSerializable, Hashable, Equatable {
+struct MockCBORSerializable: Serializable {
     let value: Int
     
     init(_ value: Int) {
@@ -23,6 +24,22 @@ struct MockCBORSerializable: CBORSerializable, Hashable, Equatable {
         return .int(value)
     }
     
+    static func fromDict(_ primitive: Primitive) throws -> MockCBORSerializable {
+        guard case let .orderedDict(dict) = primitive else {
+            throw CardanoCoreError.deserializeError("Expected orderedDict primitive")
+        }
+        guard case let .int(intValue)? = dict[.string("value")] else {
+            throw CardanoCoreError.deserializeError("Expected 'value' key with int primitive")
+        }
+        return MockCBORSerializable(intValue)
+    }
+    
+    func toDict() throws -> Primitive {
+        var dict = OrderedDictionary<Primitive, Primitive>()
+        dict[.string("value")] = .int(value)
+        return .orderedDict(dict)
+    }
+
     func hash(into hasher: inout Hasher) {
         hasher.combine(value)
     }

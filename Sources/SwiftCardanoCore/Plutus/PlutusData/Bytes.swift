@@ -2,7 +2,7 @@ import Foundation
 import OrderedCollections
 
 
-public enum Bytes: Serializable, CustomStringConvertible {
+public enum Bytes: Serializable, CustomStringConvertible, Sendable {
     case boundedBytes(BoundedBytes)
     case byteString(ByteString)
     
@@ -82,19 +82,20 @@ public enum Bytes: Serializable, CustomStringConvertible {
     
     // MARK: - JSONSerializable
     
-    public static func fromDict(_ dict: OrderedDictionary<Primitive, Primitive>) throws -> Bytes {
-        guard case let .string(bytes) = dict[.string("bytes")] else {
+    public static func fromDict(_ dict: Primitive) throws -> Bytes {
+        guard case let .orderedDict(dictValue) = dict,
+              case let .string(bytes) = dictValue[.string("bytes")] else {
             throw CardanoCoreError.deserializeError("Invalid Bytes type in JSON dictionary")
         }
         return try Bytes(from: bytes.hexStringToData)
     }
     
-    public func toDict() throws -> OrderedDictionary<Primitive, Primitive> {
+    public func toDict() throws -> Primitive {
         switch self {
             case .boundedBytes(let boundedBytes):
-                return [.string("bytes"): .string(boundedBytes.toHex)]
+                return .orderedDict([.string("bytes"): .string(boundedBytes.toHex)])
             case .byteString(let byteString):
-                return [.string("bytes"): .string(byteString.toHex)]
+                return .orderedDict([.string("bytes"): .string(byteString.toHex)])
         }
     }
 }

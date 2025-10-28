@@ -3,7 +3,7 @@ import FractionNumber
 import OrderedCollections
 import PotentCBOR
 import PotentJSON
-import PotentCodables
+@preconcurrency import PotentCodables
 import BigInt
 
 // MARK: - CBOR Extensions
@@ -517,7 +517,7 @@ public extension SingleValueEncodingContainer {
     
 }
 
-extension Array where Element: Hashable {
+extension Array where Element: Hashable & Sendable {
     public static func == (lhs: Array<Element>, rhs: IndefiniteList<Element>) -> Bool {
         return rhs == lhs
     }

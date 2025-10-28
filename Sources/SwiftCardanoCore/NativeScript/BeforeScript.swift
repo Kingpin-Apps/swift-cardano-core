@@ -28,18 +28,19 @@ public struct BeforeScript: NativeScriptable {
     
     // MARK: - JSONSerializable
     
-    public static func fromDict(_ dict: OrderedDictionary<Primitive, Primitive>) throws -> BeforeScript {
-        guard case let .int(slot) = dict[.string("slot")] else {
+    public static func fromDict(_ dict: Primitive) throws -> BeforeScript {
+        guard case let .orderedDict(dictValue) = dict,
+              case let .int(slot) = dictValue[.string("slot")] else {
             throw CardanoCoreError.decodingError("Invalid AfterScript slot")
         }
         
         return BeforeScript(slot: Int(slot))
     }
     
-    public func toDict() throws -> OrderedDictionary<Primitive, Primitive> {
+    public func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
         dict[.string("type")] = .string(Self.TYPE.description())
         dict[.string("slot")] = .uint(UInt(slot))
-        return dict
+        return .orderedDict(dict)
     }
 }

@@ -49,7 +49,7 @@ public enum CertificateDescription: String, Codable {
     case updateDRep = "DRep Update Certificate"
 }
 
-public enum Certificate: CBORSerializable, Equatable, Hashable {
+public enum Certificate: Serializable {
     case stakeRegistration(StakeRegistration)
     case stakeDeregistration(StakeDeregistration)
     case stakeDelegation(StakeDelegation)
@@ -69,6 +69,8 @@ public enum Certificate: CBORSerializable, Equatable, Hashable {
     case registerDRep(RegisterDRep)
     case unRegisterDRep(UnregisterDRep)
     case updateDRep(UpdateDRep)
+    
+    // MARK: - CBORSerializable
     
     public init(from primitive: Primitive) throws {
         guard case let .list(elements) = primitive else {
@@ -186,9 +188,129 @@ public enum Certificate: CBORSerializable, Equatable, Hashable {
                 return try updDRep.toPrimitive()	
         }
     }
+    
+    // MARK: - JSONSerializable
+    
+    public static func fromDict(_ primitive: Primitive) throws -> Certificate {
+        guard case let .list(elements) = primitive else {
+            throw CardanoCoreError.deserializeError("Invalid Certificate format")
+        }
+        
+        guard let firstElement = elements.first,
+                case let .uint(code) = firstElement,
+              let certificateCode = CertificateCode(rawValue: Int(code)) else {
+            throw CardanoCoreError.deserializeError("Invalid Certificate code")
+        }
+        
+        let restElements = Array(elements.dropFirst())
+        let restPrimitive = Primitive.list(restElements)
+        switch certificateCode {
+            case .stakeRegistration:
+                let stakeReg = try StakeRegistration(from: restPrimitive)
+                return .stakeRegistration(stakeReg)
+            case .stakeDeregistration:
+                let stakeDereg = try StakeDeregistration(from: restPrimitive)
+                return .stakeDeregistration(stakeDereg)
+            case .stakeDelegation:
+                let stakeDel = try StakeDelegation(from: restPrimitive)
+                return .stakeDelegation(stakeDel)
+            case .poolRegistration:
+                let poolReg = try PoolRegistration(from: restPrimitive)
+                return .poolRegistration(poolReg)
+            case .poolRetirement:
+                let poolRet = try PoolRetirement(from: restPrimitive)
+                return .poolRetirement(poolRet)
+            case .genesisKeyDelegation:
+                let genKeyDel = try GenesisKeyDelegation(from: restPrimitive)
+                return .genesisKeyDelegation(genKeyDel)
+            case .moveInstantaneousRewards:
+                let mir = try MoveInstantaneousRewards(from: restPrimitive)
+                return .moveInstantaneousRewards(mir)
+            case .register:
+                let reg = try Register(from: restPrimitive)
+                return .register(reg)
+            case .unregister:
+                let unreg = try Unregister(from: restPrimitive)
+                return .unregister(unreg)
+            case .voteDelegate:
+                let voteDel = try VoteDelegate(from: restPrimitive)
+                return .voteDelegate(voteDel)
+            case .stakeVoteDelegate:
+                let stakeVoteDel = try StakeVoteDelegate(from: restPrimitive)
+                return .stakeVoteDelegate(stakeVoteDel)
+            case .stakeRegisterDelegate:
+                let stakeRegDel = try StakeRegisterDelegate(from: restPrimitive)
+                return .stakeRegisterDelegate(stakeRegDel)
+            case .voteRegisterDelegate:
+                let voteRegDel = try VoteRegisterDelegate(from: restPrimitive)
+                return .voteRegisterDelegate(voteRegDel)
+            case .stakeVoteRegisterDelegate:
+                let stakeVoteRegDel = try StakeVoteRegisterDelegate(from: restPrimitive)
+                return .stakeVoteRegisterDelegate(stakeVoteRegDel)
+            case .authCommitteeHot:
+                let authCommHot = try AuthCommitteeHot(from: restPrimitive)
+                return .authCommitteeHot(authCommHot)
+            case .resignCommitteeCold:
+                let resignCommCold = try ResignCommitteeCold(from: restPrimitive)
+                return .resignCommitteeCold(resignCommCold)
+            case .registerDRep:
+                let regDRep = try RegisterDRep(from: restPrimitive)
+                return .registerDRep(regDRep)
+            case .unRegisterDRep:
+                let unRegDRep = try UnregisterDRep(from: restPrimitive)
+                return .unRegisterDRep(unRegDRep)
+            case .updateDRep:
+                let updDRep = try UpdateDRep(from: restPrimitive)
+                return .updateDRep(updDRep)
+        }
+    }
+    
+    public func toDict() throws -> Primitive {
+        switch self {
+            case .stakeRegistration(let stakeReg):
+                return try stakeReg.toDict()
+            case .stakeDeregistration(let stakeDereg):
+                return try stakeDereg.toDict()
+            case .stakeDelegation(let stakeDel):
+                return try stakeDel.toDict()
+            case .poolRegistration(let poolReg):
+                return try poolReg.toDict()
+            case .poolRetirement(let poolRet):
+                return try poolRet.toDict()
+            case .genesisKeyDelegation(let genKeyDel):
+                return try genKeyDel.toDict()
+            case .moveInstantaneousRewards(let mir):
+                return try mir.toDict()
+            case .register(let reg):
+                return try reg.toDict()
+            case .unregister(let unreg):
+                return try unreg.toDict()
+            case .voteDelegate(let voteDel):
+                return try voteDel.toDict()
+            case .stakeVoteDelegate(let stakeVoteDel):
+                return try stakeVoteDel.toDict()
+            case .stakeRegisterDelegate(let stakeRegDel):
+                return try stakeRegDel.toDict()
+            case .voteRegisterDelegate(let voteRegDel):
+                return try voteRegDel.toDict()
+            case .stakeVoteRegisterDelegate(let stakeVoteRegDel):
+                return try stakeVoteRegDel.toDict()
+            case .authCommitteeHot(let authCommHot):
+                return try authCommHot.toDict()
+            case .resignCommitteeCold(let resignCommCold):
+                return try resignCommCold.toDict()
+            case .registerDRep(let regDRep):
+                return try regDRep.toDict()
+            case .unRegisterDRep(let unRegDRep):
+                return try unRegDRep.toDict()
+            case .updateDRep(let updDRep):
+                return try updDRep.toDict()
+        }
+    }
+
 }
 
-public protocol CertificateSerializable: PayloadJSONSerializable {
+public protocol CertificateSerializable: TextEnvelopable, JSONSerializable, Sendable {
     static var CODE: CertificateCode { get }
     
     var type: String { get }
@@ -200,7 +322,7 @@ public extension CertificateSerializable {
     ///
     /// The json output has three fields: "type", "description", and "cborHex".
     /// - Returns: JSON representation
-    func toJSON() throws -> String? {
+    func toTextEnvelope() throws -> String? {
         let jsonString = """
         {
             "type": "\(type)",

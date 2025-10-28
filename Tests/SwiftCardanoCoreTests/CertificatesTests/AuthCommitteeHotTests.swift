@@ -26,6 +26,15 @@ struct AuthCommitteeHotTests {
         #expect(authCommitteeHot.committeeHotCredential == committeeHotCredential)
     }
 
+    @Test func testTextEnvelope() async throws {
+        let cert = authCommitteeCertificate!
+        
+        let textEnvelope = try cert.toTextEnvelope()
+        let certFromTextEnvelope = try AuthCommitteeHot.fromTextEnvelope(textEnvelope!)
+        
+        #expect(cert == certFromTextEnvelope)
+    }
+
     @Test func testJSON() async throws {
         let cert = authCommitteeCertificate!
         

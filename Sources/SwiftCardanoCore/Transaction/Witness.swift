@@ -1,16 +1,26 @@
 import Foundation
 import PotentCBOR
+import OrderedCollections
 
-public struct VerificationKeyWitness: PayloadCBORSerializable {
-    public var vkey: VerificationKeyType
-    public var signature: Data
-    
+public struct VerificationKeyWitness: Serializable, TextEnvelopable {
     public static var TYPE: String { "TxWitness ConwayEra" }
     public static var DESCRIPTION: String { "Key Witness ShelleyEra" }
 
     public var _payload: Data
     public var _type: String
     public var _description: String
+    
+    public var type: String { get { return _type } }
+    public var description: String { get { return _description } }
+    public var payload: Data { get { return _payload } }
+    
+    public var vkey: VerificationKeyType
+    public var signature: Data
+    
+    enum CodingKeys: String, CodingKey {
+        case vkey
+        case signature
+    }
     
     public init(payload: Data, type: String?, description: String?) {
         self._payload = payload
@@ -38,26 +48,7 @@ public struct VerificationKeyWitness: PayloadCBORSerializable {
         self._description = Self.DESCRIPTION
     }
     
-    public init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        let vkey = try container.decode(VerificationKeyType.self)
-        let signature = try container.decode(Data.self)
-        
-        self.init(vkey: vkey, signature: signature)
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.unkeyedContainer()
-        
-        switch vkey {
-            case .extendedVerificationKey(let key):
-                try container.encode(key)
-            case .verificationKey(let key):
-                try container.encode(key)
-        }
-        
-        try container.encode(signature)
-    }
+    // MARK: - CBORSerializable
     
     public init(from primitive: Primitive) throws {
         guard case let .list(elements) = primitive else {
@@ -101,9 +92,34 @@ public struct VerificationKeyWitness: PayloadCBORSerializable {
         
         return .list(elements)
     }
+    
+    // MARK: - JSONSerializable
+    
+    public static func fromDict(_ dict: Primitive) throws -> VerificationKeyWitness {
+        guard case let .orderedDict(dictValue) = dict,
+              let vkeyPrimitive = dictValue[.string(CodingKeys.vkey.rawValue)] else {
+            throw CardanoCoreError.deserializeError("Missing vkey in VerificationKeyWitness")
+        }
+        let vkey = try VerificationKeyType(from: vkeyPrimitive)
+        
+        guard let signaturePrimitive = dictValue[.string(CodingKeys.signature.rawValue)],
+              case let .bytes(signatureData) = signaturePrimitive else {
+            throw CardanoCoreError.deserializeError("Missing or invalid signature in VerificationKeyWitness")
+        }
+        
+        return VerificationKeyWitness(vkey: vkey, signature: signatureData)
+    }
+    
+    public func toDict() throws -> Primitive {
+        var dict = OrderedDictionary<Primitive, Primitive>()
+        dict[.string(CodingKeys.vkey.rawValue)] = .string(vkey.payload.toHex)
+        dict[.string(CodingKeys.signature.rawValue)] = .bytes(signature)
+        return .orderedDict(dict)
+    }
+
 }
 
-public struct TransactionWitnessSet: CBORSerializable {
+public struct TransactionWitnessSet: Serializable {
     public var vkeyWitnesses: ListOrNonEmptyOrderedSet<VerificationKeyWitness>?
     public var nativeScripts: ListOrNonEmptyOrderedSet<NativeScript>?
     public var bootstrapWitness: ListOrNonEmptyOrderedSet<BootstrapWitness>?
@@ -142,11 +158,26 @@ public struct TransactionWitnessSet: CBORSerializable {
         case redeemers = 5
         case plutusV2Script = 6
         case plutusV3Script = 7
+        
+        var stringValue: String {
+            switch self {
+            case .vkeyWitnesses: return "vkeyWitnesses"
+            case .nativeScripts: return "nativeScripts"
+            case .bootstrapWitness: return "bootstrapWitness"
+            case .plutusV1Script: return "plutusV1Script"
+            case .plutusData: return "plutusData"
+            case .redeemers: return "redeemers"
+            case .plutusV2Script: return "plutusV2Script"
+            case .plutusV3Script: return "plutusV3Script"
+            }
+        }
     }
     
     public func isEmpty() -> Bool {
         return vkeyWitnesses == nil && nativeScripts == nil && bootstrapWitness == nil && plutusV1Script == nil && plutusData == nil && redeemers == nil && plutusV2Script == nil && plutusV3Script == nil
     }
+    
+    // MARK: - CBORSerializable
     
     public init(from primitive: Primitive) throws {
         guard case let .orderedDict(dict) = primitive else {
@@ -252,4 +283,108 @@ public struct TransactionWitnessSet: CBORSerializable {
         
         return .dict(dict)
     }
+    
+    // MARK: - JSONSerializable
+    
+    public static func fromDict(_ dict: Primitive) throws -> TransactionWitnessSet {
+        guard case let .orderedDict(orderedDict) = dict else {
+            throw CardanoCoreError.deserializeError("Invalid TransactionWitnessSet dict format")
+        }
+        var vkeyWitnesses: ListOrNonEmptyOrderedSet<VerificationKeyWitness>? = nil
+        if let vkeyWitnessesPrimitive = orderedDict[.string(CodingKeys.vkeyWitnesses.stringValue)] {
+            vkeyWitnesses = try ListOrNonEmptyOrderedSet<VerificationKeyWitness>(from: vkeyWitnessesPrimitive)
+        }
+        
+        var nativeScripts: ListOrNonEmptyOrderedSet<NativeScript>? = nil
+        if let nativeScriptsPrimitive = orderedDict[.string(CodingKeys.nativeScripts.stringValue)] {
+            nativeScripts = try ListOrNonEmptyOrderedSet<NativeScript>(from: nativeScriptsPrimitive)
+        }
+        
+        var bootstrapWitness: ListOrNonEmptyOrderedSet<BootstrapWitness>? = nil
+        if let bootstrapWitnessPrimitive = orderedDict[.string(CodingKeys.bootstrapWitness.stringValue)] {
+            bootstrapWitness = try ListOrNonEmptyOrderedSet<BootstrapWitness>(from: bootstrapWitnessPrimitive)
+        }
+        
+        var plutusV1Script: ListOrNonEmptyOrderedSet<PlutusV1Script>? = nil
+        if let plutusV1ScriptPrimitive = orderedDict[.string(CodingKeys.plutusV1Script.stringValue)] {
+            plutusV1Script = try ListOrNonEmptyOrderedSet<PlutusV1Script>(from: plutusV1ScriptPrimitive)
+        }
+        
+        var plutusData: ListOrNonEmptyOrderedSet<PlutusData>? = nil
+        if let plutusDataPrimitive = orderedDict[.string(CodingKeys.plutusData.stringValue)] {
+            plutusData = try ListOrNonEmptyOrderedSet<PlutusData>(from: plutusDataPrimitive)
+        }
+        
+        var redeemers: Redeemers? = nil
+        if let redeemersPrimitive = orderedDict[.string(CodingKeys.redeemers.stringValue)] {
+            redeemers = try Redeemers(from: redeemersPrimitive)
+        }
+        
+        var plutusV2Script: ListOrNonEmptyOrderedSet<PlutusV2Script>? = nil
+        if let plutusV2ScriptPrimitive = orderedDict[.string(CodingKeys.plutusV2Script.stringValue)] {
+            plutusV2Script = try ListOrNonEmptyOrderedSet<PlutusV2Script>(from: plutusV2ScriptPrimitive)
+        }
+        
+        var plutusV3Script: ListOrNonEmptyOrderedSet<PlutusV3Script>? = nil
+        if let plutusV3ScriptPrimitive = orderedDict[.string(CodingKeys.plutusV3Script.stringValue)] {
+            plutusV3Script = try ListOrNonEmptyOrderedSet<PlutusV3Script>(from: plutusV3ScriptPrimitive)
+        }
+        
+        return TransactionWitnessSet(
+            vkeyWitnesses: vkeyWitnesses,
+            nativeScripts: nativeScripts,
+            bootstrapWitness: bootstrapWitness,
+            plutusV1Script: plutusV1Script,
+            plutusV2Script: plutusV2Script,
+            plutusData: plutusData,
+            redeemers: redeemers,
+            plutusV3Script: plutusV3Script
+        )
+    }
+    
+    public func toDict() throws -> Primitive {
+        var dict = OrderedCollections.OrderedDictionary<Primitive, Primitive>()
+        
+        // Helper to convert ListOrNonEmptyOrderedSet to list of primitives for JSON
+        func listOrSetToList<T: CBORSerializable>(_ value: ListOrNonEmptyOrderedSet<T>) throws -> Primitive {
+            // Convert to list representation for JSON (sets don't exist in JSON)
+            let elements = value.asList
+            return .list(try elements.map { try $0.toPrimitive() })
+        }
+        
+        if let vkeyWitnesses = vkeyWitnesses {
+            dict[.string(CodingKeys.vkeyWitnesses.stringValue)] = try vkeyWitnesses.toDict()
+        }
+        
+        if let nativeScripts = nativeScripts {
+            dict[.string(CodingKeys.nativeScripts.stringValue)] = try nativeScripts.toDict()
+        }
+        
+        if let bootstrapWitness = bootstrapWitness {
+            dict[.string(CodingKeys.bootstrapWitness.stringValue)] = try bootstrapWitness.toDict()
+        }
+        
+        if let plutusV1Script = plutusV1Script {
+            dict[.string(CodingKeys.plutusV1Script.stringValue)] = try plutusV1Script.toDict()
+        }
+        
+        if let plutusData = plutusData {
+            dict[.string(CodingKeys.plutusData.stringValue)] = try plutusData.toDict()
+        }
+        
+        if let redeemers = redeemers {
+            dict[.string(CodingKeys.redeemers.stringValue)] = try redeemers.toDict()
+        }
+        
+        if let plutusV2Script = plutusV2Script {
+            dict[.string(CodingKeys.plutusV2Script.stringValue)] = try plutusV2Script.toDict()
+        }
+        
+        if let plutusV3Script = plutusV3Script {
+            dict[.string(CodingKeys.plutusV3Script.stringValue)] = try plutusV3Script.toDict()
+        }
+        
+        return .orderedDict(dict)
+    }
+
 }

@@ -3,7 +3,7 @@ import PotentCBOR
 
 
 // MARK: - NonNegativeInterval
-public struct NonNegativeInterval: CBORSerializable, Hashable, Equatable {
+public struct NonNegativeInterval: CBORSerializable, Sendable {
     public var lowerBound: UInt
     public var upperBound: UInt64
 
@@ -56,7 +56,7 @@ public struct NonNegativeInterval: CBORSerializable, Hashable, Equatable {
 
 // MARK: - UnitInterval
 /// A unit interval is a number in the range between 0 and 1
-public struct UnitInterval: CBORSerializable, Equatable, Hashable {
+public struct UnitInterval: CBORSerializable, Sendable {
     public let numerator: UInt64
     public let denominator: UInt64
 
@@ -69,35 +69,6 @@ public struct UnitInterval: CBORSerializable, Equatable, Hashable {
         self.numerator = numerator
         self.denominator = denominator
     }
-
-//    public init(from decoder: Decoder) throws {
-//        let container = try decoder.singleValueContainer()
-//
-//        let cborData = try container.decode(CBOR.self)
-//
-//        if case let .tagged(tag, cborData) = cborData {
-//            guard tag.rawValue == UInt64(UnitInterval.tag) else {
-//                throw CardanoCoreError.valueError(
-//                    "UnitInterval must be tagged with tag \(UnitInterval.tag)")
-//            }
-//
-//            switch cborData {
-//            case .array(let arrayData):
-//                guard arrayData.count == 2 else {
-//                    throw CardanoCoreError.valueError(
-//                        "UnitInterval must contain exactly 2 elements")
-//                }
-//                self.init(
-//                    numerator: arrayData[0].integerValue()!,
-//                    denominator: arrayData[1].integerValue()!
-//                )
-//            default:
-//                throw CardanoCoreError.valueError("UnitInterval must be an array")
-//            }
-//        } else {
-//            throw CardanoCoreError.valueError("UnitInterval must be tagged")
-//        }
-//    }
     
     public init(from primitive: Primitive) throws {
         switch primitive {
@@ -123,20 +94,6 @@ public struct UnitInterval: CBORSerializable, Equatable, Hashable {
                 throw CardanoCoreError.valueError("UnitInterval must be tagged")
         }
     }
-
-//    public func encode(to encoder: Encoder) throws {
-//        var container = encoder.singleValueContainer()
-//
-//        let cborData: CBOR = .tagged(
-//            CBOR.Tag(rawValue: UInt64(UnitInterval.tag)),
-//            [
-//                .unsignedInt(UInt64(numerator)),
-//                .unsignedInt(UInt64(denominator)),
-//            ]
-//        )
-//
-//        try container.encode(cborData)
-//    }
     
     public func toPrimitive() throws -> Primitive {
         let cborTag = CBORTag(

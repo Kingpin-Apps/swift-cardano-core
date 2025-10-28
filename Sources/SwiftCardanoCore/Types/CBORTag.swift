@@ -2,7 +2,7 @@ import Foundation
 import PotentCBOR
 import OrderedCollections
 
-public protocol CBORTaggable: Serializable {
+public protocol CBORTaggable: Serializable, Sendable {
     var tag: UInt64 { get }
     var value: Primitive { get set }
 
@@ -62,9 +62,10 @@ extension CBORTaggable {
     
     // MARK: - JSONSerializable
     
-    public static func fromDict(_ dict: OrderedDictionary<Primitive, Primitive>) throws -> Self {
-        guard case let .int(tag) = dict[.string("tag")],
-              case let valuePrimitive = dict[.string("value")] else {
+    public static func fromDict(_ dict: Primitive) throws -> Self {
+        guard case let .orderedDict(dictValue) = dict,
+              case let .int(tag) = dictValue[.string("tag")],
+              case let valuePrimitive = dictValue[.string("value")] else {
             throw CardanoCoreError.valueError("Invalid CBORTag dictionary: \(dict)")
         }
         
@@ -74,11 +75,13 @@ extension CBORTaggable {
         )
     }
     
-    public func toDict() throws -> OrderedDictionary<Primitive, Primitive> {
+    public func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
         dict[.string("tag")] = .uint(UInt(tag))
+        // The value is already a Primitive - just use it directly
+        // It should already have string keys if it was created via toDict()
         dict[.string("value")] = value
-        return dict
+        return .orderedDict(dict)
     }
 }
 

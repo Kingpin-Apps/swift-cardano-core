@@ -1,6 +1,6 @@
 import Foundation
 
-public struct Url: CBORSerializable, Hashable {
+public struct Url: CBORSerializable, Sendable {
     public let value: URL
 
     public var absoluteString: String {

@@ -1,7 +1,7 @@
 import Foundation
 import OrderedCollections
 import PotentCBOR
-import PotentCodables
+@preconcurrency import PotentCodables
 
 public struct RawPlutusData: PlutusDataProtocol {
     public let data: RawDatum

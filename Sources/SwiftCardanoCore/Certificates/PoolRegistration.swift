@@ -1,6 +1,7 @@
 import Foundation
 import PotentCBOR
 import FractionNumber
+import OrderedCollections
 
 /// Stake Pool Registration Certificate
 public struct PoolRegistration: CertificateSerializable {
@@ -16,6 +17,10 @@ public struct PoolRegistration: CertificateSerializable {
     public static var CODE: CertificateCode { get { return .poolRegistration } }
     
     public let poolParams: PoolParams
+    
+    public enum CodingKeys: String, CodingKey {
+        case poolParams = "poolParams"
+    }
     
     /// Initialize a new PoolRegistration certificate
     /// - Parameter poolParams: The pool parameters
@@ -55,6 +60,8 @@ public struct PoolRegistration: CertificateSerializable {
         }
     }
     
+    // MARK: - CBORSerializable
+    
     public init(from primitive: Primitive) throws {
         guard case let .list(elements) = primitive, elements.count >= 1 else {
             throw CardanoCoreError.deserializeError("Invalid PoolRegistration primitive")
@@ -93,6 +100,27 @@ public struct PoolRegistration: CertificateSerializable {
         }
         
         return .list(elements)
+    }
+
+    // MARK: - JSONSerializable
+    
+    public static func fromDict(_ dict: Primitive) throws -> PoolRegistration {
+        guard case let .orderedDict(orderedDict) = dict else {
+            throw CardanoCoreError.deserializeError("Invalid PoolRegistration dict format")
+        }
+        guard case let .orderedDict(poolParamsPrimitive) = orderedDict[.string(CodingKeys.poolParams.rawValue)] else {
+            throw CardanoCoreError.deserializeError("Missing poolParams in PoolRegistration dict")
+        }
+        
+        let poolParams = try PoolParams.fromDict(.orderedDict(poolParamsPrimitive))
+        
+        return PoolRegistration(poolParams: poolParams)
+    }
+    
+    public func toDict() throws -> Primitive {
+        var dict = OrderedDictionary<Primitive, Primitive>()
+        dict[.string(CodingKeys.poolParams.rawValue)] = try self.poolParams.toDict()
+        return .orderedDict(dict)
     }
 
 }

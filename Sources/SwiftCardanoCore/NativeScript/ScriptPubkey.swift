@@ -1,7 +1,7 @@
 import Foundation
 import OrderedCollections
 
-public struct ScriptPubkey: NativeScriptable {
+public struct ScriptPubkey: NativeScriptable, Sendable {
     public static let TYPE = NativeScriptType.scriptPubkey
     public let keyHash: VerificationKeyHash
     
@@ -32,8 +32,9 @@ public struct ScriptPubkey: NativeScriptable {
     
     // MARK: - JSONSerializable
     
-    public static func fromDict(_ dict: OrderedDictionary<Primitive, Primitive>) throws -> ScriptPubkey {
-        guard case let .string(keyHashDict) = dict[.string("keyHash")] else {
+    public static func fromDict(_ dict: Primitive) throws -> ScriptPubkey {
+        guard case let .orderedDict(dictValue) = dict,
+              case let .string(keyHashDict) = dictValue[.string("keyHash")] else {
             throw CardanoCoreError.decodingError("Invalid ScriptPubkey keyHash")
         }
         
@@ -48,11 +49,11 @@ public struct ScriptPubkey: NativeScriptable {
         return ScriptPubkey(keyHash: keyHash)
     }
     
-    public func toDict() throws -> OrderedDictionary<Primitive, Primitive> {
+    public func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
         dict[.string("type")] = .string(Self.TYPE.description())
         dict[.string("keyHash")] = .string(keyHash.payload.toHex)
-        return dict
+        return .orderedDict(dict)
     }
 
 }

@@ -8,7 +8,7 @@ import Crypto
 #endif
 
 /// A constructor value: a tag (unsigned integer) and zero-or-more fields.
-public struct Constr: Serializable, CustomStringConvertible {
+public struct Constr: Serializable, CustomStringConvertible, Sendable {
     /// Constructor tag (aka: constructor index)
     /// In CDDL the constructors may be encoded with a CBOR constructor tag.
     public let tag: UInt64?
@@ -134,18 +134,21 @@ public struct Constr: Serializable, CustomStringConvertible {
     
     // MARK: - JSONSerializable
     
-    public static func fromDict(_ data: OrderedDictionary<Primitive, Primitive>) throws -> Constr {
+    public static func fromDict(_ data: Primitive) throws -> Constr {
+        guard case let .orderedDict(orderedDict) = data else {
+            throw CardanoCoreError.deserializeError("Invalid Constr dict format")
+        }
         // Handle both .int and .uint for constructor field
         let tagValue: UInt64
-        if case let .uint(tag) = data[.string("constructor")] {
+        if case let .uint(tag) = orderedDict[.string("constructor")] {
             tagValue = UInt64(tag)
-        } else if case let .int(tag) = data[.string("constructor")] {
+        } else if case let .int(tag) = orderedDict[.string("constructor")] {
             tagValue = UInt64(tag)
         } else {
             throw CardanoCoreError.deserializeError("Invalid Constr dict: missing or invalid constructor field")
         }
         
-        guard case let .list(fieldsArray) = data[.string("fields")] else {
+        guard case let .list(fieldsArray) = orderedDict[.string("fields")] else {
             throw CardanoCoreError.deserializeError("Invalid Constr dict: missing or invalid fields")
         }
         
@@ -153,12 +156,12 @@ public struct Constr: Serializable, CustomStringConvertible {
             guard case let .orderedDict(fieldDict) = $0  else {
                 throw CardanoCoreError.deserializeError("Invalid Constr field dict")
             }
-            return try PlutusData.fromDict(fieldDict)
+            return try PlutusData.fromDict(.orderedDict(fieldDict))
         }
         return Constr(tag: tagValue, fields: fields)
     }
     
-    public func toDict() throws -> OrderedDictionary<Primitive, Primitive> {
+    public func toDict() throws -> Primitive {
         var data: OrderedDictionary<Primitive, Primitive> = [:]
         data[.string("constructor")] = .uint(UInt(self.tag ?? UInt64(Self.CONSTR_ID)))
         data[.string("fields")] = .list(
@@ -166,7 +169,7 @@ public struct Constr: Serializable, CustomStringConvertible {
                 try Primitive.fromAny(field.toDict())
             }
         )
-        return data
+        return .orderedDict(data)
     }
     
 }

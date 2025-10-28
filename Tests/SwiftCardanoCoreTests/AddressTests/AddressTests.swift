@@ -95,7 +95,7 @@ struct AddressTests {
     }
     
     @Test func testPaymentAddress() async throws {
-        let vk = try! PaymentVerificationKey.fromJSON(vkJson)
+        let vk = try! PaymentVerificationKey.fromTextEnvelope(vkJson)
         let address = try Address(
             paymentPart: .verificationKeyHash(vk.hash()),
             stakingPart: .none,

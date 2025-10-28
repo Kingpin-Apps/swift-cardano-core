@@ -22,7 +22,7 @@ import OrderedCollections
 /// - array: ordered list of plutus_data values (CDDL: [* plutus_data])
 /// - bigInt: arbitrary integer (small or large) following the `big_int` definition
 /// - bytes: bounded bytestring (0..64) matching `bounded_bytes`
-public enum PlutusData: Serializable {
+public enum PlutusData: Serializable, Sendable {
     case constructor(Constr)
     case map(OrderedDictionary<PlutusData, PlutusData>)
     case array([PlutusData])
@@ -159,7 +159,7 @@ public enum PlutusData: Serializable {
     
     // MARK: - JSONSerializable
     
-    public func toDict() throws -> OrderedDictionary<Primitive, Primitive> {
+    public func toDict() throws -> Primitive {
         switch self {
             case .constructor(let constr):
                 return try constr.toDict()
@@ -176,27 +176,27 @@ public enum PlutusData: Serializable {
                     )
                     return .orderedDict(pair)
                 }
-                return OrderedDictionary<Primitive, Primitive>(
+                return .orderedDict(OrderedDictionary<Primitive, Primitive>(
                     uniqueKeysWithValues: [
                         .string("map"): .list(pairs)
                     ]
-                )
+                ))
             case .array(let array):
-                return  OrderedDictionary<Primitive, Primitive>(
+                return  .orderedDict(OrderedDictionary<Primitive, Primitive>(
                     uniqueKeysWithValues: [
                         .string("list"): .list(try array.map {
                             try Primitive.fromAny($0.toDict())
                         })
                     ]
-                )
+                ))
             case .indefiniteArray(let array):
-                return  OrderedDictionary<Primitive, Primitive>(
+                return  .orderedDict(OrderedDictionary<Primitive, Primitive>(
                     uniqueKeysWithValues: [
                         .string("list"): .list(try array.map {
                             try Primitive.fromAny($0.toDict())
                         })
                     ]
-                )
+                ))
             case .bigInt(let bigInt):
                 return try bigInt.toDict()
             case .bytes(let bytes):
@@ -207,12 +207,15 @@ public enum PlutusData: Serializable {
     /// Convert a dictionary to PlutusData
     /// - Parameter data: A dictionary representing the PlutusData.
     /// - Returns: Restored PlutusData.
-    public static func fromDict(_ data: OrderedDictionary<Primitive, Primitive>) throws -> PlutusData {
-        if data[.string("constructor")] != nil {
-            return .constructor(try Constr.fromDict(data))
-        } else if let _ = data[.string("int")] {
-            return .bigInt(try BigInteger.fromDict(data))
-        } else if case let .list(mapArray) = data[.string("map")] {
+    public static func fromDict(_ data: Primitive) throws -> PlutusData {
+        guard case let .orderedDict(orderedDict) = data else {
+            throw CardanoCoreError.deserializeError("Invalid PlutusData dict format")
+        }
+        if orderedDict[.string("constructor")] != nil {
+            return .constructor(try Constr.fromDict(.orderedDict(orderedDict)))
+        } else if let _ = orderedDict[.string("int")] {
+            return .bigInt(try BigInteger.fromDict(.orderedDict(orderedDict)))
+        } else if case let .list(mapArray) = orderedDict[.string("map")] {
             var plutusDict = OrderedDictionary<PlutusData, PlutusData>()
             for item in mapArray {
                 guard case let .orderedDict(pairDict) = item else {
@@ -222,24 +225,24 @@ public enum PlutusData: Serializable {
                       case let .orderedDict(valueDict) = pairDict[.string("v")] else {
                     throw CardanoCoreError.deserializeError("Invalid PlutusData map pair")
                 }
-                let keyPlutus = try PlutusData.fromDict(keyDict)
-                let valuePlutus = try PlutusData.fromDict(valueDict)
+                let keyPlutus = try PlutusData.fromDict(.orderedDict(keyDict))
+                let valuePlutus = try PlutusData.fromDict(.orderedDict(valueDict))
                 plutusDict[keyPlutus] = valuePlutus
             }
             return .map(plutusDict)
-        } else if case let .list(listArray) = data[.string("list")] {
+        } else if case let .list(listArray) = orderedDict[.string("list")] {
             let plutusArray = try listArray.map {
                 guard case let .orderedDict(itemDict) = $0 else {
                     throw CardanoCoreError.deserializeError("Invalid PlutusData array item")
                 }
-                return try PlutusData.fromDict(itemDict)
+                return try PlutusData.fromDict(.orderedDict(itemDict))
             }
             return .array(plutusArray)
-        } else if case let .string(bytesHex) = data[.string("bytes")] {
+        } else if case let .string(bytesHex) = orderedDict[.string("bytes")] {
             let bytesData = Data(fromHex: bytesHex)
             return .bytes(try Bytes(from: bytesData))
         } else {
-            throw CardanoCoreError.deserializeError("Invalid PlutusData dict: \(data)")
+            throw CardanoCoreError.deserializeError("Invalid PlutusData dict: \(orderedDict)")
         }
     }
 }

@@ -76,8 +76,9 @@ public enum NativeScript: Serializable {
 
     // MARK: - JSONSerializable
     
-    public static func fromDict(_ dict: OrderedDictionary<Primitive, Primitive>) throws -> NativeScript {
-        guard case let .string(type) = dict[.string("type")] else {
+    public static func fromDict(_ dict: Primitive) throws -> NativeScript {
+        guard case let .orderedDict(dictValue) = dict,
+              case let .string(type) = dictValue[.string("type")] else {
             throw CardanoCoreError.decodingError("Missing type for NativeScript")
         }
         
@@ -92,12 +93,15 @@ public enum NativeScript: Serializable {
         }
     }
     
-    public func toDict() throws -> OrderedDictionary<Primitive, Primitive> {
+    public func toDict() throws -> Primitive {
         var dict: OrderedDictionary<Primitive, Primitive> = [:]
         switch self {
             case .scriptPubkey(let script):
+                guard case let .orderedDict(scriptDict) = try script.toDict() else {
+                    throw CardanoCoreError.decodingError("Expected orderedDict from script.toDict()")
+                }
                 dict[.string("type")] = .string("sig")
-                dict.merge(try script.toDict(), uniquingKeysWith: { lhs, _ in lhs })
+                dict.merge(scriptDict, uniquingKeysWith: { lhs, _ in lhs })
             case .scriptAll(_):
                 dict[.string("type")] = .string("all")
             case .scriptAny(_):
@@ -109,7 +113,7 @@ public enum NativeScript: Serializable {
             case .invalidHereAfter(_):
                 dict[.string("type")] = .string("after")
         }
-        return dict
+        return .orderedDict(dict)
     }
 
 }
@@ -137,7 +141,7 @@ public enum NativeScriptType: Int, Sendable {
 
 // MARK: - NativeScript Protocol
 /// The metadata for a native script.
-public protocol NativeScriptable: Serializable {
+public protocol NativeScriptable: Serializable, Sendable {
     static var TYPE: NativeScriptType { get }
 }
 

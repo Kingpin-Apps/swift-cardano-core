@@ -84,10 +84,19 @@ public struct ExtendedVerificationKey: ExtendedVerificationKeyProtocol {
 }
 
 
-public enum VerificationKeyType: CBORSerializable, Equatable, Hashable {
+public enum VerificationKeyType: CBORSerializable, Sendable {
 
     case extendedVerificationKey(any ExtendedVerificationKeyProtocol)
     case verificationKey(any VerificationKeyProtocol)
+    
+    public var payload: Data {
+        switch self {
+            case .extendedVerificationKey(let key):
+                return key.payload
+            case .verificationKey(let key):
+                return key.payload
+        }
+    }
     
     public func hash(into hasher: inout Hasher) {
         switch self {
@@ -144,4 +153,5 @@ public enum VerificationKeyType: CBORSerializable, Equatable, Hashable {
             return .bytes(key.payload)
         }
     }
+    
 }

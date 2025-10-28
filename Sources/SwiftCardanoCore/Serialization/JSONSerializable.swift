@@ -7,7 +7,7 @@ public protocol JSONDescribable: Codable, CustomStringConvertible, CustomDebugSt
 }
 
 public extension JSONDescribable {
-    var description: String {
+    var debugDescription: String {
         do {
             let json = try self.toJSON()
             
@@ -32,38 +32,19 @@ public extension JSONDescribable {
             
             return String(data: prettyData, encoding: .utf8) ?? "{}"
         } catch {
-            return "Error generating JSON description: \(error)"
+            return "Error generating JSON description for \(Self.self): \(error)"
         }
     }
     
-    var debugDescription: String { self.description }
+    var description: String { self.debugDescription }
 }
 
 public protocol JSONSerializable: JSONDescribable, Hashable, Equatable {
-    func toDict() throws -> OrderedDictionary<Primitive, Primitive>
-    static func fromDict(_ dict: OrderedDictionary<Primitive, Primitive>) throws -> Self
+    static func fromDict(_ primitive: Primitive) throws -> Self
+    func toDict() throws -> Primitive
 }
 
 public extension JSONSerializable {
-    /// Save the JSON representation to a file.
-    /// - Parameter path: The file path.
-    func save(to path: String) throws {
-        if FileManager.default.fileExists(atPath: path) {
-            throw CardanoCoreError.ioError("File already exists: \(path)")
-        }
-        
-        if let jsonString = try toJSON() {
-            try jsonString.write(toFile: path, atomically: true, encoding: .utf8)
-        }
-    }
-    
-    /// Load the object from a JSON file.
-    /// - Parameter path: The file path
-    /// - Returns: The object restored from the JSON file.
-    static func load(from path: String) throws -> Self {
-        let jsonString = try String(contentsOfFile: path, encoding: .utf8)
-        return try fromJSON(jsonString)
-    }
     
     /// Restore from a JSON string.
     /// - Parameters:
@@ -75,11 +56,9 @@ public extension JSONSerializable {
         }
         
         do {
-            guard let jsonDict = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-                throw CardanoCoreError.valueError("Invalid JSON: expected object")
-            }
+            let jsonObject = try JSONSerialization.jsonObject(with: data)
             
-            // Convert [String: Any] to OrderedDictionary<Primitive, Primitive>
+            // Convert Any to Primitive
             func anyToPrimitive(_ value: Any) throws -> Primitive {
                 switch value {
                 case let str as String: return .string(str)
@@ -100,12 +79,8 @@ public extension JSONSerializable {
                 }
             }
             
-            var primitiveDict: OrderedDictionary<Primitive, Primitive> = [:]
-            for (key, value) in jsonDict {
-                primitiveDict[.string(key)] = try anyToPrimitive(value)
-            }
-            
-            return try fromDict(primitiveDict)
+            let primitive = try anyToPrimitive(jsonObject)
+            return try fromDict(primitive)
         } catch let error as CardanoCoreError {
             throw error
         } catch {
@@ -114,9 +89,9 @@ public extension JSONSerializable {
     }
     
     func toJSON() throws -> String? {
-        let dict = try self.toDict()
+        let primitive = try self.toDict()
         
-        // Convert OrderedDictionary<Primitive, Primitive> to [String: Any] for JSONSerialization
+        // Convert Primitive to Any for JSONSerialization
         func primitiveToAny(_ primitive: Primitive) throws -> Any {
             switch primitive {
             case .string(let str): return str
@@ -140,16 +115,9 @@ public extension JSONSerializable {
             }
         }
         
-        var jsonDict: [String: Any] = [:]
-        for (key, value) in dict {
-            guard case let .string(keyStr) = key else {
-                throw CardanoCoreError.valueError("JSON object keys must be strings")
-            }
-            jsonDict[keyStr] = try primitiveToAny(value)
-        }
-        
+        let jsonObject = try primitiveToAny(primitive)
         let jsonData = try JSONSerialization.data(
-            withJSONObject: jsonDict,
+            withJSONObject: jsonObject,
             options: [.sortedKeys, .withoutEscapingSlashes]
         )
         return String(data: jsonData, encoding: .utf8)
