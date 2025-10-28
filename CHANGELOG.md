@@ -1,3 +1,10 @@
+## 0.2.15 (2025-10-28)
+
+### Fix
+
+- add pretty printing to various types
+- add Serializable and JSONDescribable for json printing
+
 ## 0.2.14 (2025-10-26)
 
 ### Fix
