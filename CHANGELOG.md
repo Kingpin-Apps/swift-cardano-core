@@ -1,3 +1,9 @@
+## 0.2.16 (2025-10-29)
+
+### Fix
+
+- handle plutus types and redeemers serializable
+
 ## 0.2.15 (2025-10-28)
 
 ### Fix
