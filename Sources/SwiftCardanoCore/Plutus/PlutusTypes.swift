@@ -64,24 +64,49 @@ public enum PlutusScript: Serializable {
     // MARK: - JSONSerializable
     
     public static func fromDict(_ primitive: Primitive) throws -> PlutusScript {
-        guard case let .list(elements) = primitive,
-              elements.count == 2,
-              case let .uint(version) = elements[0],
-              case let .bytes(data) = elements[1] else {
+        // Support both formats: list or dictionary
+        switch primitive {
+        case .list(let elements):
+            guard elements.count == 2,
+                  case let .uint(version) = elements[0],
+                  case let .bytes(data) = elements[1] else {
+                throw CardanoCoreError.deserializeError("Invalid PlutusScript list dictionary")
+            }
+            return Self.fromVersion(Int(version), data: data)
+            
+        case .orderedDict(let dict):
+            guard let typeValue = dict[.string("type")],
+                  case .string(let typeStr) = typeValue,
+                  let dataValue = dict[.string("data")],
+                  case .string(let base64String) = dataValue,
+                  let data = Data(base64Encoded: base64String) else {
+                throw CardanoCoreError.deserializeError("Invalid PlutusScript dictionary: missing or invalid fields")
+            }
+            
+            let version: Int
+            switch typeStr {
+            case "PlutusV1Script": version = 1
+            case "PlutusV2Script": version = 2
+            case "PlutusV3Script": version = 3
+            default:
+                throw CardanoCoreError.deserializeError("Unknown PlutusScript type: \(typeStr)")
+            }
+            
+            return Self.fromVersion(version, data: data)
+            
+        default:
             throw CardanoCoreError.deserializeError("Invalid PlutusScript dictionary")
         }
-        
-        return Self.fromVersion(Int(version), data: data)
     }
     
     public func toDict() throws -> Primitive {
         switch self {
         case .plutusV1Script(let script):
-            return .list([.uint(1), .bytes(script.data)])
+            return try script.toDict()
         case .plutusV2Script(let script):
-            return .list([.uint(2), .bytes(script.data)])
+            return try script.toDict()
         case .plutusV3Script(let script):
-            return .list([.uint(3), .bytes(script.data)])
+            return try script.toDict()
         }
     }
 }
@@ -114,14 +139,28 @@ public struct PlutusV1Script: PlutusScriptable {
     // MARK: - JSONSerializable
     
     public static func fromDict(_ primitive: Primitive) throws -> PlutusV1Script {
-        guard case let .bytes(data) = primitive else {
+        // Support both formats: direct bytes or dictionary with "data" key
+        switch primitive {
+        case .bytes(let data):
+            return PlutusV1Script(data: data)
+        case .orderedDict(let dict):
+            guard let dataValue = dict[.string("data")],
+                  case .string(let base64String) = dataValue,
+                  let data = Data(base64Encoded: base64String) else {
+                throw CardanoCoreError.deserializeError("Invalid PlutusV1Script dictionary: missing or invalid 'data' field")
+            }
+            return PlutusV1Script(data: data)
+        default:
             throw CardanoCoreError.deserializeError("Invalid PlutusV1Script dictionary")
         }
-        return PlutusV1Script(data: data)
     }
     
     public func toDict() throws -> Primitive {
-        return .bytes(data)
+        return .orderedDict([
+            .string("type"): .string("PlutusV1Script"),
+            .string("version"): .uint(UInt(version)),
+            .string("data"): .string(data.base64EncodedString())
+        ])
     }
 }
 
@@ -153,14 +192,28 @@ public struct PlutusV2Script: PlutusScriptable {
     // MARK: - JSONSerializable
     
     public static func fromDict(_ primitive: Primitive) throws -> PlutusV2Script {
-        guard case let .bytes(data) = primitive else {
+        // Support both formats: direct bytes or dictionary with "data" key
+        switch primitive {
+        case .bytes(let data):
+            return PlutusV2Script(data: data)
+        case .orderedDict(let dict):
+            guard let dataValue = dict[.string("data")],
+                  case .string(let base64String) = dataValue,
+                  let data = Data(base64Encoded: base64String) else {
+                throw CardanoCoreError.deserializeError("Invalid PlutusV2Script dictionary: missing or invalid 'data' field")
+            }
+            return PlutusV2Script(data: data)
+        default:
             throw CardanoCoreError.deserializeError("Invalid PlutusV2Script dictionary")
         }
-        return PlutusV2Script(data: data)
     }
     
     public func toDict() throws -> Primitive {
-        return .bytes(data)
+        return .orderedDict([
+            .string("type"): .string("PlutusV2Script"),
+            .string("version"): .uint(UInt(version)),
+            .string("data"): .string(data.base64EncodedString())
+        ])
     }
 }
 
@@ -192,20 +245,34 @@ public struct PlutusV3Script: PlutusScriptable {
     // MARK: - JSONSerializable
     
     public static func fromDict(_ primitive: Primitive) throws -> PlutusV3Script {
-        guard case let .bytes(data) = primitive else {
+        // Support both formats: direct bytes or dictionary with "data" key
+        switch primitive {
+        case .bytes(let data):
+            return PlutusV3Script(data: data)
+        case .orderedDict(let dict):
+            guard let dataValue = dict[.string("data")],
+                  case .string(let base64String) = dataValue,
+                  let data = Data(base64Encoded: base64String) else {
+                throw CardanoCoreError.deserializeError("Invalid PlutusV3Script dictionary: missing or invalid 'data' field")
+            }
+            return PlutusV3Script(data: data)
+        default:
             throw CardanoCoreError.deserializeError("Invalid PlutusV3Script dictionary")
         }
-        return PlutusV3Script(data: data)
     }
     
     public func toDict() throws -> Primitive {
-        return .bytes(data)
+        return .orderedDict([
+            .string("type"): .string("PlutusV3Script"),
+            .string("version"): .uint(UInt(version)),
+            .string("data"): .string(data.base64EncodedString())
+        ])
     }
 }
 
 
 // MARK: - ScriptType
-public enum ScriptType: CBORSerializable, Sendable {
+public enum ScriptType: Serializable {
     
 //    case bytes(Data)
     case nativeScript(NativeScript)
@@ -261,32 +328,53 @@ public enum ScriptType: CBORSerializable, Sendable {
     // MARK: - JSONSerializable
     
     public static func fromDict(_ primitive: Primitive) throws -> ScriptType {
-        guard case let .list(elements) = primitive,
-              !elements.isEmpty else {
-            throw CardanoCoreError.deserializeError("Invalid ScriptType dictionary")
-        }
-        
-        // Try to determine script type based on the first element or structure
-        if case let .uint(version) = elements[0] {
-            guard elements.count == 2,
-                  case let .bytes(data) = elements[1] else {
-                throw CardanoCoreError.deserializeError("Invalid ScriptType dictionary structure")
+        // Support both formats: list or dictionary
+        switch primitive {
+        case .list(let elements) where !elements.isEmpty:
+            // Try to determine script type based on the first element
+            if case let .uint(version) = elements[0] {
+                guard elements.count == 2,
+                      case let .bytes(data) = elements[1] else {
+                    throw CardanoCoreError.deserializeError("Invalid ScriptType list dictionary structure")
+                }
+                
+                switch version {
+                case 1:
+                    return .plutusV1Script(PlutusV1Script(data: data))
+                case 2:
+                    return .plutusV2Script(PlutusV2Script(data: data))
+                case 3:
+                    return .plutusV3Script(PlutusV3Script(data: data))
+                default:
+                    throw CardanoCoreError.deserializeError("Invalid PlutusScript version: \(version)")
+                }
+            } else {
+                // Assume it's a native script
+                let nativeScript = try NativeScript.fromDict(primitive)
+                return .nativeScript(nativeScript)
             }
             
-            switch version {
-            case 1:
-                return .plutusV1Script(PlutusV1Script(data: data))
-            case 2:
-                return .plutusV2Script(PlutusV2Script(data: data))
-            case 3:
-                return .plutusV3Script(PlutusV3Script(data: data))
-            default:
-                throw CardanoCoreError.deserializeError("Invalid PlutusScript version: \(version)")
+        case .orderedDict(let dict):
+            guard let typeValue = dict[.string("type")],
+                  case .string(let typeStr) = typeValue else {
+                throw CardanoCoreError.deserializeError("Invalid ScriptType dictionary: missing 'type' field")
             }
-        } else {
-            // Assume it's a native script
-            let nativeScript = try NativeScript.fromDict(primitive)
-            return .nativeScript(nativeScript)
+            
+            switch typeStr {
+            case "PlutusV1Script":
+                return .plutusV1Script(try PlutusV1Script.fromDict(primitive))
+            case "PlutusV2Script":
+                return .plutusV2Script(try PlutusV2Script.fromDict(primitive))
+            case "PlutusV3Script":
+                return .plutusV3Script(try PlutusV3Script.fromDict(primitive))
+            default:
+                // Try to parse as native script
+                let nativeScript = try NativeScript.fromDict(primitive)
+                return .nativeScript(nativeScript)
+            }
+            
+        default:
+            throw CardanoCoreError.deserializeError("Invalid ScriptType dictionary")
         }
     }
     
@@ -295,11 +383,11 @@ public enum ScriptType: CBORSerializable, Sendable {
         case .nativeScript(let script):
             return try script.toDict()
         case .plutusV1Script(let script):
-            return .list([.uint(1), .bytes(script.data)])
+            return try script.toDict()
         case .plutusV2Script(let script):
-            return .list([.uint(2), .bytes(script.data)])
+            return try script.toDict()
         case .plutusV3Script(let script):
-            return .list([.uint(3), .bytes(script.data)])
+            return try script.toDict()
         }
     }
 }
