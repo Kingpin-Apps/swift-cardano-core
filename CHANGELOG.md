@@ -1,3 +1,9 @@
+## 0.2.17 (2025-11-01)
+
+### Fix
+
+- handle to JSON and to TextEnvelope better
+
 ## 0.2.16 (2025-10-29)
 
 ### Fix
