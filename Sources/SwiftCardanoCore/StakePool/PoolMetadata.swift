@@ -3,7 +3,7 @@ import PotentCBOR
 import OrderedCollections
 import SwiftNcal
 
-public struct PoolMetadata: Serializable, Sendable {
+public struct PoolMetadata: Serializable {
     public let name: String?
     public let desc: String?
     public let ticker: String?

@@ -97,6 +97,9 @@ let extendedPaymentVKey = [
         let tempDirURL = FileManager.default.temporaryDirectory
         let tempFileURL = tempDirURL.appendingPathComponent("paymentSigningKey.skey")
         
+        // Remove file if it exists from previous test run
+        try? FileManager.default.removeItem(atPath: tempFileURL.path)
+        
         let sk = try PaymentSigningKey.generate()
         try sk.save(to: tempFileURL.path)
         let loadedSK = try PaymentSigningKey.load(from: tempFileURL.path)

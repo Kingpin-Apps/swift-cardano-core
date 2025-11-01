@@ -164,6 +164,9 @@ import PotentCBOR
         let tempDirURL = FileManager.default.temporaryDirectory
         let tempFileURL = tempDirURL.appendingPathComponent("committeeColdSigningKey.skey")
         
+        // Remove file if it exists from previous test run
+        try? FileManager.default.removeItem(atPath: tempFileURL.path)
+        
         let sk = try CommitteeColdSigningKey.generate()
         try sk.save(to: tempFileURL.path)
         let loadedSK = try CommitteeColdSigningKey.load(from: tempFileURL.path)

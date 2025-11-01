@@ -33,8 +33,12 @@ public struct ScriptPubkey: NativeScriptable, Sendable {
     // MARK: - JSONSerializable
     
     public static func fromDict(_ dict: Primitive) throws -> ScriptPubkey {
-        guard case let .orderedDict(dictValue) = dict,
-              case let .string(keyHashDict) = dictValue[.string("keyHash")] else {
+        guard case let .orderedDict(dictValue) = dict else {
+            throw CardanoCoreError.decodingError("Invalid ScriptPubkey dict format")
+        }
+        
+        guard let keyHashPrimitive = dictValue[.string("keyHash")],
+              case let .string(keyHashDict) = keyHashPrimitive else {
             throw CardanoCoreError.decodingError("Invalid ScriptPubkey keyHash")
         }
         

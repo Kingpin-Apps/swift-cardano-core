@@ -57,8 +57,8 @@ import PotentCBOR
         
         let script = BeforeScript(slot: slot)
         
-        try script.save(to: tempFileURL.path)
-        let loadedScript = try BeforeScript.load(from: tempFileURL.path)
+        try script.saveJSON(to: tempFileURL.path)
+        let loadedScript = try BeforeScript.loadJSON(from: tempFileURL.path)
         #expect(script == loadedScript)
     }
 }

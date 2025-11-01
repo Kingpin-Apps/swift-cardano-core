@@ -165,7 +165,22 @@ public struct MultiAsset: Serializable, Comparable {
     }
 
     public static func == (lhs: MultiAsset, rhs: MultiAsset) -> Bool {
-        return lhs.data == rhs.data
+        // Order-insensitive comparison: convert OrderedDictionary to Dictionary
+        // This ensures CBOR and JSON deserialized values with different insertion orders are equal
+        guard lhs.data.count == rhs.data.count else { return false }
+        
+        for (policyId, lhsAsset) in lhs.data {
+            guard let rhsAsset = rhs.data[policyId] else { return false }
+            
+            // Compare assets for this policy (also order-insensitive)
+            guard lhsAsset.data.count == rhsAsset.data.count else { return false }
+            
+            for (assetName, lhsAmount) in lhsAsset.data {
+                guard let rhsAmount = rhsAsset.data[assetName], lhsAmount == rhsAmount else { return false }
+            }
+        }
+        
+        return true
     }
 
     public static func <= (lhs: MultiAsset, rhs: MultiAsset) -> Bool {

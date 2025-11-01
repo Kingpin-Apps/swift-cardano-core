@@ -3,7 +3,7 @@ import SwiftNcal
 import PotentCBOR
 import OrderedCollections
 
-public struct TransactionBody: Serializable {
+public struct TransactionBody: Serializable, Equatable {
     public var inputs: ListOrOrderedSet<TransactionInput>
     public var outputs: [TransactionOutput]
     public var fee: Coin
@@ -391,13 +391,13 @@ public struct TransactionBody: Serializable {
         guard let inputsPrimitive = orderedDict[.string(CodingKeys.inputs.stringValue)] else {
             throw CardanoCoreError.deserializeError("Missing inputs in TransactionBody")
         }
-        let inputs = try ListOrOrderedSet<TransactionInput>(from: inputsPrimitive)
+        let inputs = try ListOrOrderedSet<TransactionInput>.fromDict(inputsPrimitive)
         
         guard let outputsPrimitive = orderedDict[.string(CodingKeys.outputs.stringValue)],
               case let .list(outputsList) = outputsPrimitive else {
             throw CardanoCoreError.deserializeError("Missing or invalid outputs in TransactionBody")
         }
-        let outputs = try outputsList.map { try TransactionOutput(from: $0) }
+        let outputs = try outputsList.map { try TransactionOutput.fromDict($0) }
         
         guard let feePrimitive = orderedDict[.string(CodingKeys.fee.stringValue)],
               case let .int(feeValue) = feePrimitive else {
@@ -414,22 +414,22 @@ public struct TransactionBody: Serializable {
         
         var certificates: ListOrNonEmptyOrderedSet<Certificate>? = nil
         if let certificatesPrimitive = orderedDict[.string(CodingKeys.certificates.stringValue)] {
-            certificates = try ListOrNonEmptyOrderedSet<Certificate>(from: certificatesPrimitive)
+            certificates = try ListOrNonEmptyOrderedSet<Certificate>.fromDict(certificatesPrimitive)
         }
         
         var withdrawals: Withdrawals? = nil
         if let withdrawalsPrimitive = orderedDict[.string(CodingKeys.withdrawals.stringValue)] {
-            withdrawals = try Withdrawals(from: withdrawalsPrimitive)
+            withdrawals = try Withdrawals.fromDict(withdrawalsPrimitive)
         }
         
         var update: Update? = nil
         if let updatePrimitive = orderedDict[.string(CodingKeys.update.stringValue)] {
-            update = try Update(from: updatePrimitive)
+            update = try Update.fromDict(updatePrimitive)
         }
         
         var auxiliaryDataHash: AuxiliaryDataHash? = nil
         if let auxiliaryDataHashPrimitive = orderedDict[.string(CodingKeys.auxiliaryDataHash.stringValue)] {
-            auxiliaryDataHash = try AuxiliaryDataHash(from: auxiliaryDataHashPrimitive)
+            auxiliaryDataHash = try AuxiliaryDataHash.fromDict(auxiliaryDataHashPrimitive)
         }
         
         var validityStart: Int? = nil
@@ -440,22 +440,22 @@ public struct TransactionBody: Serializable {
         
         var mint: MultiAsset? = nil
         if let mintPrimitive = orderedDict[.string(CodingKeys.mint.stringValue)] {
-            mint = try MultiAsset(from: mintPrimitive)
+            mint = try MultiAsset.fromDict(mintPrimitive)
         }
         
         var scriptDataHash: ScriptDataHash? = nil
         if let scriptDataHashPrimitive = orderedDict[.string(CodingKeys.scriptDataHash.stringValue)] {
-            scriptDataHash = try ScriptDataHash(from: scriptDataHashPrimitive)
+            scriptDataHash = try ScriptDataHash.fromDict(scriptDataHashPrimitive)
         }
         
         var collateral: ListOrNonEmptyOrderedSet<TransactionInput>? = nil
         if let collateralPrimitive = orderedDict[.string(CodingKeys.collateral.stringValue)] {
-            collateral = try ListOrNonEmptyOrderedSet<TransactionInput>(from: collateralPrimitive)
+            collateral = try ListOrNonEmptyOrderedSet<TransactionInput>.fromDict(collateralPrimitive)
         }
         
         var requiredSigners: ListOrNonEmptyOrderedSet<VerificationKeyHash>? = nil
         if let requiredSignersPrimitive = orderedDict[.string(CodingKeys.requiredSigners.stringValue)] {
-            requiredSigners = try ListOrNonEmptyOrderedSet<VerificationKeyHash>(from: requiredSignersPrimitive)
+            requiredSigners = try ListOrNonEmptyOrderedSet<VerificationKeyHash>.fromDict(requiredSignersPrimitive)
         }
         
         var networkId: Int? = nil
@@ -466,7 +466,7 @@ public struct TransactionBody: Serializable {
         
         var collateralReturn: TransactionOutput? = nil
         if let collateralReturnPrimitive = orderedDict[.string(CodingKeys.collateralReturn.stringValue)] {
-            collateralReturn = try TransactionOutput(from: collateralReturnPrimitive)
+            collateralReturn = try TransactionOutput.fromDict(collateralReturnPrimitive)
         }
         
         var totalCollateral: Coin? = nil
@@ -477,17 +477,17 @@ public struct TransactionBody: Serializable {
         
         var referenceInputs: ListOrNonEmptyOrderedSet<TransactionInput>? = nil
         if let referenceInputsPrimitive = orderedDict[.string(CodingKeys.referenceInputs.stringValue)] {
-            referenceInputs = try ListOrNonEmptyOrderedSet<TransactionInput>(from: referenceInputsPrimitive)
+            referenceInputs = try ListOrNonEmptyOrderedSet<TransactionInput>.fromDict(referenceInputsPrimitive)
         }
         
         var votingProcedures: VotingProcedures? = nil
         if let votingProceduresPrimitive = orderedDict[.string(CodingKeys.votingProcedures.stringValue)] {
-            votingProcedures = try VotingProcedures(from: votingProceduresPrimitive)
+            votingProcedures = try VotingProcedures.fromDict(votingProceduresPrimitive)
         }
         
         var proposalProcedures: ProposalProcedures? = nil
         if let proposalProceduresPrimitive = orderedDict[.string(CodingKeys.proposalProcedures.stringValue)] {
-            proposalProcedures = try ProposalProcedures(from: proposalProceduresPrimitive)
+            proposalProcedures = try ProposalProcedures.fromDict(proposalProceduresPrimitive)
         }
         
         var currentTreasuryAmount: Coin? = nil
@@ -498,7 +498,7 @@ public struct TransactionBody: Serializable {
         
         var treasuryDonation: PositiveCoin? = nil
         if let treasuryDonationPrimitive = orderedDict[.string(CodingKeys.treasuryDonation.stringValue)] {
-            treasuryDonation = try PositiveCoin(from: treasuryDonationPrimitive)
+            treasuryDonation = try PositiveCoin.fromDict(treasuryDonationPrimitive)
         }
         
         return TransactionBody(

@@ -8,7 +8,7 @@ var sigNativescript: ScriptPubkey? {
             forResource: sigNativescriptFilePath.forResource,
             ofType: sigNativescriptFilePath.ofType,
             inDirectory: sigNativescriptFilePath.inDirectory)
-        return try ScriptPubkey.load(from: filePath!)
+        return try ScriptPubkey.loadJSON(from: filePath!)
     } catch {
         return nil
     }
@@ -20,7 +20,7 @@ var allNativescript: ScriptAll? {
             forResource: allNativescriptFilePath.forResource,
             ofType: allNativescriptFilePath.ofType,
             inDirectory: allNativescriptFilePath.inDirectory)
-        return try ScriptAll.load(from: filePath!)
+        return try ScriptAll.loadJSON(from: filePath!)
     } catch {
         return nil
     }
@@ -32,7 +32,7 @@ var anyNativescript: ScriptAny? {
             forResource: anyNativescriptFilePath.forResource,
             ofType: anyNativescriptFilePath.ofType,
             inDirectory: anyNativescriptFilePath.inDirectory)
-        return try ScriptAny.load(from: filePath!)
+        return try ScriptAny.loadJSON(from: filePath!)
     } catch {
         return nil
     }
@@ -44,7 +44,7 @@ var atLeastNativescript: ScriptNofK? {
             forResource: atLeastNativescriptFilePath.forResource,
             ofType: atLeastNativescriptFilePath.ofType,
             inDirectory: atLeastNativescriptFilePath.inDirectory)
-        return try ScriptNofK.load(from: filePath!)
+        return try ScriptNofK.loadJSON(from: filePath!)
     } catch {
         return nil
     }
@@ -56,7 +56,7 @@ var afterNativescript: AfterScript? {
             forResource: afterNativescriptFilePath.forResource,
             ofType: afterNativescriptFilePath.ofType,
             inDirectory: afterNativescriptFilePath.inDirectory)
-        return try AfterScript.load(from: filePath!)
+        return try AfterScript.loadJSON(from: filePath!)
     } catch {
         return nil
     }
@@ -68,7 +68,7 @@ var beforeNativescript: BeforeScript? {
             forResource: beforeNativescriptFilePath.forResource,
             ofType: beforeNativescriptFilePath.ofType,
             inDirectory: beforeNativescriptFilePath.inDirectory)
-        return try BeforeScript.load(from: filePath!)
+        return try BeforeScript.loadJSON(from: filePath!)
     } catch {
         return nil
     }

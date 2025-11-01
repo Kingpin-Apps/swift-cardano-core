@@ -96,15 +96,38 @@ public struct VerificationKeyWitness: Serializable, TextEnvelopable {
     // MARK: - JSONSerializable
     
     public static func fromDict(_ dict: Primitive) throws -> VerificationKeyWitness {
-        guard case let .orderedDict(dictValue) = dict,
-              let vkeyPrimitive = dictValue[.string(CodingKeys.vkey.rawValue)] else {
-            throw CardanoCoreError.deserializeError("Missing vkey in VerificationKeyWitness")
+        guard case let .orderedDict(dictValue) = dict else {
+            throw CardanoCoreError.deserializeError("Invalid VerificationKeyWitness dict")
         }
-        let vkey = try VerificationKeyType(from: vkeyPrimitive)
         
-        guard let signaturePrimitive = dictValue[.string(CodingKeys.signature.rawValue)],
-              case let .bytes(signatureData) = signaturePrimitive else {
-            throw CardanoCoreError.deserializeError("Missing or invalid signature in VerificationKeyWitness")
+        guard let vkeyPrimitive = dictValue[.string(CodingKeys.vkey.rawValue)],
+              case let .string(vkeyHex) = vkeyPrimitive else {
+            throw CardanoCoreError.deserializeError("Missing or invalid vkey in VerificationKeyWitness")
+        }
+        guard let vkeyData = Data(hexString: vkeyHex) else {
+            throw CardanoCoreError.deserializeError("Invalid hex string for vkey in VerificationKeyWitness")
+        }
+        let vkey = try VerificationKeyType(from: .bytes(vkeyData))
+        
+        guard let signaturePrimitive = dictValue[.string(CodingKeys.signature.rawValue)] else {
+            throw CardanoCoreError.deserializeError("Missing signature in VerificationKeyWitness")
+        }
+        
+        let signatureData: Data
+        switch signaturePrimitive {
+        case .bytes(let data):
+            signatureData = data
+        case .string(let str):
+            // Try base64 first, then hex
+            if let data = Data(base64Encoded: str) {
+                signatureData = data
+            } else if let data = Data(hexString: str) {
+                signatureData = data
+            } else {
+                throw CardanoCoreError.deserializeError("Invalid signature format in VerificationKeyWitness")
+            }
+        default:
+            throw CardanoCoreError.deserializeError("Invalid signature type in VerificationKeyWitness")
         }
         
         return VerificationKeyWitness(vkey: vkey, signature: signatureData)
@@ -119,7 +142,7 @@ public struct VerificationKeyWitness: Serializable, TextEnvelopable {
 
 }
 
-public struct TransactionWitnessSet: Serializable {
+public struct TransactionWitnessSet: Serializable, Equatable {
     public var vkeyWitnesses: ListOrNonEmptyOrderedSet<VerificationKeyWitness>?
     public var nativeScripts: ListOrNonEmptyOrderedSet<NativeScript>?
     public var bootstrapWitness: ListOrNonEmptyOrderedSet<BootstrapWitness>?
@@ -292,42 +315,42 @@ public struct TransactionWitnessSet: Serializable {
         }
         var vkeyWitnesses: ListOrNonEmptyOrderedSet<VerificationKeyWitness>? = nil
         if let vkeyWitnessesPrimitive = orderedDict[.string(CodingKeys.vkeyWitnesses.stringValue)] {
-            vkeyWitnesses = try ListOrNonEmptyOrderedSet<VerificationKeyWitness>(from: vkeyWitnessesPrimitive)
+            vkeyWitnesses = try ListOrNonEmptyOrderedSet<VerificationKeyWitness>.fromDict(vkeyWitnessesPrimitive)
         }
         
         var nativeScripts: ListOrNonEmptyOrderedSet<NativeScript>? = nil
         if let nativeScriptsPrimitive = orderedDict[.string(CodingKeys.nativeScripts.stringValue)] {
-            nativeScripts = try ListOrNonEmptyOrderedSet<NativeScript>(from: nativeScriptsPrimitive)
+            nativeScripts = try ListOrNonEmptyOrderedSet<NativeScript>.fromDict(nativeScriptsPrimitive)
         }
         
         var bootstrapWitness: ListOrNonEmptyOrderedSet<BootstrapWitness>? = nil
         if let bootstrapWitnessPrimitive = orderedDict[.string(CodingKeys.bootstrapWitness.stringValue)] {
-            bootstrapWitness = try ListOrNonEmptyOrderedSet<BootstrapWitness>(from: bootstrapWitnessPrimitive)
+            bootstrapWitness = try ListOrNonEmptyOrderedSet<BootstrapWitness>.fromDict(bootstrapWitnessPrimitive)
         }
         
         var plutusV1Script: ListOrNonEmptyOrderedSet<PlutusV1Script>? = nil
         if let plutusV1ScriptPrimitive = orderedDict[.string(CodingKeys.plutusV1Script.stringValue)] {
-            plutusV1Script = try ListOrNonEmptyOrderedSet<PlutusV1Script>(from: plutusV1ScriptPrimitive)
+            plutusV1Script = try ListOrNonEmptyOrderedSet<PlutusV1Script>.fromDict(plutusV1ScriptPrimitive)
         }
         
         var plutusData: ListOrNonEmptyOrderedSet<PlutusData>? = nil
         if let plutusDataPrimitive = orderedDict[.string(CodingKeys.plutusData.stringValue)] {
-            plutusData = try ListOrNonEmptyOrderedSet<PlutusData>(from: plutusDataPrimitive)
+            plutusData = try ListOrNonEmptyOrderedSet<PlutusData>.fromDict(plutusDataPrimitive)
         }
         
         var redeemers: Redeemers? = nil
         if let redeemersPrimitive = orderedDict[.string(CodingKeys.redeemers.stringValue)] {
-            redeemers = try Redeemers(from: redeemersPrimitive)
+            redeemers = try Redeemers.fromDict(redeemersPrimitive)
         }
         
         var plutusV2Script: ListOrNonEmptyOrderedSet<PlutusV2Script>? = nil
         if let plutusV2ScriptPrimitive = orderedDict[.string(CodingKeys.plutusV2Script.stringValue)] {
-            plutusV2Script = try ListOrNonEmptyOrderedSet<PlutusV2Script>(from: plutusV2ScriptPrimitive)
+            plutusV2Script = try ListOrNonEmptyOrderedSet<PlutusV2Script>.fromDict(plutusV2ScriptPrimitive)
         }
         
         var plutusV3Script: ListOrNonEmptyOrderedSet<PlutusV3Script>? = nil
         if let plutusV3ScriptPrimitive = orderedDict[.string(CodingKeys.plutusV3Script.stringValue)] {
-            plutusV3Script = try ListOrNonEmptyOrderedSet<PlutusV3Script>(from: plutusV3ScriptPrimitive)
+            plutusV3Script = try ListOrNonEmptyOrderedSet<PlutusV3Script>.fromDict(plutusV3ScriptPrimitive)
         }
         
         return TransactionWitnessSet(

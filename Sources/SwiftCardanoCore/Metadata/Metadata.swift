@@ -7,12 +7,26 @@ import OrderedCollections
 public typealias TransactionMetadatumLabel = UInt64
 
 // Define an enum for TransactionMetadatum
-public enum TransactionMetadatum: Serializable {
+public enum TransactionMetadatum: Serializable, Hashable, Equatable {
     case map([TransactionMetadatum: TransactionMetadatum])
     case list([TransactionMetadatum])
     case int(Int)
     case bytes(Data)
     case text(String)
+    
+    public var debugDescription: String {
+        switch self {
+            case .int(let i): return "int(\(i))"
+            case .bytes(let data): return "bytes(\(data.base64EncodedString()))"
+            case .text(let str): return "text(\(str))"
+            case .list(let arr): return "list(\(arr.count) items)"
+            case .map(let dict): return "map(\(dict.count) items)"
+        }
+    }
+    
+    public var description: String {
+        return debugDescription
+    }
     
     // MARK: - CBORSerializable
     
@@ -149,7 +163,7 @@ public enum TransactionMetadatum: Serializable {
 }
 
 // MARK: - MetadataType
-public enum MetadataType: Serializable {
+public enum MetadataType: Serializable, Equatable {
     case metadata(Metadata)
     case shelleyMaryMetadata(ShelleyMaryMetadata)
     case alonzoMetadata(AlonzoMetadata)
@@ -208,9 +222,20 @@ public enum MetadataType: Serializable {
     // MARK: - JSONSerializable
     
     public static func fromDict(_ primitive: Primitive) throws -> MetadataType {
+        // Check if it's a wrapped format with type discriminator
+        if case let .orderedDict(dict) = primitive,
+           let metadataValue = dict[.string("metadata")] {
+            return .metadata(try Metadata.fromDict(metadataValue))
+        }
+        
         // Try to detect the type based on structure
         // AlonzoMetadata is a dict with numeric keys
         if case let .dict(dict) = primitive,
+           dict.keys.contains(where: { if case .uint(_) = $0 { return true }; return false }) {
+            return .alonzoMetadata(try AlonzoMetadata.fromDict(primitive))
+        }
+        
+        if case let .orderedDict(dict) = primitive,
            dict.keys.contains(where: { if case .uint(_) = $0 { return true }; return false }) {
             return .alonzoMetadata(try AlonzoMetadata.fromDict(primitive))
         }
@@ -225,13 +250,20 @@ public enum MetadataType: Serializable {
             return .metadata(try Metadata.fromDict(primitive))
         }
         
+        if case .orderedDict(_) = primitive {
+            return .metadata(try Metadata.fromDict(primitive))
+        }
+        
         throw CardanoCoreError.deserializeError("Invalid MetadataType primitive: \(primitive)")
     }
     
     public func toDict() throws -> Primitive {
         switch self {
         case .metadata(let metadata):
-            return try metadata.toDict()
+            // Wrap with "metadata" key for JSON format
+            var wrapper = OrderedDictionary<Primitive, Primitive>()
+            wrapper[.string("metadata")] = try metadata.toDict()
+            return .orderedDict(wrapper)
         case .shelleyMaryMetadata(let shelleyMaryMetadata):
             return try shelleyMaryMetadata.toDict()
         case .alonzoMetadata(let alonzoMetadata):
@@ -242,7 +274,7 @@ public enum MetadataType: Serializable {
 }
 
 // MARK: - Metadata
-public struct Metadata: Serializable {
+public struct Metadata: Serializable, Equatable {
     public typealias KEY_TYPE = TransactionMetadatumLabel
     public typealias VALUE_TYPE = TransactionMetadatum
     
@@ -401,7 +433,7 @@ public struct Metadata: Serializable {
 }
 
 // MARK: - ShelleyMaryMetadata
-public struct ShelleyMaryMetadata: Serializable {
+public struct ShelleyMaryMetadata: Serializable, Equatable {
     public var metadata: Metadata
     public var nativeScripts: [NativeScript]?
     
@@ -471,7 +503,7 @@ public struct ShelleyMaryMetadata: Serializable {
 }
 
 // MARK: - AlonzoMetadata
-public struct AlonzoMetadata: Serializable {
+public struct AlonzoMetadata: Serializable, Equatable {
     public static let TAG: UInt64 = 259
     
     public var metadata: Metadata?
@@ -488,11 +520,11 @@ public struct AlonzoMetadata: Serializable {
         case plutusV3Script = 4
     }
     
-    public init(metadata: Metadata?,
-         nativeScripts: [NativeScript]?,
-         plutusV1Script: [PlutusV1Script]?,
-         plutusV2Script: [PlutusV2Script]?,
-         plutusV3Script: [PlutusV3Script]?
+    public init(metadata: Metadata? = nil,
+         nativeScripts: [NativeScript]? = nil,
+         plutusV1Script: [PlutusV1Script]? = nil,
+         plutusV2Script: [PlutusV2Script]? = nil,
+         plutusV3Script: [PlutusV3Script]? = nil
     ) {
         self.metadata = metadata
         self.nativeScripts = nativeScripts
@@ -703,7 +735,7 @@ public struct AlonzoMetadata: Serializable {
 }
 
 // MARK: - AuxiliaryData
-public struct AuxiliaryData: Serializable {
+public struct AuxiliaryData: Serializable, Equatable {
     public var data: MetadataType
     
     public init(data: MetadataType) {

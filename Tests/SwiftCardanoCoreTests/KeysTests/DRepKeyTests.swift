@@ -92,6 +92,9 @@ import PotentCBOR
         let tempDirURL = FileManager.default.temporaryDirectory
         let tempFileURL = tempDirURL.appendingPathComponent("drep.skey")
         
+        // Remove file if it exists from previous test run
+        try? FileManager.default.removeItem(atPath: tempFileURL.path)
+        
         let sk = try DRepSigningKey.generate()
         try sk.save(to: tempFileURL.path)
         let loadedSK = try DRepSigningKey.load(from: tempFileURL.path)

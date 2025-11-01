@@ -39,8 +39,12 @@ public struct ScriptAll: NativeScriptable {
     // MARK: - JSONSerializable
     
     public static func fromDict(_ dict: Primitive) throws -> ScriptAll {
-        guard case let .orderedDict(dictValue) = dict,
-              case let .list(scripts) = dictValue[.string("scripts")] else {
+        guard case let .orderedDict(dictValue) = dict else {
+            throw CardanoCoreError.decodingError("Invalid ScriptAll dict format")
+        }
+        
+        guard let scriptsPrimitive = dictValue[.string("scripts")],
+              case let .list(scripts) = scriptsPrimitive else {
             throw CardanoCoreError.decodingError("Invalid ScriptAll scripts")
         }
         

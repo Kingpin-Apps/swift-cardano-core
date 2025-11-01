@@ -87,17 +87,15 @@ public enum ListOrOrderedSet<T: Serializable>: Serializable {
     // MARK: - JSONSerializable
     
     public static func fromDict(_ primitive: Primitive) throws -> ListOrOrderedSet<T> {
-        // For JSON, ListOrOrderedSet is represented as a list
         guard case let .list(elements) = primitive else {
             throw CardanoCoreError.deserializeError("Expected list primitive for ListOrOrderedSet")
         }
         
-        let items = try elements.map { try T.init(from: $0) }
+        let items = try elements.map { try T.fromDict($0) }
         return .list(items)
     }
     
     public func toDict() throws -> Primitive {
-        // For JSON, serialize as a list (JSON doesn't have sets)
         let elements = self.asArray
         return .list(try elements.map { try $0.toDict() })
     }
@@ -228,7 +226,7 @@ public enum ListOrNonEmptyOrderedSet<T: Serializable>: Serializable {
             throw CardanoCoreError.deserializeError("Expected list primitive for ListOrNonEmptyOrderedSet")
         }
         
-        let items = try elements.map { try T.init(from: $0) }
+        let items = try elements.map { try T.fromDict($0) }
         return .list(items)
     }
     

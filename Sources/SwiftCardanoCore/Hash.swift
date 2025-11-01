@@ -71,7 +71,14 @@ extension ConstrainedBytes {
         if case let .bytes(primitive) = primitive {
             return try Self.init(payload: primitive)
         } else if case let .string(primitive) = primitive {
-            return try Self.init(payload: primitive.hexStringToData)
+            let hexData = primitive.hexStringToData
+            if hexData.count == Self.maxSize {
+                return try Self.init(payload: hexData)
+            } else if let data = Data(base64Encoded: primitive), data.count == Self.maxSize {
+                return try Self.init(payload: data)
+            } else {
+                throw CardanoCoreError.deserializeError("Invalid \(Self.self) string format: neither valid hex nor base64")
+            }
         } else {
             throw CardanoCoreError.deserializeError("Invalid \(Self.self) type: \(primitive)")
         }
@@ -99,7 +106,7 @@ extension ConstrainedBytes {
 }
 
 /// Hash of a Cardano verification key.
-public struct VerificationKeyHash: ConstrainedBytes {
+public struct VerificationKeyHash: ConstrainedBytes, Hashable, Equatable {
     public var payload: Data
     public static var maxSize: Int { VERIFICATION_KEY_HASH_SIZE }
     public static var minSize: Int { VERIFICATION_KEY_HASH_SIZE }
@@ -110,7 +117,7 @@ public struct VerificationKeyHash: ConstrainedBytes {
 }
 
 /// Hash of a policy/plutus script.
-public struct ScriptHash: ConstrainedBytes {
+public struct ScriptHash: ConstrainedBytes, Hashable, Equatable {
     public var payload: Data
     public static var maxSize: Int { SCRIPT_HASH_SIZE }
     public static var minSize: Int { SCRIPT_HASH_SIZE }

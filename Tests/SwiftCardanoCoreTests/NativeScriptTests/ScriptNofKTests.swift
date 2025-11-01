@@ -74,8 +74,8 @@ import PotentCBOR
             scripts: [.scriptPubkey(scriptPubkey)]
         )
         
-        try script.save(to: tempFileURL.path)
-        let loadedScript = try ScriptNofK.load(from: tempFileURL.path)
+        try script.saveJSON(to: tempFileURL.path)
+        let loadedScript = try ScriptNofK.loadJSON(from: tempFileURL.path)
         #expect(script == loadedScript)
     }
 }

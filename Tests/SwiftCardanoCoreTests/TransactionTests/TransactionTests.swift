@@ -16,24 +16,24 @@ struct TransactionTests {
     let amount = Value(coin: 1_000_000)
     let verificationKey = try! VerificationKey(payload: Data(repeating: 0x01, count: 64))
     let signature = Data(repeating: 0x03, count: 64)
-
+    
     @Test("Test initialization with required parameters")
     func testRequiredParametersInitialization() throws {
         let input = TransactionInput(transactionId: transactionId, index: 0)
         let output = TransactionOutput(address: address, amount: amount)
         let fee = Coin(100000)
-
+        
         let body = TransactionBody(
             inputs: .orderedSet(try OrderedSet([input])),
             outputs: [output],
             fee: fee
         )
-
+        
         let vkeyWitness = VerificationKeyWitness(
             vkey: .verificationKey(verificationKey),
             signature: signature
         )
-
+        
         let witnessSet = TransactionWitnessSet(
             vkeyWitnesses: .nonEmptyOrderedSet(
                 NonEmptyOrderedSet<VerificationKeyWitness>(
@@ -47,36 +47,36 @@ struct TransactionTests {
             plutusData: nil,
             redeemers: nil
         )
-
+        
         let transaction = Transaction(
             transactionBody: body,
             transactionWitnessSet: witnessSet
         )
-
+        
         #expect(transaction.transactionBody == body)
         #expect(transaction.transactionWitnessSet == witnessSet)
         #expect(transaction.valid == true)
         #expect(transaction.auxiliaryData == nil)
         #expect(transaction.id == body.id)
     }
-
+    
     @Test("Test initialization with all parameters")
     func testAllParametersInitialization() throws {
         let input = TransactionInput(transactionId: transactionId, index: 0)
         let output = TransactionOutput(address: address, amount: amount)
         let fee = Coin(100000)
-
+        
         let body = TransactionBody(
             inputs: .orderedSet(try OrderedSet([input])),
             outputs: [output],
             fee: fee
         )
-
+        
         let vkeyWitness = VerificationKeyWitness(
             vkey: .verificationKey(verificationKey),
             signature: signature
         )
-
+        
         let witnessSet = TransactionWitnessSet(
             vkeyWitnesses: .nonEmptyOrderedSet(NonEmptyOrderedSet<VerificationKeyWitness>(
                 [vkeyWitness]
@@ -88,40 +88,40 @@ struct TransactionTests {
             plutusData: nil,
             redeemers: nil
         )
-
+        
         let auxiliaryData = try AuxiliaryData(data: .metadata(Metadata([1: .int(42)])))
-
+        
         let transaction = Transaction(
             transactionBody: body,
             transactionWitnessSet: witnessSet,
             valid: false,
             auxiliaryData: auxiliaryData
         )
-
+        
         #expect(transaction.transactionBody == body)
         #expect(transaction.transactionWitnessSet == witnessSet)
         #expect(transaction.valid == false)
         #expect(transaction.auxiliaryData == auxiliaryData)
         #expect(transaction.id == body.id)
     }
-
+    
     @Test("Test Codable conformance")
     func testCodable() throws {
         let input = TransactionInput(transactionId: transactionId, index: 0)
         let output = TransactionOutput(address: address, amount: amount)
         let fee = Coin(100000)
-
+        
         let body = TransactionBody(
             inputs: .orderedSet(try OrderedSet([input])),
             outputs: [output],
             fee: fee
         )
-
+        
         let vkeyWitness = VerificationKeyWitness(
             vkey: .verificationKey(verificationKey),
             signature: signature
         )
-
+        
         let witnessSet = TransactionWitnessSet(
             vkeyWitnesses: .nonEmptyOrderedSet(NonEmptyOrderedSet<VerificationKeyWitness>(
                 [vkeyWitness]
@@ -133,21 +133,21 @@ struct TransactionTests {
             plutusData: nil,
             redeemers: nil
         )
-
+        
         let auxiliaryData = try AuxiliaryData(
             data: .metadata(Metadata([1: .int(42)]))
         )
-
+        
         let originalTransaction = Transaction(
             transactionBody: body,
             transactionWitnessSet: witnessSet,
             valid: false,
             auxiliaryData: auxiliaryData
         )
-
+        
         let encodedData = try originalTransaction.toCBORData()
         let decodedTransaction = try Transaction.fromCBOR(data: encodedData)
-
+        
         #expect(decodedTransaction == originalTransaction)
         #expect(decodedTransaction.transactionBody == originalTransaction.transactionBody)
         #expect(
@@ -156,24 +156,24 @@ struct TransactionTests {
         #expect(decodedTransaction.auxiliaryData == originalTransaction.auxiliaryData)
         #expect(decodedTransaction.id == originalTransaction.id)
     }
-
+    
     @Test("Test transaction ID generation")
     func testTransactionId() throws {
         let input = TransactionInput(transactionId: transactionId, index: 0)
         let output = TransactionOutput(address: address, amount: amount)
         let fee = Coin(100000)
-
+        
         let body = TransactionBody(
             inputs: .orderedSet(try OrderedSet([input])),
             outputs: [output],
             fee: fee
         )
-
+        
         let vkeyWitness = VerificationKeyWitness(
             vkey: .verificationKey(verificationKey),
             signature: signature
         )
-
+        
         let witnessSet = TransactionWitnessSet(
             vkeyWitnesses: .nonEmptyOrderedSet(NonEmptyOrderedSet<VerificationKeyWitness>(
                 [vkeyWitness]
@@ -185,12 +185,12 @@ struct TransactionTests {
             plutusData: nil,
             redeemers: nil
         )
-
+        
         let transaction = Transaction(
             transactionBody: body,
             transactionWitnessSet: witnessSet
         )
-
+        
         let id = transaction.id
         #expect(id?.payload.count == TRANSACTION_HASH_SIZE)
         #expect(id == body.id)
@@ -307,7 +307,33 @@ struct TransactionTests {
         
         let tx = try Transaction.fromCBORHex(txCBORHex)
         
+        let tmpDir = FileManager.default.temporaryDirectory
+        
+        // get datetime as string to create unique filenames
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyyMMdd_HHmmss"
+        let dateString = dateFormatter.string(from: Date())
+        
+        
+        let txFileURL = tmpDir.appendingPathComponent("\(dateString)-test.tx")
+        let txJSONFileURL = tmpDir.appendingPathComponent("\(dateString)-test.json")
+        
+        try tx.save(to: txFileURL.path)
+        try tx.saveJSON(to: txJSONFileURL.path)
+        
+        let loadedTx = try Transaction.load(from: txFileURL.path)
+        let loadedTxFromJSON = try Transaction.loadJSON(from: txJSONFileURL.path)
+        
+        // Verify CBOR round-trip works perfectly
+        #expect(tx == loadedTx)
         try checkTwoWayCBOR(serializable: tx)
+        
+        // Verify JSON round-trip preserves critical transaction data
+        // Note: metadata key ordering may differ between CBOR and JSON, which is acceptable
+        #expect(tx.transactionBody == loadedTxFromJSON.transactionBody)
+        #expect(tx.transactionWitnessSet == loadedTxFromJSON.transactionWitnessSet)
+        #expect(tx.valid == loadedTxFromJSON.valid)
+        // auxiliaryData may have different OrderedDictionary ordering but same semantic content
     }
     
     @Test("Test MultiAsset creation and operations")

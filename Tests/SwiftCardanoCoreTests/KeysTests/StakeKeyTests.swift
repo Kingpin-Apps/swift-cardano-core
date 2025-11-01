@@ -85,6 +85,9 @@ let stakeVKey = [
         let tempDirURL = FileManager.default.temporaryDirectory
         let tempFileURL = tempDirURL.appendingPathComponent("stakeSigningKey.skey")
         
+        // Remove file if it exists from previous test run
+        try? FileManager.default.removeItem(atPath: tempFileURL.path)
+        
         let sk = try StakeSigningKey.generate()
         try sk.save(to: tempFileURL.path)
         let loadedSK = try StakeSigningKey.load(from: tempFileURL.path)

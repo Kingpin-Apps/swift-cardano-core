@@ -10,7 +10,7 @@ var poolMetadataJSON: PoolMetadata? {
             ofType: poolMetadataJSONFilePath.ofType,
             inDirectory: poolMetadataJSONFilePath.inDirectory
         )
-        return try PoolMetadata.load(from: filePath!)
+        return try PoolMetadata.loadJSON(from: filePath!)
     } catch {
         return nil
     }

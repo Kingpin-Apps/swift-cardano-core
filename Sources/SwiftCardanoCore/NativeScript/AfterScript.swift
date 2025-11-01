@@ -38,9 +38,22 @@ public struct AfterScript: NativeScriptable {
     // MARK: - JSONSerializable
     
     public static func fromDict(_ dict: Primitive) throws -> AfterScript {
-        guard case let .orderedDict(dictValue) = dict,
-              case let .int(slot) = dictValue[.string("slot")] else {
-            throw CardanoCoreError.decodingError("Invalid AfterScript slot: \(dict)")
+        guard case let .orderedDict(dictValue) = dict else {
+            throw CardanoCoreError.decodingError("Invalid AfterScript dict format")
+        }
+        
+        guard let slotPrimitive = dictValue[.string("slot")] else {
+            throw CardanoCoreError.decodingError("Missing slot in AfterScript")
+        }
+        
+        let slot: Int
+        switch slotPrimitive {
+        case .int(let intValue):
+            slot = intValue
+        case .uint(let uintValue):
+            slot = Int(uintValue)
+        default:
+            throw CardanoCoreError.decodingError("Invalid AfterScript slot type: \(slotPrimitive)")
         }
         
         return AfterScript(slot: Int(slot))

@@ -77,9 +77,13 @@ public enum NativeScript: Serializable {
     // MARK: - JSONSerializable
     
     public static func fromDict(_ dict: Primitive) throws -> NativeScript {
-        guard case let .orderedDict(dictValue) = dict,
-              case let .string(type) = dictValue[.string("type")] else {
-            throw CardanoCoreError.decodingError("Missing type for NativeScript")
+        guard case let .orderedDict(dictValue) = dict else {
+            throw CardanoCoreError.decodingError("Invalid NativeScript dict format")
+        }
+        
+        guard let typePrimitive = dictValue[.string("type")],
+              case let .string(type) = typePrimitive else {
+            throw CardanoCoreError.decodingError("Missing or invalid type for NativeScript")
         }
         
         switch type {
@@ -94,26 +98,20 @@ public enum NativeScript: Serializable {
     }
     
     public func toDict() throws -> Primitive {
-        var dict: OrderedDictionary<Primitive, Primitive> = [:]
         switch self {
             case .scriptPubkey(let script):
-                guard case let .orderedDict(scriptDict) = try script.toDict() else {
-                    throw CardanoCoreError.decodingError("Expected orderedDict from script.toDict()")
-                }
-                dict[.string("type")] = .string("sig")
-                dict.merge(scriptDict, uniquingKeysWith: { lhs, _ in lhs })
-            case .scriptAll(_):
-                dict[.string("type")] = .string("all")
-            case .scriptAny(_):
-                dict[.string("type")] = .string("any")
-            case .scriptNofK(_):
-                dict[.string("type")] = .string("atLeast")
-            case .invalidBefore(_):
-                dict[.string("type")] = .string("before")
-            case .invalidHereAfter(_):
-                dict[.string("type")] = .string("after")
+                return try script.toDict()
+            case .scriptAll(let script):
+                return try script.toDict()
+            case .scriptAny(let script):
+                return try script.toDict()
+            case .scriptNofK(let script):
+                return try script.toDict()
+            case .invalidBefore(let script):
+                return try script.toDict()
+            case .invalidHereAfter(let script):
+                return try script.toDict()
         }
-        return .orderedDict(dict)
     }
 
 }

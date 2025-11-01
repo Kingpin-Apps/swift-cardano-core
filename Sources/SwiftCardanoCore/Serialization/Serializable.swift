@@ -2,8 +2,8 @@ import Foundation
 
 public protocol Serializable: CBORSerializable, JSONSerializable, Sendable  {}
 
-extension Serializable {
-    public init(from decoder: Decoder) throws {
+public extension Serializable {
+    init(from decoder: Decoder) throws {
         if String(describing: type(of: decoder)).contains("JSONDecoder") {
             let container = try decoder.singleValueContainer()
             let json = try container.decode(String.self)
@@ -16,7 +16,7 @@ extension Serializable {
     }
     
     
-    public func encode(to encoder: Encoder) throws {
+    func encode(to encoder: Encoder) throws {
         if String(describing: type(of: encoder)).contains("JSONEncoder") {
             var container = encoder.singleValueContainer()
             let json = try self.toJSON()
@@ -29,7 +29,7 @@ extension Serializable {
     
     /// Save the JSON representation to a file.
     /// - Parameter path: The file path.
-    func save(to path: String) throws {
+    func saveJSON(to path: String) throws {
         if FileManager.default.fileExists(atPath: path) {
             throw CardanoCoreError.ioError("File already exists: \(path)")
         }
@@ -42,7 +42,7 @@ extension Serializable {
     /// Load the object from a JSON file.
     /// - Parameter path: The file path
     /// - Returns: The object restored from the JSON file.
-    static func load(from path: String) throws -> Self {
+    static func loadJSON(from path: String) throws -> Self {
         let jsonString = try String(contentsOfFile: path, encoding: .utf8)
         return try fromJSON(jsonString)
     }

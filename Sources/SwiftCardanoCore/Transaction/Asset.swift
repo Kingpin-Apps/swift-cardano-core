@@ -4,7 +4,7 @@ import PotentCodables
 import OrderedCollections
 
 
-public struct AssetName: ConstrainedBytes, Sendable {
+public struct AssetName: ConstrainedBytes, Hashable, Equatable, Sendable {
     public var payload: Data
     public static var maxSize: Int { 32 }
     public static var minSize: Int { 0 }

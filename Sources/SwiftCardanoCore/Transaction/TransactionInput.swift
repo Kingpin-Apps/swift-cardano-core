@@ -55,16 +55,32 @@ public struct TransactionInput: Serializable {
     // MARK: - JSONSerializable
     
     public static func fromDict(_ dict: Primitive) throws -> TransactionInput {
-        guard case let .orderedDict(dictValue) = dict,
-              case let .string(txIdData)? = dictValue[.string("transactionId")],
-              case let .int(indexValue)? = dictValue[.string("index")] else {
+        guard case let .orderedDict(dictValue) = dict else {
             throw CardanoCoreError.deserializeError("Invalid TransactionInput dictionary")
         }
         
-        let transactionId = try TransactionId(from: .string(txIdData))
-        let index = UInt16(indexValue)
+        guard let txIdPrimitive = dictValue[.string("transactionId")],
+              case let .string(txIdData) = txIdPrimitive else {
+            throw CardanoCoreError.deserializeError("Missing or invalid transactionId in TransactionInput")
+        }
         
-        return TransactionInput(transactionId: transactionId, index: index)
+        guard let indexPrimitive = dictValue[.string("index")] else {
+            throw CardanoCoreError.deserializeError("Missing index in TransactionInput")
+        }
+        
+        let indexValue: UInt16
+        switch indexPrimitive {
+        case let .uint(uintValue):
+            indexValue = UInt16(uintValue)
+        case let .int(intValue):
+            indexValue = UInt16(intValue)
+        default:
+            throw CardanoCoreError.deserializeError("Invalid index type in TransactionInput")
+        }
+        
+        let transactionId = try TransactionId.fromDict(.string(txIdData))
+        
+        return TransactionInput(transactionId: transactionId, index: indexValue)
     }
     
     public func toDict() throws -> Primitive {

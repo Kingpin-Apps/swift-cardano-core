@@ -53,18 +53,36 @@ public struct ShelleyTransactionOutput: Serializable {
             throw CardanoCoreError.deserializeError("Invalid TransactionOutputLegacy JSON format: missing address")
         }
         
-        // Handle both int and uint for amount
-        let amountValue: Int
-        if case let .int(amountInt) = orderedDict[.string("amount")] {
-            amountValue = amountInt
-        } else if case let .uint(amountUInt) = orderedDict[.string("amount")] {
-            amountValue = Int(amountUInt)
+        // Handle amount: can be a simple int/uint (coin only) or a Value object (coin + multiAsset)
+        let amount: Value
+        if let amountPrimitive = orderedDict[.string("amount")] {
+            switch amountPrimitive {
+            case .int(let amountInt):
+                // Simple coin-only value
+                amount = Value(coin: amountInt)
+            case .uint(let amountUInt):
+                // Simple coin-only value
+                amount = Value(coin: Int(amountUInt))
+            case .orderedDict(let amountDict):
+                // Complex Value with multiAsset - deserialize from {coin, multiAsset} format
+                guard case let .int(coinValue) = amountDict[.string("coin")] else {
+                    throw CardanoCoreError.deserializeError("Invalid Value format: missing coin")
+                }
+                let multiAsset: MultiAsset
+                if let multiAssetPrimitive = amountDict[.string("multiAsset")] {
+                    multiAsset = try MultiAsset.fromDict(multiAssetPrimitive)
+                } else {
+                    multiAsset = MultiAsset([:])
+                }
+                amount = Value(coin: coinValue, multiAsset: multiAsset)
+            default:
+                throw CardanoCoreError.deserializeError("Invalid TransactionOutputLegacy JSON format: invalid amount type")
+            }
         } else {
-            throw CardanoCoreError.deserializeError("Invalid TransactionOutputLegacy JSON format: invalid amount")
+            throw CardanoCoreError.deserializeError("Invalid TransactionOutputLegacy JSON format: missing amount")
         }
         
         let address = try Address(from: .string(addressStr))
-        let amount = Value(coin: amountValue)
         
         var datumHash: DatumHash? = nil
         if case let .string(datumHashStr) = orderedDict[.string("datumHash")] {
@@ -85,9 +103,21 @@ public struct ShelleyTransactionOutput: Serializable {
     
     public func toDict() throws -> Primitive {
         var dict: OrderedDictionary<Primitive, Primitive> = [
-            .string("address"): .string(try address.toBech32()),
-            .string("amount"): .uint(UInt(amount.coin))
+            .string("address"): .string(try address.toBech32())
         ]
+        
+        // Serialize the full Value (including multiAsset if present)
+        // to avoid data loss during JSON round-tripping
+        if amount.multiAsset.isEmpty {
+            // Simple case: just coin
+            dict[.string("amount")] = .uint(UInt(amount.coin))
+        } else {
+            // Complex case: coin + multiAsset - serialize as array [coin, multiAsset]
+            var amountDict = OrderedDictionary<Primitive, Primitive>()
+            amountDict[.string("coin")] = .int(amount.coin)
+            amountDict[.string("multiAsset")] = try amount.multiAsset.toDict()
+            dict[.string("amount")] = .orderedDict(amountDict)
+        }
         
         if let datumHash = datumHash {
             dict[.string("datumHash")] = .string(datumHash.payload.base64EncodedString())

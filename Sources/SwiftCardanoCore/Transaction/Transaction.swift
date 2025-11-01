@@ -10,9 +10,9 @@ public struct Transaction: Serializable, TextEnvelopable {
     public var _type: String
     public var _description: String
     
-    public var type: String { get { return _type } }
-    public var description: String { get { return _description } }
-    public var payload: Data { get { return _payload } }
+    public var description: String {
+        self.debugDescription
+    }
     
     public var transactionBody: TransactionBody
     public var transactionWitnessSet: TransactionWitnessSet
@@ -77,7 +77,7 @@ public struct Transaction: Serializable, TextEnvelopable {
     
     public init(from primitive: Primitive) throws {
         guard case let .list(elements) = primitive else {
-            throw CardanoCoreError.deserializeError("Invalid Transaction primitive")
+            throw CardanoCoreError.deserializeError("Invalid Transaction primitive: \(primitive)")
         }
         
         guard elements.count >= 3 else {
@@ -133,16 +133,27 @@ public struct Transaction: Serializable, TextEnvelopable {
         guard let transactionBodyPrimitive = dictValue[.string(CodingKeys.transactionBody.rawValue)] else {
             throw CardanoCoreError.deserializeError("Missing transactionBody in Transaction")
         }
-        let transactionBody = try TransactionBody(from: transactionBodyPrimitive)
+        let transactionBody = try TransactionBody.fromDict(transactionBodyPrimitive)
         
         guard let transactionWitnessSetPrimitive = dictValue[.string(CodingKeys.transactionWitnessSet.rawValue)] else {
             throw CardanoCoreError.deserializeError("Missing transactionWitnessSet in Transaction")
         }
-        let transactionWitnessSet = try TransactionWitnessSet(from: transactionWitnessSetPrimitive)
+        let transactionWitnessSet = try TransactionWitnessSet.fromDict(transactionWitnessSetPrimitive)
         
-        guard let validPrimitive = dictValue[.string(CodingKeys.valid.rawValue)],
-              case let .bool(valid) = validPrimitive else {
-            throw CardanoCoreError.deserializeError("Missing or invalid valid field in Transaction")
+        guard let validPrimitive = dictValue[.string(CodingKeys.valid.rawValue)] else {
+            throw CardanoCoreError.deserializeError("Missing valid field in Transaction")
+        }
+        
+        let valid: Bool
+        switch validPrimitive {
+        case .bool(let boolValue):
+            valid = boolValue
+        case .int(let intValue):
+            valid = intValue != 0
+        case .uint(let uintValue):
+            valid = uintValue != 0
+        default:
+            throw CardanoCoreError.deserializeError("Invalid valid field type in Transaction: \(validPrimitive)")
         }
         
         // Optional field
@@ -151,7 +162,7 @@ public struct Transaction: Serializable, TextEnvelopable {
             if case .null = auxiliaryDataPrimitive {
                 auxiliaryData = nil
             } else {
-                auxiliaryData = try AuxiliaryData(from: auxiliaryDataPrimitive)
+                auxiliaryData = try AuxiliaryData.fromDict(auxiliaryDataPrimitive)
             }
         }
         

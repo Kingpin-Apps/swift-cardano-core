@@ -45,13 +45,18 @@ public struct ScriptNofK: NativeScriptable {
     // MARK: - JSONSerializable
     
     public static func fromDict(_ dict: Primitive) throws -> ScriptNofK {
-        guard case let .orderedDict(dictValue) = dict,
-              case let .int(required) = dictValue[.string("required")] else {
+        guard case let .orderedDict(dictValue) = dict else {
+            throw CardanoCoreError.decodingError("Invalid ScriptNofK dict format")
+        }
+        
+        guard let requiredPrimitive = dictValue[.string("required")],
+              case let .int(required) = requiredPrimitive else {
             throw CardanoCoreError.decodingError("Invalid required value")
         }
         
-        guard case let .list(scripts) = dictValue[.string("scripts")] else {
-            throw CardanoCoreError.decodingError("Invalid ScriptAll scripts")
+        guard let scriptsPrimitive = dictValue[.string("scripts")],
+              case let .list(scripts) = scriptsPrimitive else {
+            throw CardanoCoreError.decodingError("Invalid ScriptNofK scripts")
         }
         
         let nativeScripts = try scripts.map {

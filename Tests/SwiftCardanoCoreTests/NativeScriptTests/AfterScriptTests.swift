@@ -57,8 +57,8 @@ import PotentCBOR
         
         let script = AfterScript(slot: slot)
         
-        try script.save(to: tempFileURL.path)
-        let loadedScript = try AfterScript.load(from: tempFileURL.path)
+        try script.saveJSON(to: tempFileURL.path)
+        let loadedScript = try AfterScript.loadJSON(from: tempFileURL.path)
         #expect(script == loadedScript)
     }
 }

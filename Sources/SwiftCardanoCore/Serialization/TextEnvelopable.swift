@@ -9,12 +9,11 @@ public extension TextEnvelopable {
     /// The json output has three fields: "type", "description", and "cborHex".
     /// - Returns: TextEnvelople JSON representation
     func toTextEnvelope() throws -> String? {
-        let cborData = try CBOREncoder().encode(payload)
         let jsonString = """
         {
-            "type": "\(type)",
-            "description": "\(description)",
-            "cborHex": "\(cborData.toHex)"
+            "type": "\(_type)",
+            "description": "\(_description)",
+            "cborHex": "\(_payload.toHex)"
         }
         """
         return jsonString
@@ -31,7 +30,6 @@ public extension TextEnvelopable {
             throw CardanoCoreError.valueError("Invalid JSON")
         }
         
-        //        return try Self.fromDict(dict, validateType: validateType)
         guard let type = dict["type"],
               let description = dict["description"],
               let cborHex = dict["cborHex"] else {
