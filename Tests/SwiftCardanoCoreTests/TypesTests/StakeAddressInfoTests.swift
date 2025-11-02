@@ -21,6 +21,8 @@ struct StakeAddressInfoTests {
         let govActionDeposits = ["action1": UInt64(1000)]
         
         let info = StakeAddressInfo(
+            active: true,
+            activeEpoch: 100,
             address: "stake_test1234567890abcdef",
             govActionDeposits: govActionDeposits,
             rewardAccountBalance: 5000000,
@@ -29,6 +31,8 @@ struct StakeAddressInfoTests {
             voteDelegation: nil
         )
         
+        #expect(info.active == true)
+        #expect(info.activeEpoch == 100)
         #expect(info.address == "stake_test1234567890abcdef")
         #expect(info.govActionDeposits == govActionDeposits)
         #expect(info.rewardAccountBalance == 5000000)
@@ -239,6 +243,8 @@ struct StakeAddressInfoTests {
     @Test func testEncoding() throws {
         // Create an instance to encode
         let info = StakeAddressInfo(
+            active: true,
+            activeEpoch: 100,
             address: sampleAddress,
             govActionDeposits: sampleGovActionDeposits,
             rewardAccountBalance: sampleRewardBalance,

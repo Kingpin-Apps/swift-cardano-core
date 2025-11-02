@@ -3,6 +3,12 @@ import Foundation
 /// Stake address info model class
 public struct StakeAddressInfo: Codable, Equatable, Sendable {
     
+    /// Field indicating if the stake address is active
+    public let active: Bool?
+    
+    /// The epoch in which the stake address became active
+    public let activeEpoch: Int?
+    
     /// Stake address
     public let address: String
     
@@ -23,6 +29,8 @@ public struct StakeAddressInfo: Codable, Equatable, Sendable {
     
     /// Custom coding keys to map multiple alias names from JSON
     private enum CodingKeys: String, CodingKey {
+        case active
+        case activeEpoch
         case address
         case govActionDeposits
         case rewardAccountBalance
@@ -32,6 +40,8 @@ public struct StakeAddressInfo: Codable, Equatable, Sendable {
     }
     
     public init(
+        active: Bool = true,
+        activeEpoch: Int? = nil,
         address: String,
         govActionDeposits: [String:UInt64]? = nil,
         rewardAccountBalance: Int,
@@ -39,6 +49,8 @@ public struct StakeAddressInfo: Codable, Equatable, Sendable {
         stakeRegistrationDeposit: Int? = nil,
         voteDelegation: DRep? = nil
     ) {
+        self.active = active
+        self.activeEpoch = activeEpoch
         self.address = address
         self.govActionDeposits = govActionDeposits
         self.rewardAccountBalance = rewardAccountBalance
@@ -50,6 +62,12 @@ public struct StakeAddressInfo: Codable, Equatable, Sendable {
     /// Decoding with multiple alias support
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        self.active = try container
+            .decodeIfPresent(Bool.self, forKey: .active)
+        
+        self.activeEpoch = try container
+            .decodeIfPresent(Int.self, forKey: .activeEpoch)
         
         self.address = try container
             .decodeIfPresent(String.self, forKey: .address)!
@@ -68,6 +86,8 @@ public struct StakeAddressInfo: Codable, Equatable, Sendable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         
+        try container.encodeIfPresent(active, forKey: .active)
+        try container.encodeIfPresent(activeEpoch, forKey: .activeEpoch)
         try container.encodeIfPresent(address, forKey: .address)
         try container.encode(govActionDeposits, forKey: .govActionDeposits)
         try container.encode(stakeRegistrationDeposit, forKey: .stakeRegistrationDeposit)
