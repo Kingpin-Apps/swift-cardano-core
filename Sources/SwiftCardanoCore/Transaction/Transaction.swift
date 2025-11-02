@@ -206,6 +206,8 @@ public struct Transaction: Serializable, TextEnvelopable {
         return jsonString
     }
     
+    // MARK: - Equatable
+    
     public static func == (lhs: Self, rhs: Self) -> Bool {
         return lhs.transactionBody == rhs.transactionBody &&
         lhs.transactionWitnessSet == rhs.transactionWitnessSet &&

@@ -168,6 +168,35 @@ public enum MetadataType: Serializable, Equatable {
     case shelleyMaryMetadata(ShelleyMaryMetadata)
     case alonzoMetadata(AlonzoMetadata)
     
+    // Custom Equatable to handle semantic comparison
+    public static func == (lhs: MetadataType, rhs: MetadataType) -> Bool {
+        switch (lhs, rhs) {
+        case (.metadata(let lhsData), .metadata(let rhsData)):
+            return lhsData == rhsData
+        case (.shelleyMaryMetadata(let lhsData), .shelleyMaryMetadata(let rhsData)):
+            return lhsData == rhsData
+        case (.alonzoMetadata(let lhsData), .alonzoMetadata(let rhsData)):
+            return lhsData == rhsData
+        // Handle cross-variant comparison: plain Metadata vs AlonzoMetadata with only metadata
+        case (.metadata(let plainMetadata), .alonzoMetadata(let alonzoMetadata)):
+            // AlonzoMetadata with only metadata field set is semantically equivalent to plain Metadata
+            return alonzoMetadata.nativeScripts == nil &&
+                   alonzoMetadata.plutusV1Script == nil &&
+                   alonzoMetadata.plutusV2Script == nil &&
+                   alonzoMetadata.plutusV3Script == nil &&
+                   alonzoMetadata.metadata == plainMetadata
+        case (.alonzoMetadata(let alonzoMetadata), .metadata(let plainMetadata)):
+            // Symmetric case
+            return alonzoMetadata.nativeScripts == nil &&
+                   alonzoMetadata.plutusV1Script == nil &&
+                   alonzoMetadata.plutusV2Script == nil &&
+                   alonzoMetadata.plutusV3Script == nil &&
+                   alonzoMetadata.metadata == plainMetadata
+        default:
+            return false
+        }
+    }
+    
     // MARK: - CBORSerializable
     
     public init(from primitive: Primitive) throws {
@@ -225,7 +254,15 @@ public enum MetadataType: Serializable, Equatable {
         // Check if it's a wrapped format with type discriminator
         if case let .orderedDict(dict) = primitive,
            let metadataValue = dict[.string("metadata")] {
-            return .metadata(try Metadata.fromDict(metadataValue))
+            // The wrapper just contains plain Metadata, but we need to check if there are other fields
+            // that would indicate this is actually AlonzoMetadata
+            if dict.count == 1 {
+                // Only "metadata" key, so it's plain Metadata
+                return .metadata(try Metadata.fromDict(metadataValue))
+            } else {
+                // Has other fields, could be AlonzoMetadata
+                return .alonzoMetadata(try AlonzoMetadata.fromDict(primitive))
+            }
         }
         
         // Try to detect the type based on structure
@@ -289,6 +326,11 @@ public struct Metadata: Serializable, Equatable {
         }
     }
     private var _data: [KEY_TYPE: VALUE_TYPE] = [:]
+    
+    // Custom Equatable to handle dictionary comparison regardless of internal ordering
+    public static func == (lhs: Metadata, rhs: Metadata) -> Bool {
+        return lhs.data == rhs.data
+    }
     
     public subscript(key: KEY_TYPE) -> VALUE_TYPE? {
         get {
@@ -740,6 +782,11 @@ public struct AuxiliaryData: Serializable, Equatable {
     
     public init(data: MetadataType) {
         self.data = data
+    }
+    
+    // Custom Equatable to handle semantic comparison
+    public static func == (lhs: AuxiliaryData, rhs: AuxiliaryData) -> Bool {
+        return lhs.data == rhs.data
     }
     
     /// Compute a blake2b hash from the key

@@ -297,6 +297,23 @@ struct TransactionTests {
         let expectedCBORHex = "a50081825820732bfd67e66be8e8288349fcaaa2294973ef6271cc189a239bb431275401b8e500018282581d60f6532850e1bccee9c72a9113ad98bcc5dbb30d2ac960262444f6e5f41b000000174876e80082581d60f6532850e1bccee9c72a9113ad98bcc5dbb30d2ac960262444f6e5f41b000000ba43b4b7f7021a000288090d800e80"
         let actualCBORHex = try txBody.toCBORHex()
         
+        let tmpDir = FileManager.default.temporaryDirectory
+        
+        // get datetime as string to create unique filenames
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyyMMdd_HHmmss"
+        let dateString = dateFormatter.string(from: Date())
+        
+        let txBodyFileURL = tmpDir.appendingPathComponent("\(dateString)-test.txbody")
+        let txbodyJSONFileURL = tmpDir.appendingPathComponent("\(dateString)-test.txbody.json")
+        
+        try txBody.save(to: txBodyFileURL.path)
+        try txBody.saveJSON(to: txbodyJSONFileURL.path)
+        
+        let loadedTxBody = try TransactionBody.load(from: txBodyFileURL.path)
+        let loadedTxBodyFromJSON = try TransactionBody.loadJSON(from: txbodyJSONFileURL.path)
+        
+        #expect(loadedTxBody == loadedTxBodyFromJSON)
         #expect(actualCBORHex == expectedCBORHex)
         try checkTwoWayCBOR(serializable: txBody)
     }
@@ -316,7 +333,7 @@ struct TransactionTests {
         
         
         let txFileURL = tmpDir.appendingPathComponent("\(dateString)-test.tx")
-        let txJSONFileURL = tmpDir.appendingPathComponent("\(dateString)-test.json")
+        let txJSONFileURL = tmpDir.appendingPathComponent("\(dateString)-test.tx.json")
         
         try tx.save(to: txFileURL.path)
         try tx.saveJSON(to: txJSONFileURL.path)
@@ -326,6 +343,7 @@ struct TransactionTests {
         
         // Verify CBOR round-trip works perfectly
         #expect(tx == loadedTx)
+        #expect(loadedTxFromJSON == loadedTx)
         try checkTwoWayCBOR(serializable: tx)
         
         // Verify JSON round-trip preserves critical transaction data
