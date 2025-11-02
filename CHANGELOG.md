@@ -1,3 +1,9 @@
+## 0.2.19 (2025-11-02)
+
+### Fix
+
+- add active and active epoch
+
 ## 0.2.18 (2025-11-02)
 
 ### Fix
