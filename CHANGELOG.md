@@ -1,3 +1,9 @@
+## 0.2.18 (2025-11-02)
+
+### Fix
+
+- add TextEnvelopable to TXBody
+
 ## 0.2.17 (2025-11-01)
 
 ### Fix
