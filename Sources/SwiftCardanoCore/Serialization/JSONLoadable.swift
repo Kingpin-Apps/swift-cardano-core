@@ -10,7 +10,7 @@ public extension JSONLoadable {
     ///  - overwrite: Whether to overwrite the file if it already exists
     /// - Throws: An error if the file already exists and overwrite is false
     func save(to path: String, overwrite: Bool = false) throws {
-        if overwrite, FileManager.default.fileExists(atPath: path) {
+        if !overwrite, FileManager.default.fileExists(atPath: path) {
             throw CardanoCoreError.ioError("File already exists: \(path)")
         }
         
