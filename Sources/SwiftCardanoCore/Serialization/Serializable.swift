@@ -28,9 +28,12 @@ public extension Serializable {
     }
     
     /// Save the JSON representation to a file.
-    /// - Parameter path: The file path.
-    func saveJSON(to path: String) throws {
-        if FileManager.default.fileExists(atPath: path) {
+    /// - Parameters:
+    ///  - path: The path to save the file
+    ///  - overwrite: Whether to overwrite the file if it already exists.
+    /// - Throws: `CardanoCoreError.ioError` when the file already exists and overwrite is false.  
+    func saveJSON(to path: String, overwrite: Bool = false) throws {
+        if !overwrite, FileManager.default.fileExists(atPath: path) {
             throw CardanoCoreError.ioError("File already exists: \(path)")
         }
         

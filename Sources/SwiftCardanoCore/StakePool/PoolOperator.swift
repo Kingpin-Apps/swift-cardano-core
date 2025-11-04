@@ -115,8 +115,14 @@ public struct PoolOperator: CBORSerializable, CustomStringConvertible, CustomDeb
     /// - Parameters:
     ///  - path: The path to save the file
     ///  - format: The credential format (bech32 or hex)
-    public func save(to path: String, format: CredentialFormat) throws {
-        if FileManager.default.fileExists(atPath: path) {
+    ///  - overwrite: Whether to overwrite the file if it already exists.
+    /// - Throws: `CardanoCoreError.ioError` when the file already exists and overwrite is false.  
+    public func save(
+        to path: String,
+        format: CredentialFormat,
+        overwrite: Bool = false
+    ) throws {
+        if !overwrite, FileManager.default.fileExists(atPath: path) {
             throw CardanoCoreError.ioError("File already exists: \(path)")
         }
         
