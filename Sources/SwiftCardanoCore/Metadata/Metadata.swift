@@ -8,7 +8,7 @@ public typealias TransactionMetadatumLabel = UInt64
 
 // Define an enum for TransactionMetadatum
 public enum TransactionMetadatum: Serializable, Hashable, Equatable {
-    case map([TransactionMetadatum: TransactionMetadatum])
+    case map(OrderedDictionary<TransactionMetadatum, TransactionMetadatum>)
     case list([TransactionMetadatum])
     case int(Int)
     case bytes(Data)
@@ -46,7 +46,7 @@ public enum TransactionMetadatum: Serializable, Hashable, Equatable {
                 let list = try array.map { try TransactionMetadatum(from: $0) }
                 self = .list(list)
             case .dict(let dict):
-                var map = [TransactionMetadatum: TransactionMetadatum]()
+                var map = OrderedDictionary<TransactionMetadatum, TransactionMetadatum>()
                 for (key, value) in dict {
                     let keyMeta = try TransactionMetadatum(from: key)
                     let valueMeta = try TransactionMetadatum(from: value)
@@ -54,7 +54,7 @@ public enum TransactionMetadatum: Serializable, Hashable, Equatable {
                 }
                 self = .map(map)
             case .orderedDict(let dict):
-                var map = [TransactionMetadatum: TransactionMetadatum]()
+                var map = OrderedDictionary<TransactionMetadatum, TransactionMetadatum>()
                 for (key, value) in dict {
                     let keyMeta = try TransactionMetadatum(from: key)
                     let valueMeta = try TransactionMetadatum(from: value)
@@ -78,13 +78,13 @@ public enum TransactionMetadatum: Serializable, Hashable, Equatable {
                 let list = try array.map { try $0.toPrimitive() }
                 return .list(list)
             case .map(let dict):
-                var map = [Primitive: Primitive]()
+                var map = OrderedDictionary<Primitive, Primitive>()
                 for (key, value) in dict {
                     let keyPrim = try key.toPrimitive()
                     let valuePrim = try value.toPrimitive()
                     map[keyPrim] = valuePrim
                 }
-                return .dict(map)
+                return .orderedDict(map)
         }
     }
     
@@ -106,15 +106,21 @@ public enum TransactionMetadatum: Serializable, Hashable, Equatable {
                 let list = try array.map { try TransactionMetadatum.fromDict($0) }
                 return .list(list)
             case .dict(let dict):
-                var map = [TransactionMetadatum: TransactionMetadatum]()
-                for (key, value) in dict {
+                // Convert to OrderedDictionary maintaining deterministic order
+                // Sort keys to ensure consistent ordering across serialization/deserialization
+                let sortedKeys = dict.keys.sorted { lhs, rhs in
+                    // Sort primitives by their string representation for deterministic ordering
+                    String(describing: lhs) < String(describing: rhs)
+                }
+                var map = OrderedDictionary<TransactionMetadatum, TransactionMetadatum>()
+                for key in sortedKeys {
                     let keyMeta = try TransactionMetadatum.fromDict(key)
-                    let valueMeta = try TransactionMetadatum.fromDict(value)
+                    let valueMeta = try TransactionMetadatum.fromDict(dict[key]!)
                     map[keyMeta] = valueMeta
                 }
                 return .map(map)
             case .orderedDict(let dict):
-                var map = [TransactionMetadatum: TransactionMetadatum]()
+                var map = OrderedDictionary<TransactionMetadatum, TransactionMetadatum>()
                 for (key, value) in dict {
                     let keyMeta = try TransactionMetadatum.fromDict(key)
                     let valueMeta = try TransactionMetadatum.fromDict(value)
@@ -239,12 +245,12 @@ public enum MetadataType: Serializable, Equatable {
 
     public func toPrimitive() throws -> Primitive {
         switch self {
-        case .metadata(let metadata):
-            return try metadata.toPrimitive()
-        case .shelleyMaryMetadata(let shelleyMaryMetadata):
-            return try shelleyMaryMetadata.toPrimitive()
-        case .alonzoMetadata(let alonzoMetadata):
-            return try alonzoMetadata.toPrimitive()
+            case .metadata(let metadata):
+                return try metadata.toPrimitive()
+            case .shelleyMaryMetadata(let shelleyMaryMetadata):
+                return try shelleyMaryMetadata.toPrimitive()
+            case .alonzoMetadata(let alonzoMetadata):
+                return try alonzoMetadata.toPrimitive()
         }
     }
 
@@ -397,11 +403,11 @@ public struct Metadata: Serializable, Equatable {
     }
 
     public func toPrimitive() throws -> Primitive {
-        var result = [Primitive: Primitive]()
+        var dict = OrderedDictionary<Primitive, Primitive>()
         for (key, value) in data {
-            result[.uint(UInt(key))] = try value.toPrimitive()
+            dict[.uint(UInt(key))] = try value.toPrimitive()
         }
-        return .dict(result)
+        return .orderedDict(dict)
     }
 
     // MARK: - JSONSerializable

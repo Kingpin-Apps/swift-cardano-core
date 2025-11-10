@@ -154,4 +154,52 @@ public enum VerificationKeyType: CBORSerializable, Sendable {
         }
     }
     
+    /// Load the object from a JSON file.
+    /// - Parameter path: The file path
+    /// - Returns: The object restored from the JSON file.
+    public static func load(from path: String) throws -> Self {
+        let jsonString = try String(contentsOfFile: path, encoding: .utf8)
+        
+        guard let data = jsonString.data(using: .utf8),
+              let dict = try JSONSerialization.jsonObject(with: data) as? [String: String] else {
+            throw CardanoCoreError.valueError("Invalid JSON")
+        }
+        
+        guard let _ = dict["type"],
+              let _ = dict["description"],
+              let cborHex = dict["cborHex"] else {
+            throw CardanoCoreError.valueError("Invalid Dictionary")
+        }
+        
+        let cborData = cborHex.toData
+        
+        if cborData.count == 32 {
+            return .verificationKey(
+                try VerificationKey.load(from: path)
+            )
+        } else {
+            return.extendedVerificationKey(
+                try ExtendedVerificationKey.load(from: path)
+            )
+        }
+    }
+    
+    /// Save the JSON representation to a file.
+    /// - Parameters:
+    ///  - path: The path to save the file
+    ///  - overwrite: Whether to overwrite the file if it already exists.
+    /// - Throws: `CardanoCoreError.ioError` when the file already exists and overwrite is false.
+    public func save(to path: String, overwrite: Bool = false) throws {
+        if !overwrite, FileManager.default.fileExists(atPath: path) {
+            throw CardanoCoreError.ioError("File already exists: \(path)")
+        }
+        
+        switch self {
+            case .extendedVerificationKey(let key):
+                try key.save(to: path, overwrite: overwrite)
+            case .verificationKey(let key):
+                try key.save(to: path, overwrite: overwrite)
+        }
+    }
+    
 }

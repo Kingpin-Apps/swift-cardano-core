@@ -70,8 +70,9 @@ public extension JSONSerializable {
                 case let arr as [Any]: return .list(try arr.map { try anyToPrimitive($0) })
                 case let dict as [String: Any]:
                     var result: OrderedDictionary<Primitive, Primitive> = [:]
-                    for (k, v) in dict {
-                        result[.string(k)] = try anyToPrimitive(v)
+                    // Sort keys to ensure deterministic ordering when loading from JSON
+                    for k in dict.keys.sorted() {
+                        result[.string(k)] = try anyToPrimitive(dict[k]!)
                     }
                     return .orderedDict(result)
                 case is NSNull: return .null

@@ -472,7 +472,7 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
         
         var auxiliaryDataHash: AuxiliaryDataHash? = nil
         if let auxiliaryDataHashPrimitive = orderedDict[.string(CodingKeys.auxiliaryDataHash.stringValue)] {
-            auxiliaryDataHash = try AuxiliaryDataHash.fromDict(auxiliaryDataHashPrimitive)
+            auxiliaryDataHash = try AuxiliaryDataHash(from: auxiliaryDataHashPrimitive)
         }
         
         var validityStart: Int? = nil
@@ -575,20 +575,20 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
         // Helper to convert ListOrOrderedSet to list of primitives
         func listOrSetToList<T: CBORSerializable>(_ value: ListOrOrderedSet<T>) throws -> Primitive {
             switch value {
-            case .list(let array):
-                return .list(try array.map { try $0.toPrimitive() })
-            case .orderedSet(let set):
-                return .list(try set.elements.map { try $0.toPrimitive() })
+                case .list(let array):
+                    return .list(try array.map { try $0.toPrimitive() })
+                case .orderedSet(let set):
+                    return .list(try set.elements.map { try $0.toPrimitive() })
             }
         }
         
         // Helper to convert ListOrNonEmptyOrderedSet to list of primitives
         func listOrNonEmptySetToList<T: CBORSerializable>(_ value: ListOrNonEmptyOrderedSet<T>) throws -> Primitive {
             switch value {
-            case .list(let array):
-                return .list(try array.map { try $0.toPrimitive() })
-            case .nonEmptyOrderedSet(let set):
-                return .list(try set.elements.map { try $0.toPrimitive() })
+                case .list(let array):
+                    return .list(try array.map { try $0.toPrimitive() })
+                case .nonEmptyOrderedSet(let set):
+                    return .list(try set.elements.map { try $0.toPrimitive() })
             }
         }
         
@@ -611,7 +611,7 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
             dict[.string(CodingKeys.update.stringValue)] = try update.toDict()
         }
         if let auxiliaryDataHash = auxiliaryDataHash {
-            dict[.string(CodingKeys.auxiliaryDataHash.stringValue)] = try auxiliaryDataHash.toDict()
+            dict[.string(CodingKeys.auxiliaryDataHash.stringValue)] = .string(auxiliaryDataHash.payload.toHex)
         }
         if let validityStart = validityStart {
             dict[.string(CodingKeys.validityStart.stringValue)] = .int(validityStart)

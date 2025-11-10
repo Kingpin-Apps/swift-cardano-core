@@ -127,6 +127,11 @@ public struct DRep: CBORSerializable, CustomStringConvertible, CustomDebugString
         }
     }
     
+    public init(from hex: Data) throws {
+        let drepCredential = try DRepCredential(from: hex)
+        self.credential = try DRepType(from: drepCredential)
+    }
+    
     public init(from hex: Data, as credentialType: GovernanceCredentialType) throws {
         switch credentialType {
             case .keyHash:
@@ -143,10 +148,22 @@ public struct DRep: CBORSerializable, CustomStringConvertible, CustomDebugString
             let container = try decoder.singleValueContainer()
             let drepId = try container.decode(String.self)
             
+            // Handle special string values from cardano-cli output
+            if drepId == "alwaysAbstain" {
+                self.init(credential: .alwaysAbstain)
+                return
+            } else if drepId == "alwaysNoConfidence" {
+                self.init(credential: .alwaysNoConfidence)
+                return
+            }
+            
             if Self.isValidBech32(drepId) {
                 try self.init(from: drepId)
             } else {
                 let parts = drepId.split(separator: "-", maxSplits: 1)
+                guard parts.count == 2 else {
+                    throw CardanoCoreError.decodingError("Invalid DRepId format: \(drepId)")
+                }
                 let credentialType = String(parts[0])
                 let credentialHex = String(parts[1])
                 
@@ -329,7 +346,7 @@ public struct DRep: CBORSerializable, CustomStringConvertible, CustomDebugString
     public static func load(from path: String) throws -> Self {
         let id = try String(contentsOfFile: path, encoding: .utf8).trimmingCharacters(in: .newlines)
         
-        if id.hasPrefix("pool") {
+        if id.hasPrefix("drep") {
             return try self.init(from: id)
         } else {
             return try self.init(from: id.hexStringToData)

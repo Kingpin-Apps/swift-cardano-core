@@ -83,65 +83,63 @@ public enum Certificate: Serializable {
             throw CardanoCoreError.deserializeError("Invalid Certificate code")
         }
         
-        let restElements = Array(elements.dropFirst())
-        let restPrimitive = Primitive.list(restElements)
         switch certificateCode {
             case .stakeRegistration:
-                let stakeReg = try StakeRegistration(from: restPrimitive)
+                let stakeReg = try StakeRegistration(from: primitive)
                 self = .stakeRegistration(stakeReg)
             case .stakeDeregistration:
-                let stakeDereg = try StakeDeregistration(from: restPrimitive)
+                let stakeDereg = try StakeDeregistration(from: primitive)
                 self = .stakeDeregistration(stakeDereg)
             case .stakeDelegation:
-                let stakeDel = try StakeDelegation(from: restPrimitive)
+                let stakeDel = try StakeDelegation(from: primitive)
                 self = .stakeDelegation(stakeDel)
             case .poolRegistration:
-                let poolReg = try PoolRegistration(from: restPrimitive)
+                let poolReg = try PoolRegistration(from: primitive)
                 self = .poolRegistration(poolReg)
             case .poolRetirement:
-                let poolRet = try PoolRetirement(from: restPrimitive)
+                let poolRet = try PoolRetirement(from: primitive)
                 self = .poolRetirement(poolRet)
             case .genesisKeyDelegation:
-                let genKeyDel = try GenesisKeyDelegation(from: restPrimitive)
+                let genKeyDel = try GenesisKeyDelegation(from: primitive)
                 self = .genesisKeyDelegation(genKeyDel)
             case .moveInstantaneousRewards:
-                let mir = try MoveInstantaneousRewards(from: restPrimitive)
+                let mir = try MoveInstantaneousRewards(from: primitive)
                 self = .moveInstantaneousRewards(mir)
             case .register:
-                let reg = try Register(from: restPrimitive)
+                let reg = try Register(from: primitive)
                 self = .register(reg)
             case .unregister:
-                let unreg = try Unregister(from: restPrimitive)
+                let unreg = try Unregister(from: primitive)
                 self = .unregister(unreg)
             case .voteDelegate:
-                let voteDel = try VoteDelegate(from: restPrimitive)
+                let voteDel = try VoteDelegate(from: primitive)
                 self = .voteDelegate(voteDel)
             case .stakeVoteDelegate:
-                let stakeVoteDel = try StakeVoteDelegate(from: restPrimitive)
+                let stakeVoteDel = try StakeVoteDelegate(from: primitive)
                 self = .stakeVoteDelegate(stakeVoteDel)
             case .stakeRegisterDelegate:
-                let stakeRegDel = try StakeRegisterDelegate(from: restPrimitive)
+                let stakeRegDel = try StakeRegisterDelegate(from: primitive)
                 self = .stakeRegisterDelegate(stakeRegDel)
             case .voteRegisterDelegate:
-                let voteRegDel = try VoteRegisterDelegate(from: restPrimitive)
+                let voteRegDel = try VoteRegisterDelegate(from: primitive)
                 self = .voteRegisterDelegate(voteRegDel)
             case .stakeVoteRegisterDelegate:
-                let stakeVoteRegDel = try StakeVoteRegisterDelegate(from: restPrimitive)
+                let stakeVoteRegDel = try StakeVoteRegisterDelegate(from: primitive)
                 self = .stakeVoteRegisterDelegate(stakeVoteRegDel)
             case .authCommitteeHot:
-                let authCommHot = try AuthCommitteeHot(from: restPrimitive)
+                let authCommHot = try AuthCommitteeHot(from: primitive)
                 self = .authCommitteeHot(authCommHot)
             case .resignCommitteeCold:
-                let resignCommCold = try ResignCommitteeCold(from: restPrimitive)
+                let resignCommCold = try ResignCommitteeCold(from: primitive)
                 self = .resignCommitteeCold(resignCommCold)
             case .registerDRep:
-                let regDRep = try RegisterDRep(from: restPrimitive)
+                let regDRep = try RegisterDRep(from: primitive)
                 self = .registerDRep(regDRep)
             case .unRegisterDRep:
-                let unRegDRep = try UnregisterDRep(from: restPrimitive)
+                let unRegDRep = try UnregisterDRep(from: primitive)
                 self = .unRegisterDRep(unRegDRep)
             case .updateDRep:
-                let updDRep = try UpdateDRep(from: restPrimitive)
+                let updDRep = try UpdateDRep(from: primitive)
                 self = .updateDRep(updDRep)
         }
     }
@@ -308,6 +306,155 @@ public enum Certificate: Serializable {
         }
     }
 
+    public func save(to path: String, overwrite: Bool = false) throws {
+        switch self {
+            case .stakeRegistration(let stakeReg):
+                try stakeReg.save(to: path, overwrite: overwrite)
+            case .stakeDeregistration(let stakeDereg):
+                try stakeDereg.save(to: path, overwrite: overwrite)
+            case .stakeDelegation(let stakeDel):
+                try stakeDel.save(to: path, overwrite: overwrite)
+            case .poolRegistration(let poolReg):
+                try poolReg.save(to: path, overwrite: overwrite)
+            case .poolRetirement(let poolRet):
+                try poolRet.save(to: path, overwrite: overwrite)
+            case .genesisKeyDelegation(let genKeyDel):
+                try genKeyDel.save(to: path, overwrite: overwrite)
+            case .moveInstantaneousRewards(let mir):
+                try mir.save(to: path, overwrite: overwrite)
+            case .register(let reg):
+                try reg.save(to: path, overwrite: overwrite)
+            case .unregister(let unreg):
+                try unreg.save(to: path, overwrite: overwrite)
+            case .voteDelegate(let voteDel):
+                try voteDel.save(to: path, overwrite: overwrite)
+            case .stakeVoteDelegate(let stakeVoteDel):
+                try stakeVoteDel.save(to: path, overwrite: overwrite)
+            case .stakeRegisterDelegate(let stakeRegDel):
+                try stakeRegDel.save(to: path, overwrite: overwrite)
+            case .voteRegisterDelegate(let voteRegDel):
+                try voteRegDel.save(to: path, overwrite: overwrite)
+            case .stakeVoteRegisterDelegate(let stakeVoteRegDel):
+                try stakeVoteRegDel.save(to: path, overwrite: overwrite)
+            case .authCommitteeHot(let authCommHot):
+                try authCommHot.save(to: path, overwrite: overwrite)
+            case .resignCommitteeCold(let resignCommCold):
+                try resignCommCold.save(to: path, overwrite: overwrite)
+            case .registerDRep(let regDRep):
+                try regDRep.save(to: path, overwrite: overwrite)
+            case .unRegisterDRep(let unRegDRep):
+                try unRegDRep.save(to: path, overwrite: overwrite)
+            case .updateDRep(let updDRep):
+                try updDRep.save(to: path, overwrite: overwrite)
+        }
+    }
+    
+    static func load(from path: String) throws -> Certificate {
+        let jsonString = try String(contentsOfFile: path, encoding: .utf8)
+        
+        guard let data = jsonString.data(using: .utf8),
+              let dict = try JSONSerialization.jsonObject(with: data) as? [String: String] else {
+            throw CardanoCoreError.valueError("Invalid Certificate JSON")
+        }
+        
+        guard let _ = dict["type"],
+              let _ = dict["description"],
+              let cborHex = dict["cborHex"] else {
+            throw CardanoCoreError.valueError("Invalid Dictionary")
+        }
+        
+        let cborData = Data(hexString: cborHex)
+        let cbor = try CBORSerialization.cbor(from: cborData!)
+        
+        if case let .array(cborArray) = cbor,
+            case let .unsignedInt(code) = cborArray.first {
+            
+            let certificateCode = CertificateCode(rawValue: Int(code))
+            
+            switch certificateCode {
+                case .stakeRegistration:
+                    return .stakeRegistration(
+                        try StakeRegistration.load(from: path)
+                    )
+                case .stakeDeregistration:
+                    return .stakeDeregistration(
+                        try StakeDeregistration.load(from: path)
+                    )
+                case .stakeDelegation:
+                    return .stakeDelegation(
+                        try StakeDelegation.load(from: path)
+                    )
+                case .poolRegistration:
+                    return .poolRegistration(
+                        try PoolRegistration.load(from: path)
+                    )
+                case .poolRetirement:
+                    return .poolRetirement(
+                        try PoolRetirement.load(from: path)
+                    )
+                case .genesisKeyDelegation:
+                    return .genesisKeyDelegation(
+                        try GenesisKeyDelegation.load(from: path)
+                    )
+                case .moveInstantaneousRewards:
+                    return .moveInstantaneousRewards(
+                        try MoveInstantaneousRewards.load(from: path)
+                    )
+                case .register:
+                    return .register(
+                        try Register.load(from: path)
+                    )
+                case .unregister:
+                    return .unregister(
+                        try Unregister.load(from: path)
+                    )
+                case .voteDelegate:
+                    return .voteDelegate(
+                        try VoteDelegate.load(from: path)
+                    )
+                case .stakeVoteDelegate:
+                    return .stakeVoteDelegate(
+                        try StakeVoteDelegate.load(from: path)
+                    )
+                case .stakeRegisterDelegate:
+                    return .stakeRegisterDelegate(
+                        try StakeRegisterDelegate.load(from: path)
+                    )
+                case .voteRegisterDelegate:
+                    return .voteRegisterDelegate(
+                        try VoteRegisterDelegate.load(from: path)
+                    )
+                case .stakeVoteRegisterDelegate:
+                    return .stakeVoteRegisterDelegate(
+                        try StakeVoteRegisterDelegate.load(from: path)
+                    )
+                case .authCommitteeHot:
+                    return .authCommitteeHot(
+                        try AuthCommitteeHot.load(from: path)
+                    )
+                case .resignCommitteeCold:
+                    return .resignCommitteeCold(
+                        try ResignCommitteeCold.load(from: path)
+                    )
+                case .registerDRep:
+                    return .registerDRep(
+                        try RegisterDRep.load(from: path)
+                    )
+                case .unRegisterDRep:
+                    return .unRegisterDRep(
+                        try UnregisterDRep.load(from: path)
+                    )
+                case .updateDRep:
+                    return .updateDRep(
+                        try UpdateDRep.load(from: path)
+                    )
+                case .none:
+                    throw CardanoCoreError.valueError("Unknown Certificate code: \(code)")
+            }
+        } else {
+            throw CardanoCoreError.deserializeError("Invalid CBOR format: \(cbor)")
+        }
+    }
 }
 
 public protocol CertificateSerializable: TextEnvelopable, JSONSerializable, Sendable {

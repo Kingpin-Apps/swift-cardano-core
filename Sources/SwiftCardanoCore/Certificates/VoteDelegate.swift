@@ -70,7 +70,7 @@ public struct VoteDelegate: CertificateSerializable {
             case .uint(let code) = primitive[0],
             code == Self.CODE.rawValue
         else {
-            throw CardanoCoreError.deserializeError("Invalid VoteDelegate type")
+            throw CardanoCoreError.deserializeError("Invalid VoteDelegate type: \(primitive)")
         }
 
         let stakeCredential = try StakeCredential(from: primitive[1])

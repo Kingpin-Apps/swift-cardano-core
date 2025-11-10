@@ -172,7 +172,7 @@ public struct MoveInstantaneousReward: Serializable, Sendable{
     }
 }
 
-public struct MoveInstantaneousRewards: Serializable, Sendable{
+public struct MoveInstantaneousRewards: CertificateSerializable {
     public var _payload: Data
     public var _type: String
     public var _description: String

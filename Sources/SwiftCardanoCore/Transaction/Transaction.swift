@@ -53,7 +53,7 @@ public struct Transaction: Serializable, TextEnvelopable {
         )
         self._type = transactionWitnessSet
             .isEmpty() ? Self.TYPE : Self.TYPE
-            .replacingOccurrences(of: "Unwitnessed", with: "Witnessed")
+            .replacingOccurrences(of: "Unwitnessed ", with: "")
         self._description = Self.DESCRIPTION
     }
     
@@ -70,7 +70,7 @@ public struct Transaction: Serializable, TextEnvelopable {
         
         self._type = self.transactionWitnessSet
             .isEmpty() ? Self.TYPE : Self.TYPE
-            .replacingOccurrences(of: "Unwitnessed", with: "Witnessed")
+            .replacingOccurrences(of: "Unwitnessed ", with: "")
     }
     
     // MARK: - CBORSerializable
@@ -87,8 +87,15 @@ public struct Transaction: Serializable, TextEnvelopable {
         // transactionBody (required)
         let transactionBody = try TransactionBody(from: elements[0])
         
-        // transactionWitnessSet (required)
-        let transactionWitnessSet = try TransactionWitnessSet(from: elements[1])
+        // transactionWitnessSet (required) - may be wrapped in a CBOR tag
+        let transactionWitnessSet: TransactionWitnessSet
+        if case let .cborTag(tagged) = elements[1] {
+            // Witness set is wrapped in a CBOR tag, extract the value
+            transactionWitnessSet = try TransactionWitnessSet(from: tagged.value)
+        } else {
+            // Witness set is not tagged
+            transactionWitnessSet = try TransactionWitnessSet(from: elements[1])
+        }
         
         // valid (required)
         guard case let .bool(valid) = elements[2] else {
@@ -196,11 +203,14 @@ public struct Transaction: Serializable, TextEnvelopable {
     /// The json output has three fields: "type", "description", and "cborHex".
     /// - Returns: JSON representation
     public func toTextEnvelope() throws -> String? {
+        let updatedType = transactionWitnessSet.isEmpty() ? Self.TYPE : Self.TYPE
+            .replacingOccurrences(of: "Unwitnessed ", with: "")
+        
         let jsonString = """
         {
-            "type": "\(type)",
-            "description": "\(description)",
-            "cborHex": "\(payload.toHex)"
+            "type": "\(updatedType)",
+            "description": "\(self._description)",
+            "cborHex": "\(try self.toCBORHex())"
         }
         """
         return jsonString
