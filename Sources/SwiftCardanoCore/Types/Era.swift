@@ -1,5 +1,5 @@
 ///  Era.swift
-public enum Era: String, CBORSerializable, Equatable, CaseIterable, Sendable {
+public enum Era: String, CBORSerializable, Equatable, CaseIterable, Comparable, Sendable {
     case byron
     case shelley
     case allegra
@@ -7,6 +7,24 @@ public enum Era: String, CBORSerializable, Equatable, CaseIterable, Sendable {
     case alonzo
     case babbage
     case conway
+    
+    /// The chronological index of this era (0-based)
+    public var index: Int {
+        Era.allCases.firstIndex(of: self)!
+    }
+    
+    public static func fromEpoch(epoch: EpochNumber) -> Era {
+        switch epoch {
+            case 0...207: return .byron
+            case 208...235: return .shelley
+            case 236...250: return .allegra
+            case 251...289: return .mary
+            case 290...364: return .alonzo
+            case 365...506: return .babbage
+            case 507: return .conway
+            default: return .conway
+        }
+    }
     
     public var description: String {
         switch self {
@@ -52,5 +70,9 @@ public enum Era: String, CBORSerializable, Equatable, CaseIterable, Sendable {
     public func toPrimitive() throws -> Primitive {
         return .string(self.rawValue)
     }
-
+    
+    /// Compare eras chronologically
+    public static func < (lhs: Era, rhs: Era) -> Bool {
+        lhs.index < rhs.index
+    }
 }
