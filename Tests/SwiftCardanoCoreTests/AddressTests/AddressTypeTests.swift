@@ -14,6 +14,7 @@ struct PaymentPartTests {
             case .scriptHash:
                 Issue.record("Expected verificationKeyHash, but found scriptHash")
         }
+        #expect(paymentPart.hash() == keyHash.payload)
     }
     
     @Test func testPaymentPartScriptHash() async throws {
@@ -26,6 +27,7 @@ struct PaymentPartTests {
             case .scriptHash(let hash):
                 #expect(hash == scriptHash)
         }
+        #expect(paymentPart.hash() == scriptHash.payload)
     }
 }
 
@@ -41,6 +43,7 @@ struct StakingPartTests {
         case .scriptHash, .pointerAddress:
             Issue.record("Expected verificationKeyHash, but found another type")
         }
+        #expect(stakingPart.hash() == keyHash.payload)
     }
     
     @Test func testStakingPartScriptHash() async throws {
@@ -53,6 +56,7 @@ struct StakingPartTests {
         case .scriptHash(let hash):
             #expect(hash == scriptHash)
         }
+        #expect(stakingPart.hash() == scriptHash.payload)
     }
     
     @Test func testStakingPartPointerAddress() async throws {
@@ -65,6 +69,7 @@ struct StakingPartTests {
         case .pointerAddress(let address):
             #expect(address == pointerAddress)
         }
+        #expect(stakingPart.hash() == pointerAddress.encode())
     }
 }
 

@@ -4,6 +4,15 @@ import Foundation
 public enum PaymentPart: Sendable {
     case verificationKeyHash(VerificationKeyHash)
     case scriptHash(ScriptHash)
+    
+    func hash() -> Data {
+        switch self {
+            case .verificationKeyHash(let verificationKeyHash):
+                return verificationKeyHash.payload
+            case .scriptHash(let scriptHash):
+                return scriptHash.payload
+        }
+    }
 }
 
 /// The staking part of an address.
@@ -11,6 +20,17 @@ public enum StakingPart: Sendable {
     case verificationKeyHash(VerificationKeyHash)
     case scriptHash(ScriptHash)
     case pointerAddress(PointerAddress)
+    
+    func hash() -> Data {
+        switch self {
+            case .verificationKeyHash(let verificationKeyHash):
+                return verificationKeyHash.payload
+            case .scriptHash(let scriptHash):
+                return scriptHash.payload
+            case .pointerAddress(let pointerAddress):
+                return pointerAddress.encode()
+        }
+    }
 }
 
 public enum AddressFromPrimitiveData {
