@@ -25,18 +25,28 @@ public struct ProtocolVersion: CBORSerializable, Sendable {
         guard case let .list(elements) = primitive else {
             throw CardanoCoreError.valueError("Invalid ProtocolVersion type")
         }
-        
+
         guard elements.count == 2 else {
             throw CardanoCoreError.valueError("ProtocolVersion must contain exactly 2 elements")
         }
-        guard case let .int(major) = elements[0],
-              case let .int(minor) = elements[1] else {
+
+        let major: Int
+        switch elements[0] {
+        case .int(let val): major = Int(val)
+        case .uint(let val): major = Int(val)
+        default:
             throw CardanoCoreError.valueError("Invalid ProtocolVersion element types")
         }
-        self.init(
-            major: Int(major),
-            minor: Int(minor)
-        )
+
+        let minor: Int
+        switch elements[1] {
+        case .int(let val): minor = Int(val)
+        case .uint(let val): minor = Int(val)
+        default:
+            throw CardanoCoreError.valueError("Invalid ProtocolVersion element types")
+        }
+
+        self.init(major: major, minor: minor)
     }
 
     public func toPrimitive() throws -> Primitive {

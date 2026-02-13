@@ -17,7 +17,9 @@ GENESIS_DELEGATE_HASH_SIZE = 28,
 ADDRESS_KEY_HASH_SIZE = 28,
 ANCHOR_DATA_HASH_SIZE = 32,
 CIP129_PAYLOAD_SIZE = 29,
-UTXO_HASH_SIZE = 32
+UTXO_HASH_SIZE = 32,
+BLOCK_BODY_HASH_SIZE = 32,
+BLOCK_HEADER_HASH_SIZE = 32
 
 /// A protocol for byte arrays with constraints on their size.
 public protocol ConstrainedBytes: Serializable {
@@ -257,7 +259,29 @@ public struct AnchorDataHash: ConstrainedBytes {
     public var payload: Data
     public static var maxSize: Int { ANCHOR_DATA_HASH_SIZE }
     public static var minSize: Int { ANCHOR_DATA_HASH_SIZE }
-    
+
+    public init(payload: Data) {
+        self.payload = payload
+    }
+}
+
+/// Hash of a block body (hash32, 32 bytes).
+public struct BlockBodyHash: ConstrainedBytes {
+    public var payload: Data
+    public static var maxSize: Int { BLOCK_BODY_HASH_SIZE }
+    public static var minSize: Int { BLOCK_BODY_HASH_SIZE }
+
+    public init(payload: Data) {
+        self.payload = payload
+    }
+}
+
+/// Hash of a block header (hash32, 32 bytes).
+public struct BlockHeaderHash: ConstrainedBytes {
+    public var payload: Data
+    public static var maxSize: Int { BLOCK_HEADER_HASH_SIZE }
+    public static var minSize: Int { BLOCK_HEADER_HASH_SIZE }
+
     public init(payload: Data) {
         self.payload = payload
     }

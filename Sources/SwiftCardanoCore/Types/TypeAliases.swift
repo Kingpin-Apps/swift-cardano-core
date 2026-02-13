@@ -10,3 +10,9 @@ public typealias EpochInterval = UInt32
 
 // Represents an 8-byte unsigned integer
 public typealias EpochNumber = UInt64
+
+// Represents a block number (uint .size 8)
+public typealias BlockNumber = UInt64
+
+// Represents a transaction index within a block (uint .size 2)
+public typealias TransactionIndex = UInt16

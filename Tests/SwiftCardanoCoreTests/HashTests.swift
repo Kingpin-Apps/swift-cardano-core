@@ -18,7 +18,9 @@ let hashTestsArguments: Zip2Sequence<[any ConstrainedBytes.Type], [Int]> = zip([
     GenesisHash.self,
     GenesisDelegateHash.self,
     AddressKeyHash.self,
-    AnchorDataHash.self
+    AnchorDataHash.self,
+    BlockBodyHash.self,
+    BlockHeaderHash.self
 ],[
     VERIFICATION_KEY_HASH_SIZE,
     SCRIPT_HASH_SIZE,
@@ -33,7 +35,9 @@ let hashTestsArguments: Zip2Sequence<[any ConstrainedBytes.Type], [Int]> = zip([
     GENESIS_HASH_SIZE,
     GENESIS_DELEGATE_HASH_SIZE,
     ADDRESS_KEY_HASH_SIZE,
-    ANCHOR_DATA_HASH_SIZE
+    ANCHOR_DATA_HASH_SIZE,
+    BLOCK_BODY_HASH_SIZE,
+    BLOCK_HEADER_HASH_SIZE
 ])
 
 @Suite struct HashTests {
