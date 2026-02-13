@@ -1,3 +1,9 @@
+## 0.2.26 (2026-02-13)
+
+### Fix
+
+- make hash functions public
+
 ## 0.2.25 (2026-02-13)
 
 ### Fix
