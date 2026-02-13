@@ -5,7 +5,7 @@ public enum PaymentPart: Sendable {
     case verificationKeyHash(VerificationKeyHash)
     case scriptHash(ScriptHash)
     
-    func hash() -> Data {
+    public func hash() -> Data {
         switch self {
             case .verificationKeyHash(let verificationKeyHash):
                 return verificationKeyHash.payload
@@ -21,7 +21,7 @@ public enum StakingPart: Sendable {
     case scriptHash(ScriptHash)
     case pointerAddress(PointerAddress)
     
-    func hash() -> Data {
+    public func hash() -> Data {
         switch self {
             case .verificationKeyHash(let verificationKeyHash):
                 return verificationKeyHash.payload
