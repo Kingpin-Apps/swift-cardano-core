@@ -17,9 +17,33 @@ public struct VRFSigningKey: SigningKeyProtocol {
     }
     
     public func sign(data: Data) throws -> Data {
+        throw CardanoCoreError.invalidOperation(
+            "VRF keys do not support signing. Use prove(message:) to generate a VRF proof."
+        )
+    }
+
+    /// Create a VRF proof for a given message
+    ///
+    /// - Parameter message: The message to create a proof for
+    /// - Returns: The VRF proof bytes (80 bytes)
+    public func prove(message: Data) throws -> Data {
         let signingKey = try SwiftNcal.VRFSigningKey(bytes: payload)
-        let proof = try signingKey.prove(message: data)
+        let proof = try signingKey.prove(message: message)
         return proof.bytes
+    }
+
+    /// Create a VRF certificate (proof + output) for a given message
+    ///
+    /// This produces a complete ``VRFCert`` containing both the VRF output
+    /// and the VRF proof, suitable for use in block headers.
+    ///
+    /// - Parameter message: The message to create a VRF certificate for
+    /// - Returns: A ``VRFCert`` containing the VRF output and proof
+    public func certify(message: Data) throws -> VRFCert {
+        let signingKey = try SwiftNcal.VRFSigningKey(bytes: payload)
+        let proof = try signingKey.prove(message: message)
+        let output = try proof.hash()
+        return try VRFCert(output: output.bytes, proof: proof.bytes)
     }
     
     public func toVerificationKey() throws -> VRFVerificationKey {
@@ -73,7 +97,7 @@ public struct VRFKeyPair {
         self.verificationKey = verificationKey
     }
     
-    // static method to generate a new StakePoolKeyPair
+    // static method to generate a new VRFKeyPair
     public static func generate() throws -> VRFKeyPair {
         let vrfKeyPair = SwiftNcal.VRFKeyPair.generate()
         return VRFKeyPair(
