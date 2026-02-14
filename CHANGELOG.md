@@ -1,3 +1,10 @@
+## 0.2.27 (2026-02-14)
+
+### Fix
+
+- improve VRF key
+- add OperationalCertificateIssueCounter and tests
+
 ## 0.2.26 (2026-02-13)
 
 ### Fix
