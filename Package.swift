@@ -12,7 +12,6 @@ let package = Package(
       .tvOS(.v14),
     ],
     products: [
-        // Products define the executables and libraries a package produces, making them visible to other packages.
         .library(
             name: "SwiftCardanoCore",
             targets: ["SwiftCardanoCore"]),
@@ -29,8 +28,6 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-crypto.git", from: "3.15.1"),
     ],
     targets: [
-        // Targets are the basic building blocks of a package, defining a module or a test suite.
-        // Targets can depend on other targets in this package and products from dependencies.
         .target(
             name: "SwiftCardanoCore",
             dependencies: [
