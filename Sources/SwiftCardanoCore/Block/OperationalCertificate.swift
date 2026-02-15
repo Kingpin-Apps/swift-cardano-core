@@ -12,7 +12,7 @@ import OrderedCollections
 /// ```
 ///
 /// Serialized as a CBOR array with 4 elements.
-public struct OperationalCert: Serializable {
+public struct OperationalCertificate: Serializable {
     /// KES hot verification key (32 bytes)
     public var hotVKey: KESVKey
     /// Sequence number
@@ -110,7 +110,7 @@ public struct OperationalCert: Serializable {
 
     // MARK: - JSONSerializable
 
-    public static func fromDict(_ primitive: Primitive) throws -> OperationalCert {
+    public static func fromDict(_ primitive: Primitive) throws -> OperationalCertificate {
         guard case let .orderedDict(dict) = primitive else {
             throw CardanoCoreError.deserializeError("Invalid OperationalCert dict")
         }
@@ -147,7 +147,7 @@ public struct OperationalCert: Serializable {
             throw CardanoCoreError.deserializeError("Missing or invalid sigma in OperationalCert")
         }
 
-        return try OperationalCert(
+        return try OperationalCertificate(
             hotVKey: hotVKey,
             sequenceNumber: sequenceNumber,
             kesPeriod: kesPeriod,
@@ -166,7 +166,7 @@ public struct OperationalCert: Serializable {
 
     // MARK: - Equatable
 
-    public static func == (lhs: OperationalCert, rhs: OperationalCert) -> Bool {
+    public static func == (lhs: OperationalCertificate, rhs: OperationalCertificate) -> Bool {
         return lhs.hotVKey == rhs.hotVKey &&
             lhs.sequenceNumber == rhs.sequenceNumber &&
             lhs.kesPeriod == rhs.kesPeriod &&
