@@ -1,18 +1,19 @@
 import Testing
 import Foundation
 import PotentCBOR
+import SwiftKES
 @testable import SwiftCardanoCore
 
 func makeHeader() throws -> Header {
     let headerBody = try makeHeaderBody()
-    let bodySignature = KESSignature(payload: Data(repeating: 0xEE, count: KES_SIGNATURE_SIZE))
+    let bodySignature = try SwiftKES.KESSignature(depth: Sum6KES.depth, bytes: Data(repeating: 0xEE, count: KES_SIGNATURE_SIZE))
     return Header(headerBody: headerBody, bodySignature: bodySignature)
 }
 
 @Suite struct HeaderTests {
     @Test func testInitialization() async throws {
         let headerBody = try makeHeaderBody()
-        let bodySignature = KESSignature(payload: Data(repeating: 0xEE, count: KES_SIGNATURE_SIZE))
+        let bodySignature = try SwiftKES.KESSignature(depth: Sum6KES.depth, bytes: Data(repeating: 0xEE, count: KES_SIGNATURE_SIZE))
         let header = Header(headerBody: headerBody, bodySignature: bodySignature)
 
         #expect(header.headerBody == headerBody)
@@ -71,14 +72,14 @@ func makeHeader() throws -> Header {
 
         // Different body signature
         let headerBody = try makeHeaderBody()
-        let differentSig = KESSignature(payload: Data(repeating: 0xFF, count: KES_SIGNATURE_SIZE))
+        let differentSig = try SwiftKES.KESSignature(depth: Sum6KES.depth, bytes: Data(repeating: 0xFF, count: KES_SIGNATURE_SIZE))
         let header3 = Header(headerBody: headerBody, bodySignature: differentSig)
         #expect(header1 != header3)
     }
 
     @Test func testHeaderWithNilPrevHash() async throws {
         let headerBody = try makeHeaderBody(prevHash: nil)
-        let bodySignature = KESSignature(payload: Data(repeating: 0xEE, count: KES_SIGNATURE_SIZE))
+        let bodySignature = try SwiftKES.KESSignature(depth: Sum6KES.depth, bytes: Data(repeating: 0xEE, count: KES_SIGNATURE_SIZE))
         let header = Header(headerBody: headerBody, bodySignature: bodySignature)
 
         try checkTwoWayCBOR(serializable: header)

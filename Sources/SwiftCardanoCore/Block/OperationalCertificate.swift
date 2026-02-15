@@ -14,7 +14,7 @@ import OrderedCollections
 /// Serialized as a CBOR array with 4 elements.
 public struct OperationalCertificate: Serializable {
     /// KES hot verification key (32 bytes)
-    public var hotVKey: KESVKey
+    public var hotVKey: KESVerificationKey
     /// Sequence number
     public var sequenceNumber: UInt64
     /// KES period
@@ -32,14 +32,14 @@ public struct OperationalCertificate: Serializable {
     }
 
     public init(
-        hotVKey: KESVKey,
+        hotVKey: KESVerificationKey,
         sequenceNumber: UInt64,
         kesPeriod: UInt64,
         sigma: Data
     ) throws {
         guard sigma.count == Self.SIGMA_SIZE else {
             throw CardanoCoreError.invalidArgument(
-                "OperationalCert sigma must be \(Self.SIGMA_SIZE) bytes, got \(sigma.count)"
+                "OperationalCertificate sigma must be \(Self.SIGMA_SIZE) bytes, got \(sigma.count)"
             )
         }
         self.hotVKey = hotVKey
@@ -53,17 +53,17 @@ public struct OperationalCertificate: Serializable {
     public init(from primitive: Primitive) throws {
         guard case let .list(elements) = primitive else {
             throw CardanoCoreError.deserializeError(
-                "Invalid OperationalCert primitive: expected list"
+                "Invalid OperationalCertificate primitive: expected list"
             )
         }
 
         guard elements.count == 4 else {
             throw CardanoCoreError.deserializeError(
-                "OperationalCert requires exactly 4 elements, got \(elements.count)"
+                "OperationalCertificate requires exactly 4 elements, got \(elements.count)"
             )
         }
 
-        let hotVKey = try KESVKey(from: elements[0])
+        let hotVKey = try KESVerificationKey(from: elements[0])
 
         let sequenceNumber: UInt64
         switch elements[1] {
@@ -73,22 +73,22 @@ public struct OperationalCertificate: Serializable {
             sequenceNumber = UInt64(val)
         default:
             throw CardanoCoreError.deserializeError(
-                "Invalid OperationalCert sequence_number type"
+                "Invalid OperationalCertificate sequence_number type"
             )
         }
 
         let kesPeriod: UInt64
         switch elements[2] {
-        case .uint(let val):
-            kesPeriod = UInt64(val)
-        case .int(let val):
-            kesPeriod = UInt64(val)
-        default:
-            throw CardanoCoreError.deserializeError("Invalid OperationalCert kes_period type")
+            case .uint(let val):
+                kesPeriod = UInt64(val)
+            case .int(let val):
+                kesPeriod = UInt64(val)
+            default:
+                throw CardanoCoreError.deserializeError("Invalid OperationalCertificate kes_period type")
         }
 
         guard case let .bytes(sigma) = elements[3] else {
-            throw CardanoCoreError.deserializeError("Invalid OperationalCert sigma: expected bytes")
+            throw CardanoCoreError.deserializeError("Invalid OperationalCertificate sigma: expected bytes")
         }
 
         try self.init(
@@ -101,7 +101,7 @@ public struct OperationalCertificate: Serializable {
 
     public func toPrimitive() throws -> Primitive {
         return .list([
-            hotVKey.toPrimitive(),
+            .bytes(hotVKey.payload),
             .uint(UInt(sequenceNumber)),
             .uint(UInt(kesPeriod)),
             .bytes(sigma)
@@ -112,13 +112,13 @@ public struct OperationalCertificate: Serializable {
 
     public static func fromDict(_ primitive: Primitive) throws -> OperationalCertificate {
         guard case let .orderedDict(dict) = primitive else {
-            throw CardanoCoreError.deserializeError("Invalid OperationalCert dict")
+            throw CardanoCoreError.deserializeError("Invalid OperationalCertificate dict")
         }
 
         guard let hotVKeyPrimitive = dict[.string(CodingKeys.hotVKey.rawValue)] else {
-            throw CardanoCoreError.deserializeError("Missing hotVKey in OperationalCert")
+            throw CardanoCoreError.deserializeError("Missing hotVKey in OperationalCertificate")
         }
-        let hotVKey = try KESVKey.fromDict(hotVKeyPrimitive)
+        let hotVKey = try KESVerificationKey(from: hotVKeyPrimitive)
 
         guard let seqPrimitive = dict[.string(CodingKeys.sequenceNumber.rawValue)] else {
             throw CardanoCoreError.deserializeError("Missing sequenceNumber in OperationalCert")
@@ -157,7 +157,7 @@ public struct OperationalCertificate: Serializable {
 
     public func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
-        dict[.string(CodingKeys.hotVKey.rawValue)] = try hotVKey.toDict()
+        dict[.string(CodingKeys.hotVKey.rawValue)] = .bytes(hotVKey.payload)
         dict[.string(CodingKeys.sequenceNumber.rawValue)] = .uint(UInt(sequenceNumber))
         dict[.string(CodingKeys.kesPeriod.rawValue)] = .uint(UInt(kesPeriod))
         dict[.string(CodingKeys.sigma.rawValue)] = .bytes(sigma)

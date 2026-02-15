@@ -1,5 +1,6 @@
 import Foundation
 import OrderedCollections
+import SwiftKES
 
 /// Block header as defined in the Conway CDDL:
 /// `header = [header_body, body_signature : kes_signature]`
@@ -9,14 +10,14 @@ public struct Header: Serializable {
     /// The header body containing block metadata
     public var headerBody: HeaderBody
     /// KES signature over the header body (448 bytes)
-    public var bodySignature: KESSignature
+    public var bodySignature: SwiftKES.KESSignature
 
     enum CodingKeys: String, CodingKey {
         case headerBody
         case bodySignature
     }
 
-    public init(headerBody: HeaderBody, bodySignature: KESSignature) {
+    public init(headerBody: HeaderBody, bodySignature: SwiftKES.KESSignature) {
         self.headerBody = headerBody
         self.bodySignature = bodySignature
     }
@@ -35,7 +36,7 @@ public struct Header: Serializable {
         }
 
         self.headerBody = try HeaderBody(from: elements[0])
-        self.bodySignature = try KESSignature(from: elements[1])
+        self.bodySignature = try SwiftKES.KESSignature(from: elements[1])
     }
 
     public func toPrimitive() throws -> Primitive {
@@ -60,7 +61,7 @@ public struct Header: Serializable {
         guard let bodySignaturePrimitive = dict[.string(CodingKeys.bodySignature.rawValue)] else {
             throw CardanoCoreError.deserializeError("Missing bodySignature in Header")
         }
-        let bodySignature = try KESSignature.fromDict(bodySignaturePrimitive)
+        let bodySignature = try SwiftKES.KESSignature.fromDict(bodySignaturePrimitive)
 
         return Header(headerBody: headerBody, bodySignature: bodySignature)
     }

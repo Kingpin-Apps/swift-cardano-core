@@ -36,7 +36,7 @@ public struct HeaderBody: Serializable {
     /// Hash of the block body
     public var blockBodyHash: BlockBodyHash
     /// Operational certificate
-    public var operationalCert: OperationalCert
+    public var operationalCert: OperationalCertificate
     /// Protocol version
     public var protocolVersion: ProtocolVersion
 
@@ -65,7 +65,7 @@ public struct HeaderBody: Serializable {
         vrfResult: VRFCert,
         blockBodySize: UInt32,
         blockBodyHash: BlockBodyHash,
-        operationalCert: OperationalCert,
+        operationalCert: OperationalCertificate,
         protocolVersion: ProtocolVersion
     ) {
         self.blockNumber = blockNumber
@@ -151,7 +151,7 @@ public struct HeaderBody: Serializable {
         self.blockBodyHash = try BlockBodyHash(from: elements[7])
 
         // 8: operational_cert
-        self.operationalCert = try OperationalCert(from: elements[8])
+        self.operationalCert = try OperationalCertificate(from: elements[8])
 
         // 9: protocol_version
         self.protocolVersion = try ProtocolVersion(from: elements[9])
@@ -245,7 +245,7 @@ public struct HeaderBody: Serializable {
         else {
             throw CardanoCoreError.deserializeError("Missing operationalCert in HeaderBody")
         }
-        let operationalCert = try OperationalCert.fromDict(operationalCertPrimitive)
+        let operationalCert = try OperationalCertificate.fromDict(operationalCertPrimitive)
 
         guard let protocolVersionPrimitive = dict[.string(CodingKeys.protocolVersion.rawValue)]
         else {

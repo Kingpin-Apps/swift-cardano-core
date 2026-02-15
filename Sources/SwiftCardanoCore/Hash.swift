@@ -19,7 +19,8 @@ ANCHOR_DATA_HASH_SIZE = 32,
 CIP129_PAYLOAD_SIZE = 29,
 UTXO_HASH_SIZE = 32,
 BLOCK_BODY_HASH_SIZE = 32,
-BLOCK_HEADER_HASH_SIZE = 32
+BLOCK_HEADER_HASH_SIZE = 32,
+KES_KEY_HASH_SIZE = 32
 
 /// A protocol for byte arrays with constraints on their size.
 public protocol ConstrainedBytes: Serializable {

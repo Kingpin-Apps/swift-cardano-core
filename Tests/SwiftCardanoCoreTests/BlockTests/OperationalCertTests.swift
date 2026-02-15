@@ -1,12 +1,13 @@
 import Testing
 import Foundation
 import PotentCBOR
+import SwiftKES
 @testable import SwiftCardanoCore
 
-func makeOperationalCert() throws -> OperationalCert {
-    let hotVKey = KESVKey(payload: Data(repeating: 0x01, count: KES_VKEY_SIZE))
-    let sigma = Data(repeating: 0x03, count: OperationalCert.SIGMA_SIZE)
-    return try OperationalCert(
+func makeOperationalCert() throws -> OperationalCertificate {
+    let hotVKey = try KESVerificationKey(payload: Data(repeating: 0x01, count: KESConstants.publicKeySize))
+    let sigma = Data(repeating: 0x03, count: OperationalCertificate.SIGMA_SIZE)
+    return try OperationalCertificate(
         hotVKey: hotVKey,
         sequenceNumber: 42,
         kesPeriod: 100,
@@ -15,11 +16,14 @@ func makeOperationalCert() throws -> OperationalCert {
 }
 
 @Suite struct OperationalCertTests {
-    let hotVKey = KESVKey(payload: Data(repeating: 0x01, count: KES_VKEY_SIZE))
-    let sigma = Data(repeating: 0x03, count: OperationalCert.SIGMA_SIZE)
+    func makeHotVKey() throws -> KESVerificationKey {
+        return try KESVerificationKey(payload: Data(repeating: 0x01, count: KESConstants.publicKeySize))
+    }
+    let sigma = Data(repeating: 0x03, count: OperationalCertificate.SIGMA_SIZE)
 
     @Test func testInitialization() async throws {
-        let cert = try OperationalCert(
+        let hotVKey = try makeHotVKey()
+        let cert = try OperationalCertificate(
             hotVKey: hotVKey,
             sequenceNumber: 42,
             kesPeriod: 100,
@@ -32,9 +36,10 @@ func makeOperationalCert() throws -> OperationalCert {
     }
 
     @Test func testInvalidSigmaSize() async throws {
+        let hotVKey = try makeHotVKey()
         let shortSigma = Data(repeating: 0x03, count: 63)
         #expect(throws: (any Error).self) {
-            try OperationalCert(
+            try OperationalCertificate(
                 hotVKey: hotVKey,
                 sequenceNumber: 42,
                 kesPeriod: 100,
@@ -44,7 +49,7 @@ func makeOperationalCert() throws -> OperationalCert {
 
         let longSigma = Data(repeating: 0x03, count: 65)
         #expect(throws: (any Error).self) {
-            try OperationalCert(
+            try OperationalCertificate(
                 hotVKey: hotVKey,
                 sequenceNumber: 42,
                 kesPeriod: 100,
@@ -56,7 +61,7 @@ func makeOperationalCert() throws -> OperationalCert {
     @Test func testPrimitiveRoundTrip() async throws {
         let cert = try makeOperationalCert()
         let primitive = try cert.toPrimitive()
-        let restored = try OperationalCert(from: primitive)
+        let restored = try OperationalCertificate(from: primitive)
         #expect(restored == cert)
     }
 
@@ -96,7 +101,7 @@ func makeOperationalCert() throws -> OperationalCert {
             Issue.record("Expected .bytes for sigma")
             return
         }
-        #expect(sigData.count == OperationalCert.SIGMA_SIZE)
+        #expect(sigData.count == OperationalCertificate.SIGMA_SIZE)
     }
 
     @Test func testCBORRoundTrip() async throws {
@@ -107,7 +112,7 @@ func makeOperationalCert() throws -> OperationalCert {
     @Test func testJSONRoundTrip() async throws {
         let cert = try makeOperationalCert()
         let dict = try cert.toDict()
-        let restored = try OperationalCert.fromDict(dict)
+        let restored = try OperationalCertificate.fromDict(dict)
         #expect(restored == cert)
     }
 
@@ -116,7 +121,8 @@ func makeOperationalCert() throws -> OperationalCert {
         let cert2 = try makeOperationalCert()
         #expect(cert1 == cert2)
 
-        let differentCert = try OperationalCert(
+        let hotVKey = try makeHotVKey()
+        let differentCert = try OperationalCertificate(
             hotVKey: hotVKey,
             sequenceNumber: 99,
             kesPeriod: 100,
