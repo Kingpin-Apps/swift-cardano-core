@@ -1,3 +1,9 @@
+## 0.2.29 (2026-02-15)
+
+### Fix
+
+- add issue opcert, relocate OperationalCertificate and its tests to the StakePool module, expand test coverage, and add StakePool documentation.
+
 ## 0.2.28 (2026-02-15)
 
 ### Fix
