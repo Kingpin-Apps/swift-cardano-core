@@ -25,6 +25,7 @@ let package = Package(
         .package(url: "https://github.com/attaswift/BigInt.git", .upToNextMinor(from: "5.3.0")),
         .package(url: "https://github.com/Frizlab/swift-fraction-number.git", from: "0.1.0"),
         .package(url: "https://github.com/apple/swift-log.git", from: "1.6.2"),
+        .package(url: "https://github.com/mxcl/Version.git", from: "2.2.0"),
         // Provides Crypto compatible APIs on Linux
         .package(url: "https://github.com/apple/swift-crypto.git", from: "3.15.1"),
     ],
@@ -41,8 +42,12 @@ let package = Package(
                 .product(name: "SwiftKES", package: "swift-kes"),
                 .product(name: "FractionNumber", package: "swift-fraction-number"),
                 .product(name: "Logging", package: "swift-log"),
+                .product(name: "Version", package: "version"),
                 // Only link UncommonCrypto on Linux; on Apple platforms, CommonCrypto is available.
                 .product(name: "Crypto", package: "swift-crypto", condition: .when(platforms: [.linux])),
+            ],
+            resources: [
+                .copy("Resources")
             ]
         ),
         .testTarget(

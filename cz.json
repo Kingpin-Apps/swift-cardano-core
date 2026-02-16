@@ -1,0 +1,10 @@
+{
+    "commitizen": {
+        "name": "cz_conventional_commits",
+        "tag_format": "$version",
+        "version_scheme": "semver",
+        "version": "0.2.29",
+        "update_changelog_on_bump": true,
+        "version_files": ["Sources/SwiftCardanoCore/Resources/version.json:version"]
+    }
+}
