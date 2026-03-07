@@ -146,24 +146,68 @@ public struct PoolMetadata: Serializable {
     
     public func toDict() throws -> Primitive {
         var dict: OrderedDictionary<Primitive, Primitive> = [:]
-        
+
         if let name = name {
             dict[.string("name")] = .string(name)
         }
-        
+
         if let desc = desc {
             dict[.string("description")] = .string(desc)
         }
-        
+
         if let ticker = ticker {
             dict[.string("ticker")] = .string(ticker)
         }
-        
+
         if let homepage = homepage {
             dict[.string("homepage")] = .string(homepage.absoluteString)
         }
-        
+
         return .orderedDict(dict)
+    }
+
+    // MARK: - Remote Metadata
+
+    /// Returns `true` if the blake2b-256 hash of `data` equals the expected `hash` payload.
+    public static func matches(data: Data, hash: PoolMetadataHash) throws -> Bool {
+        let computed = try SwiftNcal.Hash().blake2b(
+            data: data,
+            digestSize: POOL_METADATA_HASH_SIZE,
+            encoder: RawEncoder.self
+        )
+        return computed == hash.payload
+    }
+
+    /// Downloads the pool metadata JSON from `url`, verifies it against `poolMetadataHash`,
+    /// parses the content, and returns a fully-populated `PoolMetadata`.
+    ///
+    /// - Throws: `CardanoCoreError.valueError` if the downloaded content does not match the hash.
+    public static func fetch(
+        url: Url,
+        poolMetadataHash: PoolMetadataHash? = nil,
+        session: URLSession = .shared
+    ) async throws -> PoolMetadata {
+        let (data, _) = try await session.data(from: url.value)
+        
+        if let poolMetadataHash = poolMetadataHash {
+            guard try matches(data: data, hash: poolMetadataHash) else {
+                throw CardanoCoreError.valueError("Downloaded pool metadata does not match the expected hash.")
+            }
+        }
+
+        guard let jsonString = String(data: data, encoding: .utf8) else {
+            throw CardanoCoreError.deserializeError("Downloaded pool metadata is not valid UTF-8.")
+        }
+
+        let parsed = try PoolMetadata.fromJSON(jsonString)
+        return try PoolMetadata(
+            name: parsed.name,
+            description: parsed.desc,
+            ticker: parsed.ticker,
+            homepage: parsed.homepage,
+            url: url,
+            poolMetadataHash: poolMetadataHash
+        )
     }
 
 }
