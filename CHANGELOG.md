@@ -1,3 +1,9 @@
+## 0.2.31 (2026-03-07)
+
+### Fix
+
+- add fetch and matches to PoolMetadata
+
 ## 0.2.30 (2026-02-16)
 
 ### Fix
