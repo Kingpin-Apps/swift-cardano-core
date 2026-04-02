@@ -1,3 +1,9 @@
+## 0.3.0 (2026-04-02)
+
+### Feat
+
+- add Byron address support
+
 ## 0.2.31 (2026-03-07)
 
 ### Fix
