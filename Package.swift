@@ -28,6 +28,7 @@ let package = Package(
         .package(url: "https://github.com/mxcl/Version.git", from: "2.2.0"),
         // Provides Crypto compatible APIs on Linux
         .package(url: "https://github.com/apple/swift-crypto.git", from: "3.15.1"),
+        .package(url: "https://github.com/KINGH242/swift-base58.git", from: "0.1.2"),
     ],
     targets: [
         .target(
@@ -45,6 +46,7 @@ let package = Package(
                 .product(name: "Version", package: "version"),
                 // Only link UncommonCrypto on Linux; on Apple platforms, CommonCrypto is available.
                 .product(name: "Crypto", package: "swift-crypto", condition: .when(platforms: [.linux])),
+                .product(name: "SwiftBase58", package: "swift-base58"),
             ],
             resources: [
                 .copy("Resources")

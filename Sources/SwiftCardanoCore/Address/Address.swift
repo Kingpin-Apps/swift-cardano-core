@@ -32,7 +32,13 @@ public struct Address: CBORSerializable, CustomStringConvertible, Equatable, Sen
     /// The human-readable prefix of the address.
     public var hrp: String { get { return _hrp } }
     private let _hrp: String
-    
+
+    /// The Byron address wrapped by this `Address`, or `nil` for Shelley addresses.
+    ///
+    /// Check this property to access Byron-specific fields (root key hash, HD attributes, address sub-type).
+    public var byronAddress: ByronAddress? { get { return _byronAddress } }
+    private let _byronAddress: ByronAddress?
+
     /// Initialize a shelley address from its parts.
     ///
     /// The address type is inferred from the payment part and staking part. If the address type cannot be inferred, an error is thrown.
@@ -55,6 +61,21 @@ public struct Address: CBORSerializable, CustomStringConvertible, Equatable, Sen
         _addressType = try Address.inferAddressType(paymentPart: paymentPart, stakingPart: stakingPart)
         _headerByte = Address.computeHeaderByte(addressType: _addressType, network: _network)
         _hrp = Address.computeHrp(addressType: _addressType, network: _network)
+        _byronAddress = nil
+    }
+
+    /// Initialise an `Address` that wraps a Byron era address.
+    ///
+    /// Shelley-specific fields (`paymentPart`, `stakingPart`, `headerByte`, `hrp`) are
+    /// left empty; callers should access Byron data via `byronAddress`.
+    private init(byronAddress: ByronAddress) {
+        _paymentPart = nil
+        _stakingPart = nil
+        _network = byronAddress.network
+        _addressType = .byron
+        _headerByte = Data()
+        _hrp = ""
+        _byronAddress = byronAddress
     }
     
     /// Initialize a shelley address from its bytes or bech32 string.
@@ -69,22 +90,45 @@ public struct Address: CBORSerializable, CustomStringConvertible, Equatable, Sen
     public init(from primitive: Primitive) throws {
         let data: Data
         if case let .string(value) = primitive {
-            guard let bech32 = Bech32().decode(addr: value) else {
-                throw CardanoCoreError.decodingError("Error decoding data: \(value)")
+            if let bech32 = Bech32().decode(addr: value) {
+                // Shelley address — Bech32 decoded successfully
+                data = Data(bech32)
+            } else {
+                // Not a Bech32 string; attempt Base58 decoding (Byron address)
+                do {
+                    let byronAddr = try ByronAddress(from: .string(value))
+                    self.init(byronAddress: byronAddr)
+                    return
+                } catch {
+                    throw CardanoCoreError.decodingError(
+                        "Address string is neither a valid Bech32 (Shelley) nor Base58 (Byron) address: \(value)"
+                    )
+                }
             }
-            data = Data(bech32)
         } else if case let .bytes(value) = primitive {
             data = value
         } else {
             throw CardanoCoreError.valueError("Invalid value type for Address")
         }
-        
+
+        guard !data.isEmpty else {
+            throw CardanoCoreError.decodingError("Address byte data is empty")
+        }
+
         let header = data[0]
         let payload = data.dropFirst()
-        
+
         let addrBits = (UInt8(header) & 0xF0) >> 4
         let networkBits = UInt8(header & 0x0F)
-        
+
+        // Byron addresses are detected by address-type nibble == 0b1000 (= 8).
+        // Their raw CBOR starts with 0x82 (2-element array), so addrBits == 8.
+        if addrBits == 0b1000 {
+            let byronAddr = try ByronAddress(from: .bytes(data))
+            self.init(byronAddress: byronAddr)
+            return
+        }
+
         guard let addrType = AddressType(rawValue: Int(addrBits)) else {
             throw CardanoCoreError.invalidAddressInputError("Invalid address type in header: \(header)")
         }
@@ -212,7 +256,7 @@ public struct Address: CBORSerializable, CustomStringConvertible, Equatable, Sen
         return .bytes(toBytes())
     }
     
-    /// Codable implementation to decode the address.
+    /// Codable implementation to decode the address (both Shelley and Byron).
     /// - Parameter decoder: The decoder.
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
@@ -297,18 +341,29 @@ public struct Address: CBORSerializable, CustomStringConvertible, Equatable, Sen
     }
     
     /// The human-readable description of the address.
+    ///
+    /// Returns a Base58 string for Byron addresses, or a Bech32 string for Shelley addresses.
     public var description: String {
+        if let byronAddr = _byronAddress {
+            return byronAddr.toBase58()
+        }
         do {
             return try self.toBech32()
         } catch {
             return ""
         }
-        
     }
     
     /// Convert the address to bytes.
+    ///
+    /// For Byron addresses, returns the raw on-chain CBOR bytes (`CBOR([payload, crc32])`).
+    /// For Shelley addresses, returns `headerByte + paymentData + stakingData`.
     /// - Returns: The bytes of the address.
     public func toBytes() -> Data {
+        if let byronAddr = _byronAddress {
+            return byronAddr.toBytes()
+        }
+
         let paymentData: Data
         if let paymentPart = paymentPart {
             switch paymentPart {
@@ -344,7 +399,16 @@ public struct Address: CBORSerializable, CustomStringConvertible, Equatable, Sen
     ///   - rhs: The right-hand side address.
     /// - Returns: True if the addresses are equal, false otherwise.
     public static func == (lhs: Address, rhs: Address) -> Bool {
-        // Check if paymentPart is the same
+        // Byron vs. Byron: compare raw bytes
+        if let lByron = lhs._byronAddress, let rByron = rhs._byronAddress {
+            return lByron == rByron
+        }
+        // Mixed Byron / Shelley: never equal
+        if lhs._byronAddress != nil || rhs._byronAddress != nil {
+            return false
+        }
+
+        // Both Shelley: check if paymentPart is the same
         let paymentCheck: Bool
         switch (lhs.paymentPart, rhs.paymentPart) {
             case (.verificationKeyHash(let lhsPayment), .verificationKeyHash(let rhsPayment)):
@@ -413,9 +477,14 @@ public struct Address: CBORSerializable, CustomStringConvertible, Equatable, Sen
         if !overwrite, FileManager.default.fileExists(atPath: path) {
             throw CardanoCoreError.ioError("File already exists: \(path)")
         }
-        
-        let bech32String = try toBech32()
-        try bech32String.write(toFile: path, atomically: true, encoding: .utf8)
+
+        let addressString: String
+        if let byronAddr = _byronAddress {
+            addressString = byronAddr.toBase58()
+        } else {
+            addressString = try toBech32()
+        }
+        try addressString.write(toFile: path, atomically: true, encoding: .utf8)
     }
     
     /// Load the address from a file.
