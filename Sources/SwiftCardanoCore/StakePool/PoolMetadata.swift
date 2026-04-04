@@ -187,18 +187,27 @@ public struct PoolMetadata: Serializable {
         poolMetadataHash: PoolMetadataHash? = nil,
         session: URLSession = .shared
     ) async throws -> PoolMetadata {
-        let (data, _) = try await session.data(from: url.value)
+        let data: Data
+        
+        do {
+            (data, _) = try await session.data(from: url.value)
+        } catch {
+            return try PoolMetadata(
+                url: url,
+                poolMetadataHash: poolMetadataHash
+            )
+        }
         
         if let poolMetadataHash = poolMetadataHash {
             guard try matches(data: data, hash: poolMetadataHash) else {
                 throw CardanoCoreError.valueError("Downloaded pool metadata does not match the expected hash.")
             }
         }
-
+        
         guard let jsonString = String(data: data, encoding: .utf8) else {
             throw CardanoCoreError.deserializeError("Downloaded pool metadata is not valid UTF-8.")
         }
-
+        
         let parsed = try PoolMetadata.fromJSON(jsonString)
         return try PoolMetadata(
             name: parsed.name,
