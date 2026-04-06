@@ -119,7 +119,7 @@ public struct StakeCredential: Credential {
 public struct DRepCredential: GovernanceCredential {
     public let credential: CredentialType
     
-    static var governanceKeyType: GovernanceKeyType {
+    public static var governanceKeyType: GovernanceKeyType {
         .drep
     }
     
@@ -131,7 +131,7 @@ public struct DRepCredential: GovernanceCredential {
 public struct CommitteeColdCredential: GovernanceCredential {
     public let credential: CredentialType
     
-    static var governanceKeyType: GovernanceKeyType {
+    public static var governanceKeyType: GovernanceKeyType {
         .ccCold
     }
     
@@ -143,7 +143,7 @@ public struct CommitteeColdCredential: GovernanceCredential {
 public struct CommitteeHotCredential: GovernanceCredential {
     public let credential: CredentialType
     
-    static var governanceKeyType: GovernanceKeyType {
+    public static var governanceKeyType: GovernanceKeyType {
         .ccHot
     }
     
