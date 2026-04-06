@@ -1,6 +1,6 @@
 import Foundation
 
-protocol GovernanceCredential: Credential {
+public protocol GovernanceCredential: Credential {
     var credential: CredentialType { get }
     static var governanceKeyType: GovernanceKeyType { get }
     

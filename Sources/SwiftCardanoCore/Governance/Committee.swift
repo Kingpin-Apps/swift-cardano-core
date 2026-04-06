@@ -43,21 +43,3 @@ public struct Threshold: Codable, Equatable, Hashable {
     public let numerator: Int
     public let denominator: Int
 }
-
-
-//public struct Committee: CBORSerializable, CustomStringConvertible, CustomDebugStringConvertible, Sendable {
-//    public let members: [CommitteeMember]
-//    public let quorumThreshold: Fraction
-//    
-//    public var description: String
-//    
-//    public var debugDescription: String
-//    
-//    public init(from primitive: Primitive) throws {
-//        <#code#>
-//    }
-//
-//    public func toPrimitive() throws -> Primitive {
-//        <#code#>
-//    }
-//}
