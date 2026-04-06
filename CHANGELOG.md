@@ -1,3 +1,9 @@
+## 0.3.3 (2026-04-06)
+
+### Fix
+
+- make GovernanceKeyType public
+
 ## 0.3.2 (2026-04-06)
 
 ### Fix
