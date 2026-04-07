@@ -518,8 +518,4 @@ public enum Datum: PlutusDataProtocol {
                 return false
         }
     }
-    
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(self)
-    }
 }
