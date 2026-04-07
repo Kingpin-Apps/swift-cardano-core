@@ -1,3 +1,9 @@
+## 0.3.5 (2026-04-07)
+
+### Fix
+
+- improve serialization handling
+
 ## 0.3.4 (2026-04-07)
 
 ### Fix
