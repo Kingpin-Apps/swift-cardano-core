@@ -135,6 +135,11 @@ public struct CostModels: CBORSerializable, Sendable {
         String, Int
     > {
         let template = try templateForVersion(version)
+        // Allow an empty array as a convenience — fills all entries with 0.
+        if values.isEmpty {
+            return OrderedDictionary(
+                uniqueKeys: template.keys, values: Array(repeating: 0, count: template.count))
+        }
         guard values.count == template.count else {
             throw CardanoCoreError.deserializeError(
                 "Invalid cost model length for version \(version). Expected \(template.count), got \(values.count)"
