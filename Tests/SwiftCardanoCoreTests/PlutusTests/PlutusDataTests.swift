@@ -109,20 +109,21 @@ struct PlutusDataBasicTests {
             testa: testa,
             testb: testb
         )
-        
+
         let cborHex = try myVesting.toCBORHex(deterministic: true)
 
         let expectedCBOR =
-            "d87a9f581cc2ff616e11299d9094ce0a7eb5b7284b705147a822f4ffbd471f971a1b0000017e9874d2a0581ed905019fd86682188284187b44313233349f040506ffa2014131024132ff44d9050280ff"
-        
+            "d87a9f581cc2ff616e11299d9094ce0a7eb5b7284b705147a822f4ffbd471f971a1b0000017e9874d2a0d905019fd86682188284187b44313233349f040506ffa2014131024132ffd9050280ff"
+
         #expect(cborHex == expectedCBOR)
 
         // Test two-way serialization
-//        let decoded = try VestingParam.fromCBOR(data: Data(hex: expectedCBOR))
-//        #expect(try decoded.toCBORHex() == expectedCBOR)
+        //        let decoded = try VestingParam.fromCBOR(data: Data(hex: expectedCBOR))
+        //        #expect(try decoded.toCBORHex() == expectedCBOR)
     }
 
-    @Test("Test PlutusData JSON serialization", .disabled("JSON serialization is not deterministic"))
+    @Test(
+        "Test PlutusData JSON serialization", .disabled("JSON serialization is not deterministic"))
     func testPlutusDataJSON() throws {
         let keyHash = Data(hex: "c2ff616e11299d9094ce0a7eb5b7284b705147a822f4ffbd471f971a")
         let deadline = 1_643_235_300_000
@@ -146,10 +147,11 @@ struct PlutusDataBasicTests {
             testa: testa,
             testb: testb
         )
-        
+
         let json = try myVesting.toJSON()
 
-        let expectedJSON = "{\"constructor\":1,\"fields\":[{\"bytes\":\"c2ff616e11299d9094ce0a7eb5b7284b705147a822f4ffbd471f971a\"},{\"int\":1643235300000},{\"constructor\":8,\"fields\":[{\"constructor\":130,\"fields\":[{\"int\":123},{\"bytes\":\"31323334\"},{\"list\":[{\"int\":4},{\"int\":5},{\"int\":6}]},{\"map\":[{\"k\":{\"int\":1},\"v\":{\"bytes\":\"31\"}},{\"k\":{\"int\":2},\"v\":{\"bytes\":\"32\"}}]}]}]},{\"constructor\":9,\"fields\":[]}]}"
+        let expectedJSON =
+            "{\"constructor\":1,\"fields\":[{\"bytes\":\"c2ff616e11299d9094ce0a7eb5b7284b705147a822f4ffbd471f971a\"},{\"int\":1643235300000},{\"constructor\":8,\"fields\":[{\"constructor\":130,\"fields\":[{\"int\":123},{\"bytes\":\"31323334\"},{\"list\":[{\"int\":4},{\"int\":5},{\"int\":6}]},{\"map\":[{\"k\":{\"int\":1},\"v\":{\"bytes\":\"31\"}},{\"k\":{\"int\":2},\"v\":{\"bytes\":\"32\"}}]}]}]},{\"constructor\":9,\"fields\":[]}]}"
 
         #expect(json == expectedJSON)
 
@@ -159,14 +161,84 @@ struct PlutusDataBasicTests {
     }
 }
 
+@Suite("PlutusData Datum Vector Tests")
+struct PlutusDataDatumVectorTests {
+    @Test("Test datum list encoding matches pycardano vector")
+    func testDatumListEncodingMatchesPycardano() throws {
+        let firstKeyHash = Data(hex: "a8c2f0d2b7a27c96b329de1fa6448cfabd8917a6940be22fda0a3b7b")
+        let secondKeyHash = Data(hex: "afeb6a69cdd0ba343e544e3f70c033b7a33fe7007fd7efea06879bc2")
+        let thirdKeyHash = Data(hex: "6fdc63a1d71dc2c65502b79baae7fb543185702b12c3c5fb639ed737")
+        let signature = Data(
+            hex: "9098d8f2a436c6637776c82b3efa5a1eaa1517bec1077b7d86b4b04a96cec27f")
+
+        let datum: PlutusData = .constructor(
+            Constr(
+                tag: 0,
+                fields: [
+                    .constructor(
+                        Constr(
+                            tag: 0,
+                            fields: [
+                                .constructor(
+                                    Constr(
+                                        tag: 0,
+                                        fields: [
+                                            .bytes(try Bytes(from: firstKeyHash))
+                                        ])),
+                                .constructor(
+                                    Constr(
+                                        tag: 0,
+                                        fields: [
+                                            .constructor(
+                                                Constr(
+                                                    tag: 0,
+                                                    fields: [
+                                                        .constructor(
+                                                            Constr(
+                                                                tag: 0,
+                                                                fields: [
+                                                                    .bytes(
+                                                                        try Bytes(
+                                                                            from: secondKeyHash))
+                                                                ]))
+                                                    ]))
+                                        ])),
+                            ])),
+                    .bytes(try Bytes(from: Data([0x00]))),
+                    .constructor(
+                        Constr(
+                            tag: 0,
+                            fields: [
+                                .bytes(try Bytes(from: thirdKeyHash)),
+                                .bytes(try Bytes(from: signature)),
+                            ])),
+                ])
+        )
+
+        let datums = ListOrNonEmptyOrderedSet<PlutusData>.list([datum])
+        let encoded = try CBOREncoder().encode(datums)
+        let hex = encoded.hexEncodedString()
+
+        let expectedHex =
+            "81d8799fd8799fd8799f581ca8c2f0d2b7a27c96b329de1fa6448cfabd8917a6940be22fda0a3b7bffd8799fd8799fd8799f581cafeb6a69cdd0ba343e544e3f70c033b7a33fe7007fd7efea06879bc2ffffffff4100d8799f581c6fdc63a1d71dc2c65502b79baae7fb543185702b12c3c5fb639ed73758209098d8f2a436c6637776c82b3efa5a1eaa1517bec1077b7d86b4b04a96cec27fffff"
+        #expect(hex == expectedHex)
+
+        let decoded = try CBORDecoder().decode(
+            ListOrNonEmptyOrderedSet<PlutusData>.self, from: Data(hex: expectedHex))
+        let reencoded = try CBOREncoder().encode(decoded)
+        #expect(reencoded.hexEncodedString() == expectedHex)
+    }
+}
+
 @Suite("PlutusData List Tests")
 struct PlutusDataListTests {
     @Test("Test PlutusData JSON List serialization")
     func testPlutusDataJSONList() throws {
-        let test = try ListTest(a: IndefiniteList<LargestTest>([
-            LargestTest(),
-            LargestTest()
-        ]))
+        let test = try ListTest(
+            a: IndefiniteList<LargestTest>([
+                LargestTest(),
+                LargestTest(),
+            ]))
         let expectedJSON =
             "{\"constructor\":0,\"fields\":[{\"list\":[{\"constructor\":9,\"fields\":[]},{\"constructor\":9,\"fields\":[]}]}]}"
 
@@ -179,10 +251,11 @@ struct PlutusDataListTests {
 
     @Test("Test PlutusData CBOR List serialization")
     func testPlutusDataCBORList() throws {
-        let test = try ListTest(a: IndefiniteList<LargestTest>([
-            LargestTest(),
-            LargestTest()
-        ]))
+        let test = try ListTest(
+            a: IndefiniteList<LargestTest>([
+                LargestTest(),
+                LargestTest(),
+            ]))
         let expectedCBOR = "d8799f82d9050280d9050280ff"
 
         #expect(try test.toCBORHex() == expectedCBOR)
@@ -198,7 +271,7 @@ struct PlutusDataListTests {
 struct PlutusDataDictTests {
     @Test("Test PlutusData JSON Dict serialization")
     func testPlutusDataJSONDict() throws {
-        let test = try DictTest(a: OrderedDictionary(uniqueKeysWithValues:[1: LargestTest()]))
+        let test = try DictTest(a: OrderedDictionary(uniqueKeysWithValues: [1: LargestTest()]))
         let json = try test.toJSON()
 
         let expectedJSON =
@@ -213,10 +286,11 @@ struct PlutusDataDictTests {
 
     @Test("Test PlutusData CBOR Dict serialization")
     func testPlutusDataCBORDict() throws {
-        let test = try DictTest(a: OrderedDictionary(uniqueKeysWithValues: [
-            0: LargestTest(),
-            1: LargestTest(),
-        ]))
+        let test = try DictTest(
+            a: OrderedDictionary(uniqueKeysWithValues: [
+                0: LargestTest(),
+                1: LargestTest(),
+            ]))
         let expectedCBOR = "d87c9fa200d905028001d9050280ff"
         let CBORHex = try test.toCBORHex(deterministic: true)
 

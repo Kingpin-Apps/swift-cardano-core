@@ -1,34 +1,33 @@
 import Foundation
-import PotentCBOR
 import OrderedCollections
-
+import PotentCBOR
 
 public struct CostModels: CBORSerializable, Sendable {
     typealias KEY_TYPE = Int
     typealias VALUE_TYPE = OrderedDictionary<String, Int>
-    
+
     public let plutusV1: OrderedDictionary<String, Int>?
     public let plutusV2: OrderedDictionary<String, Int>?
     public let plutusV3: OrderedDictionary<String, Int>?
-    
+
     enum CodingKeys: Int, CodingKey {
         case plutusV1 = 0
         case plutusV2 = 1
         case plutusV3 = 2
     }
-    
+
     public init(_ data: [Int: OrderedDictionary<String, Int>]) throws {
         plutusV1 = data[0]
         plutusV2 = data[1]
         plutusV3 = data[2]
     }
-    
+
     public init(_ data: [Int: [Int]]) throws {
-        plutusV1 = PLUTUS_V1_COST_MODEL
-        plutusV2 = PLUTUS_V2_COST_MODEL
-        plutusV3 = PLUTUS_V3_COST_MODEL
+        plutusV1 = try data[0].map { try Self.modelFromValues($0, version: 0) }
+        plutusV2 = try data[1].map { try Self.modelFromValues($0, version: 1) }
+        plutusV3 = try data[2].map { try Self.modelFromValues($0, version: 2) }
     }
-    
+
     public init(from decoder: Decoder) throws {
         if String(describing: type(of: decoder)).contains("JSONDecoder") {
             let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -38,25 +37,17 @@ public struct CostModels: CBORSerializable, Sendable {
         } else {
             let container = try decoder.singleValueContainer()
             let cbor = try container.decode(CBOR.self)
-            
-            guard case let .map(map) = cbor else {
+
+            guard case .map(let map) = cbor else {
                 throw CardanoCoreError.deserializeError("Invalid CostModels CBOR")
             }
-            
-            plutusV1 = (
-                map[CBOR(Data([0]))] != nil
-            ) ? PLUTUS_V1_COST_MODEL : nil
-            
-            plutusV2 = (
-                map[CBOR(Data([1]))] != nil
-            ) ? PLUTUS_V2_COST_MODEL : nil
-            
-            plutusV3 = (
-                map[CBOR(Data([2]))] != nil
-            ) ? PLUTUS_V3_COST_MODEL : nil
+
+            plutusV1 = try map[CBOR(Data([0]))].map { try Self.modelFromCBOR($0, version: 0) }
+            plutusV2 = try map[CBOR(Data([1]))].map { try Self.modelFromCBOR($0, version: 1) }
+            plutusV3 = try map[CBOR(Data([2]))].map { try Self.modelFromCBOR($0, version: 2) }
         }
     }
-    
+
     public func encode(to encoder: Encoder) throws {
         if String(describing: type(of: encoder)).contains("JSONEncoder") {
             var container = encoder.container(keyedBy: CodingKeys.self)
@@ -64,21 +55,22 @@ public struct CostModels: CBORSerializable, Sendable {
             try container.encodeIfPresent(plutusV2, forKey: .plutusV2)
             try container.encodeIfPresent(plutusV3, forKey: .plutusV3)
         } else {
-            let v1 = CBOR.indefiniteArray(
-                plutusV1?.values.map { CBOR($0) } ?? []
-            )
-            var cbor: CBOR = .map([
-                CBOR(Data([0])): CBOR(try CBORSerialization.data(from: v1))
-            ])
-            
+            var entries = OrderedDictionary<CBOR, CBOR>()
+
+            if let v1 = plutusV1 {
+                let v1Array = CBOR.indefiniteArray(v1.values.map { CBOR($0) })
+                entries[CBOR(Data([0]))] = CBOR(try CBORSerialization.data(from: v1Array))
+            }
+
             if let v2 = plutusV2 {
-                cbor[CBOR(Data([1]))] = CBOR.indefiniteArray(v2.values.map { CBOR($0) })
+                entries[CBOR(Data([1]))] = CBOR.indefiniteArray(v2.values.map { CBOR($0) })
             }
-            
+
             if let v3 = plutusV3 {
-                cbor[CBOR(Data([2]))] = CBOR.indefiniteArray(v3.values.map { CBOR($0) })
+                entries[CBOR(Data([2]))] = CBOR.indefiniteArray(v3.values.map { CBOR($0) })
             }
-            
+
+            let cbor: CBOR = .map(entries)
             var container = encoder.singleValueContainer()
             try container.encode(cbor)
         }
@@ -86,7 +78,7 @@ public struct CostModels: CBORSerializable, Sendable {
 
     public static func forScriptDataHash() throws -> CostModels {
         return try CostModels([
-            0: PLUTUS_V1_COST_MODEL,
+            0: PLUTUS_V1_COST_MODEL
         ])
     }
 
@@ -94,54 +86,165 @@ public struct CostModels: CBORSerializable, Sendable {
         return try CostModels([
             0: PLUTUS_V1_COST_MODEL,
             1: PLUTUS_V2_COST_MODEL,
-            2: PLUTUS_V3_COST_MODEL
+            2: PLUTUS_V3_COST_MODEL,
         ])
     }
-    
+
     public init(from primitive: Primitive) throws {
-        guard case let .dict(dict) = primitive else {
+        guard case .dict(let dict) = primitive else {
             throw CardanoCoreError.deserializeError("Invalid CostModels primitive")
         }
-        
-        var plutusV1: OrderedDictionary<String, Int>?
-        var plutusV2: OrderedDictionary<String, Int>?
-        var plutusV3: OrderedDictionary<String, Int>?
-        
-        if dict[.int(0)] != nil {
-            plutusV1 = PLUTUS_V1_COST_MODEL
-        }
-        if dict[.int(1)] != nil {
-            plutusV2 = PLUTUS_V2_COST_MODEL
-        }
-        if dict[.int(2)] != nil {
-            plutusV3 = PLUTUS_V3_COST_MODEL
-        }
-        
-        self.plutusV1 = plutusV1
-        self.plutusV2 = plutusV2
-        self.plutusV3 = plutusV3
+
+        self.plutusV1 = try dict[.int(0)].map { try Self.modelFromPrimitive($0, version: 0) }
+        self.plutusV2 = try dict[.int(1)].map { try Self.modelFromPrimitive($0, version: 1) }
+        self.plutusV3 = try dict[.int(2)].map { try Self.modelFromPrimitive($0, version: 2) }
     }
-    
+
     public func toPrimitive() throws -> Primitive {
         var dict: [Primitive: Primitive] = [:]
-        
-        if let _ = plutusV1 {
+
+        if plutusV1 != nil {
             let v1Array = plutusV1!.values.map { Primitive.int($0) }
             dict[.int(0)] = .indefiniteList(IndefiniteList(v1Array))
         }
-        if let _ = plutusV2 {
+        if plutusV2 != nil {
             let v2Array = plutusV2!.values.map { Primitive.int($0) }
             dict[.int(1)] = .indefiniteList(IndefiniteList(v2Array))
         }
-        if let _ = plutusV3 {
+        if plutusV3 != nil {
             let v3Array = plutusV3!.values.map { Primitive.int($0) }
             dict[.int(2)] = .indefiniteList(IndefiniteList(v3Array))
         }
-        
+
         return .dict(dict)
+    }
+
+    private static func templateForVersion(_ version: Int) throws -> OrderedDictionary<String, Int>
+    {
+        switch version {
+        case 0: return PLUTUS_V1_COST_MODEL
+        case 1: return PLUTUS_V2_COST_MODEL
+        case 2: return PLUTUS_V3_COST_MODEL
+        default:
+            throw CardanoCoreError.deserializeError(
+                "Unsupported plutus language version: \(version)")
+        }
+    }
+
+    private static func modelFromValues(_ values: [Int], version: Int) throws -> OrderedDictionary<
+        String, Int
+    > {
+        let template = try templateForVersion(version)
+        guard values.count == template.count else {
+            throw CardanoCoreError.deserializeError(
+                "Invalid cost model length for version \(version). Expected \(template.count), got \(values.count)"
+            )
+        }
+
+        var model = OrderedDictionary<String, Int>()
+        for (key, value) in zip(template.keys, values) {
+            model[key] = value
+        }
+        return model
+    }
+
+    private static func intsFromPrimitiveList(_ primitive: Primitive) throws -> [Int] {
+        let items: [Primitive]
+        switch primitive {
+        case .list(let list):
+            items = list
+        case .indefiniteList(let indefiniteList):
+            items = indefiniteList.getAll()
+        default:
+            throw CardanoCoreError.deserializeError(
+                "Invalid cost model primitive list: \(primitive)")
+        }
+
+        return try items.map {
+            switch $0 {
+            case .int(let value): return value
+            case .uint(let value): return Int(value)
+            default:
+                throw CardanoCoreError.deserializeError("Invalid cost model parameter value: \($0)")
+            }
+        }
+    }
+
+    private static func modelFromPrimitive(_ primitive: Primitive, version: Int) throws
+        -> OrderedDictionary<String, Int>
+    {
+        return try modelFromValues(intsFromPrimitiveList(primitive), version: version)
+    }
+
+    private static func intsFromCBORList(_ cbor: CBOR) throws -> [Int] {
+        let list: [CBOR]
+        switch cbor {
+        case .array(let array):
+            list = array
+        case .indefiniteArray(let array):
+            list = array
+        default:
+            throw CardanoCoreError.deserializeError("Invalid cost model CBOR list: \(cbor)")
+        }
+
+        return try list.map {
+            switch $0 {
+            case .unsignedInt(let value): return Int(value)
+            case .negativeInt(let value): return -1 - Int(value)
+            default:
+                throw CardanoCoreError.deserializeError(
+                    "Invalid cost model CBOR parameter value: \($0)")
+            }
+        }
+    }
+
+    private static func modelFromCBOR(_ cbor: CBOR, version: Int) throws -> OrderedDictionary<
+        String, Int
+    > {
+        switch cbor {
+        case .byteString(let encoded):
+            let nested = try CBORSerialization.cbor(from: encoded)
+            return try modelFromValues(intsFromCBORList(nested), version: version)
+        case .array, .indefiniteArray:
+            return try modelFromValues(intsFromCBORList(cbor), version: version)
+        default:
+            throw CardanoCoreError.deserializeError("Invalid cost model CBOR entry: \(cbor)")
+        }
     }
 }
 
+extension CostModels: CustomStringConvertible, CustomDebugStringConvertible {
+    public var debugDescription: String {
+        do {
+            var jsonObject: [String: Any] = [:]
+
+            if let plutusV1 {
+                jsonObject["plutusV1"] = Dictionary(
+                    uniqueKeysWithValues: plutusV1.map { ($0.key, $0.value) })
+            }
+            if let plutusV2 {
+                jsonObject["plutusV2"] = Dictionary(
+                    uniqueKeysWithValues: plutusV2.map { ($0.key, $0.value) })
+            }
+            if let plutusV3 {
+                jsonObject["plutusV3"] = Dictionary(
+                    uniqueKeysWithValues: plutusV3.map { ($0.key, $0.value) })
+            }
+
+            let data = try JSONSerialization.data(
+                withJSONObject: jsonObject,
+                options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+            )
+            return String(data: data, encoding: .utf8) ?? "{}"
+        } catch {
+            return "Error generating JSON description for CostModels: \(error)"
+        }
+    }
+
+    public var description: String {
+        debugDescription
+    }
+}
 
 public let PLUTUS_V1_COST_MODEL: OrderedDictionary = [
     "addInteger-cpu-arguments-intercept": 197209,
@@ -158,7 +261,7 @@ public let PLUTUS_V1_COST_MODEL: OrderedDictionary = [
     "appendString-memory-arguments-slope": 1,
     "bData-cpu-arguments": 150000,
     "bData-memory-arguments": 32,
-    "blake2b-cpu-arguments-intercept": 2477736,
+    "blake2b-cpu-arguments-intercept": 2_477_736,
     "blake2b-cpu-arguments-slope": 29175,
     "blake2b-memory-arguments": 4,
     "cekApplyCost-exBudgetCPU": 29773,
@@ -277,7 +380,7 @@ public let PLUTUS_V1_COST_MODEL: OrderedDictionary = [
     "remainderInteger-memory-arguments-intercept": 0,
     "remainderInteger-memory-arguments-minimum": 1,
     "remainderInteger-memory-arguments-slope": 1,
-    "sha2_256-cpu-arguments-intercept": 2477736,
+    "sha2_256-cpu-arguments-intercept": 2_477_736,
     "sha2_256-cpu-arguments-slope": 29175,
     "sha2_256-memory-arguments": 4,
     "sha3_256-cpu-arguments-intercept": 0,
@@ -307,7 +410,7 @@ public let PLUTUS_V1_COST_MODEL: OrderedDictionary = [
     "unListData-memory-arguments": 32,
     "unMapData-cpu-arguments": 150000,
     "unMapData-memory-arguments": 32,
-    "verifySignature-cpu-arguments-intercept": 3345831,
+    "verifySignature-cpu-arguments-intercept": 3_345_831,
     "verifySignature-cpu-arguments-slope": 1,
     "verifySignature-memory-arguments": 1,
 ]
@@ -376,7 +479,7 @@ public let PLUTUS_V2_COST_MODEL: OrderedDictionary = [
     "equalsByteString-cpu-arguments-intercept": 216773,
     "equalsByteString-cpu-arguments-slope": 62,
     "equalsByteString-memory-arguments": 1,
-    "equalsData-cpu-arguments-intercept": 1060367,
+    "equalsData-cpu-arguments-intercept": 1_060_367,
     "equalsData-cpu-arguments-slope": 12586,
     "equalsData-memory-arguments": 1,
     "equalsInteger-cpu-arguments-intercept": 208512,
@@ -446,14 +549,14 @@ public let PLUTUS_V2_COST_MODEL: OrderedDictionary = [
     "remainderInteger-memory-arguments-intercept": 0,
     "remainderInteger-memory-arguments-minimum": 1,
     "remainderInteger-memory-arguments-slope": 1,
-    "serialiseData-cpu-arguments-intercept": 1159724,
+    "serialiseData-cpu-arguments-intercept": 1_159_724,
     "serialiseData-cpu-arguments-slope": 392670,
     "serialiseData-memory-arguments-intercept": 0,
     "serialiseData-memory-arguments-slope": 2,
     "sha2_256-cpu-arguments-intercept": 806990,
     "sha2_256-cpu-arguments-slope": 30482,
     "sha2_256-memory-arguments": 4,
-    "sha3_256-cpu-arguments-intercept": 1927926,
+    "sha3_256-cpu-arguments-intercept": 1_927_926,
     "sha3_256-cpu-arguments-slope": 82523,
     "sha3_256-memory-arguments": 4,
     "sliceByteString-cpu-arguments-intercept": 265318,
@@ -480,312 +583,312 @@ public let PLUTUS_V2_COST_MODEL: OrderedDictionary = [
     "unListData-memory-arguments": 32,
     "unMapData-cpu-arguments": 38314,
     "unMapData-memory-arguments": 32,
-    "verifyEcdsaSecp256k1Signature-cpu-arguments": 20000000000,
-    "verifyEcdsaSecp256k1Signature-memory-arguments": 20000000000,
-    "verifyEd25519Signature-cpu-arguments-intercept": 9462713,
+    "verifyEcdsaSecp256k1Signature-cpu-arguments": 20_000_000_000,
+    "verifyEcdsaSecp256k1Signature-memory-arguments": 20_000_000_000,
+    "verifyEd25519Signature-cpu-arguments-intercept": 9_462_713,
     "verifyEd25519Signature-cpu-arguments-slope": 1021,
     "verifyEd25519Signature-memory-arguments": 10,
-    "verifySchnorrSecp256k1Signature-cpu-arguments-intercept": 20000000000,
+    "verifySchnorrSecp256k1Signature-cpu-arguments-intercept": 20_000_000_000,
     "verifySchnorrSecp256k1Signature-cpu-arguments-slope": 0,
-    "verifySchnorrSecp256k1Signature-memory-arguments": 20000000000,
+    "verifySchnorrSecp256k1Signature-memory-arguments": 20_000_000_000,
 ]
 
 public let PLUTUS_V3_COST_MODEL: OrderedDictionary = [
-      "addInteger-cpu-arguments-intercept": 100788,
-      "addInteger-cpu-arguments-slope": 420,
-      "addInteger-memory-arguments-intercept": 1,
-      "addInteger-memory-arguments-slope": 1,
-      "appendByteString-cpu-arguments-intercept": 1000,
-      "appendByteString-cpu-arguments-slope": 173,
-      "appendByteString-memory-arguments-intercept": 0,
-      "appendByteString-memory-arguments-slope": 1,
-      "appendString-cpu-arguments-intercept": 1000,
-      "appendString-cpu-arguments-slope": 59957,
-      "appendString-memory-arguments-intercept": 4,
-      "appendString-memory-arguments-slope": 1,
-      "bData-cpu-arguments": 11183,
-      "bData-memory-arguments": 32,
-      "blake2b_256-cpu-arguments-intercept": 201305,
-      "blake2b_256-cpu-arguments-slope": 8356,
-      "blake2b_256-memory-arguments": 4,
-      "cekApplyCost-exBudgetCPU": 16000,
-      "cekApplyCost-exBudgetMemory": 100,
-      "cekBuiltinCost-exBudgetCPU": 16000,
-      "cekBuiltinCost-exBudgetMemory": 100,
-      "cekConstCost-exBudgetCPU": 16000,
-      "cekConstCost-exBudgetMemory": 100,
-      "cekDelayCost-exBudgetCPU": 16000,
-      "cekDelayCost-exBudgetMemory": 100,
-      "cekForceCost-exBudgetCPU": 16000,
-      "cekForceCost-exBudgetMemory": 100,
-      "cekLamCost-exBudgetCPU": 16000,
-      "cekLamCost-exBudgetMemory": 100,
-      "cekStartupCost-exBudgetCPU": 100,
-      "cekStartupCost-exBudgetMemory": 100,
-      "cekVarCost-exBudgetCPU": 16000,
-      "cekVarCost-exBudgetMemory": 100,
-      "chooseData-cpu-arguments": 94375,
-      "chooseData-memory-arguments": 32,
-      "chooseList-cpu-arguments": 132994,
-      "chooseList-memory-arguments": 32,
-      "chooseUnit-cpu-arguments": 61462,
-      "chooseUnit-memory-arguments": 4,
-      "consByteString-cpu-arguments-intercept": 72010,
-      "consByteString-cpu-arguments-slope": 178,
-      "consByteString-memory-arguments-intercept": 0,
-      "consByteString-memory-arguments-slope": 1,
-      "constrData-cpu-arguments": 22151,
-      "constrData-memory-arguments": 32,
-      "decodeUtf8-cpu-arguments-intercept": 91189,
-      "decodeUtf8-cpu-arguments-slope": 769,
-      "decodeUtf8-memory-arguments-intercept": 4,
-      "decodeUtf8-memory-arguments-slope": 2,
-      "divideInteger-cpu-arguments-constant": 85848,
-      "divideInteger-cpu-arguments-model-arguments-c00": 123203,
-      "divideInteger-cpu-arguments-model-arguments-c01": 7305,
-      "divideInteger-cpu-arguments-model-arguments-c02": -900,
-      "divideInteger-cpu-arguments-model-arguments-c10": 1716,
-      "divideInteger-cpu-arguments-model-arguments-c11": 549,
-      "divideInteger-cpu-arguments-model-arguments-c20": 57,
-      "divideInteger-cpu-arguments-model-arguments-minimum": 85848,
-      "divideInteger-memory-arguments-intercept": 0,
-      "divideInteger-memory-arguments-minimum": 1,
-      "divideInteger-memory-arguments-slope": 1,
-      "encodeUtf8-cpu-arguments-intercept": 1000,
-      "encodeUtf8-cpu-arguments-slope": 42921,
-      "encodeUtf8-memory-arguments-intercept": 4,
-      "encodeUtf8-memory-arguments-slope": 2,
-      "equalsByteString-cpu-arguments-constant": 24548,
-      "equalsByteString-cpu-arguments-intercept": 29498,
-      "equalsByteString-cpu-arguments-slope": 38,
-      "equalsByteString-memory-arguments": 1,
-      "equalsData-cpu-arguments-intercept": 898148,
-      "equalsData-cpu-arguments-slope": 27279,
-      "equalsData-memory-arguments": 1,
-      "equalsInteger-cpu-arguments-intercept": 51775,
-      "equalsInteger-cpu-arguments-slope": 558,
-      "equalsInteger-memory-arguments": 1,
-      "equalsString-cpu-arguments-constant": 39184,
-      "equalsString-cpu-arguments-intercept": 1000,
-      "equalsString-cpu-arguments-slope": 60594,
-      "equalsString-memory-arguments": 1,
-      "fstPair-cpu-arguments": 141895,
-      "fstPair-memory-arguments": 32,
-      "headList-cpu-arguments": 83150,
-      "headList-memory-arguments": 32,
-      "iData-cpu-arguments": 15299,
-      "iData-memory-arguments": 32,
-      "ifThenElse-cpu-arguments": 76049,
-      "ifThenElse-memory-arguments": 1,
-      "indexByteString-cpu-arguments": 13169,
-      "indexByteString-memory-arguments": 4,
-      "lengthOfByteString-cpu-arguments": 22100,
-      "lengthOfByteString-memory-arguments": 10,
-      "lessThanByteString-cpu-arguments-intercept": 28999,
-      "lessThanByteString-cpu-arguments-slope": 74,
-      "lessThanByteString-memory-arguments": 1,
-      "lessThanEqualsByteString-cpu-arguments-intercept": 28999,
-      "lessThanEqualsByteString-cpu-arguments-slope": 74,
-      "lessThanEqualsByteString-memory-arguments": 1,
-      "lessThanEqualsInteger-cpu-arguments-intercept": 43285,
-      "lessThanEqualsInteger-cpu-arguments-slope": 552,
-      "lessThanEqualsInteger-memory-arguments": 1,
-      "lessThanInteger-cpu-arguments-intercept": 44749,
-      "lessThanInteger-cpu-arguments-slope": 541,
-      "lessThanInteger-memory-arguments": 1,
-      "listData-cpu-arguments": 33852,
-      "listData-memory-arguments": 32,
-      "mapData-cpu-arguments": 68246,
-      "mapData-memory-arguments": 32,
-      "mkCons-cpu-arguments": 72362,
-      "mkCons-memory-arguments": 32,
-      "mkNilData-cpu-arguments": 7243,
-      "mkNilData-memory-arguments": 32,
-      "mkNilPairData-cpu-arguments": 7391,
-      "mkNilPairData-memory-arguments": 32,
-      "mkPairData-cpu-arguments": 11546,
-      "mkPairData-memory-arguments": 32,
-      "modInteger-cpu-arguments-constant": 85848,
-      "modInteger-cpu-arguments-model-arguments-c00": 123203,
-      "modInteger-cpu-arguments-model-arguments-c01": 7305,
-      "modInteger-cpu-arguments-model-arguments-c02": -900,
-      "modInteger-cpu-arguments-model-arguments-c10": 1716,
-      "modInteger-cpu-arguments-model-arguments-c11": 549,
-      "modInteger-cpu-arguments-model-arguments-c20": 57,
-      "modInteger-cpu-arguments-model-arguments-minimum": 85848,
-      "modInteger-memory-arguments-intercept": 0,
-      "modInteger-memory-arguments-slope": 1,
-      "multiplyInteger-cpu-arguments-intercept": 90434,
-      "multiplyInteger-cpu-arguments-slope": 519,
-      "multiplyInteger-memory-arguments-intercept": 0,
-      "multiplyInteger-memory-arguments-slope": 1,
-      "nullList-cpu-arguments": 74433,
-      "nullList-memory-arguments": 32,
-      "quotientInteger-cpu-arguments-constant": 85848,
-      "quotientInteger-cpu-arguments-model-arguments-c00": 123203,
-      "quotientInteger-cpu-arguments-model-arguments-c01": 7305,
-      "quotientInteger-cpu-arguments-model-arguments-c02": -900,
-      "quotientInteger-cpu-arguments-model-arguments-c10": 1716,
-      "quotientInteger-cpu-arguments-model-arguments-c11": 549,
-      "quotientInteger-cpu-arguments-model-arguments-c20": 57,
-      "quotientInteger-cpu-arguments-model-arguments-minimum": 85848,
-      "quotientInteger-memory-arguments-intercept": 0,
-      "quotientInteger-memory-arguments-slope": 1,
-      "remainderInteger-cpu-arguments-constant": 1,
-      "remainderInteger-cpu-arguments-model-arguments-c00": 85848,
-      "remainderInteger-cpu-arguments-model-arguments-c01": 123203,
-      "remainderInteger-cpu-arguments-model-arguments-c02": 7305,
-      "remainderInteger-cpu-arguments-model-arguments-c10": -900,
-      "remainderInteger-cpu-arguments-model-arguments-c11": 1716,
-      "remainderInteger-cpu-arguments-model-arguments-c20": 549,
-      "remainderInteger-cpu-arguments-model-arguments-minimum": 57,
-      "remainderInteger-memory-arguments-intercept": 85848,
-      "remainderInteger-memory-arguments-minimum": 0,
-      "remainderInteger-memory-arguments-slope": 1,
-      "serialiseData-cpu-arguments-intercept": 955506,
-      "serialiseData-cpu-arguments-slope": 213312,
-      "serialiseData-memory-arguments-intercept": 0,
-      "serialiseData-memory-arguments-slope": 2,
-      "sha2_256-cpu-arguments-intercept": 270652,
-      "sha2_256-cpu-arguments-slope": 22588,
-      "sha2_256-memory-arguments": 4,
-      "sha3_256-cpu-arguments-intercept": 1457325,
-      "sha3_256-cpu-arguments-slope": 64566,
-      "sha3_256-memory-arguments": 4,
-      "sliceByteString-cpu-arguments-intercept": 20467,
-      "sliceByteString-cpu-arguments-slope": 1,
-      "sliceByteString-memory-arguments-intercept": 4,
-      "sliceByteString-memory-arguments-slope": 0,
-      "sndPair-cpu-arguments": 141992,
-      "sndPair-memory-arguments": 32,
-      "subtractInteger-cpu-arguments-intercept": 100788,
-      "subtractInteger-cpu-arguments-slope": 420,
-      "subtractInteger-memory-arguments-intercept": 1,
-      "subtractInteger-memory-arguments-slope": 1,
-      "tailList-cpu-arguments": 81663,
-      "tailList-memory-arguments": 32,
-      "trace-cpu-arguments": 59498,
-      "trace-memory-arguments": 32,
-      "unBData-cpu-arguments": 20142,
-      "unBData-memory-arguments": 32,
-      "unConstrData-cpu-arguments": 24588,
-      "unConstrData-memory-arguments": 32,
-      "unIData-cpu-arguments": 20744,
-      "unIData-memory-arguments": 32,
-      "unListData-cpu-arguments": 25933,
-      "unListData-memory-arguments": 32,
-      "unMapData-cpu-arguments": 24623,
-      "unMapData-memory-arguments": 32,
-      "verifyEcdsaSecp256k1Signature-cpu-arguments": 43053543,
-      "verifyEcdsaSecp256k1Signature-memory-arguments": 10,
-      "verifyEd25519Signature-cpu-arguments-intercept": 53384111,
-      "verifyEd25519Signature-cpu-arguments-slope": 14333,
-      "verifyEd25519Signature-memory-arguments": 10,
-      "verifySchnorrSecp256k1Signature-cpu-arguments-intercept": 43574283,
-      "verifySchnorrSecp256k1Signature-cpu-arguments-slope": 26308,
-      "verifySchnorrSecp256k1Signature-memory-arguments": 10,
-      "cekConstrCost-exBudgetCPU": 16000,
-      "cekConstrCost-exBudgetMemory": 100,
-      "cekCaseCost-exBudgetCPU": 16000,
-      "cekCaseCost-exBudgetMemory": 100,
-      "bls12_381_G1_add-cpu-arguments": 962335,
-      "bls12_381_G1_add-memory-arguments": 18,
-      "bls12_381_G1_compress-cpu-arguments": 2780678,
-      "bls12_381_G1_compress-memory-arguments": 6,
-      "bls12_381_G1_equal-cpu-arguments": 442008,
-      "bls12_381_G1_equal-memory-arguments": 1,
-      "bls12_381_G1_hashToGroup-cpu-arguments-intercept": 52538055,
-      "bls12_381_G1_hashToGroup-cpu-arguments-slope": 3756,
-      "bls12_381_G1_hashToGroup-memory-arguments": 18,
-      "bls12_381_G1_neg-cpu-arguments": 267929,
-      "bls12_381_G1_neg-memory-arguments": 18,
-      "bls12_381_G1_scalarMul-cpu-arguments-intercept": 76433006,
-      "bls12_381_G1_scalarMul-cpu-arguments-slope": 8868,
-      "bls12_381_G1_scalarMul-memory-arguments": 18,
-      "bls12_381_G1_uncompress-cpu-arguments": 52948122,
-      "bls12_381_G1_uncompress-memory-arguments": 18,
-      "bls12_381_G2_add-cpu-arguments": 1995836,
-      "bls12_381_G2_add-memory-arguments": 36,
-      "bls12_381_G2_compress-cpu-arguments": 3227919,
-      "bls12_381_G2_compress-memory-arguments": 12,
-      "bls12_381_G2_equal-cpu-arguments": 901022,
-      "bls12_381_G2_equal-memory-arguments": 1,
-      "bls12_381_G2_hashToGroup-cpu-arguments-intercept": 166917843,
-      "bls12_381_G2_hashToGroup-cpu-arguments-slope": 4307,
-      "bls12_381_G2_hashToGroup-memory-arguments": 36,
-      "bls12_381_G2_neg-cpu-arguments": 284546,
-      "bls12_381_G2_neg-memory-arguments": 36,
-      "bls12_381_G2_scalarMul-cpu-arguments-intercept": 158221314,
-      "bls12_381_G2_scalarMul-cpu-arguments-slope": 26549,
-      "bls12_381_G2_scalarMul-memory-arguments": 36,
-      "bls12_381_G2_uncompress-cpu-arguments": 74698472,
-      "bls12_381_G2_uncompress-memory-arguments": 36,
-      "bls12_381_finalVerify-cpu-arguments": 333849714,
-      "bls12_381_finalVerify-memory-arguments": 1,
-      "bls12_381_millerLoop-cpu-arguments": 254006273,
-      "bls12_381_millerLoop-memory-arguments": 72,
-      "bls12_381_mulMlResult-cpu-arguments": 2174038,
-      "bls12_381_mulMlResult-memory-arguments": 72,
-      "keccak_256-cpu-arguments-intercept": 2261318,
-      "keccak_256-cpu-arguments-slope": 64571,
-      "keccak_256-memory-arguments": 4,
-      "blake2b_224-cpu-arguments-intercept": 207616,
-      "blake2b_224-cpu-arguments-slope": 8310,
-      "blake2b_224-memory-arguments": 4,
-      "integerToByteString-cpu-arguments-c0": 1293828,
-      "integerToByteString-cpu-arguments-c1": 28716,
-      "integerToByteString-cpu-arguments-c2": 63,
-      "integerToByteString-memory-arguments-intercept": 0,
-      "integerToByteString-memory-arguments-slope": 1,
-      "byteStringToInteger-cpu-arguments-c0": 1006041,
-      "byteStringToInteger-cpu-arguments-c1": 43623,
-      "byteStringToInteger-cpu-arguments-c2": 251,
-      "byteStringToInteger-memory-arguments-intercept": 0,
-      "byteStringToInteger-memory-arguments-slope": 1,
-      "andByteString-cpu-arguments-intercept": 100181,
-      "andByteString-cpu-arguments-slope1": 726,
-      "andByteString-cpu-arguments-slope2": 719,
-      "andByteString-memory-arguments-intercept": 0,
-      "andByteString-memory-arguments-slope": 1,
-      "orByteString-cpu-arguments-intercept": 100181,
-      "orByteString-cpu-arguments-slope1": 726,
-      "orByteString-cpu-arguments-slope2": 719,
-      "orByteString-memory-arguments-intercept": 0,
-      "orByteString-memory-arguments-slope": 1,
-      "xorByteString-cpu-arguments-intercept": 100181,
-      "xorByteString-cpu-arguments-slope1": 726,
-      "xorByteString-cpu-arguments-slope2": 719,
-      "xorByteString-memory-arguments-intercept": 0,
-      "xorByteString-memory-arguments-slope": 1,
-      "complementByteString-cpu-arguments-intercept": 107878,
-      "complementByteString-cpu-arguments-slope": 680,
-      "complementByteString-memory-arguments-intercept": 0,
-      "complementByteString-memory-arguments-slope": 1,
-      "readBit-cpu-arguments": 95336,
-      "readBit-memory-arguments": 1,
-      "writeBits-cpu-arguments-intercept": 281145,
-      "writeBits-cpu-arguments-slope": 18848,
-      "writeBits-memory-arguments-intercept": 0,
-      "writeBits-memory-arguments-slope": 1,
-      "replicateByte-cpu-arguments-intercept": 180194,
-      "replicateByte-cpu-arguments-slope": 159,
-      "replicateByte-memory-arguments-intercept": 1,
-      "replicateByte-memory-arguments-slope": 1,
-      "shiftByteString-cpu-arguments-intercept": 158519,
-      "shiftByteString-cpu-arguments-slope": 8942,
-      "shiftByteString-memory-arguments-intercept": 0,
-      "shiftByteString-memory-arguments-slope": 1,
-      "rotateByteString-cpu-arguments-intercept": 159378,
-      "rotateByteString-cpu-arguments-slope": 8813,
-      "rotateByteString-memory-arguments-intercept": 0,
-      "rotateByteString-memory-arguments-slope": 1,
-      "countSetBits-cpu-arguments-intercept": 107490,
-      "countSetBits-cpu-arguments-slope": 3298,
-      "countSetBits-memory-arguments": 1,
-      "findFirstSetBit-cpu-arguments-intercept": 106057,
-      "findFirstSetBit-cpu-arguments-slope": 655,
-      "findFirstSetBit-memory-arguments": 1,
-      "ripemd_160-cpu-arguments-intercept": 1964219,
-      "ripemd_160-cpu-arguments-slope": 24520,
-      "ripemd_160-memory-arguments": 3
+    "addInteger-cpu-arguments-intercept": 100788,
+    "addInteger-cpu-arguments-slope": 420,
+    "addInteger-memory-arguments-intercept": 1,
+    "addInteger-memory-arguments-slope": 1,
+    "appendByteString-cpu-arguments-intercept": 1000,
+    "appendByteString-cpu-arguments-slope": 173,
+    "appendByteString-memory-arguments-intercept": 0,
+    "appendByteString-memory-arguments-slope": 1,
+    "appendString-cpu-arguments-intercept": 1000,
+    "appendString-cpu-arguments-slope": 59957,
+    "appendString-memory-arguments-intercept": 4,
+    "appendString-memory-arguments-slope": 1,
+    "bData-cpu-arguments": 11183,
+    "bData-memory-arguments": 32,
+    "blake2b_256-cpu-arguments-intercept": 201305,
+    "blake2b_256-cpu-arguments-slope": 8356,
+    "blake2b_256-memory-arguments": 4,
+    "cekApplyCost-exBudgetCPU": 16000,
+    "cekApplyCost-exBudgetMemory": 100,
+    "cekBuiltinCost-exBudgetCPU": 16000,
+    "cekBuiltinCost-exBudgetMemory": 100,
+    "cekConstCost-exBudgetCPU": 16000,
+    "cekConstCost-exBudgetMemory": 100,
+    "cekDelayCost-exBudgetCPU": 16000,
+    "cekDelayCost-exBudgetMemory": 100,
+    "cekForceCost-exBudgetCPU": 16000,
+    "cekForceCost-exBudgetMemory": 100,
+    "cekLamCost-exBudgetCPU": 16000,
+    "cekLamCost-exBudgetMemory": 100,
+    "cekStartupCost-exBudgetCPU": 100,
+    "cekStartupCost-exBudgetMemory": 100,
+    "cekVarCost-exBudgetCPU": 16000,
+    "cekVarCost-exBudgetMemory": 100,
+    "chooseData-cpu-arguments": 94375,
+    "chooseData-memory-arguments": 32,
+    "chooseList-cpu-arguments": 132994,
+    "chooseList-memory-arguments": 32,
+    "chooseUnit-cpu-arguments": 61462,
+    "chooseUnit-memory-arguments": 4,
+    "consByteString-cpu-arguments-intercept": 72010,
+    "consByteString-cpu-arguments-slope": 178,
+    "consByteString-memory-arguments-intercept": 0,
+    "consByteString-memory-arguments-slope": 1,
+    "constrData-cpu-arguments": 22151,
+    "constrData-memory-arguments": 32,
+    "decodeUtf8-cpu-arguments-intercept": 91189,
+    "decodeUtf8-cpu-arguments-slope": 769,
+    "decodeUtf8-memory-arguments-intercept": 4,
+    "decodeUtf8-memory-arguments-slope": 2,
+    "divideInteger-cpu-arguments-constant": 85848,
+    "divideInteger-cpu-arguments-model-arguments-c00": 123203,
+    "divideInteger-cpu-arguments-model-arguments-c01": 7305,
+    "divideInteger-cpu-arguments-model-arguments-c02": -900,
+    "divideInteger-cpu-arguments-model-arguments-c10": 1716,
+    "divideInteger-cpu-arguments-model-arguments-c11": 549,
+    "divideInteger-cpu-arguments-model-arguments-c20": 57,
+    "divideInteger-cpu-arguments-model-arguments-minimum": 85848,
+    "divideInteger-memory-arguments-intercept": 0,
+    "divideInteger-memory-arguments-minimum": 1,
+    "divideInteger-memory-arguments-slope": 1,
+    "encodeUtf8-cpu-arguments-intercept": 1000,
+    "encodeUtf8-cpu-arguments-slope": 42921,
+    "encodeUtf8-memory-arguments-intercept": 4,
+    "encodeUtf8-memory-arguments-slope": 2,
+    "equalsByteString-cpu-arguments-constant": 24548,
+    "equalsByteString-cpu-arguments-intercept": 29498,
+    "equalsByteString-cpu-arguments-slope": 38,
+    "equalsByteString-memory-arguments": 1,
+    "equalsData-cpu-arguments-intercept": 898148,
+    "equalsData-cpu-arguments-slope": 27279,
+    "equalsData-memory-arguments": 1,
+    "equalsInteger-cpu-arguments-intercept": 51775,
+    "equalsInteger-cpu-arguments-slope": 558,
+    "equalsInteger-memory-arguments": 1,
+    "equalsString-cpu-arguments-constant": 39184,
+    "equalsString-cpu-arguments-intercept": 1000,
+    "equalsString-cpu-arguments-slope": 60594,
+    "equalsString-memory-arguments": 1,
+    "fstPair-cpu-arguments": 141895,
+    "fstPair-memory-arguments": 32,
+    "headList-cpu-arguments": 83150,
+    "headList-memory-arguments": 32,
+    "iData-cpu-arguments": 15299,
+    "iData-memory-arguments": 32,
+    "ifThenElse-cpu-arguments": 76049,
+    "ifThenElse-memory-arguments": 1,
+    "indexByteString-cpu-arguments": 13169,
+    "indexByteString-memory-arguments": 4,
+    "lengthOfByteString-cpu-arguments": 22100,
+    "lengthOfByteString-memory-arguments": 10,
+    "lessThanByteString-cpu-arguments-intercept": 28999,
+    "lessThanByteString-cpu-arguments-slope": 74,
+    "lessThanByteString-memory-arguments": 1,
+    "lessThanEqualsByteString-cpu-arguments-intercept": 28999,
+    "lessThanEqualsByteString-cpu-arguments-slope": 74,
+    "lessThanEqualsByteString-memory-arguments": 1,
+    "lessThanEqualsInteger-cpu-arguments-intercept": 43285,
+    "lessThanEqualsInteger-cpu-arguments-slope": 552,
+    "lessThanEqualsInteger-memory-arguments": 1,
+    "lessThanInteger-cpu-arguments-intercept": 44749,
+    "lessThanInteger-cpu-arguments-slope": 541,
+    "lessThanInteger-memory-arguments": 1,
+    "listData-cpu-arguments": 33852,
+    "listData-memory-arguments": 32,
+    "mapData-cpu-arguments": 68246,
+    "mapData-memory-arguments": 32,
+    "mkCons-cpu-arguments": 72362,
+    "mkCons-memory-arguments": 32,
+    "mkNilData-cpu-arguments": 7243,
+    "mkNilData-memory-arguments": 32,
+    "mkNilPairData-cpu-arguments": 7391,
+    "mkNilPairData-memory-arguments": 32,
+    "mkPairData-cpu-arguments": 11546,
+    "mkPairData-memory-arguments": 32,
+    "modInteger-cpu-arguments-constant": 85848,
+    "modInteger-cpu-arguments-model-arguments-c00": 123203,
+    "modInteger-cpu-arguments-model-arguments-c01": 7305,
+    "modInteger-cpu-arguments-model-arguments-c02": -900,
+    "modInteger-cpu-arguments-model-arguments-c10": 1716,
+    "modInteger-cpu-arguments-model-arguments-c11": 549,
+    "modInteger-cpu-arguments-model-arguments-c20": 57,
+    "modInteger-cpu-arguments-model-arguments-minimum": 85848,
+    "modInteger-memory-arguments-intercept": 0,
+    "modInteger-memory-arguments-slope": 1,
+    "multiplyInteger-cpu-arguments-intercept": 90434,
+    "multiplyInteger-cpu-arguments-slope": 519,
+    "multiplyInteger-memory-arguments-intercept": 0,
+    "multiplyInteger-memory-arguments-slope": 1,
+    "nullList-cpu-arguments": 74433,
+    "nullList-memory-arguments": 32,
+    "quotientInteger-cpu-arguments-constant": 85848,
+    "quotientInteger-cpu-arguments-model-arguments-c00": 123203,
+    "quotientInteger-cpu-arguments-model-arguments-c01": 7305,
+    "quotientInteger-cpu-arguments-model-arguments-c02": -900,
+    "quotientInteger-cpu-arguments-model-arguments-c10": 1716,
+    "quotientInteger-cpu-arguments-model-arguments-c11": 549,
+    "quotientInteger-cpu-arguments-model-arguments-c20": 57,
+    "quotientInteger-cpu-arguments-model-arguments-minimum": 85848,
+    "quotientInteger-memory-arguments-intercept": 0,
+    "quotientInteger-memory-arguments-slope": 1,
+    "remainderInteger-cpu-arguments-constant": 1,
+    "remainderInteger-cpu-arguments-model-arguments-c00": 85848,
+    "remainderInteger-cpu-arguments-model-arguments-c01": 123203,
+    "remainderInteger-cpu-arguments-model-arguments-c02": 7305,
+    "remainderInteger-cpu-arguments-model-arguments-c10": -900,
+    "remainderInteger-cpu-arguments-model-arguments-c11": 1716,
+    "remainderInteger-cpu-arguments-model-arguments-c20": 549,
+    "remainderInteger-cpu-arguments-model-arguments-minimum": 57,
+    "remainderInteger-memory-arguments-intercept": 85848,
+    "remainderInteger-memory-arguments-minimum": 0,
+    "remainderInteger-memory-arguments-slope": 1,
+    "serialiseData-cpu-arguments-intercept": 955506,
+    "serialiseData-cpu-arguments-slope": 213312,
+    "serialiseData-memory-arguments-intercept": 0,
+    "serialiseData-memory-arguments-slope": 2,
+    "sha2_256-cpu-arguments-intercept": 270652,
+    "sha2_256-cpu-arguments-slope": 22588,
+    "sha2_256-memory-arguments": 4,
+    "sha3_256-cpu-arguments-intercept": 1_457_325,
+    "sha3_256-cpu-arguments-slope": 64566,
+    "sha3_256-memory-arguments": 4,
+    "sliceByteString-cpu-arguments-intercept": 20467,
+    "sliceByteString-cpu-arguments-slope": 1,
+    "sliceByteString-memory-arguments-intercept": 4,
+    "sliceByteString-memory-arguments-slope": 0,
+    "sndPair-cpu-arguments": 141992,
+    "sndPair-memory-arguments": 32,
+    "subtractInteger-cpu-arguments-intercept": 100788,
+    "subtractInteger-cpu-arguments-slope": 420,
+    "subtractInteger-memory-arguments-intercept": 1,
+    "subtractInteger-memory-arguments-slope": 1,
+    "tailList-cpu-arguments": 81663,
+    "tailList-memory-arguments": 32,
+    "trace-cpu-arguments": 59498,
+    "trace-memory-arguments": 32,
+    "unBData-cpu-arguments": 20142,
+    "unBData-memory-arguments": 32,
+    "unConstrData-cpu-arguments": 24588,
+    "unConstrData-memory-arguments": 32,
+    "unIData-cpu-arguments": 20744,
+    "unIData-memory-arguments": 32,
+    "unListData-cpu-arguments": 25933,
+    "unListData-memory-arguments": 32,
+    "unMapData-cpu-arguments": 24623,
+    "unMapData-memory-arguments": 32,
+    "verifyEcdsaSecp256k1Signature-cpu-arguments": 43_053_543,
+    "verifyEcdsaSecp256k1Signature-memory-arguments": 10,
+    "verifyEd25519Signature-cpu-arguments-intercept": 53_384_111,
+    "verifyEd25519Signature-cpu-arguments-slope": 14333,
+    "verifyEd25519Signature-memory-arguments": 10,
+    "verifySchnorrSecp256k1Signature-cpu-arguments-intercept": 43_574_283,
+    "verifySchnorrSecp256k1Signature-cpu-arguments-slope": 26308,
+    "verifySchnorrSecp256k1Signature-memory-arguments": 10,
+    "cekConstrCost-exBudgetCPU": 16000,
+    "cekConstrCost-exBudgetMemory": 100,
+    "cekCaseCost-exBudgetCPU": 16000,
+    "cekCaseCost-exBudgetMemory": 100,
+    "bls12_381_G1_add-cpu-arguments": 962335,
+    "bls12_381_G1_add-memory-arguments": 18,
+    "bls12_381_G1_compress-cpu-arguments": 2_780_678,
+    "bls12_381_G1_compress-memory-arguments": 6,
+    "bls12_381_G1_equal-cpu-arguments": 442008,
+    "bls12_381_G1_equal-memory-arguments": 1,
+    "bls12_381_G1_hashToGroup-cpu-arguments-intercept": 52_538_055,
+    "bls12_381_G1_hashToGroup-cpu-arguments-slope": 3756,
+    "bls12_381_G1_hashToGroup-memory-arguments": 18,
+    "bls12_381_G1_neg-cpu-arguments": 267929,
+    "bls12_381_G1_neg-memory-arguments": 18,
+    "bls12_381_G1_scalarMul-cpu-arguments-intercept": 76_433_006,
+    "bls12_381_G1_scalarMul-cpu-arguments-slope": 8868,
+    "bls12_381_G1_scalarMul-memory-arguments": 18,
+    "bls12_381_G1_uncompress-cpu-arguments": 52_948_122,
+    "bls12_381_G1_uncompress-memory-arguments": 18,
+    "bls12_381_G2_add-cpu-arguments": 1_995_836,
+    "bls12_381_G2_add-memory-arguments": 36,
+    "bls12_381_G2_compress-cpu-arguments": 3_227_919,
+    "bls12_381_G2_compress-memory-arguments": 12,
+    "bls12_381_G2_equal-cpu-arguments": 901022,
+    "bls12_381_G2_equal-memory-arguments": 1,
+    "bls12_381_G2_hashToGroup-cpu-arguments-intercept": 166_917_843,
+    "bls12_381_G2_hashToGroup-cpu-arguments-slope": 4307,
+    "bls12_381_G2_hashToGroup-memory-arguments": 36,
+    "bls12_381_G2_neg-cpu-arguments": 284546,
+    "bls12_381_G2_neg-memory-arguments": 36,
+    "bls12_381_G2_scalarMul-cpu-arguments-intercept": 158_221_314,
+    "bls12_381_G2_scalarMul-cpu-arguments-slope": 26549,
+    "bls12_381_G2_scalarMul-memory-arguments": 36,
+    "bls12_381_G2_uncompress-cpu-arguments": 74_698_472,
+    "bls12_381_G2_uncompress-memory-arguments": 36,
+    "bls12_381_finalVerify-cpu-arguments": 333_849_714,
+    "bls12_381_finalVerify-memory-arguments": 1,
+    "bls12_381_millerLoop-cpu-arguments": 254_006_273,
+    "bls12_381_millerLoop-memory-arguments": 72,
+    "bls12_381_mulMlResult-cpu-arguments": 2_174_038,
+    "bls12_381_mulMlResult-memory-arguments": 72,
+    "keccak_256-cpu-arguments-intercept": 2_261_318,
+    "keccak_256-cpu-arguments-slope": 64571,
+    "keccak_256-memory-arguments": 4,
+    "blake2b_224-cpu-arguments-intercept": 207616,
+    "blake2b_224-cpu-arguments-slope": 8310,
+    "blake2b_224-memory-arguments": 4,
+    "integerToByteString-cpu-arguments-c0": 1_293_828,
+    "integerToByteString-cpu-arguments-c1": 28716,
+    "integerToByteString-cpu-arguments-c2": 63,
+    "integerToByteString-memory-arguments-intercept": 0,
+    "integerToByteString-memory-arguments-slope": 1,
+    "byteStringToInteger-cpu-arguments-c0": 1_006_041,
+    "byteStringToInteger-cpu-arguments-c1": 43623,
+    "byteStringToInteger-cpu-arguments-c2": 251,
+    "byteStringToInteger-memory-arguments-intercept": 0,
+    "byteStringToInteger-memory-arguments-slope": 1,
+    "andByteString-cpu-arguments-intercept": 100181,
+    "andByteString-cpu-arguments-slope1": 726,
+    "andByteString-cpu-arguments-slope2": 719,
+    "andByteString-memory-arguments-intercept": 0,
+    "andByteString-memory-arguments-slope": 1,
+    "orByteString-cpu-arguments-intercept": 100181,
+    "orByteString-cpu-arguments-slope1": 726,
+    "orByteString-cpu-arguments-slope2": 719,
+    "orByteString-memory-arguments-intercept": 0,
+    "orByteString-memory-arguments-slope": 1,
+    "xorByteString-cpu-arguments-intercept": 100181,
+    "xorByteString-cpu-arguments-slope1": 726,
+    "xorByteString-cpu-arguments-slope2": 719,
+    "xorByteString-memory-arguments-intercept": 0,
+    "xorByteString-memory-arguments-slope": 1,
+    "complementByteString-cpu-arguments-intercept": 107878,
+    "complementByteString-cpu-arguments-slope": 680,
+    "complementByteString-memory-arguments-intercept": 0,
+    "complementByteString-memory-arguments-slope": 1,
+    "readBit-cpu-arguments": 95336,
+    "readBit-memory-arguments": 1,
+    "writeBits-cpu-arguments-intercept": 281145,
+    "writeBits-cpu-arguments-slope": 18848,
+    "writeBits-memory-arguments-intercept": 0,
+    "writeBits-memory-arguments-slope": 1,
+    "replicateByte-cpu-arguments-intercept": 180194,
+    "replicateByte-cpu-arguments-slope": 159,
+    "replicateByte-memory-arguments-intercept": 1,
+    "replicateByte-memory-arguments-slope": 1,
+    "shiftByteString-cpu-arguments-intercept": 158519,
+    "shiftByteString-cpu-arguments-slope": 8942,
+    "shiftByteString-memory-arguments-intercept": 0,
+    "shiftByteString-memory-arguments-slope": 1,
+    "rotateByteString-cpu-arguments-intercept": 159378,
+    "rotateByteString-cpu-arguments-slope": 8813,
+    "rotateByteString-memory-arguments-intercept": 0,
+    "rotateByteString-memory-arguments-slope": 1,
+    "countSetBits-cpu-arguments-intercept": 107490,
+    "countSetBits-cpu-arguments-slope": 3298,
+    "countSetBits-memory-arguments": 1,
+    "findFirstSetBit-cpu-arguments-intercept": 106057,
+    "findFirstSetBit-cpu-arguments-slope": 655,
+    "findFirstSetBit-memory-arguments": 1,
+    "ripemd_160-cpu-arguments-intercept": 1_964_219,
+    "ripemd_160-cpu-arguments-slope": 24520,
+    "ripemd_160-memory-arguments": 3,
 ]

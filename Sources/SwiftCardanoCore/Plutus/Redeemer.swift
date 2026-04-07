@@ -1,7 +1,7 @@
 import Foundation
+import OrderedCollections
 import PotentCBOR
 import PotentCodables
-import OrderedCollections
 
 /// Redeemer tag, which indicates the type of redeemer.
 public enum RedeemerTag: Int, Serializable {
@@ -11,34 +11,35 @@ public enum RedeemerTag: Int, Serializable {
     case reward = 3
     case voting = 4
     case proposing = 5
-    
+
     public func description() -> String {
         switch self {
-            case .spend: return "spend"
-            case .mint: return "mint"
-            case .cert: return "cert"
-            case .reward: return "reward"
-            case .voting: return "voting"
-            case .proposing: return "proposing"
+        case .spend: return "spend"
+        case .mint: return "mint"
+        case .cert: return "cert"
+        case .reward: return "reward"
+        case .voting: return "voting"
+        case .proposing: return "proposing"
         }
     }
-    
+
     // MARK: - CBORSerializable
-    
+
     public init(from primitive: Primitive) throws {
-        guard case let .uint(value) = primitive,
-              let tag = RedeemerTag(rawValue: Int(value)) else {
+        guard case .uint(let value) = primitive,
+            let tag = RedeemerTag(rawValue: Int(value))
+        else {
             throw CardanoCoreError.deserializeError("Invalid RedeemerTag primitive: \(primitive)")
         }
         self = tag
     }
-    
+
     public func toPrimitive() throws -> Primitive {
         return .int(rawValue)
     }
-    
+
     // MARK: - JSONSerializable
-    
+
     public static func fromDict(_ primitive: Primitive) throws -> RedeemerTag {
         // Support both formats: int or dict with "tag" key
         switch primitive {
@@ -49,16 +50,18 @@ public enum RedeemerTag: Int, Serializable {
             return tag
         case .orderedDict(let dict):
             guard let tagValue = dict[.string("tag")],
-                  case .int(let value) = tagValue,
-                  let tag = RedeemerTag(rawValue: value) else {
-                throw CardanoCoreError.deserializeError("Invalid RedeemerTag dictionary: \(primitive)")
+                case .int(let value) = tagValue,
+                let tag = RedeemerTag(rawValue: value)
+            else {
+                throw CardanoCoreError.deserializeError(
+                    "Invalid RedeemerTag dictionary: \(primitive)")
             }
             return tag
         case .string(let str):
             // Also support string representation
             let mapping: [String: RedeemerTag] = [
                 "spend": .spend, "mint": .mint, "cert": .cert,
-                "reward": .reward, "voting": .voting, "proposing": .proposing
+                "reward": .reward, "voting": .voting, "proposing": .proposing,
             ]
             guard let tag = mapping[str] else {
                 throw CardanoCoreError.deserializeError("Invalid RedeemerTag string: \(str)")
@@ -68,11 +71,11 @@ public enum RedeemerTag: Int, Serializable {
             throw CardanoCoreError.deserializeError("Invalid RedeemerTag: \(primitive)")
         }
     }
-    
+
     public func toDict() throws -> Primitive {
         return .orderedDict([
             .string("tag"): .string(description()),
-            .string("value"): .int(rawValue)
+            .string("value"): .int(rawValue),
         ])
     }
 }
@@ -89,36 +92,35 @@ public protocol RedeemerProtocol: Serializable {
     var index: Int { get set }
     var data: PlutusData { get set }
     var exUnits: ExecutionUnits? { get set }
-    
+
     init(tag: RedeemerTag?, index: Int, data: PlutusData, exUnits: ExecutionUnits?)
 }
 
 extension RedeemerProtocol {
-    
+
     public static func == (lhs: Self, rhs: any RedeemerProtocol) -> Bool {
-        return lhs.tag == rhs.tag &&
-        lhs.index == rhs.index &&
-        lhs.data == rhs.data &&
-        lhs.exUnits == rhs.exUnits
+        return lhs.tag == rhs.tag && lhs.index == rhs.index && lhs.data == rhs.data
+            && lhs.exUnits == rhs.exUnits
     }
-    
+
     // MARK: - CBORSerializable
-    
+
     public init(from primitive: Primitive) throws {
-        guard case let .list(primitive) = primitive,
-              primitive.count == 4 else {
+        guard case .list(let primitive) = primitive,
+            primitive.count == 4
+        else {
             throw CardanoCoreError.deserializeError("Invalid Redeemer primitive")
         }
-        
+
         let tag = try RedeemerTag(from: primitive[0])
-        
-        guard case let .uint(index) = primitive[1] else {
+
+        guard case .uint(let index) = primitive[1] else {
             throw CardanoCoreError.deserializeError("Invalid Redeemer index")
         }
-        
+
         let exUnits = try ExecutionUnits(from: primitive[3])
         let data = try PlutusData.init(from: primitive[2])
-        
+
         self.init(
             tag: tag,
             index: Int(index),
@@ -126,42 +128,48 @@ extension RedeemerProtocol {
             exUnits: exUnits
         )
     }
-    
+
     public func toPrimitive() throws -> Primitive {
         return .list([
             try tag?.toPrimitive() ?? .null,
             .int(index),
             try data.toPrimitive(),
-            try exUnits?.toPrimitive() ?? .null
+            try exUnits?.toPrimitive() ?? .null,
         ])
     }
-    
+
     // MARK: - JSONSerializable
-    
+
     public static func fromDict(_ dict: Primitive) throws -> Self {
-        guard case let .orderedDict(dictValue) = dict else {
+        guard case .orderedDict(let dictValue) = dict else {
             throw CardanoCoreError.deserializeError("Invalid Redeemer dict")
         }
         var tag: RedeemerTag? = nil
         if let tagPrimitive = dictValue[.string(RedeemerCodingKeys.tag.rawValue)] {
             tag = try RedeemerTag(from: tagPrimitive)
         }
-        
+
         guard let indexPrimitive = dictValue[.string(RedeemerCodingKeys.index.rawValue)],
-              case let .int(index) = indexPrimitive else {
+            case .int(let index) = indexPrimitive
+        else {
             throw CardanoCoreError.deserializeError("Missing or invalid index in Redeemer dict")
         }
-        
+
         guard let dataPrimitive = dictValue[.string(RedeemerCodingKeys.data.rawValue)] else {
             throw CardanoCoreError.deserializeError("Missing data in Redeemer dict")
         }
-        let data = try PlutusData(from: dataPrimitive)
-        
+        let data: PlutusData
+        if case .orderedDict = dataPrimitive {
+            data = try PlutusData.fromDict(dataPrimitive)
+        } else {
+            data = try PlutusData(from: dataPrimitive)
+        }
+
         var exUnits: ExecutionUnits? = nil
         if let exUnitsPrimitive = dictValue[.string(RedeemerCodingKeys.exUnits.rawValue)] {
             exUnits = try ExecutionUnits(from: exUnitsPrimitive)
         }
-        
+
         return Self(
             tag: tag,
             index: index,
@@ -169,14 +177,14 @@ extension RedeemerProtocol {
             exUnits: exUnits
         )
     }
-    
+
     public func toDict() throws -> Primitive {
         var dict = OrderedCollections.OrderedDictionary<Primitive, Primitive>()
         if let tag = tag {
             dict[.string(RedeemerCodingKeys.tag.rawValue)] = try tag.toPrimitive()
         }
         dict[.string(RedeemerCodingKeys.index.rawValue)] = .int(index)
-        dict[.string(RedeemerCodingKeys.data.rawValue)] = try data.toPrimitive()
+        dict[.string(RedeemerCodingKeys.data.rawValue)] = try data.toDict()
         if let exUnits = exUnits {
             dict[.string(RedeemerCodingKeys.exUnits.rawValue)] = try exUnits.toPrimitive()
         }
@@ -190,10 +198,12 @@ public struct Redeemer: RedeemerProtocol {
     public var data: PlutusData
     public var exUnits: ExecutionUnits?
 
-    public init(tag: RedeemerTag? = nil,
-                index: Int = 0,
-                data: PlutusData,
-                exUnits: ExecutionUnits? = nil) {
+    public init(
+        tag: RedeemerTag? = nil,
+        index: Int = 0,
+        data: PlutusData,
+        exUnits: ExecutionUnits? = nil
+    ) {
         self.tag = tag
         self.index = index
         self.data = data
@@ -227,44 +237,46 @@ public struct RedeemerKey: Serializable {
         hasher.combine(tag)
         hasher.combine(index)
     }
-    
+
     public init(from primitive: Primitive) throws {
-        guard case let .list(primitive) = primitive,
-              primitive.count == 2,
-              case let .int(index) = primitive[1] else {
+        guard case .list(let primitive) = primitive,
+            primitive.count == 2,
+            case .int(let index) = primitive[1]
+        else {
             throw CardanoCoreError.deserializeError("Invalid RedeemerKey primitive")
         }
-        
+
         let tag = try RedeemerTag(from: primitive[0])
-        
+
         self.tag = tag
         self.index = index
     }
-    
+
     public func toPrimitive() throws -> Primitive {
         return .list([
             try tag.toPrimitive(),
-            .int(index)
+            .int(index),
         ])
     }
-    
+
     // MARK: - JSONSerializable
-    
+
     public static func fromDict(_ primitive: Primitive) throws -> RedeemerKey {
-        guard case let .list(elements) = primitive,
-              elements.count == 2,
-              case let .int(index) = elements[1] else {
+        guard case .list(let elements) = primitive,
+            elements.count == 2,
+            case .int(let index) = elements[1]
+        else {
             throw CardanoCoreError.deserializeError("Invalid RedeemerKey dict: \(primitive)")
         }
-        
+
         let tag = try RedeemerTag.fromDict(elements[0])
         return RedeemerKey(tag: tag, index: index)
     }
-    
+
     public func toDict() throws -> Primitive {
         return .list([
             try tag.toDict(),
-            .int(index)
+            .int(index),
         ])
     }
 }
@@ -290,44 +302,46 @@ public struct RedeemerValue: Serializable {
         try container.encode(data)
         try container.encode(exUnits)
     }
-    
+
     public init(from primitive: Primitive) throws {
-        guard case let .list(primitive) = primitive,
-              primitive.count == 2 else {
+        guard case .list(let primitive) = primitive,
+            primitive.count == 2
+        else {
             throw CardanoCoreError.deserializeError("Invalid RedeemerValue primitive")
         }
-        
+
         let data = try PlutusData.init(from: primitive[2])
         let exUnits = try ExecutionUnits(from: primitive[1])
-        
+
         self.data = data
         self.exUnits = exUnits
     }
-    
+
     public func toPrimitive() throws -> Primitive {
         return .list([
             try Primitive.fromAny(data),
-            try exUnits.toPrimitive()
+            try exUnits.toPrimitive(),
         ])
     }
-    
+
     // MARK: - JSONSerializable
-    
+
     public static func fromDict(_ primitive: Primitive) throws -> RedeemerValue {
-        guard case let .list(elements) = primitive,
-              elements.count == 2 else {
+        guard case .list(let elements) = primitive,
+            elements.count == 2
+        else {
             throw CardanoCoreError.deserializeError("Invalid RedeemerValue dict: \(primitive)")
         }
-        
+
         let data = try PlutusData(from: elements[0])
         let exUnits = try ExecutionUnits.fromDict(elements[1])
         return RedeemerValue(data: data, exUnits: exUnits)
     }
-    
+
     public func toDict() throws -> Primitive {
         return .list([
             try data.toDict(),
-            try exUnits.toDict()
+            try exUnits.toDict(),
         ])
     }
 }
@@ -343,7 +357,7 @@ public struct RedeemerMap: Serializable {
     public init(_ map: [RedeemerKey: RedeemerValue]) {
         self.storage = map
     }
-    
+
     public init(uniqueKeysWithValues elements: [(RedeemerKey, RedeemerValue)]) {
         self.storage = [:]
         for (key, value) in elements {
@@ -359,23 +373,24 @@ public struct RedeemerMap: Serializable {
     public var dictionary: [RedeemerKey: RedeemerValue] {
         return storage
     }
-    
+
     public var isEmpty: Bool {
         return storage.isEmpty
     }
-    
+
     public var count: Int {
         return storage.count
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
-        let cborMap = CBOR.map(OrderedDictionary(
-            uniqueKeysWithValues: try storage.map { (key, value) in
-                let cborKey = try key.toCBORData().toCBOR
-                let cborValue = try value.toCBORData().toCBOR
-                return (cborKey, cborValue)
-            })
+        let cborMap = CBOR.map(
+            OrderedDictionary(
+                uniqueKeysWithValues: try storage.map { (key, value) in
+                    let cborKey = try key.toCBORData().toCBOR
+                    let cborValue = try value.toCBORData().toCBOR
+                    return (cborKey, cborValue)
+                })
         )
         try container.encode(cborMap)
     }
@@ -383,10 +398,10 @@ public struct RedeemerMap: Serializable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let cbor = try container.decode(CBOR.self)
-        guard case let .map(cborMap) = cbor else {
+        guard case .map(let cborMap) = cbor else {
             throw CardanoCoreError.deserializeError("Invalid RedeemerMap type")
         }
-        
+
         storage = [:]
         for (key, value) in cborMap {
             let keyData = try CBORSerialization.data(from: key)
@@ -404,19 +419,19 @@ public struct RedeemerMap: Serializable {
     public static func == (lhs: RedeemerMap, rhs: RedeemerMap) -> Bool {
         lhs.storage == rhs.storage
     }
-    
+
     public init(from primitive: Primitive) throws {
         var primitiveDict: OrderedDictionary<Primitive, Primitive> = [:]
-        
+
         switch primitive {
-            case let .dict(dict):
-                primitiveDict.merge(dict) { (_, new) in new }
-            case let .orderedDict(orderedDict):
-                primitiveDict = orderedDict
-            default:
-                throw CardanoCoreError.deserializeError("Invalid RedeemerMap primitive: \(primitive)")
+        case .dict(let dict):
+            primitiveDict.merge(dict) { (_, new) in new }
+        case .orderedDict(let orderedDict):
+            primitiveDict = orderedDict
+        default:
+            throw CardanoCoreError.deserializeError("Invalid RedeemerMap primitive: \(primitive)")
         }
-        
+
         storage = [:]
         for (keyPrimitive, valuePrimitive) in primitiveDict {
             let key = try RedeemerKey(from: keyPrimitive)
@@ -424,46 +439,46 @@ public struct RedeemerMap: Serializable {
             storage[key] = value
         }
     }
-    
+
     public func toPrimitive() throws -> Primitive {
         var dict: [Primitive: Primitive] = [:]
-        
+
         for (key, value) in storage {
             let keyPrimitive = try key.toPrimitive()
             let valuePrimitive = try value.toPrimitive()
             dict[keyPrimitive] = valuePrimitive
         }
-        
+
         return .dict(dict)
     }
-    
+
     // MARK: - JSONSerializable
-    
+
     public static func fromDict(_ primitive: Primitive) throws -> RedeemerMap {
         var primitiveDict: OrderedDictionary<Primitive, Primitive> = [:]
-        
+
         switch primitive {
-        case let .dict(dict):
+        case .dict(let dict):
             primitiveDict.merge(dict) { (_, new) in new }
-        case let .orderedDict(orderedDict):
+        case .orderedDict(let orderedDict):
             primitiveDict = orderedDict
         default:
             throw CardanoCoreError.deserializeError("Invalid RedeemerMap dict: \(primitive)")
         }
-        
+
         var storage: [RedeemerKey: RedeemerValue] = [:]
         for (keyPrimitive, valuePrimitive) in primitiveDict {
             let key = try RedeemerKey.fromDict(keyPrimitive)
             let value = try RedeemerValue.fromDict(valuePrimitive)
             storage[key] = value
         }
-        
+
         return RedeemerMap(storage)
     }
-    
+
     public func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
-        
+
         for (key, value) in storage {
             let keyPrimitive = try key.toDict()
             let valuePrimitive = try value.toDict()
@@ -471,7 +486,7 @@ public struct RedeemerMap: Serializable {
             let keyString = "[\(try keyPrimitive.toJSON())]"
             dict[.string(keyString)] = valuePrimitive
         }
-        
+
         return .orderedDict(dict)
     }
 }
@@ -480,43 +495,43 @@ public struct RedeemerMap: Serializable {
 public enum Redeemers: Serializable {
     case list([any RedeemerProtocol])
     case map(RedeemerMap)
-    
+
     // MARK: - CBORSerializable
-    
+
     public init(from primitive: Primitive) throws {
         switch primitive {
-            case .list(let list):
-                var redeemers: [Redeemer] = []
-                for item in list {
-                    let redeemer = try Redeemer(from: item)
-                    redeemers.append(redeemer)
-                }
-                self = .list(redeemers)
-                
-            case .dict(_):
-                let redeemerMap = try RedeemerMap(from: primitive)
-                self = .map(redeemerMap)
-                
-            case .orderedDict(_):
-                let redeemerMap = try RedeemerMap(from: primitive)
-                self = .map(redeemerMap)
-                
-            default:
-                throw CardanoCoreError.deserializeError("Invalid Redeemers primitive")
+        case .list(let list):
+            var redeemers: [Redeemer] = []
+            for item in list {
+                let redeemer = try Redeemer(from: item)
+                redeemers.append(redeemer)
+            }
+            self = .list(redeemers)
+
+        case .dict(_):
+            let redeemerMap = try RedeemerMap(from: primitive)
+            self = .map(redeemerMap)
+
+        case .orderedDict(_):
+            let redeemerMap = try RedeemerMap(from: primitive)
+            self = .map(redeemerMap)
+
+        default:
+            throw CardanoCoreError.deserializeError("Invalid Redeemers primitive")
         }
     }
-    
+
     public func toPrimitive() throws -> Primitive {
         switch self {
-            case .list(let redeemers):
-                return .list(try redeemers.map { try $0.toPrimitive() })
-            case .map(let redeemerMap):
-                return try redeemerMap.toPrimitive()
+        case .list(let redeemers):
+            return .list(try redeemers.map { try $0.toPrimitive() })
+        case .map(let redeemerMap):
+            return try redeemerMap.toPrimitive()
         }
     }
-    
+
     // MARK: - JSONSerializable
-    
+
     public static func fromDict(_ primitive: Primitive) throws -> Redeemers {
         switch primitive {
         case .list(let list):
@@ -526,16 +541,16 @@ public enum Redeemers: Serializable {
                 redeemers.append(redeemer)
             }
             return .list(redeemers)
-            
+
         case .dict(_), .orderedDict(_):
             let redeemerMap = try RedeemerMap.fromDict(primitive)
             return .map(redeemerMap)
-            
+
         default:
             throw CardanoCoreError.deserializeError("Invalid Redeemers dict: \(primitive)")
         }
     }
-    
+
     public func toDict() throws -> Primitive {
         switch self {
         case .list(let redeemers):
@@ -544,55 +559,54 @@ public enum Redeemers: Serializable {
             return try redeemerMap.toDict()
         }
     }
-    
+
     // MARK: - Equatable
-    
+
     public static func == (lhs: Redeemers, rhs: Redeemers) -> Bool {
         switch (lhs, rhs) {
-            case let (.list(lhsList), .list(rhsList)):
-                guard lhsList.count == rhsList.count else { return false }
-                for (l, r) in zip(lhsList, rhsList) {
-                    // Compare by properties available on the protocol
-                    if l.tag?.rawValue != r.tag?.rawValue { return false }
-                    if l.index != r.index { return false }
-                    if l.exUnits != r.exUnits { return false }
-                    // Compare data via its Serializable equality semantics; fallback to primitive representation
-                    if l.data != r.data {
-                        // As a safety, compare by primitive if direct equality differs in semantics
-                        let lPrim = try? l.data.toPrimitive()
-                        let rPrim = try? r.data.toPrimitive()
-                        if String(describing: lPrim) != String(describing: rPrim) { return false }
-                    }
+        case (.list(let lhsList), .list(let rhsList)):
+            guard lhsList.count == rhsList.count else { return false }
+            for (l, r) in zip(lhsList, rhsList) {
+                // Compare by properties available on the protocol
+                if l.tag?.rawValue != r.tag?.rawValue { return false }
+                if l.index != r.index { return false }
+                if l.exUnits != r.exUnits { return false }
+                // Compare data via its Serializable equality semantics; fallback to primitive representation
+                if l.data != r.data {
+                    // As a safety, compare by primitive if direct equality differs in semantics
+                    let lPrim = try? l.data.toPrimitive()
+                    let rPrim = try? r.data.toPrimitive()
+                    if String(describing: lPrim) != String(describing: rPrim) { return false }
                 }
-                return true
-            case let (.map(lhsMap), .map(rhsMap)):
-                return lhsMap == rhsMap
-            default:
-                return false
+            }
+            return true
+        case (.map(let lhsMap), .map(let rhsMap)):
+            return lhsMap == rhsMap
+        default:
+            return false
         }
     }
-    
+
     // MARK: - Hashable
-    
+
     public func hash(into hasher: inout Hasher) {
         switch self {
-            case let .list(redeemers):
-                hasher.combine(0) // tag for list case
-                hasher.combine(redeemers.count)
-                // Hash each element using its primitive representation to avoid protocol existential hashing issues
-                for r in redeemers {
-                    // Best-effort: hash by CBOR primitive if available; fall back to index
-                    if let primitive = try? r.toPrimitive() {
-                        hasher.combine(String(describing: primitive))
-                    } else if let dict = try? r.toDict() {
-                        hasher.combine(String(describing: dict))
-                    }
+        case .list(let redeemers):
+            hasher.combine(0)  // tag for list case
+            hasher.combine(redeemers.count)
+            // Hash each element using its primitive representation to avoid protocol existential hashing issues
+            for r in redeemers {
+                // Best-effort: hash by CBOR primitive if available; fall back to index
+                if let primitive = try? r.toPrimitive() {
+                    hasher.combine(String(describing: primitive))
+                } else if let dict = try? r.toDict() {
+                    hasher.combine(String(describing: dict))
                 }
-            case let .map(map):
-                hasher.combine(1) // tag for map case
-                hasher.combine(map)
+            }
+        case .map(let map):
+            hasher.combine(1)  // tag for map case
+            hasher.combine(map)
         }
     }
-    
-}
 
+}

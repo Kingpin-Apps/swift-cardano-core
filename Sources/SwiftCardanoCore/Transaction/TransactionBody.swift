@@ -579,9 +579,11 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
                     return .list(try array.map { try $0.toPrimitive() })
                 case .orderedSet(let set):
                     return .list(try set.elements.map { try $0.toPrimitive() })
+                case .indefiniteList(let indefiniteList):
+                    return .indefiniteList(IndefiniteList<Primitive>(try indefiniteList.map { try $0.toPrimitive() }))
             }
         }
-        
+
         // Helper to convert ListOrNonEmptyOrderedSet to list of primitives
         func listOrNonEmptySetToList<T: CBORSerializable>(_ value: ListOrNonEmptyOrderedSet<T>) throws -> Primitive {
             switch value {
@@ -589,6 +591,8 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
                     return .list(try array.map { try $0.toPrimitive() })
                 case .nonEmptyOrderedSet(let set):
                     return .list(try set.elements.map { try $0.toPrimitive() })
+                case .indefiniteList(let indefiniteList):
+                    return .indefiniteList(IndefiniteList<Primitive>(try indefiniteList.map { try $0.toPrimitive() }))
             }
         }
         
