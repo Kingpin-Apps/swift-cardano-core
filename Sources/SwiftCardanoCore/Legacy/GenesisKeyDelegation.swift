@@ -26,9 +26,9 @@ public struct GenesisKeyDelegation: CertificateSerializable {
     
     /// Initialize a new `GenesisKeyDelegation` certificate
     /// - Parameters:
-    ///  - genesisHash: The DRep credential
-    ///  - genesisDelegateHash: The anchor
-    ///  - vrfKeyHash: The anchor
+    ///  - genesisHash: The genesis hash
+    ///  - genesisDelegateHash: The genesis delegate hash
+    ///  - vrfKeyHash: The verification key hash of the VRF key associated with the genesis delegate
     public init(genesisHash: GenesisHash, genesisDelegateHash: GenesisDelegateHash, vrfKeyHash: VrfKeyHash) {
         self.genesisHash = genesisHash
         self.genesisDelegateHash = genesisDelegateHash
