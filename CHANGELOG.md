@@ -1,3 +1,9 @@
+## 0.3.7 (2026-04-08)
+
+### Fix
+
+- handle Interval in pool cert
+
 ## 0.3.6 (2026-04-07)
 
 ### Fix
