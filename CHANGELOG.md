@@ -1,3 +1,9 @@
+## 0.3.8 (2026-04-08)
+
+### Fix
+
+- improve display of pool params
+
 ## 0.3.7 (2026-04-08)
 
 ### Fix
