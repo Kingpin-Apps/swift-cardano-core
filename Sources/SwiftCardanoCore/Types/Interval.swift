@@ -84,9 +84,13 @@ public struct UnitInterval: CBORSerializable, Sendable {
                     throw CardanoCoreError.valueError(
                         "UnitInterval must contain exactly 2 elements")
                 }
+                guard let numerator = arrayData[0].uint64Value,
+                      let denominator = arrayData[1].uint64Value else {
+                    throw CardanoCoreError.valueError("UnitInterval elements must be integers")
+                }
                 self.init(
-                    numerator: UInt64(arrayData[0].intValue!),
-                    denominator: UInt64(arrayData[1].intValue!)
+                    numerator: numerator,
+                    denominator: denominator
                 )
             case let .unitInterval(interval):
                 self = interval

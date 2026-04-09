@@ -587,17 +587,24 @@ public indirect enum Primitive: CBORSerializable, Sendable {
     }
     
     public var intValue: Int? {
-        if MemoryLayout<Int>.size == 8 {
-            guard case .int(let value) = self else {
-                return nil
-            }
-            return Int(value)
+        switch self {
+        case .int(let value):
+            return value
+        case .uint(let value):
+            return Int(clamping: value)
+        default:
+            return nil
         }
-        else {
-            guard case .int(let value) = self else {
-                return nil
-            }
-            return Int(value)
+    }
+
+    public var uint64Value: UInt64? {
+        switch self {
+        case .int(let value):
+            return UInt64(clamping: value)
+        case .uint(let value):
+            return UInt64(value)
+        default:
+            return nil
         }
     }
 }
