@@ -178,7 +178,15 @@ public struct PoolParams: Serializable {
         guard let marginPrimitive = dictValue[.string(CodingKeys.margin.rawValue)] else {
             throw CardanoCoreError.deserializeError("Missing margin in PoolParams")
         }
-        let margin = try UnitInterval(from: marginPrimitive)
+        let margin: UnitInterval
+        if case let .list(marginElements) = marginPrimitive,
+           marginElements.count == 2,
+           let num = marginElements[0].uint64Value,
+           let den = marginElements[1].uint64Value {
+            margin = UnitInterval(numerator: num, denominator: den)
+        } else {
+            margin = try UnitInterval(from: marginPrimitive)
+        }
         
         guard case let .string(rewardAccountHex) = dictValue[.string(CodingKeys.rewardAccount.rawValue)] else {
             throw CardanoCoreError.deserializeError("Invalid or missing rewardAccount in PoolParams")
@@ -233,9 +241,9 @@ public struct PoolParams: Serializable {
         dict[.string(CodingKeys.vrfKeyHash.rawValue)] = .string(vrfKeyHash.payload.toHex)
         dict[.string(CodingKeys.pledge.rawValue)] = .int(pledge)
         dict[.string(CodingKeys.cost.rawValue)] = .int(cost)
-        dict[.string(CodingKeys.margin.rawValue)] = try margin.toPrimitive()
+        dict[.string(CodingKeys.margin.rawValue)] = .list([.uint(UInt(margin.numerator)), .uint(UInt(margin.denominator))])
         dict[.string(CodingKeys.rewardAccount.rawValue)] = .string(rewardAccount.payload.toHex)
-        dict[.string(CodingKeys.poolOwners.rawValue)] = try poolOwners.toPrimitive()
+        dict[.string(CodingKeys.poolOwners.rawValue)] = .list(poolOwners.asArray.map { .string($0.payload.toHex) })
         if let relays = relays {
             let relaysArray = try relays.map { try $0.toPrimitive() }
             dict[.string(CodingKeys.relays.rawValue)] = .list(relaysArray)
