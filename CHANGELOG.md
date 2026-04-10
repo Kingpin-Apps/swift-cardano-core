@@ -1,3 +1,9 @@
+## 0.3.9 (2026-04-10)
+
+### Fix
+
+- handle json encoding/decoding
+
 ## 0.3.8 (2026-04-08)
 
 ### Fix
