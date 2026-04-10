@@ -33,7 +33,32 @@ public enum GovAction: CBORSerializable, Sendable {
     case updateCommittee(UpdateCommittee)
     case newConstitution(NewConstitution)
     case infoAction(InfoAction)
-    
+
+    public init(from decoder: Decoder) throws {
+        if String(describing: type(of: decoder)).contains("JSONDecoder") {
+            let container = try decoder.singleValueContainer()
+            let cborHex = try container.decode(String.self)
+            guard let data = Data(hexString: cborHex) else {
+                throw CardanoCoreError.valueError("Invalid GovAction CBOR hex: '\(cborHex)'")
+            }
+            self = try GovAction.fromCBOR(data: data)
+        } else {
+            let container = try decoder.singleValueContainer()
+            let primitive = try container.decode(Primitive.self)
+            try self.init(from: primitive)
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        if String(describing: type(of: encoder)).contains("JSONEncoder") {
+            var container = encoder.singleValueContainer()
+            try container.encode(try toCBORHex())
+        } else {
+            var container = encoder.singleValueContainer()
+            try container.encode(try toPrimitive())
+        }
+    }
+
     public init(from primitive: Primitive) throws {
         guard case let .list(primitiveList) = primitive,
               !primitiveList.isEmpty,

@@ -62,6 +62,10 @@ public struct UnitInterval: CBORSerializable, Sendable {
 
     public static let tag = 30
 
+    private enum CodingKeys: String, CodingKey {
+        case numerator, denominator
+    }
+
     public init(numerator: UInt64, denominator: UInt64) {
         precondition(
             numerator <= denominator, "Numerator must be less than or equal to denominator")
@@ -69,7 +73,31 @@ public struct UnitInterval: CBORSerializable, Sendable {
         self.numerator = numerator
         self.denominator = denominator
     }
-    
+
+    public init(from decoder: Decoder) throws {
+        if String(describing: type(of: decoder)).contains("JSONDecoder") {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            let num = try container.decode(UInt64.self, forKey: .numerator)
+            let den = try container.decode(UInt64.self, forKey: .denominator)
+            self.init(numerator: num, denominator: den)
+        } else {
+            let container = try decoder.singleValueContainer()
+            let primitive = try container.decode(Primitive.self)
+            try self.init(from: primitive)
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        if String(describing: type(of: encoder)).contains("JSONEncoder") {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(numerator, forKey: .numerator)
+            try container.encode(denominator, forKey: .denominator)
+        } else {
+            var container = encoder.singleValueContainer()
+            try container.encode(try toPrimitive())
+        }
+    }
+
     public init(from primitive: Primitive) throws {
         switch primitive {
             case let .cborTag(tagged):
