@@ -20,7 +20,7 @@ let package = Package(
         .package(url: "https://github.com/KINGH242/PotentCodables.git", .upToNextMinor(from: "3.6.0")),
         .package(url: "https://github.com/krzyzanowskim/CryptoSwift.git", .upToNextMajor(from: "1.9.0")),
         .package(url: "https://github.com/Kingpin-Apps/swift-ncal.git", .upToNextMinor(from: "0.2.1")),
-        .package(url: "https://github.com/Kingpin-Apps/swift-mnemonic.git", .upToNextMinor(from: "0.2.1")), 
+        .package(url: "https://github.com/Kingpin-Apps/swift-mnemonic.git", .upToNextMinor(from: "0.2.2")), 
         .package(url: "https://github.com/Kingpin-Apps/swift-kes.git", .upToNextMinor(from: "0.1.0")),
         .package(url: "https://github.com/attaswift/BigInt.git", .upToNextMinor(from: "5.3.0")),
         .package(url: "https://github.com/Frizlab/swift-fraction-number.git", from: "0.1.0"),

@@ -1,5 +1,5 @@
 {
-  "originHash" : "9b62f737c5621bf6ff08049426bb4fb61d07d99cb40bcd544a92c60ccfa76ad8",
+  "originHash" : "c8dac4fe49f2385b0c8dbf1a1392efcfc1285db35f35319e65042195c7794c80",
   "pins" : [
     {
       "identity" : "base32",
@@ -123,8 +123,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kingpin-Apps/swift-mnemonic.git",
       "state" : {
-        "revision" : "b05972fe91e2fd63a507b73862842724007a35bc",
-        "version" : "0.2.1"
+        "revision" : "af037bfb8964c380e387cac5c413074e6929123c",
+        "version" : "0.2.2"
       }
     },
     {
