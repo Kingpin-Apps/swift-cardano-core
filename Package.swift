@@ -49,7 +49,7 @@ let package = Package(
                 .product(name: "SwiftBase58", package: "swift-base58"),
             ],
             resources: [
-                .copy("Resources")
+                .embedInCode("Resources/version.json")
             ]
         ),
         .testTarget(
