@@ -1,3 +1,9 @@
+## 0.3.10 (2026-04-11)
+
+### Fix
+
+- use embedInCode for version json resource
+
 ## 0.3.9 (2026-04-10)
 
 ### Fix
