@@ -34,6 +34,31 @@ import PotentCodables
         )
     }
     
+    @Test("Test Era init from wire tag - valid tags", arguments: zip(0..<Era.allCases.count, Era.allCases))
+    func testInitFromWireTagValid(index: Int, expected: Era) async throws {
+        let era = Era(from: UInt16(index))
+        #expect(era == expected)
+    }
+
+    @Test("Test Era init from wire tag - out of bounds returns nil")
+    func testInitFromWireTagOutOfBounds() async throws {
+        #expect(Era(from: UInt16(Era.allCases.count)) == nil)
+        #expect(Era(from: UInt16.max) == nil)
+    }
+
+    @Test("Test Era toWireTag", arguments: zip(Era.allCases, 0..<Era.allCases.count))
+    func testToWireTag(era: Era, expectedIndex: Int) async throws {
+        let tag = try era.toWireTag()
+        #expect(tag == UInt16(expectedIndex))
+    }
+
+    @Test("Test Era wire tag round-trip", arguments: Era.allCases)
+    func testWireTagRoundTrip(era: Era) async throws {
+        let tag = try era.toWireTag()
+        let decoded = Era(from: tag)
+        #expect(decoded == era)
+    }
+
     @Test("Test Era CBOR Encoding and Decoding")
     func testEraCBORSerialization() async throws {
         let era = Era.allegra
