@@ -1,3 +1,9 @@
+## 0.3.12 (2026-04-18)
+
+### Fix
+
+- add CBOR encoding/decoding to Protocol Parameters
+
 ## 0.3.11 (2026-04-11)
 
 ### Fix
