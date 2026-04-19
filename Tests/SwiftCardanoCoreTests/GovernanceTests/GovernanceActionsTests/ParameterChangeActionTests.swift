@@ -98,10 +98,60 @@ import PotentCBOR
             protocolParamUpdate: protocolParamUpdate,
             policyHash: policyHash
         )
-        
+
         let cborData = try CBOREncoder().encode(action)
         let decoded = try CBORDecoder().decode(ParameterChangeAction.self, from: cborData)
-        
+
         #expect(action == decoded)
+    }
+
+    // MARK: - ProtocolParamUpdate from ProtocolParameters
+
+    let filePath = try! getFilePath(
+        forResource: protocolParametersJSONFilePath.forResource,
+        ofType: protocolParametersJSONFilePath.ofType,
+        inDirectory: protocolParametersJSONFilePath.inDirectory
+    )
+
+    @Test("ProtocolParamUpdate.init(from:ProtocolParameters) builds from JSON params")
+    func testInitFromProtocolParameters() async throws {
+        let params = try ProtocolParameters.load(from: filePath!)
+        let update = ProtocolParamUpdate(from: params)
+
+        #expect(update.minFeeA        == Coin(params.txFeePerByte))
+        #expect(update.minFeeB        == Coin(params.txFeeFixed))
+        #expect(update.adaPerUtxoByte == Coin(params.utxoCostPerByte))
+        #expect(update.keyDeposit     == Coin(params.stakeAddressDeposit))
+        #expect(update.poolDeposit    == Coin(params.stakePoolDeposit))
+        #expect(update.maxBlockBodySize   == UInt32(params.maxBlockBodySize))
+        #expect(update.maxTransactionSize == UInt32(params.maxTxSize))
+        #expect(update.nOpt               == UInt16(params.stakePoolTargetNum))
+        #expect(update.governanceActionDeposit == Coin(params.govActionDeposit))
+        #expect(update.drepDeposit             == Coin(params.dRepDeposit))
+    }
+
+    @Test("ProtocolParamUpdate from ProtocolParameters is CBOR round-trippable")
+    func testUpdateFromParamsCBORRoundTrip() async throws {
+        let params = try ProtocolParameters.load(from: filePath!)
+        let update = ProtocolParamUpdate(from: params)
+
+        let data    = try CBOREncoder().encode(update)
+        let decoded = try CBORDecoder().decode(ProtocolParamUpdate.self, from: data)
+        #expect(decoded == update)
+    }
+
+    @Test("ParameterChangeAction built from ProtocolParameters encodes correctly")
+    func testParameterChangeActionFromProtocolParameters() async throws {
+        let params = try ProtocolParameters.load(from: filePath!)
+        let update = ProtocolParamUpdate(from: params)
+        let action = ParameterChangeAction(
+            id: govActionID,
+            protocolParamUpdate: update,
+            policyHash: nil
+        )
+
+        let data    = try CBOREncoder().encode(action)
+        let decoded = try CBORDecoder().decode(ParameterChangeAction.self, from: data)
+        #expect(decoded == action)
     }
 }
