@@ -1,3 +1,9 @@
+## 0.3.14 (2026-04-23)
+
+### Fix
+
+- Add EraBlock and EraBlockHeader for Cardano block handling
+
 ## 0.3.13 (2026-04-19)
 
 ### Fix
