@@ -1,5 +1,6 @@
 import Foundation
 import OrderedCollections
+import SwiftNcal
 
 /// Cardano block as defined in the Conway CDDL:
 /// ```
@@ -50,7 +51,11 @@ public struct Block: Serializable {
     // MARK: - CBORSerializable
 
     public init(from primitive: Primitive) throws {
-        guard case let .list(elements) = primitive else {
+        let elements: [Primitive]
+        switch primitive {
+        case .list(let l): elements = l
+        case .indefiniteList(let l): elements = Array(l)
+        default:
             throw CardanoCoreError.deserializeError("Invalid Block primitive: expected list")
         }
 
@@ -64,21 +69,27 @@ public struct Block: Serializable {
         self.header = try Header(from: elements[0])
 
         // 1: transaction_bodies : [* transaction_body]
-        guard case let .list(txBodyPrimitives) = elements[1] else {
+        let txBodyPrimitives: [Primitive]
+        switch elements[1] {
+        case .list(let l): txBodyPrimitives = l
+        case .indefiniteList(let l): txBodyPrimitives = Array(l)
+        default:
             throw CardanoCoreError.deserializeError(
-                "Invalid Block transaction_bodies: expected list"
-            )
+                "Invalid Block transaction_bodies: expected list")
         }
         self.transactionBodies = try txBodyPrimitives.map { try TransactionBody(from: $0) }
 
         // 2: transaction_witness_sets : [* transaction_witness_set]
-        guard case let .list(txWitnessPrimitives) = elements[2] else {
+        let txWitnessPrimitives: [Primitive]
+        switch elements[2] {
+        case .list(let l): txWitnessPrimitives = l
+        case .indefiniteList(let l): txWitnessPrimitives = Array(l)
+        default:
             throw CardanoCoreError.deserializeError(
-                "Invalid Block transaction_witness_sets: expected list"
-            )
+                "Invalid Block transaction_witness_sets: expected list")
         }
         self.transactionWitnessSets = try txWitnessPrimitives.map {
-            if case let .cborTag(tagged) = $0 {
+            if case .cborTag(let tagged) = $0 {
                 return try TransactionWitnessSet(from: tagged.value)
             }
             return try TransactionWitnessSet(from: $0)
@@ -120,10 +131,13 @@ public struct Block: Serializable {
         }
 
         // 4: invalid_transactions : [* transaction_index]
-        guard case let .list(invalidTxPrimitives) = elements[4] else {
+        let invalidTxPrimitives: [Primitive]
+        switch elements[4] {
+        case .list(let l): invalidTxPrimitives = l
+        case .indefiniteList(let l): invalidTxPrimitives = Array(l)
+        default:
             throw CardanoCoreError.deserializeError(
-                "Invalid Block invalid_transactions: expected list"
-            )
+                "Invalid Block invalid_transactions: expected list")
         }
         self.invalidTransactions = try invalidTxPrimitives.map { element in
             switch element {
@@ -158,14 +172,14 @@ public struct Block: Serializable {
             .list(txBodies),
             .list(txWitnesses),
             .orderedDict(auxDataDict),
-            .list(invalidTxs)
+            .list(invalidTxs),
         ])
     }
 
     // MARK: - JSONSerializable
 
     public static func fromDict(_ primitive: Primitive) throws -> Block {
-        guard case let .orderedDict(dict) = primitive else {
+        guard case .orderedDict(let dict) = primitive else {
             throw CardanoCoreError.deserializeError("Invalid Block dict")
         }
 
@@ -175,17 +189,20 @@ public struct Block: Serializable {
         let header = try Header.fromDict(headerPrimitive)
 
         guard let txBodiesPrimitive = dict[.string(CodingKeys.transactionBodies.rawValue)],
-              case let .list(txBodyList) = txBodiesPrimitive else {
+            case .list(let txBodyList) = txBodiesPrimitive
+        else {
             throw CardanoCoreError.deserializeError(
                 "Missing or invalid transactionBodies in Block"
             )
         }
         let transactionBodies = try txBodyList.map { try TransactionBody.fromDict($0) }
 
-        guard let txWitnessesPrimitive = dict[
-            .string(CodingKeys.transactionWitnessSets.rawValue)
-        ],
-              case let .list(txWitnessList) = txWitnessesPrimitive else {
+        guard
+            let txWitnessesPrimitive = dict[
+                .string(CodingKeys.transactionWitnessSets.rawValue)
+            ],
+            case .list(let txWitnessList) = txWitnessesPrimitive
+        else {
             throw CardanoCoreError.deserializeError(
                 "Missing or invalid transactionWitnessSets in Block"
             )
@@ -196,7 +213,8 @@ public struct Block: Serializable {
 
         var auxiliaryDataSet = OrderedDictionary<TransactionIndex, AuxiliaryData>()
         if let auxDataPrimitive = dict[.string(CodingKeys.auxiliaryDataSet.rawValue)],
-           case let .orderedDict(auxDict) = auxDataPrimitive {
+            case .orderedDict(let auxDict) = auxDataPrimitive
+        {
             for (key, value) in auxDict {
                 let index: TransactionIndex
                 switch key {
@@ -220,7 +238,8 @@ public struct Block: Serializable {
 
         var invalidTransactions: [TransactionIndex] = []
         if let invalidTxPrimitive = dict[.string(CodingKeys.invalidTransactions.rawValue)],
-           case let .list(invalidTxList) = invalidTxPrimitive {
+            case .list(let invalidTxList) = invalidTxPrimitive
+        {
             invalidTransactions = try invalidTxList.map { element in
                 switch element {
                 case .uint(let val): return TransactionIndex(val)
@@ -269,19 +288,19 @@ public struct Block: Serializable {
     // MARK: - Equatable
 
     public static func == (lhs: Block, rhs: Block) -> Bool {
-        return lhs.header == rhs.header &&
-            lhs.transactionBodies == rhs.transactionBodies &&
-            lhs.transactionWitnessSets == rhs.transactionWitnessSets &&
-            lhs.auxiliaryDataSet == rhs.auxiliaryDataSet &&
-            lhs.invalidTransactions == rhs.invalidTransactions
+        return lhs.header == rhs.header && lhs.transactionBodies == rhs.transactionBodies
+            && lhs.transactionWitnessSets == rhs.transactionWitnessSets
+            && lhs.auxiliaryDataSet == rhs.auxiliaryDataSet
+            && lhs.invalidTransactions == rhs.invalidTransactions
     }
 
     // MARK: - Hashable
-
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(header)
-        hasher.combine(transactionBodies)
-        hasher.combine(transactionWitnessSets)
-        hasher.combine(invalidTransactions)
+    
+    public func hash() -> Data {
+        return try! Hash().blake2b(
+            data: try self.toCBORData(),
+            digestSize: BLOCK_BODY_HASH_SIZE,
+            encoder: RawEncoder.self
+        )
     }
 }

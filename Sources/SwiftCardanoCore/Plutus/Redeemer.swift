@@ -240,14 +240,17 @@ public struct RedeemerKey: Serializable {
 
     public init(from primitive: Primitive) throws {
         guard case .list(let primitive) = primitive,
-            primitive.count == 2,
-            case .int(let index) = primitive[1]
+            primitive.count == 2
         else {
             throw CardanoCoreError.deserializeError("Invalid RedeemerKey primitive")
         }
-
+        let index: Int
+        switch primitive[1] {
+        case .int(let v): index = v
+        case .uint(let v): index = Int(v)
+        default: throw CardanoCoreError.deserializeError("Invalid RedeemerKey primitive")
+        }
         let tag = try RedeemerTag(from: primitive[0])
-
         self.tag = tag
         self.index = index
     }

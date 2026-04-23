@@ -334,10 +334,12 @@ public indirect enum Primitive: CBORSerializable, Sendable {
         case .orderedDict(let dict):
             var jsonDict: OrderedDictionary<String, JSON> = [:]
             for (key, value) in dict {
-                // Extract the actual string value from Primitive.string
-                guard case .string(let keyStr) = key else {
-                    throw CardanoCoreError.valueError(
-                        "JSON object keys must be strings, got: \(key)")
+                // Use string value if available, otherwise fall back to description
+                let keyStr: String
+                if case .string(let s) = key {
+                    keyStr = s
+                } else {
+                    keyStr = String(describing: key)
                 }
                 jsonDict[keyStr] = try value.toJSON()
             }

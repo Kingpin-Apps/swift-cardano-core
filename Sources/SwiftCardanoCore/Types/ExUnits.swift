@@ -1,9 +1,8 @@
 import Foundation
+import OrderedCollections
 import PotentASN1
 import PotentCBOR
 import PotentCodables
-import OrderedCollections
-
 
 // MARK: - ExUnitPrices
 public struct ExUnitPrices: CBORSerializable, Sendable {
@@ -26,15 +25,15 @@ public struct ExUnitPrices: CBORSerializable, Sendable {
         try container.encode(memPrice)
         try container.encode(stepPrice)
     }
-    
+
     public init(from primitive: Primitive) throws {
-        guard case let .list(elements) = primitive else {
+        guard case .list(let elements) = primitive else {
             throw CardanoCoreError.valueError("Invalid ExUnitPrices type")
         }
         guard elements.count == 2 else {
             throw CardanoCoreError.valueError("ExUnitPrices must contain exactly 2 elements")
         }
-        
+
         self.memPrice = try NonNegativeInterval(from: elements[0])
         self.stepPrice = try NonNegativeInterval(from: elements[1])
     }
@@ -42,7 +41,7 @@ public struct ExUnitPrices: CBORSerializable, Sendable {
     public func toPrimitive() throws -> Primitive {
         return .list([
             try memPrice.toPrimitive(),
-            try stepPrice.toPrimitive()
+            try stepPrice.toPrimitive(),
         ])
     }
 }
@@ -68,28 +67,33 @@ public struct ExUnits: CBORSerializable, Sendable {
         try container.encode(mem)
         try container.encode(steps)
     }
-    
+
     public init(from primitive: Primitive) throws {
-        guard case let .list(elements) = primitive else {
+        guard case .list(let elements) = primitive else {
             throw CardanoCoreError.valueError("Invalid ExUnits type")
         }
         guard elements.count == 2 else {
             throw CardanoCoreError.valueError("ExUnits must contain exactly 2 elements")
         }
-        guard case let .int(mem) = elements[0],
-              case let .int(steps) = elements[1] else {
-            throw CardanoCoreError.valueError("Invalid ExUnits element types")
+        let mem: UInt
+        switch elements[0] {
+        case .uint(let v): mem = v
+        case .int(let v): mem = UInt(v)
+        default: throw CardanoCoreError.valueError("Invalid ExUnits element types")
         }
-        self.init(
-            mem: UInt(mem),
-            steps: UInt(steps)
-        )
+        let steps: UInt
+        switch elements[1] {
+        case .uint(let v): steps = v
+        case .int(let v): steps = UInt(v)
+        default: throw CardanoCoreError.valueError("Invalid ExUnits element types")
+        }
+        self.init(mem: mem, steps: steps)
     }
 
     public func toPrimitive() throws -> Primitive {
         return .list([
             .int(Int(mem)),
-            .int(Int(steps))
+            .int(Int(steps)),
         ])
     }
 }

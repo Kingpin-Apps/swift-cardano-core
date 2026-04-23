@@ -78,70 +78,100 @@ func makeHeaderBody(prevHash: BlockHeaderHash? = BlockHeaderHash(payload: Data(r
             return
         }
 
-        #expect(elements.count == 10)
+        // Alonzo / Babbage / Conway wire format: 14 flat elements
+        // (operational_cert and protocol_version groups are inlined).
+        #expect(elements.count == 14)
 
-        // blockNumber (uint)
+        // [0] blockNumber (uint)
         guard case let .uint(blockNum) = elements[0] else {
             Issue.record("Expected .uint for blockNumber")
             return
         }
         #expect(blockNum == 12345)
 
-        // slot (uint)
+        // [1] slot (uint)
         guard case let .uint(slot) = elements[1] else {
             Issue.record("Expected .uint for slot")
             return
         }
         #expect(slot == 67890)
 
-        // prevHash (bytes)
+        // [2] prevHash (bytes)
         guard case .bytes = elements[2] else {
             Issue.record("Expected .bytes for prevHash")
             return
         }
 
-        // issuerVKey (bytes)
+        // [3] issuerVKey (bytes)
         guard case .bytes = elements[3] else {
             Issue.record("Expected .bytes for issuerVKey")
             return
         }
 
-        // vrfVKey (bytes)
+        // [4] vrfVKey (bytes)
         guard case .bytes = elements[4] else {
             Issue.record("Expected .bytes for vrfVKey")
             return
         }
 
-        // vrfResult (list)
+        // [5] vrfResult (list)
         guard case .list = elements[5] else {
             Issue.record("Expected .list for vrfResult")
             return
         }
 
-        // blockBodySize (uint)
+        // [6] blockBodySize (uint)
         guard case let .uint(bodySize) = elements[6] else {
             Issue.record("Expected .uint for blockBodySize")
             return
         }
         #expect(bodySize == 1024)
 
-        // blockBodyHash (bytes)
+        // [7] blockBodyHash (bytes)
         guard case .bytes = elements[7] else {
             Issue.record("Expected .bytes for blockBodyHash")
             return
         }
 
-        // operationalCert (list)
-        guard case .list = elements[8] else {
-            Issue.record("Expected .list for operationalCert")
+        // operational_cert inlined:
+        // [8] hot_vkey (bytes)
+        guard case .bytes = elements[8] else {
+            Issue.record("Expected .bytes for hot_vkey")
             return
         }
 
-        // protocolVersion (list)
-        guard case .list = elements[9] else {
-            Issue.record("Expected .list for protocolVersion")
+        // [9] sequence_number (uint)
+        guard case .uint = elements[9] else {
+            Issue.record("Expected .uint for sequence_number")
             return
         }
+
+        // [10] kes_period (uint)
+        guard case .uint = elements[10] else {
+            Issue.record("Expected .uint for kes_period")
+            return
+        }
+
+        // [11] sigma (bytes)
+        guard case .bytes = elements[11] else {
+            Issue.record("Expected .bytes for sigma")
+            return
+        }
+
+        // protocol_version inlined:
+        // [12] major (uint)
+        guard case let .uint(major) = elements[12] else {
+            Issue.record("Expected .uint for protocol major")
+            return
+        }
+        #expect(major == 10)
+
+        // [13] minor (uint)
+        guard case let .uint(minor) = elements[13] else {
+            Issue.record("Expected .uint for protocol minor")
+            return
+        }
+        #expect(minor == 0)
     }
 
     @Test func testCBORRoundTrip() async throws {

@@ -37,10 +37,17 @@ public struct ParameterChangeAction: GovernanceAction {
 
     public init(from primitive: Primitive) throws {
         guard case .list(let elements) = primitive,
-            elements.count == 4,
-            case .int(let code) = elements[0],
-            code == Self.code.rawValue
+            elements.count == 4
         else {
+            throw CardanoCoreError.deserializeError("Invalid ParameterChangeAction type")
+        }
+        let code: Int
+        switch elements[0] {
+        case .int(let v): code = v
+        case .uint(let v): code = Int(v)
+        default: throw CardanoCoreError.deserializeError("Invalid ParameterChangeAction type")
+        }
+        guard code == Self.code.rawValue else {
             throw CardanoCoreError.deserializeError("Invalid ParameterChangeAction type")
         }
 
@@ -343,83 +350,75 @@ public struct ProtocolParamUpdate: CBORSerializable, Sendable {
     }
 
     public init(from primitive: Primitive) throws {
-        guard case .dict(let elements) = primitive else {
+        var pairs: [(Primitive, Primitive)]
+        switch primitive {
+        case .dict(let d):
+            pairs = Array(d)
+        case .orderedDict(let od):
+            pairs = od.map { ($0.key, $0.value) }
+        default:
             throw CardanoCoreError.deserializeError("Invalid ProtocolParamUpdate type")
         }
 
         var dict = [Int: Primitive]()
-        for (key, value) in elements {
-            guard case .int(let keyValue) = key else {
+        for (key, value) in pairs {
+            switch key {
+            case .int(let keyValue):
+                dict[Int(keyValue)] = value
+            case .uint(let keyValue):
+                dict[Int(keyValue)] = value
+            default:
                 throw CardanoCoreError.deserializeError("Invalid ProtocolParamUpdate type")
             }
-            dict[Int(keyValue)] = value
         }
 
-        if case .int(let minFeeAValue) = dict[CodingKeys.minFeeA.rawValue] {
-            minFeeA = Coin(Int(minFeeAValue))
-        } else {
-            minFeeA = nil
-        }
-
-        if case .int(let minFeeBValue) = dict[CodingKeys.minFeeB.rawValue] {
-            minFeeB = Coin(Int(minFeeBValue))
-        } else {
-            minFeeB = nil
-        }
-
-        if let maxBlockBodySizePrimitive = dict[CodingKeys.maxBlockBodySize.rawValue] {
-            guard case .int(let value) = maxBlockBodySizePrimitive else {
-                throw CardanoCoreError.deserializeError("Invalid maxBlockBodySize type")
+        func intValue(_ key: CodingKeys) -> Int? {
+            switch dict[key.rawValue] {
+            case .int(let v): return v
+            case .uint(let v): return Int(v)
+            default: return nil
             }
-            maxBlockBodySize = UInt32(value)
+        }
+        func uintValue(_ key: CodingKeys) -> UInt? {
+            switch dict[key.rawValue] {
+            case .int(let v): return UInt(v)
+            case .uint(let v): return v
+            default: return nil
+            }
+        }
+
+        minFeeA = intValue(.minFeeA).map { Coin($0) }
+        minFeeB = intValue(.minFeeB).map { Coin($0) }
+
+        if let v = intValue(.maxBlockBodySize) {
+            maxBlockBodySize = UInt32(v)
         } else {
             maxBlockBodySize = nil
         }
 
-        if let maxTransactionSizePrimitive = dict[CodingKeys.maxTransactionSize.rawValue] {
-            guard case .int(let value) = maxTransactionSizePrimitive else {
-                throw CardanoCoreError.deserializeError("Invalid maxTransactionSize type")
-            }
-            maxTransactionSize = UInt32(value)
+        if let v = intValue(.maxTransactionSize) {
+            maxTransactionSize = UInt32(v)
         } else {
             maxTransactionSize = nil
         }
 
-        if let maxBlockHeaderSizePrimitive = dict[CodingKeys.maxBlockHeaderSize.rawValue] {
-            guard case .int(let value) = maxBlockHeaderSizePrimitive else {
-                throw CardanoCoreError.deserializeError("Invalid maxBlockHeaderSize type")
-            }
-            maxBlockHeaderSize = UInt16(value)
+        if let v = intValue(.maxBlockHeaderSize) {
+            maxBlockHeaderSize = UInt16(v)
         } else {
             maxBlockHeaderSize = nil
         }
 
-        if case .int(let keyDepositValue) = dict[CodingKeys.keyDeposit.rawValue] {
-            keyDeposit = Coin(Int(keyDepositValue))
-        } else {
-            keyDeposit = nil
-        }
+        keyDeposit = intValue(.keyDeposit).map { Coin($0) }
+        poolDeposit = intValue(.poolDeposit).map { Coin($0) }
 
-        if case .int(let poolDepositValue) = dict[CodingKeys.poolDeposit.rawValue] {
-            poolDeposit = Coin(Int(poolDepositValue))
-        } else {
-            poolDeposit = nil
-        }
-
-        if let maximumEpochPrimitive = dict[CodingKeys.maximumEpoch.rawValue] {
-            guard case .int(let value) = maximumEpochPrimitive else {
-                throw CardanoCoreError.deserializeError("Invalid maximumEpoch type")
-            }
-            maximumEpoch = EpochInterval(value)
+        if let v = intValue(.maximumEpoch) {
+            maximumEpoch = EpochInterval(v)
         } else {
             maximumEpoch = nil
         }
 
-        if let nOptPrimitive = dict[CodingKeys.nOpt.rawValue] {
-            guard case .int(let value) = nOptPrimitive else {
-                throw CardanoCoreError.deserializeError("Invalid nOpt type")
-            }
-            nOpt = UInt16(value)
+        if let v = intValue(.nOpt) {
+            nOpt = UInt16(v)
         } else {
             nOpt = nil
         }
@@ -450,11 +449,8 @@ public struct ProtocolParamUpdate: CBORSerializable, Sendable {
             decentralizationConstant = nil
         }
 
-        if let extraEntropyPrimitive = dict[CodingKeys.extraEntropy.rawValue] {
-            guard case .int(let value) = extraEntropyPrimitive else {
-                throw CardanoCoreError.deserializeError("Invalid extraEntropy type")
-            }
-            extraEntropy = UInt32(value)
+        if let v = intValue(.extraEntropy) {
+            extraEntropy = UInt32(v)
         } else {
             extraEntropy = nil
         }
@@ -465,17 +461,8 @@ public struct ProtocolParamUpdate: CBORSerializable, Sendable {
             protocolVersion = nil
         }
 
-        if case .int(let minPoolCostValue) = dict[CodingKeys.minPoolCost.rawValue] {
-            minPoolCost = Coin(Int(minPoolCostValue))
-        } else {
-            minPoolCost = nil
-        }
-
-        if case .int(let adaPerUtxoByteValue) = dict[CodingKeys.adaPerUtxoByte.rawValue] {
-            adaPerUtxoByte = Coin(Int(adaPerUtxoByteValue))
-        } else {
-            adaPerUtxoByte = nil
-        }
+        minPoolCost = intValue(.minPoolCost).map { Coin($0) }
+        adaPerUtxoByte = intValue(.adaPerUtxoByte).map { Coin($0) }
 
         if let costModelsPrimitive = dict[CodingKeys.costModels.rawValue] {
             costModels = try CostModels(from: costModelsPrimitive)
@@ -501,29 +488,14 @@ public struct ProtocolParamUpdate: CBORSerializable, Sendable {
             maxBlockExUnits = nil
         }
 
-        if let maxValueSizePrimitive = dict[CodingKeys.maxValueSize.rawValue] {
-            guard case .int(let value) = maxValueSizePrimitive else {
-                throw CardanoCoreError.deserializeError("Invalid maxValueSize type")
-            }
-            maxValueSize = UInt32(value)
-        } else {
-            maxValueSize = nil
-        }
-
-        if let collateralPercentagePrimitive = dict[CodingKeys.collateralPercentage.rawValue] {
-            guard case .int(let value) = collateralPercentagePrimitive else {
-                throw CardanoCoreError.deserializeError("Invalid collateralPercentage type")
-            }
-            collateralPercentage = UInt16(value)
+        if let v = intValue(.maxValueSize) { maxValueSize = UInt32(v) } else { maxValueSize = nil }
+        if let v = intValue(.collateralPercentage) {
+            collateralPercentage = UInt16(v)
         } else {
             collateralPercentage = nil
         }
-
-        if let maxCollateralInputsPrimitive = dict[CodingKeys.maxCollateralInputs.rawValue] {
-            guard case .int(let value) = maxCollateralInputsPrimitive else {
-                throw CardanoCoreError.deserializeError("Invalid maxCollateralInputs type")
-            }
-            maxCollateralInputs = UInt16(value)
+        if let v = intValue(.maxCollateralInputs) {
+            maxCollateralInputs = UInt16(v)
         } else {
             maxCollateralInputs = nil
         }
@@ -540,55 +512,27 @@ public struct ProtocolParamUpdate: CBORSerializable, Sendable {
             drepVotingThresholds = nil
         }
 
-        if let minCommitteeSizePrimitive = dict[CodingKeys.minCommitteeSize.rawValue] {
-            guard case .int(let value) = minCommitteeSizePrimitive else {
-                throw CardanoCoreError.deserializeError("Invalid minCommitteeSize type")
-            }
-            minCommitteeSize = UInt16(value)
+        if let v = intValue(.minCommitteeSize) {
+            minCommitteeSize = UInt16(v)
         } else {
             minCommitteeSize = nil
         }
-
-        if let committeeTermLimitPrimitive = dict[CodingKeys.committeeTermLimit.rawValue] {
-            guard case .int(let value) = committeeTermLimitPrimitive else {
-                throw CardanoCoreError.deserializeError("Invalid committeeTermLimit type")
-            }
-            committeeTermLimit = EpochInterval(value)
+        if let v = intValue(.committeeTermLimit) {
+            committeeTermLimit = EpochInterval(v)
         } else {
             committeeTermLimit = nil
         }
-
-        if let governanceActionValidityPeriodPrimitive = dict[
-            CodingKeys.governanceActionValidityPeriod.rawValue]
-        {
-            guard case .int(let value) = governanceActionValidityPeriodPrimitive else {
-                throw CardanoCoreError.deserializeError(
-                    "Invalid governanceActionValidityPeriod type")
-            }
-            governanceActionValidityPeriod = EpochInterval(value)
+        if let v = intValue(.governanceActionValidityPeriod) {
+            governanceActionValidityPeriod = EpochInterval(v)
         } else {
             governanceActionValidityPeriod = nil
         }
 
-        if case .int(let governanceActionDepositValue) = dict[
-            CodingKeys.governanceActionDeposit.rawValue]
-        {
-            governanceActionDeposit = Coin(Int(governanceActionDepositValue))
-        } else {
-            governanceActionDeposit = nil
-        }
+        governanceActionDeposit = intValue(.governanceActionDeposit).map { Coin($0) }
+        drepDeposit = intValue(.drepDeposit).map { Coin($0) }
 
-        if case .int(let drepDepositValue) = dict[CodingKeys.drepDeposit.rawValue] {
-            drepDeposit = Coin(Int(drepDepositValue))
-        } else {
-            drepDeposit = nil
-        }
-
-        if let drepInactivityPeriodPrimitive = dict[CodingKeys.drepInactivityPeriod.rawValue] {
-            guard case .int(let value) = drepInactivityPeriodPrimitive else {
-                throw CardanoCoreError.deserializeError("Invalid drepInactivityPeriod type")
-            }
-            drepInactivityPeriod = EpochInterval(value)
+        if let v = intValue(.drepInactivityPeriod) {
+            drepInactivityPeriod = EpochInterval(v)
         } else {
             drepInactivityPeriod = nil
         }

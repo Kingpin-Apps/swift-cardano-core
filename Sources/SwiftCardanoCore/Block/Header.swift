@@ -1,6 +1,7 @@
 import Foundation
 import OrderedCollections
 import SwiftKES
+import SwiftNcal
 
 /// Block header as defined in the Conway CDDL:
 /// `header = [header_body, body_signature : kes_signature]`
@@ -81,9 +82,12 @@ public struct Header: Serializable {
     }
 
     // MARK: - Hashable
-
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(headerBody)
-        hasher.combine(bodySignature)
+    
+    public func hash() -> Data {
+        return try! Hash().blake2b(
+            data: try self.toCBORData(),
+            digestSize: BLOCK_HEADER_HASH_SIZE,
+            encoder: RawEncoder.self
+        )
     }
 }

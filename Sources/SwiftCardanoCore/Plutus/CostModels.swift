@@ -91,13 +91,26 @@ public struct CostModels: CBORSerializable, Sendable {
     }
 
     public init(from primitive: Primitive) throws {
-        guard case .dict(let dict) = primitive else {
+        var pairs: [(Primitive, Primitive)]
+        switch primitive {
+        case .dict(let d): pairs = Array(d)
+        case .orderedDict(let od): pairs = od.map { ($0.key, $0.value) }
+        default:
             throw CardanoCoreError.deserializeError("Invalid CostModels primitive")
         }
 
-        self.plutusV1 = try dict[.int(0)].map { try Self.modelFromPrimitive($0, version: 0) }
-        self.plutusV2 = try dict[.int(1)].map { try Self.modelFromPrimitive($0, version: 1) }
-        self.plutusV3 = try dict[.int(2)].map { try Self.modelFromPrimitive($0, version: 2) }
+        var dict = [Int: Primitive]()
+        for (key, value) in pairs {
+            switch key {
+            case .int(let k): dict[k] = value
+            case .uint(let k): dict[Int(k)] = value
+            default: break
+            }
+        }
+
+        self.plutusV1 = try dict[0].map { try Self.modelFromPrimitive($0, version: 0) }
+        self.plutusV2 = try dict[1].map { try Self.modelFromPrimitive($0, version: 1) }
+        self.plutusV3 = try dict[2].map { try Self.modelFromPrimitive($0, version: 2) }
     }
 
     public func toPrimitive() throws -> Primitive {

@@ -1,43 +1,60 @@
 import Foundation
 import OrderedCollections
+import SwiftNcal
 
-/// Block header body as defined in the Conway CDDL:
+/// Block header body as defined in the Cardano CDDL.
+///
+/// The wire format inlines the `operational_cert` group and `protocol_version` group
+/// directly into the parent array, so the actual element count differs from the logical
+/// CDDL field count:
+///
+/// **Alonzo / Babbage / Conway (eras 4–6) — 14 flat elements:**
 /// ```
-/// header_body =
-///   [ block_number   : uint
-///   , slot           : uint
-///   , prev_hash      : $hash32 / nil
-///   , issuer_vkey    : $vkey
-///   , vrf_vkey       : $vrf_vkey
-///   , vrf_result     : $vrf_cert
-///   , block_body_size : uint
-///   , block_body_hash : $hash32
-///   , operational_cert : operational_cert
-///   , protocol_version : protocol_version
-///   ]
+///  [0]  block_number    : uint
+///  [1]  slot            : uint
+///  [2]  prev_hash       : hash32 / nil
+///  [3]  issuer_vkey     : bytes (32)
+///  [4]  vrf_vkey        : bytes (32)
+///  [5]  vrf_result      : vrf_cert [output, proof(80)]
+///  [6]  block_body_size : uint
+///  [7]  block_body_hash : bytes (32)
+///  [8]  hot_vkey        : bytes (32)   ← operational_cert inlined
+///  [9]  sequence_number : uint
+/// [10]  kes_period      : uint
+/// [11]  sigma           : bytes (64)
+/// [12]  major           : uint          ← protocol_version inlined
+/// [13]  minor           : uint
 /// ```
 ///
-/// Serialized as a CBOR array with 10 elements.
+/// **Shelley / Allegra / Mary (eras 1–3) — 15 flat elements:**
+/// Same layout but with two VRF fields instead of one:
+/// ```
+///  [5]  nonce_vrf       : vrf_cert
+///  [6]  leader_vrf      : vrf_cert
+///  [7]  block_body_size  …
+/// ```
 public struct HeaderBody: Serializable {
-    /// Block number
+    /// Block number (height)
     public var blockNumber: BlockNumber
-    /// Slot number
+    /// Absolute slot number
     public var slot: SlotNumber
-    /// Previous block header hash (nil for genesis block)
+    /// Previous block header hash (nil for genesis)
     public var prevHash: BlockHeaderHash?
     /// Block issuer verification key (32 bytes)
     public var issuerVKey: Data
     /// VRF verification key (32 bytes)
     public var vrfVKey: Data
-    /// VRF result certificate
+    /// Primary VRF result certificate (`leader_vrf` for Shelley–Mary, `vrf_result` for Alonzo+)
     public var vrfResult: VRFCert
+    /// Nonce VRF certificate (Shelley / Allegra / Mary only — eras 1–3)
+    public var nonceVrf: VRFCert?
     /// Size of the block body in bytes
     public var blockBodySize: UInt32
     /// Hash of the block body
     public var blockBodyHash: BlockBodyHash
-    /// Operational certificate
+    /// Operational certificate (fields inlined in the wire format)
     public var operationalCert: OperationalCertificate
-    /// Protocol version
+    /// Protocol version (fields inlined in the wire format)
     public var protocolVersion: ProtocolVersion
 
     public static let VKEY_SIZE = 32
@@ -50,6 +67,7 @@ public struct HeaderBody: Serializable {
         case issuerVKey
         case vrfVKey
         case vrfResult
+        case nonceVrf
         case blockBodySize
         case blockBodyHash
         case operationalCert
@@ -63,6 +81,7 @@ public struct HeaderBody: Serializable {
         issuerVKey: Data,
         vrfVKey: Data,
         vrfResult: VRFCert,
+        nonceVrf: VRFCert? = nil,
         blockBodySize: UInt32,
         blockBodyHash: BlockBodyHash,
         operationalCert: OperationalCertificate,
@@ -74,6 +93,7 @@ public struct HeaderBody: Serializable {
         self.issuerVKey = issuerVKey
         self.vrfVKey = vrfVKey
         self.vrfResult = vrfResult
+        self.nonceVrf = nonceVrf
         self.blockBodySize = blockBodySize
         self.blockBodyHash = blockBodyHash
         self.operationalCert = operationalCert
@@ -83,99 +103,234 @@ public struct HeaderBody: Serializable {
     // MARK: - CBORSerializable
 
     public init(from primitive: Primitive) throws {
-        guard case let .list(elements) = primitive else {
+        guard case .list(let elements) = primitive else {
             throw CardanoCoreError.deserializeError(
                 "Invalid HeaderBody primitive: expected list"
             )
         }
 
-        guard elements.count == 10 else {
+        // 14 elements: Alonzo / Babbage / Conway (single vrf_result, flat op_cert + protocol_version)
+        // 15 elements: Shelley / Allegra / Mary (nonce_vrf + leader_vrf, flat op_cert + protocol_version)
+        // 10 elements: Alonzo / Babbage / Conway (single vrf_result, nested op_cert + protocol_version)
+        // 11 elements: Shelley / Allegra / Mary (nonce_vrf + leader_vrf, nested op_cert + protocol_version)
+        guard
+            elements.count == 10 || elements.count == 11 || elements.count == 14
+                || elements.count == 15
+        else {
             throw CardanoCoreError.deserializeError(
-                "HeaderBody requires exactly 10 elements, got \(elements.count)"
+                "HeaderBody requires 14 or 15 elements on the wire, got \(elements.count)"
             )
         }
 
-        // 0: block_number
+        let hasSplitVrf = elements.count == 15 || elements.count == 11
+        let nestedCert = elements.count == 10 || elements.count == 11
+
+        // [0] block_number
         switch elements[0] {
-        case .uint(let val):
-            self.blockNumber = BlockNumber(val)
-        case .int(let val):
-            self.blockNumber = BlockNumber(val)
-        default:
-            throw CardanoCoreError.deserializeError("Invalid HeaderBody block_number type")
+        case .uint(let val): self.blockNumber = BlockNumber(val)
+        case .int(let val): self.blockNumber = BlockNumber(val)
+        default: throw CardanoCoreError.deserializeError("Invalid HeaderBody block_number type")
         }
 
-        // 1: slot
+        // [1] slot
         switch elements[1] {
-        case .uint(let val):
-            self.slot = SlotNumber(val)
-        case .int(let val):
-            self.slot = SlotNumber(val)
-        default:
-            throw CardanoCoreError.deserializeError("Invalid HeaderBody slot type")
+        case .uint(let val): self.slot = SlotNumber(val)
+        case .int(let val): self.slot = SlotNumber(val)
+        default: throw CardanoCoreError.deserializeError("Invalid HeaderBody slot type")
         }
 
-        // 2: prev_hash (hash32 / nil)
+        // [2] prev_hash (hash32 / nil)
         if case .null = elements[2] {
             self.prevHash = nil
         } else {
             self.prevHash = try BlockHeaderHash(from: elements[2])
         }
 
-        // 3: issuer_vkey (bytes .size 32)
-        guard case let .bytes(issuerVKey) = elements[3] else {
-            throw CardanoCoreError.deserializeError("Invalid HeaderBody issuer_vkey: expected bytes")
+        // [3] issuer_vkey
+        guard case .bytes(let issuerVKey) = elements[3] else {
+            throw CardanoCoreError.deserializeError(
+                "Invalid HeaderBody issuer_vkey: expected bytes")
         }
         self.issuerVKey = issuerVKey
 
-        // 4: vrf_vkey (bytes .size 32)
-        guard case let .bytes(vrfVKey) = elements[4] else {
+        // [4] vrf_vkey
+        guard case .bytes(let vrfVKey) = elements[4] else {
             throw CardanoCoreError.deserializeError("Invalid HeaderBody vrf_vkey: expected bytes")
         }
         self.vrfVKey = vrfVKey
 
-        // 5: vrf_result (vrf_cert)
-        self.vrfResult = try VRFCert(from: elements[5])
-
-        // 6: block_body_size (uint .size 4)
-        switch elements[6] {
-        case .uint(let val):
-            self.blockBodySize = UInt32(val)
-        case .int(let val):
-            self.blockBodySize = UInt32(val)
-        default:
-            throw CardanoCoreError.deserializeError("Invalid HeaderBody block_body_size type")
+        // [5] nonce_vrf (Shelley–Mary) or vrf_result (Alonzo+)
+        // [6] leader_vrf (Shelley–Mary only)
+        let vrfOffset: Int
+        if hasSplitVrf {
+            self.nonceVrf = try VRFCert(from: elements[5])
+            self.vrfResult = try VRFCert(from: elements[6])
+            vrfOffset = 1
+        } else {
+            self.nonceVrf = nil
+            self.vrfResult = try VRFCert(from: elements[5])
+            vrfOffset = 0
         }
 
-        // 7: block_body_hash (hash32)
-        self.blockBodyHash = try BlockBodyHash(from: elements[7])
+        // block_body_size — index shifts by 1 for split-VRF eras
+        switch elements[6 + vrfOffset] {
+        case .uint(let val): self.blockBodySize = UInt32(val)
+        case .int(let val): self.blockBodySize = UInt32(val)
+        default: throw CardanoCoreError.deserializeError("Invalid HeaderBody block_body_size type")
+        }
 
-        // 8: operational_cert
-        self.operationalCert = try OperationalCertificate(from: elements[8])
+        // block_body_hash
+        self.blockBodyHash = try BlockBodyHash(from: elements[7 + vrfOffset])
 
-        // 9: protocol_version
-        self.protocolVersion = try ProtocolVersion(from: elements[9])
+        if nestedCert {
+            // operational_cert encoded as a nested 4-element array
+            guard case .list(let certElems) = elements[8 + vrfOffset], certElems.count == 4 else {
+                throw CardanoCoreError.deserializeError(
+                    "Invalid HeaderBody operational_cert: expected 4-element array")
+            }
+            guard case .bytes(let hotVKeyBytes) = certElems[0] else {
+                throw CardanoCoreError.deserializeError(
+                    "Invalid HeaderBody hot_vkey: expected bytes")
+            }
+            let hotVKey = KESVerificationKey(payload: hotVKeyBytes, type: nil, description: nil)
+
+            let sequenceNumber: UInt64
+            switch certElems[1] {
+            case .uint(let val): sequenceNumber = UInt64(val)
+            case .int(let val): sequenceNumber = UInt64(val)
+            default:
+                throw CardanoCoreError.deserializeError("Invalid HeaderBody sequence_number type")
+            }
+
+            let kesPeriod: UInt64
+            switch certElems[2] {
+            case .uint(let val): kesPeriod = UInt64(val)
+            case .int(let val): kesPeriod = UInt64(val)
+            default: throw CardanoCoreError.deserializeError("Invalid HeaderBody kes_period type")
+            }
+
+            guard case .bytes(let sigma) = certElems[3] else {
+                throw CardanoCoreError.deserializeError("Invalid HeaderBody sigma: expected bytes")
+            }
+
+            self.operationalCert = try OperationalCertificate(
+                hotVKey: hotVKey,
+                sequenceNumber: sequenceNumber,
+                kesPeriod: kesPeriod,
+                sigma: sigma
+            )
+
+            // protocol_version encoded as a nested 2-element array
+            guard case .list(let pvElems) = elements[9 + vrfOffset], pvElems.count == 2 else {
+                throw CardanoCoreError.deserializeError(
+                    "Invalid HeaderBody protocol_version: expected 2-element array")
+            }
+            let major: Int
+            switch pvElems[0] {
+            case .uint(let val): major = Int(val)
+            case .int(let val): major = val
+            default:
+                throw CardanoCoreError.deserializeError("Invalid HeaderBody protocol major type")
+            }
+            let minor: Int
+            switch pvElems[1] {
+            case .uint(let val): minor = Int(val)
+            case .int(let val): minor = val
+            default:
+                throw CardanoCoreError.deserializeError("Invalid HeaderBody protocol minor type")
+            }
+            self.protocolVersion = ProtocolVersion(major: major, minor: minor)
+        } else {
+            // operational_cert — 4 fields inlined flat
+            guard case .bytes(let hotVKeyBytes) = elements[8 + vrfOffset] else {
+                throw CardanoCoreError.deserializeError(
+                    "Invalid HeaderBody hot_vkey: expected bytes")
+            }
+            let hotVKey = KESVerificationKey(payload: hotVKeyBytes, type: nil, description: nil)
+
+            let sequenceNumber: UInt64
+            switch elements[9 + vrfOffset] {
+            case .uint(let val): sequenceNumber = UInt64(val)
+            case .int(let val): sequenceNumber = UInt64(val)
+            default:
+                throw CardanoCoreError.deserializeError("Invalid HeaderBody sequence_number type")
+            }
+
+            let kesPeriod: UInt64
+            switch elements[10 + vrfOffset] {
+            case .uint(let val): kesPeriod = UInt64(val)
+            case .int(let val): kesPeriod = UInt64(val)
+            default: throw CardanoCoreError.deserializeError("Invalid HeaderBody kes_period type")
+            }
+
+            guard case .bytes(let sigma) = elements[11 + vrfOffset] else {
+                throw CardanoCoreError.deserializeError("Invalid HeaderBody sigma: expected bytes")
+            }
+
+            self.operationalCert = try OperationalCertificate(
+                hotVKey: hotVKey,
+                sequenceNumber: sequenceNumber,
+                kesPeriod: kesPeriod,
+                sigma: sigma
+            )
+
+            // protocol_version — 2 fields inlined flat
+            let major: Int
+            switch elements[12 + vrfOffset] {
+            case .uint(let val): major = Int(val)
+            case .int(let val): major = val
+            default:
+                throw CardanoCoreError.deserializeError("Invalid HeaderBody protocol major type")
+            }
+
+            let minor: Int
+            switch elements[13 + vrfOffset] {
+            case .uint(let val): minor = Int(val)
+            case .int(let val): minor = val
+            default:
+                throw CardanoCoreError.deserializeError("Invalid HeaderBody protocol minor type")
+            }
+
+            self.protocolVersion = ProtocolVersion(major: major, minor: minor)
+        }
     }
 
     public func toPrimitive() throws -> Primitive {
-        return .list([
+        var fields: [Primitive] = [
             .uint(UInt(blockNumber)),
             .uint(UInt(slot)),
             prevHash != nil ? prevHash!.toPrimitive() : .null,
             .bytes(issuerVKey),
             .bytes(vrfVKey),
-            try vrfResult.toPrimitive(),
+        ]
+
+        if let nonceVrf {
+            fields.append(try nonceVrf.toPrimitive())
+            fields.append(try vrfResult.toPrimitive())
+        } else {
+            fields.append(try vrfResult.toPrimitive())
+        }
+
+        fields += [
             .uint(UInt(blockBodySize)),
             blockBodyHash.toPrimitive(),
-            try operationalCert.toPrimitive(),
-            try protocolVersion.toPrimitive()
-        ])
+            // operational_cert inlined
+            .bytes(operationalCert.hotVKey.payload),
+            .uint(UInt(operationalCert.sequenceNumber)),
+            .uint(UInt(operationalCert.kesPeriod)),
+            .bytes(operationalCert.sigma),
+            // protocol_version inlined
+            .uint(UInt(protocolVersion.major ?? 0)),
+            .uint(UInt(protocolVersion.minor ?? 0)),
+        ]
+
+        return .list(fields)
     }
 
     // MARK: - JSONSerializable
 
     public static func fromDict(_ primitive: Primitive) throws -> HeaderBody {
-        guard case let .orderedDict(dict) = primitive else {
+        guard case .orderedDict(let dict) = primitive else {
             throw CardanoCoreError.deserializeError("Invalid HeaderBody dict")
         }
 
@@ -186,8 +341,7 @@ public struct HeaderBody: Serializable {
         switch blockNumberPrimitive {
         case .uint(let val): blockNumber = BlockNumber(val)
         case .int(let val): blockNumber = BlockNumber(val)
-        default:
-            throw CardanoCoreError.deserializeError("Invalid blockNumber type in HeaderBody")
+        default: throw CardanoCoreError.deserializeError("Invalid blockNumber type in HeaderBody")
         }
 
         guard let slotPrimitive = dict[.string(CodingKeys.slot.rawValue)] else {
@@ -197,8 +351,7 @@ public struct HeaderBody: Serializable {
         switch slotPrimitive {
         case .uint(let val): slot = SlotNumber(val)
         case .int(let val): slot = SlotNumber(val)
-        default:
-            throw CardanoCoreError.deserializeError("Invalid slot type in HeaderBody")
+        default: throw CardanoCoreError.deserializeError("Invalid slot type in HeaderBody")
         }
 
         var prevHash: BlockHeaderHash? = nil
@@ -211,12 +364,14 @@ public struct HeaderBody: Serializable {
         }
 
         guard let issuerVKeyPrimitive = dict[.string(CodingKeys.issuerVKey.rawValue)],
-              case let .bytes(issuerVKey) = issuerVKeyPrimitive else {
+            case .bytes(let issuerVKey) = issuerVKeyPrimitive
+        else {
             throw CardanoCoreError.deserializeError("Missing or invalid issuerVKey in HeaderBody")
         }
 
         guard let vrfVKeyPrimitive = dict[.string(CodingKeys.vrfVKey.rawValue)],
-              case let .bytes(vrfVKey) = vrfVKeyPrimitive else {
+            case .bytes(let vrfVKey) = vrfVKeyPrimitive
+        else {
             throw CardanoCoreError.deserializeError("Missing or invalid vrfVKey in HeaderBody")
         }
 
@@ -225,6 +380,11 @@ public struct HeaderBody: Serializable {
         }
         let vrfResult = try VRFCert.fromDict(vrfResultPrimitive)
 
+        var nonceVrf: VRFCert? = nil
+        if let nonceVrfPrimitive = dict[.string(CodingKeys.nonceVrf.rawValue)] {
+            nonceVrf = try VRFCert.fromDict(nonceVrfPrimitive)
+        }
+
         guard let blockBodySizePrimitive = dict[.string(CodingKeys.blockBodySize.rawValue)] else {
             throw CardanoCoreError.deserializeError("Missing blockBodySize in HeaderBody")
         }
@@ -232,8 +392,7 @@ public struct HeaderBody: Serializable {
         switch blockBodySizePrimitive {
         case .uint(let val): blockBodySize = UInt32(val)
         case .int(let val): blockBodySize = UInt32(val)
-        default:
-            throw CardanoCoreError.deserializeError("Invalid blockBodySize type in HeaderBody")
+        default: throw CardanoCoreError.deserializeError("Invalid blockBodySize type in HeaderBody")
         }
 
         guard let blockBodyHashPrimitive = dict[.string(CodingKeys.blockBodyHash.rawValue)] else {
@@ -260,6 +419,7 @@ public struct HeaderBody: Serializable {
             issuerVKey: issuerVKey,
             vrfVKey: vrfVKey,
             vrfResult: vrfResult,
+            nonceVrf: nonceVrf,
             blockBodySize: blockBodySize,
             blockBodyHash: blockBodyHash,
             operationalCert: operationalCert,
@@ -271,7 +431,7 @@ public struct HeaderBody: Serializable {
         var dict = OrderedDictionary<Primitive, Primitive>()
         dict[.string(CodingKeys.blockNumber.rawValue)] = .uint(UInt(blockNumber))
         dict[.string(CodingKeys.slot.rawValue)] = .uint(UInt(slot))
-        if let prevHash = prevHash {
+        if let prevHash {
             dict[.string(CodingKeys.prevHash.rawValue)] = try prevHash.toDict()
         } else {
             dict[.string(CodingKeys.prevHash.rawValue)] = .null
@@ -279,6 +439,9 @@ public struct HeaderBody: Serializable {
         dict[.string(CodingKeys.issuerVKey.rawValue)] = .bytes(issuerVKey)
         dict[.string(CodingKeys.vrfVKey.rawValue)] = .bytes(vrfVKey)
         dict[.string(CodingKeys.vrfResult.rawValue)] = try vrfResult.toDict()
+        if let nonceVrf {
+            dict[.string(CodingKeys.nonceVrf.rawValue)] = try nonceVrf.toDict()
+        }
         dict[.string(CodingKeys.blockBodySize.rawValue)] = .uint(UInt(blockBodySize))
         dict[.string(CodingKeys.blockBodyHash.rawValue)] = try blockBodyHash.toDict()
         dict[.string(CodingKeys.operationalCert.rawValue)] = try operationalCert.toDict()
@@ -289,30 +452,21 @@ public struct HeaderBody: Serializable {
     // MARK: - Equatable
 
     public static func == (lhs: HeaderBody, rhs: HeaderBody) -> Bool {
-        return lhs.blockNumber == rhs.blockNumber &&
-            lhs.slot == rhs.slot &&
-            lhs.prevHash == rhs.prevHash &&
-            lhs.issuerVKey == rhs.issuerVKey &&
-            lhs.vrfVKey == rhs.vrfVKey &&
-            lhs.vrfResult == rhs.vrfResult &&
-            lhs.blockBodySize == rhs.blockBodySize &&
-            lhs.blockBodyHash == rhs.blockBodyHash &&
-            lhs.operationalCert == rhs.operationalCert &&
-            lhs.protocolVersion == rhs.protocolVersion
+        return lhs.blockNumber == rhs.blockNumber && lhs.slot == rhs.slot
+            && lhs.prevHash == rhs.prevHash && lhs.issuerVKey == rhs.issuerVKey
+            && lhs.vrfVKey == rhs.vrfVKey && lhs.vrfResult == rhs.vrfResult
+            && lhs.nonceVrf == rhs.nonceVrf && lhs.blockBodySize == rhs.blockBodySize
+            && lhs.blockBodyHash == rhs.blockBodyHash && lhs.operationalCert == rhs.operationalCert
+            && lhs.protocolVersion == rhs.protocolVersion
     }
 
     // MARK: - Hashable
-
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(blockNumber)
-        hasher.combine(slot)
-        hasher.combine(prevHash)
-        hasher.combine(issuerVKey)
-        hasher.combine(vrfVKey)
-        hasher.combine(vrfResult)
-        hasher.combine(blockBodySize)
-        hasher.combine(blockBodyHash)
-        hasher.combine(operationalCert)
-        hasher.combine(protocolVersion)
+    
+    public func hash() -> Data {
+        return try! Hash().blake2b(
+            data: try self.toCBORData(),
+            digestSize: BLOCK_HEADER_HASH_SIZE,
+            encoder: RawEncoder.self
+        )
     }
 }

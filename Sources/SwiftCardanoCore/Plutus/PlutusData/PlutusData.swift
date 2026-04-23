@@ -56,9 +56,13 @@ public enum PlutusData: Serializable, Sendable {
                 let bigInt = try BigInteger(from: primitive)
                 self = .bigInt(bigInt)
                 return
-            } else {
-                let constr = try Constr(from: primitive)
+            } else if let constr = try? Constr(from: primitive) {
+                // Valid constructor tags: 102, 121-127, 1280-1535
                 self = .constructor(constr)
+            } else {
+                // Unknown CBOR tag (e.g. tag 6 used for sets in Conway era) —
+                // strip the tag and decode the wrapped value as PlutusData.
+                self = try PlutusData(from: cborTag.value)
             }
         case .dict(let dict):
             var plutusDict = OrderedDictionary<PlutusData, PlutusData>()
@@ -89,13 +93,15 @@ public enum PlutusData: Serializable, Sendable {
         case .string(_), .byteString(_):
             self = .bytes(try Bytes(from: primitive))
         case .bytes(let data):
-            let cborTag = try? CBORTag.fromCBOR(data: data)
-            if cborTag != nil {
-                let constr = try Constr(from: .cborTag(cborTag!))
+            // The raw bytes may themselves be CBOR-encoded, containing a tagged
+            // Constr. But only attempt this if the tag is a known constructor tag
+            // (2, 3, 102, 121-127, 1280-1535) — otherwise treat as plain bytes.
+            if let cborTag = try? CBORTag.fromCBOR(data: data),
+                let constr = try? Constr(from: .cborTag(cborTag))
+            {
                 self = .constructor(constr)
             } else {
-                let bytes = try Bytes(from: primitive)
-                self = .bytes(bytes)
+                self = .bytes(try Bytes(from: primitive))
             }
         default:
             throw CardanoCoreError.deserializeError("Invalid PlutusData type: \(primitive)")
