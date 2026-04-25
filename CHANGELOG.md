@@ -1,3 +1,9 @@
+## 0.3.15 (2026-04-25)
+
+### Fix
+
+- Enhance governance structures and protocol parameters
+
 ## 0.3.14 (2026-04-23)
 
 ### Fix
