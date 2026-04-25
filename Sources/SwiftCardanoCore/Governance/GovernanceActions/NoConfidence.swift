@@ -28,13 +28,18 @@ public struct NoConfidence: GovernanceAction {
     }
     
     public init(from primitive: Primitive) throws {
-        guard case let .list(elements) = primitive,
-              elements.count == 2,
-              case let .int(code) = elements[0],
-              code == Self.code.rawValue else {
+        guard case let .list(elements) = primitive, elements.count == 2 else {
             throw CardanoCoreError.deserializeError("Invalid NoConfidence primitive")
         }
-        
+        let code: Int
+        switch elements[0] {
+        case .int(let v): code = v
+        case .uint(let v): code = Int(v)
+        default: throw CardanoCoreError.deserializeError("Invalid NoConfidence primitive")
+        }
+        guard code == Self.code.rawValue else {
+            throw CardanoCoreError.deserializeError("Invalid NoConfidence primitive")
+        }
         self.id = try GovActionID(from: elements[1])
     }
     

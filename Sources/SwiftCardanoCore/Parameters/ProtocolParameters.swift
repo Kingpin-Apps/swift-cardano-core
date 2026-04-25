@@ -1,4 +1,5 @@
 import Foundation
+import OrderedCollections
 import PotentCBOR
 
 public let ALONZO_COINS_PER_UTXO_WORD = 34482
@@ -17,13 +18,10 @@ internal func doubleToUnitInterval(_ value: Double, precision: UInt64 = 1_000_00
 }
 
 internal func doubleToNonNegativeInterval(_ value: Double, precision: UInt64 = 1_000_000_000) -> NonNegativeInterval? {
-    guard value >= 0, value <= 1 else { return nil }
+    guard value >= 0 else { return nil }
     let num = UInt64((value * Double(precision)).rounded())
     let g = gcd(num, precision)
-    let n = num / g
-    let d = precision / g
-    guard n <= d else { return nil }
-    return NonNegativeInterval(lowerBound: UInt(n), upperBound: d)
+    return NonNegativeInterval(lowerBound: UInt(num / g), upperBound: precision / g)
 }
 
 extension UnitInterval {
@@ -39,7 +37,7 @@ extension NonNegativeInterval {
 
 // MARK: - ProtocolParameters
 
-public struct ProtocolParameters: JSONLoadable, CBORSerializable {
+public struct ProtocolParameters: Serializable, JSONLoadable {
     public let collateralPercentage: Int
 
     private var _coinsPerUtxoWord: Int?
@@ -313,132 +311,11 @@ public struct ProtocolParameters: JSONLoadable, CBORSerializable {
                 utxoCostPerByte: utxoCostPerByte
             )
         } else {
-            // CBOR path: integer-keyed map matching Conway CDDL
-            let c = try decoder.container(keyedBy: CBORCodingKeys.self)
-
-            let txFeePerByte        = try c.decode(Int.self, forKey: .minFeeA)
-            let txFeeFixed          = try c.decode(Int.self, forKey: .minFeeB)
-            let maxBlockBodySize    = try c.decode(Int.self, forKey: .maxBlockBodySize)
-            let maxTxSize           = try c.decode(Int.self, forKey: .maxTxSize)
-            let maxBlockHeaderSize  = try c.decode(Int.self, forKey: .maxBlockHeaderSize)
-            let stakeAddressDeposit = try c.decode(Int.self, forKey: .keyDeposit)
-            let stakePoolDeposit    = try c.decode(Int.self, forKey: .poolDeposit)
-            let poolRetireMaxEpoch  = try c.decode(Int.self, forKey: .maximumEpoch)
-            let stakePoolTargetNum  = try c.decode(Int.self, forKey: .nOpt)
-
-            let poolPledgeInfluence = try c.decode(NonNegativeInterval.self, forKey: .poolPledgeInfluence).toDouble
-            let monetaryExpansion   = try c.decode(UnitInterval.self, forKey: .expansionRate).toDouble
-            let treasuryCut         = try c.decode(UnitInterval.self, forKey: .treasuryGrowthRate).toDouble
-
-            let pv = try c.decode(ProtocolVersion.self, forKey: .protocolVersion)
-            let protocolVersion = ProtocolParametersProtocolVersion(major: pv.major ?? 0, minor: pv.minor ?? 0)
-
-            let minPoolCost     = try c.decode(Int.self, forKey: .minPoolCost)
-            let utxoCostPerByte = try c.decode(Int.self, forKey: .adaPerUtxoByte)
-
-            let cborCM = try c.decode(CostModels.self, forKey: .costModels)
-            let costModels = ProtocolParametersCostModels(
-                PlutusV1: cborCM.plutusV1.map { Array($0.values) } ?? [],
-                PlutusV2: cborCM.plutusV2.map { Array($0.values) } ?? [],
-                PlutusV3: cborCM.plutusV3.map { Array($0.values) } ?? []
-            )
-
-            let prices = try c.decode(ExUnitPrices.self, forKey: .executionCosts)
-            let executionUnitPrices = ExecutionUnitPrices(
-                priceMemory: prices.memPrice.toDouble,
-                priceSteps:  prices.stepPrice.toDouble
-            )
-
-            let txU = try c.decode(ExUnits.self, forKey: .maxTxExUnits)
-            let maxTxExecutionUnits = ProtocolParametersExecutionUnits(
-                memory: Int(txU.mem), steps: Int64(txU.steps)
-            )
-            let blkU = try c.decode(ExUnits.self, forKey: .maxBlockExUnits)
-            let maxBlockExecutionUnits = ProtocolParametersExecutionUnits(
-                memory: Int(blkU.mem), steps: Int64(blkU.steps)
-            )
-
-            let maxValueSize         = try c.decode(Int.self, forKey: .maxValueSize)
-            let collateralPercentage = try c.decode(Int.self, forKey: .collateralPercentage)
-            let maxCollateralInputs  = try c.decode(Int.self, forKey: .maxCollateralInputs)
-
-            // pool_voting_thresholds array order: [cnc, cn, hfi, mnc, psg]
-            let pvtCBOR = try c.decode(PoolVotingThresholds.self, forKey: .poolVotingThresholds)
-            let poolVotingThresholds = ProtocolParametersPoolVotingThresholds(
-                committeeNoConfidence: pvtCBOR.committeeNoConfidence?.toDouble ?? 0,
-                committeeNormal:       pvtCBOR.committeeNormal?.toDouble ?? 0,
-                hardForkInitiation:    pvtCBOR.hardForkInitiation?.toDouble ?? 0,
-                motionNoConfidence:    pvtCBOR.motionNoConfidence?.toDouble ?? 0,
-                ppSecurityGroup:       pvtCBOR.ppSecurityGroup?.toDouble ?? 0
-            )
-
-            // drep_voting_thresholds CDDL order (10 elements):
-            // [motionNoConfidence, committeeNormal, committeeNoConfidence, updateToConstitution,
-            //  hardForkInitiation, ppNetworkGroup, ppEconomicGroup, ppTechnicalGroup, ppGovGroup, treasuryWithdrawal]
-            let dvtIntervals = try c.decode([UnitInterval].self, forKey: .drepVotingThresholds)
-            guard dvtIntervals.count == 10 else {
-                throw CardanoCoreError.deserializeError("dRepVotingThresholds must have 10 elements")
-            }
-            let dRepVotingThresholds = DRepVotingThresholds(
-                committeeNoConfidence: dvtIntervals[2].toDouble,
-                committeeNormal:       dvtIntervals[1].toDouble,
-                hardForkInitiation:    dvtIntervals[4].toDouble,
-                motionNoConfidence:    dvtIntervals[0].toDouble,
-                ppEconomicGroup:       dvtIntervals[6].toDouble,
-                ppGovGroup:            dvtIntervals[8].toDouble,
-                ppNetworkGroup:        dvtIntervals[5].toDouble,
-                ppTechnicalGroup:      dvtIntervals[7].toDouble,
-                treasuryWithdrawal:    dvtIntervals[9].toDouble,
-                updateToConstitution:  dvtIntervals[3].toDouble
-            )
-
-            let committeeMinSize       = try c.decode(Int.self, forKey: .minCommitteeSize)
-            let committeeMaxTermLength = try c.decode(Int.self, forKey: .committeeTermLimit)
-            let govActionLifetime      = try c.decode(Int.self, forKey: .govActionValidityPeriod)
-            let govActionDeposit       = try c.decode(Int.self, forKey: .govActionDeposit)
-            let dRepDeposit            = try c.decode(Int.self, forKey: .drepDeposit)
-            let dRepActivity           = try c.decode(Int.self, forKey: .drepInactivityPeriod)
-
-            let minFeeRefScriptCostPerByte: Int?
-            if let interval = try c.decodeIfPresent(NonNegativeInterval.self, forKey: .minFeeRefScriptCoinsPerByte) {
-                minFeeRefScriptCostPerByte = Int(interval.lowerBound)
-            } else {
-                minFeeRefScriptCostPerByte = nil
-            }
-
-            self.init(
-                collateralPercentage: collateralPercentage,
-                committeeMaxTermLength: committeeMaxTermLength,
-                committeeMinSize: committeeMinSize,
-                costModels: costModels,
-                dRepActivity: dRepActivity,
-                dRepDeposit: dRepDeposit,
-                dRepVotingThresholds: dRepVotingThresholds,
-                executionUnitPrices: executionUnitPrices,
-                govActionDeposit: govActionDeposit,
-                govActionLifetime: govActionLifetime,
-                maxBlockBodySize: maxBlockBodySize,
-                maxBlockExecutionUnits: maxBlockExecutionUnits,
-                maxBlockHeaderSize: maxBlockHeaderSize,
-                maxCollateralInputs: maxCollateralInputs,
-                maxTxExecutionUnits: maxTxExecutionUnits,
-                maxTxSize: maxTxSize,
-                maxValueSize: maxValueSize,
-                minFeeRefScriptCostPerByte: minFeeRefScriptCostPerByte,
-                minPoolCost: minPoolCost,
-                monetaryExpansion: monetaryExpansion,
-                poolPledgeInfluence: poolPledgeInfluence,
-                poolRetireMaxEpoch: poolRetireMaxEpoch,
-                poolVotingThresholds: poolVotingThresholds,
-                protocolVersion: protocolVersion,
-                stakeAddressDeposit: stakeAddressDeposit,
-                stakePoolDeposit: stakePoolDeposit,
-                stakePoolTargetNum: stakePoolTargetNum,
-                treasuryCut: treasuryCut,
-                txFeeFixed: txFeeFixed,
-                txFeePerByte: txFeePerByte,
-                utxoCostPerByte: utxoCostPerByte
-            )
+            // CBOR path: decode via Primitive so init(from primitive:) handles both
+            // the map format (protocol_param_update) and the n2c 31-element array.
+            let container = try decoder.singleValueContainer()
+            let primitive = try container.decode(Primitive.self)
+            try self.init(from: primitive)
         }
     }
 
@@ -480,96 +357,11 @@ public struct ProtocolParameters: JSONLoadable, CBORSerializable {
             try c.encode(txFeePerByte, forKey: .txFeePerByte)
             try c.encode(utxoCostPerByte, forKey: .utxoCostPerByte)
         } else {
-            // CBOR path: integer-keyed map matching Conway CDDL
-            var c = encoder.container(keyedBy: CBORCodingKeys.self)
-
-            try c.encode(txFeePerByte, forKey: .minFeeA)
-            try c.encode(txFeeFixed, forKey: .minFeeB)
-            try c.encode(maxBlockBodySize, forKey: .maxBlockBodySize)
-            try c.encode(maxTxSize, forKey: .maxTxSize)
-            try c.encode(maxBlockHeaderSize, forKey: .maxBlockHeaderSize)
-            try c.encode(stakeAddressDeposit, forKey: .keyDeposit)
-            try c.encode(stakePoolDeposit, forKey: .poolDeposit)
-            try c.encode(poolRetireMaxEpoch, forKey: .maximumEpoch)
-            try c.encode(stakePoolTargetNum, forKey: .nOpt)
-
-            if let v = doubleToNonNegativeInterval(poolPledgeInfluence) {
-                try c.encode(v, forKey: .poolPledgeInfluence)
-            }
-            if let v = doubleToUnitInterval(monetaryExpansion) {
-                try c.encode(v, forKey: .expansionRate)
-            }
-            if let v = doubleToUnitInterval(treasuryCut) {
-                try c.encode(v, forKey: .treasuryGrowthRate)
-            }
-
-            try c.encode(
-                ProtocolVersion(major: protocolVersion.major, minor: protocolVersion.minor),
-                forKey: .protocolVersion
-            )
-
-            try c.encode(minPoolCost, forKey: .minPoolCost)
-            try c.encode(utxoCostPerByte, forKey: .adaPerUtxoByte)
-
-            let cborCM = try CostModels([
-                0: costModels.PlutusV1,
-                1: costModels.PlutusV2,
-                2: costModels.PlutusV3
-            ])
-            try c.encode(cborCM, forKey: .costModels)
-
-            if let mem  = doubleToNonNegativeInterval(executionUnitPrices.priceMemory),
-               let step = doubleToNonNegativeInterval(executionUnitPrices.priceSteps) {
-                try c.encode(ExUnitPrices(memPrice: mem, stepPrice: step), forKey: .executionCosts)
-            }
-
-            try c.encode(
-                ExUnits(mem: UInt(maxTxExecutionUnits.memory), steps: UInt(maxTxExecutionUnits.steps)),
-                forKey: .maxTxExUnits
-            )
-            try c.encode(
-                ExUnits(mem: UInt(maxBlockExecutionUnits.memory), steps: UInt(maxBlockExecutionUnits.steps)),
-                forKey: .maxBlockExUnits
-            )
-
-            try c.encode(maxValueSize, forKey: .maxValueSize)
-            try c.encode(collateralPercentage, forKey: .collateralPercentage)
-            try c.encode(maxCollateralInputs, forKey: .maxCollateralInputs)
-
-            let pvt = poolVotingThresholds
-            if let cnc = doubleToUnitInterval(pvt.committeeNoConfidence),
-               let cn  = doubleToUnitInterval(pvt.committeeNormal),
-               let hfi = doubleToUnitInterval(pvt.hardForkInitiation),
-               let mnc = doubleToUnitInterval(pvt.motionNoConfidence),
-               let psg = doubleToUnitInterval(pvt.ppSecurityGroup) {
-                try c.encode(
-                    PoolVotingThresholds(
-                        committeeNoConfidence: cnc, committeeNormal: cn,
-                        hardForkInitiation: hfi, motionNoConfidence: mnc, ppSecurityGroup: psg
-                    ),
-                    forKey: .poolVotingThresholds
-                )
-            }
-
-            // drep_voting_thresholds CDDL order:
-            // [motionNoConfidence, committeeNormal, committeeNoConfidence, updateToConstitution,
-            //  hardForkInitiation, ppNetworkGroup, ppEconomicGroup, ppTechnicalGroup, ppGovGroup, treasuryWithdrawal]
-            let dvt = dRepVotingThresholds
-            let dvtIntervals = [
-                dvt.motionNoConfidence,  dvt.committeeNormal,  dvt.committeeNoConfidence,
-                dvt.updateToConstitution, dvt.hardForkInitiation, dvt.ppNetworkGroup,
-                dvt.ppEconomicGroup, dvt.ppTechnicalGroup, dvt.ppGovGroup, dvt.treasuryWithdrawal
-            ].compactMap { doubleToUnitInterval($0) }
-            if dvtIntervals.count == 10 {
-                try c.encode(dvtIntervals, forKey: .drepVotingThresholds)
-            }
-
-            try c.encode(committeeMinSize, forKey: .minCommitteeSize)
-            try c.encode(committeeMaxTermLength, forKey: .committeeTermLimit)
-            try c.encode(govActionLifetime, forKey: .govActionValidityPeriod)
-            try c.encode(govActionDeposit, forKey: .govActionDeposit)
-            try c.encode(dRepDeposit, forKey: .drepDeposit)
-            try c.encode(dRepActivity, forKey: .drepInactivityPeriod)
+            // CBOR path: encode via Primitive to ensure an integer-keyed CBOR map.
+            // PotentCBOR's keyed container uses key.stringValue regardless of CodingKey.intValue,
+            // so we sidestep it by emitting the map through toPrimitive().
+            var c = encoder.singleValueContainer()
+            try c.encode(try toPrimitive())
         }
     }
 
@@ -592,7 +384,16 @@ public struct ProtocolParameters: JSONLoadable, CBORSerializable {
     }
 
     public init(from primitive: Primitive) throws {
-        // Accept both .dict and .orderedDict since CBOR round-trips produce .orderedDict
+        // Accept both .dict and .orderedDict since CBOR round-trips produce .orderedDict.
+        // Also accept the n2c 31-element positional array (node-to-client wire format).
+        switch primitive {
+        case .list(let elements) where elements.count == 31:
+            try self.init(fromN2CArray: elements)
+            return
+        default:
+            break
+        }
+
         let pairs: [(Primitive, Primitive)]
         switch primitive {
         case .dict(let d):
@@ -839,11 +640,295 @@ public struct ProtocolParameters: JSONLoadable, CBORSerializable {
 
         return .dict(dict)
     }
+
+    // MARK: - n2c positional-array initializer
+
+    /// Decode from the 31-element positional CBOR array emitted by the n2c protocol.
+    /// Conway CDDL positional order matches CBORKey assignments, with gaps at 12, 13, 15.
+    private init(fromN2CArray elements: [Primitive]) throws {
+        func uint(_ idx: Int) throws -> Int {
+            switch elements[idx] {
+            case .uint(let v): return Int(v)
+            case .int(let v):  return v
+            default: throw CardanoCoreError.deserializeError(
+                "Expected integer at n2c pparams position \(idx)")
+            }
+        }
+
+        let txFeePerByte        = try uint(0)
+        let txFeeFixed          = try uint(1)
+        let maxBlockBodySize    = try uint(2)
+        let maxTxSize           = try uint(3)
+        let maxBlockHeaderSize  = try uint(4)
+        let stakeAddressDeposit = try uint(5)
+        let stakePoolDeposit    = try uint(6)
+        let poolRetireMaxEpoch  = try uint(7)
+        let stakePoolTargetNum  = try uint(8)
+
+        let poolPledgeInfluence = try ProtocolParameters.rationalToDouble(elements[9])
+        let monetaryExpansion   = try ProtocolParameters.rationalToDouble(elements[10])
+        let treasuryCut         = try ProtocolParameters.rationalToDouble(elements[11])
+
+        guard case .list(let pvArr) = elements[12], pvArr.count == 2 else {
+            throw CardanoCoreError.deserializeError("Invalid protocolVersion at n2c position 12")
+        }
+        let pvMajor = Int(try ProtocolParameters.uintFromPrimitive(pvArr[0]))
+        let pvMinor = Int(try ProtocolParameters.uintFromPrimitive(pvArr[1]))
+        let protocolVersion = ProtocolParametersProtocolVersion(major: pvMajor, minor: pvMinor)
+
+        let minPoolCost     = try uint(13)
+        let utxoCostPerByte = try uint(14)
+
+        let costModels = try ProtocolParameters.decodeCostModelsRaw(elements[15])
+
+        guard case .list(let ecArr) = elements[16], ecArr.count == 2 else {
+            throw CardanoCoreError.deserializeError("Invalid executionCosts at n2c position 16")
+        }
+        let executionUnitPrices = ExecutionUnitPrices(
+            priceMemory: try ProtocolParameters.rationalToDouble(ecArr[0]),
+            priceSteps:  try ProtocolParameters.rationalToDouble(ecArr[1])
+        )
+
+        guard case .list(let txExArr) = elements[17], txExArr.count == 2 else {
+            throw CardanoCoreError.deserializeError("Invalid maxTxExUnits at n2c position 17")
+        }
+        let maxTxExecutionUnits = ProtocolParametersExecutionUnits(
+            memory: Int(try ProtocolParameters.uintFromPrimitive(txExArr[0])),
+            steps:  Int64(try ProtocolParameters.uintFromPrimitive(txExArr[1]))
+        )
+
+        guard case .list(let blkExArr) = elements[18], blkExArr.count == 2 else {
+            throw CardanoCoreError.deserializeError("Invalid maxBlockExUnits at n2c position 18")
+        }
+        let maxBlockExecutionUnits = ProtocolParametersExecutionUnits(
+            memory: Int(try ProtocolParameters.uintFromPrimitive(blkExArr[0])),
+            steps:  Int64(try ProtocolParameters.uintFromPrimitive(blkExArr[1]))
+        )
+
+        let maxValueSize         = try uint(19)
+        let collateralPercentage = try uint(20)
+        let maxCollateralInputs  = try uint(21)
+
+        guard case .list(let pvtArr) = elements[22], pvtArr.count == 5 else {
+            throw CardanoCoreError.deserializeError("Invalid poolVotingThresholds at n2c position 22")
+        }
+        let poolVotingThresholds = ProtocolParametersPoolVotingThresholds(
+            committeeNoConfidence: try ProtocolParameters.rationalToDouble(pvtArr[0]),
+            committeeNormal:       try ProtocolParameters.rationalToDouble(pvtArr[1]),
+            hardForkInitiation:    try ProtocolParameters.rationalToDouble(pvtArr[2]),
+            motionNoConfidence:    try ProtocolParameters.rationalToDouble(pvtArr[3]),
+            ppSecurityGroup:       try ProtocolParameters.rationalToDouble(pvtArr[4])
+        )
+
+        guard case .list(let dvtArr) = elements[23], dvtArr.count == 10 else {
+            throw CardanoCoreError.deserializeError("Invalid dRepVotingThresholds at n2c position 23")
+        }
+        let dRepVotingThresholds = DRepVotingThresholds(
+            committeeNoConfidence: try ProtocolParameters.rationalToDouble(dvtArr[2]),
+            committeeNormal:       try ProtocolParameters.rationalToDouble(dvtArr[1]),
+            hardForkInitiation:    try ProtocolParameters.rationalToDouble(dvtArr[4]),
+            motionNoConfidence:    try ProtocolParameters.rationalToDouble(dvtArr[0]),
+            ppEconomicGroup:       try ProtocolParameters.rationalToDouble(dvtArr[6]),
+            ppGovGroup:            try ProtocolParameters.rationalToDouble(dvtArr[8]),
+            ppNetworkGroup:        try ProtocolParameters.rationalToDouble(dvtArr[5]),
+            ppTechnicalGroup:      try ProtocolParameters.rationalToDouble(dvtArr[7]),
+            treasuryWithdrawal:    try ProtocolParameters.rationalToDouble(dvtArr[9]),
+            updateToConstitution:  try ProtocolParameters.rationalToDouble(dvtArr[3])
+        )
+
+        let committeeMinSize       = try uint(24)
+        let committeeMaxTermLength = try uint(25)
+        let govActionLifetime      = try uint(26)
+        let govActionDeposit       = try uint(27)
+        let dRepDeposit            = try uint(28)
+        let dRepActivity           = try uint(29)
+        let minFeeRefScriptCostPerByte = Int(try ProtocolParameters.rationalToDouble(elements[30]))
+
+        self.init(
+            collateralPercentage: collateralPercentage,
+            committeeMaxTermLength: committeeMaxTermLength,
+            committeeMinSize: committeeMinSize,
+            costModels: costModels,
+            dRepActivity: dRepActivity,
+            dRepDeposit: dRepDeposit,
+            dRepVotingThresholds: dRepVotingThresholds,
+            executionUnitPrices: executionUnitPrices,
+            govActionDeposit: govActionDeposit,
+            govActionLifetime: govActionLifetime,
+            maxBlockBodySize: maxBlockBodySize,
+            maxBlockExecutionUnits: maxBlockExecutionUnits,
+            maxBlockHeaderSize: maxBlockHeaderSize,
+            maxCollateralInputs: maxCollateralInputs,
+            maxTxExecutionUnits: maxTxExecutionUnits,
+            maxTxSize: maxTxSize,
+            maxValueSize: maxValueSize,
+            minFeeRefScriptCostPerByte: minFeeRefScriptCostPerByte,
+            minPoolCost: minPoolCost,
+            monetaryExpansion: monetaryExpansion,
+            poolPledgeInfluence: poolPledgeInfluence,
+            poolRetireMaxEpoch: poolRetireMaxEpoch,
+            poolVotingThresholds: poolVotingThresholds,
+            protocolVersion: protocolVersion,
+            stakeAddressDeposit: stakeAddressDeposit,
+            stakePoolDeposit: stakePoolDeposit,
+            stakePoolTargetNum: stakePoolTargetNum,
+            treasuryCut: treasuryCut,
+            txFeeFixed: txFeeFixed,
+            txFeePerByte: txFeePerByte,
+            utxoCostPerByte: utxoCostPerByte
+        )
+    }
+
+    // MARK: - JSONSerializable (Serializable requirement)
+
+    public static func fromDict(_ primitive: Primitive) throws -> Self {
+        let jsonAny = try primitiveToJSONAny(primitive)
+        let jsonData = try JSONSerialization.data(withJSONObject: jsonAny, options: [.sortedKeys])
+        return try JSONDecoder().decode(Self.self, from: jsonData)
+    }
+
+    public func toDict() throws -> Primitive {
+        let jsonData = try JSONEncoder().encode(self)
+        let jsonAny = try JSONSerialization.jsonObject(with: jsonData)
+        return try Self.jsonAnyToPrimitive(jsonAny)
+    }
+
+    // MARK: - Private JSON ↔ Primitive helpers
+
+    /// Extract raw [Int] cost model arrays without template validation.
+    /// The n2c format sends raw integer arrays; template-based validation belongs
+    /// in higher-level tooling, not wire decoding.
+    private static func decodeCostModelsRaw(_ primitive: Primitive) throws -> ProtocolParametersCostModels {
+        let pairs: [(Primitive, Primitive)]
+        switch primitive {
+        case .dict(let d):         pairs = d.map { ($0.key, $0.value) }
+        case .orderedDict(let od): pairs = od.map { ($0.key, $0.value) }
+        default:
+            throw CardanoCoreError.deserializeError("Cost models must be a CBOR map")
+        }
+        var raw = [Int: [Int]]()
+        for (k, v) in pairs {
+            let key: Int
+            switch k {
+            case .int(let n):  key = n
+            case .uint(let n): key = Int(n)
+            default: continue
+            }
+            raw[key] = try costModelInts(v)
+        }
+        return ProtocolParametersCostModels(
+            PlutusV1: raw[0] ?? [], PlutusV2: raw[1] ?? [], PlutusV3: raw[2] ?? [])
+    }
+
+    private static func costModelInts(_ primitive: Primitive) throws -> [Int] {
+        let items: [Primitive]
+        switch primitive {
+        case .list(let arr):
+            items = arr
+        case .indefiniteList(let indef):
+            items = indef.getAll()
+        case .bytes(let data):
+            // PlutusV1 in n2c is wrapped in a byte string containing nested CBOR.
+            let nested = try CBORDecoder().decode(Primitive.self, from: data)
+            return try costModelInts(nested)
+        default:
+            throw CardanoCoreError.deserializeError("Invalid cost model value: \(primitive)")
+        }
+        return try items.map { p throws -> Int in
+            switch p {
+            case .int(let v):  return v
+            case .uint(let v): return Int(v)
+            default: throw CardanoCoreError.deserializeError("Non-integer in cost model: \(p)")
+            }
+        }
+    }
+
+    private static func rationalToDouble(_ p: Primitive) throws -> Double {
+        switch p {
+        case .unitInterval(let ui):
+            guard ui.denominator > 0 else { return 0 }
+            return Double(ui.numerator) / Double(ui.denominator)
+        default:
+            break
+        }
+        let elements: [Primitive]
+        switch p {
+        case .cborTag(let tagged) where tagged.tag == 30:
+            guard case .list(let arr) = tagged.value else {
+                throw CardanoCoreError.deserializeError("tag-30 rational value must be a list")
+            }
+            elements = arr
+        case .list(let arr):
+            elements = arr
+        default:
+            throw CardanoCoreError.deserializeError("Expected rational (tag-30 or list): \(p)")
+        }
+        guard elements.count == 2 else {
+            throw CardanoCoreError.deserializeError("Rational must have 2 elements")
+        }
+        let num = Double(try uintFromPrimitive(elements[0]))
+        let den = Double(try uintFromPrimitive(elements[1]))
+        guard den > 0 else { return 0 }
+        return num / den
+    }
+
+    private static func uintFromPrimitive(_ p: Primitive) throws -> UInt {
+        switch p {
+        case .uint(let v): return v
+        case .int(let v) where v >= 0: return UInt(v)
+        default: throw CardanoCoreError.deserializeError("Expected unsigned integer, got \(p)")
+        }
+    }
+
+    private static func primitiveToJSONAny(_ primitive: Primitive) throws -> Any {
+        switch primitive {
+        case .string(let s):   return s
+        case .int(let i):      return i
+        case .uint(let u):     return Int(u)
+        case .float(let f):    return f
+        case .bool(let b):     return b
+        case .null:            return NSNull()
+        case .list(let arr):   return try arr.map { try primitiveToJSONAny($0) }
+        case .orderedDict(let d):
+            var result: [String: Any] = [:]
+            for (k, v) in d {
+                if case .string(let s) = k { result[s] = try primitiveToJSONAny(v) }
+            }
+            return result
+        case .dict(let d):
+            var result: [String: Any] = [:]
+            for (k, v) in d {
+                if case .string(let s) = k { result[s] = try primitiveToJSONAny(v) }
+            }
+            return result
+        default:
+            throw CardanoCoreError.valueError("Unsupported Primitive for JSON conversion: \(primitive)")
+        }
+    }
+
+    private static func jsonAnyToPrimitive(_ value: Any) throws -> Primitive {
+        switch value {
+        case let s as String:  return .string(s)
+        case let i as Int:     return .int(i)
+        case let f as Double:  return .float(f)
+        case let b as Bool:    return .bool(b)
+        case let arr as [Any]: return .list(try arr.map { try jsonAnyToPrimitive($0) })
+        case let dict as [String: Any]:
+            var result: OrderedDictionary<Primitive, Primitive> = [:]
+            for k in dict.keys.sorted() {
+                result[.string(k)] = try jsonAnyToPrimitive(dict[k]!)
+            }
+            return .orderedDict(result)
+        case is NSNull:        return .null
+        default:
+            throw CardanoCoreError.valueError("Unsupported type for Primitive conversion: \(type(of: value))")
+        }
+    }
 }
 
 // MARK: - Supporting types
 
-public struct ProtocolParametersCostModels: Codable, Equatable, Hashable {
+public struct ProtocolParametersCostModels: Codable, Equatable, Hashable, Sendable {
     public let PlutusV1: [Int]
     public let PlutusV2: [Int]
     public let PlutusV3: [Int]
@@ -864,7 +949,7 @@ public struct ProtocolParametersCostModels: Codable, Equatable, Hashable {
     }
 }
 
-public struct DRepVotingThresholds: Codable, Equatable, Hashable {
+public struct DRepVotingThresholds: Codable, Equatable, Hashable, Sendable {
     public let committeeNoConfidence: Double
     public let committeeNormal: Double
     public let hardForkInitiation: Double
@@ -890,7 +975,7 @@ public struct DRepVotingThresholds: Codable, Equatable, Hashable {
     }
 }
 
-public struct MinReferenceScriptsSize: Codable, Equatable, Hashable {
+public struct MinReferenceScriptsSize: Codable, Equatable, Hashable, Sendable {
     public let base: Double?
     public let multiplier: Double?
     public let range: Double?
@@ -902,7 +987,7 @@ public struct MinReferenceScriptsSize: Codable, Equatable, Hashable {
     }
 }
 
-public struct ExecutionUnitPrices: Codable, Equatable, Hashable {
+public struct ExecutionUnitPrices: Codable, Equatable, Hashable, Sendable {
     public let priceMemory: Double
     public let priceSteps: Double
 
@@ -912,7 +997,7 @@ public struct ExecutionUnitPrices: Codable, Equatable, Hashable {
     }
 }
 
-public struct ProtocolParametersExecutionUnits: Codable, Equatable, Hashable {
+public struct ProtocolParametersExecutionUnits: Codable, Equatable, Hashable, Sendable {
     public let memory: Int
     public let steps: Int64
 
@@ -922,7 +1007,7 @@ public struct ProtocolParametersExecutionUnits: Codable, Equatable, Hashable {
     }
 }
 
-public struct ProtocolParametersPoolVotingThresholds: Codable, Equatable, Hashable {
+public struct ProtocolParametersPoolVotingThresholds: Codable, Equatable, Hashable, Sendable {
     public let committeeNoConfidence: Double
     public let committeeNormal: Double
     public let hardForkInitiation: Double
@@ -938,7 +1023,7 @@ public struct ProtocolParametersPoolVotingThresholds: Codable, Equatable, Hashab
     }
 }
 
-public struct ProtocolParametersProtocolVersion: Codable, Equatable, Hashable {
+public struct ProtocolParametersProtocolVersion: Codable, Equatable, Hashable, Sendable {
     public let major: Int
     public let minor: Int
 

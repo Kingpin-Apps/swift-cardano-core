@@ -32,32 +32,40 @@ public struct TreasuryWithdrawalsAction: GovernanceAction {
     }
     
     public init(from primitive: Primitive) throws {
-        guard case let .list(elements) = primitive,
-              elements.count == 3,
-              case let .int(code) = elements[0],
-              code == Self.code.rawValue else {
+        guard case let .list(elements) = primitive, elements.count == 3 else {
+            throw CardanoCoreError.deserializeError("Invalid TreasuryWithdrawalsAction primitive")
+        }
+        let code: Int
+        switch elements[0] {
+        case .int(let v): code = v
+        case .uint(let v): code = Int(v)
+        default: throw CardanoCoreError.deserializeError("Invalid TreasuryWithdrawalsAction primitive")
+        }
+        guard code == Self.code.rawValue else {
             throw CardanoCoreError.deserializeError("Invalid TreasuryWithdrawalsAction primitive")
         }
         
-        // Parse withdrawals dictionary
-        guard case let .dict(withdrawalsDict) = elements[1] else {
+        // Parse withdrawals dictionary (orderedDict or dict)
+        let withdrawalsPairs: [(Primitive, Primitive)]
+        switch elements[1] {
+        case .dict(let d): withdrawalsPairs = d.map { ($0.key, $0.value) }
+        case .orderedDict(let d): withdrawalsPairs = d.map { ($0.key, $0.value) }
+        default:
             throw CardanoCoreError.deserializeError("Invalid withdrawals in TreasuryWithdrawalsAction")
         }
-        
         var withdrawals: [RewardAccount: Coin] = [:]
-        for (keyPrimitive, valuePrimitive) in withdrawalsDict {
-            
-            guard case let .bytes(rewardsValue) = keyPrimitive  else {
+        for (keyPrimitive, valuePrimitive) in withdrawalsPairs {
+            guard case let .bytes(rewardsValue) = keyPrimitive else {
                 throw CardanoCoreError.deserializeError("Invalid reward account key in withdrawals")
             }
-            
-            guard case let .int(coinValue) = valuePrimitive else {
+            let coinValue: Coin
+            switch valuePrimitive {
+            case .uint(let u): coinValue = Coin(u)
+            case .int(let i) where i >= 0: coinValue = Coin(i)
+            default:
                 throw CardanoCoreError.deserializeError("Invalid coin value in withdrawals")
             }
-            
-            let rewardAccount = RewardAccount(rewardsValue)
-            let coin = Coin(Int(coinValue))
-            withdrawals[rewardAccount] = coin
+            withdrawals[RewardAccount(rewardsValue)] = coinValue
         }
         self.withdrawals = withdrawals
         

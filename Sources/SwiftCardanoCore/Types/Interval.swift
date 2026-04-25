@@ -8,8 +8,6 @@ public struct NonNegativeInterval: CBORSerializable, Sendable {
     public var upperBound: UInt64
 
     public init(lowerBound: UInt, upperBound: UInt64) {
-        precondition(
-            lowerBound <= upperBound, "Lower bound must be less than or equal to upper bound")
         self.lowerBound = lowerBound
         self.upperBound = upperBound
     }
@@ -27,22 +25,29 @@ public struct NonNegativeInterval: CBORSerializable, Sendable {
     }
     
     public init(from primitive: Primitive) throws {
-        guard case let .list(elements) = primitive else {
-            throw CardanoCoreError.valueError("Invalid NonNegativeInterval type")
+        let elements: [Primitive]
+        switch primitive {
+        case .list(let arr):
+            elements = arr
+        case .cborTag(let tagged) where tagged.tag == 30:
+            guard case .list(let arr) = tagged.value else {
+                throw CardanoCoreError.valueError("NonNegativeInterval tag-30 value must be an array")
+            }
+            elements = arr
+        default:
+            throw CardanoCoreError.valueError("Invalid NonNegativeInterval type: \(primitive)")
         }
         guard elements.count == 2 else {
             throw CardanoCoreError.valueError("NonNegativeInterval must contain exactly 2 elements")
         }
-        let lowerBoundPrimitive = elements[0]
-        let upperBoundPrimitive = elements[1]
-        guard case let .int(lowerBound) = lowerBoundPrimitive,
-              case let .int(upperBound) = upperBoundPrimitive else {
-            throw CardanoCoreError.valueError("Invalid NonNegativeInterval element types")
+        func toUInt(_ p: Primitive) throws -> UInt {
+            switch p {
+            case .int(let v): return UInt(max(0, v))
+            case .uint(let v): return v
+            default: throw CardanoCoreError.valueError("NonNegativeInterval element must be integer")
+            }
         }
-        self.init(
-            lowerBound: UInt(lowerBound),
-            upperBound: UInt64(upperBound)
-        )
+        self.init(lowerBound: try toUInt(elements[0]), upperBound: UInt64(try toUInt(elements[1])))
     }
 
     public func toPrimitive() throws -> Primitive {
@@ -67,8 +72,6 @@ public struct UnitInterval: CBORSerializable, Sendable {
     }
 
     public init(numerator: UInt64, denominator: UInt64) {
-        precondition(
-            numerator <= denominator, "Numerator must be less than or equal to denominator")
         precondition(denominator > 0, "Denominator must be greater than zero")
         self.numerator = numerator
         self.denominator = denominator

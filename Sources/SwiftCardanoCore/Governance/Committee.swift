@@ -34,12 +34,12 @@ public struct CommitteeMember: CBORSerializable, CustomStringConvertible, Custom
     }
 }
 
-public struct Committee: Codable, Equatable, Hashable {
+public struct Committee: Codable, Equatable, Hashable, Sendable {
     public let members: [String: Int]
     public let threshold: Threshold
 }
 
-public struct Threshold: Codable, Equatable, Hashable {
+public struct Threshold: Codable, Equatable, Hashable, Sendable {
     public let numerator: Int
     public let denominator: Int
 }
