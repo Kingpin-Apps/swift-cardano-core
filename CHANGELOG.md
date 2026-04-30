@@ -1,3 +1,9 @@
+## 0.3.16 (2026-04-30)
+
+### Fix
+
+- use Serializable a bit more
+
 ## 0.3.15 (2026-04-25)
 
 ### Fix
