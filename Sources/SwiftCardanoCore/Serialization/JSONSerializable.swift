@@ -117,32 +117,95 @@ extension JSONSerializable {
     }
 
     private static func primitiveToAny(_ primitive: Primitive, hexEncodeBytes: Bool) throws -> Any {
-        switch primitive {
-        case .string(let str): return str
-        case .int(let i): return i
-        case .uint(let u): return u
-        case .bool(let b): return b
-        case .float(let f): return f
-        case .bytes(let data):
-            if hexEncodeBytes {
-                return data.map { String(format: "%02x", $0) }.joined()
-            } else {
-                return data.base64EncodedString()
-            }
-        case .list(let arr):
-            return try arr.map { try primitiveToAny($0, hexEncodeBytes: hexEncodeBytes) }
-        case .orderedDict(let dict):
-            var result: [String: Any] = [:]
-            for (k, v) in dict {
-                let keyStr: String
-                if case .string(let s) = k {
-                    keyStr = s
-                } else {
-                    keyStr = String(describing: k)
+        func bytesToString(_ data: Data) -> String {
+            hexEncodeBytes
+                ? data.map { String(format: "%02x", $0) }.joined()
+                : data.base64EncodedString()
+        }
+        // Stable string for use as a JSON object key. Scalar primitives map
+        // directly; complex ones (lists/dicts/tagged) are JSON-encoded so the
+        // structure is at least readable instead of leaking `String(describing:)`.
+        func keyToString(_ k: Primitive) -> String {
+            switch k {
+            case .string(let s):    return s
+            case .bytes(let d):     return bytesToString(d)
+            case .byteArray(let b): return bytesToString(Data(b))
+            case .uint(let u):      return "\(u)"
+            case .int(let i):       return "\(i)"
+            case .bool(let b):      return "\(b)"
+            case .null:             return "null"
+            case .cborTag(let t):   return keyToString(t.value)
+            case .unitInterval(let ui):
+                return "\(ui.numerator)/\(ui.denominator)"
+            default:
+                if let any = try? primitiveToAny(k, hexEncodeBytes: hexEncodeBytes),
+                   let data = try? JSONSerialization.data(
+                       withJSONObject: any,
+                       options: [.fragmentsAllowed, .withoutEscapingSlashes]),
+                   let s = String(data: data, encoding: .utf8) {
+                    return s
                 }
-                result[keyStr] = try primitiveToAny(v, hexEncodeBytes: hexEncodeBytes)
+                return String(describing: k)
+            }
+        }
+        func pairsToAny(_ pairs: [(Primitive, Primitive)]) throws -> Any {
+            var result: [String: Any] = [:]
+            for (k, v) in pairs {
+                result[keyToString(k)] = try primitiveToAny(v, hexEncodeBytes: hexEncodeBytes)
             }
             return result
+        }
+        switch primitive {
+        case .string(let str):   return str
+        case .int(let i):        return i
+        case .uint(let u):       return u
+        case .bool(let b):       return b
+        case .float(let f):      return f
+        case .decimal(let d):    return d
+        case .bigInt(let n):     return n.description
+        case .bigUInt(let n):    return n.description
+        case .bytes(let data):   return bytesToString(data)
+        case .byteArray(let b):  return bytesToString(Data(b))
+        case .byteString(let bs): return bytesToString(bs.bytes)
+        case .datetime(let d):
+            let f = ISO8601DateFormatter()
+            f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            return f.string(from: d)
+        case .list(let arr), .frozenList(let arr):
+            return try arr.map { try primitiveToAny($0, hexEncodeBytes: hexEncodeBytes) }
+        case .indefiniteList(let list), .indefiniteFrozenList(let list):
+            return try list.map { try primitiveToAny($0, hexEncodeBytes: hexEncodeBytes) }
+        case .orderedSet(let s):
+            return try s.elements.map { try primitiveToAny($0, hexEncodeBytes: hexEncodeBytes) }
+        case .nonEmptyOrderedSet(let s):
+            return try s.elements.map { try primitiveToAny($0, hexEncodeBytes: hexEncodeBytes) }
+        case .frozenSet(let s):
+            return try Array(s).map { try primitiveToAny($0, hexEncodeBytes: hexEncodeBytes) }
+        case .orderedDict(let dict):
+            return try pairsToAny(dict.map { ($0.key, $0.value) })
+        case .indefiniteDictionary(let dict):
+            return try pairsToAny(dict.map { ($0.key, $0.value) })
+        case .dict(let dict):
+            return try pairsToAny(dict.map { ($0.key, $0.value) })
+        case .frozenDict(let dict):
+            return try pairsToAny(dict.map { ($0.key, $0.value) })
+        case .cborTag(let tag):
+            // Tag 30 = rational [num, denom]; render as a structured numerator/
+            // denominator object to match `.unitInterval`.
+            if tag.tag == 30, case .list(let elems) = tag.value, elems.count == 2,
+               let n = elems[0].intValue, let d = elems[1].intValue {
+                return [
+                    "numerator":   n,
+                    "denominator": d,
+                ] as [String: Any]
+            }
+            // Otherwise drop the tag wrapper for display; the inner value is what matters.
+            return try primitiveToAny(tag.value, hexEncodeBytes: hexEncodeBytes)
+        case .unitInterval(let ui):
+            return [
+                "numerator":   ui.numerator,
+                "denominator": ui.denominator,
+            ] as [String: Any]
         case .null: return NSNull()
         default: return String(describing: primitive)
         }

@@ -113,7 +113,7 @@ public enum GovAction: CBORSerializable, Sendable {
     
 }
 
-public struct GovActionID: CBORSerializable, Sendable {
+public struct GovActionID: Serializable, Sendable {
     public let transactionID: TransactionId
     public let govActionIndex: UInt16
     

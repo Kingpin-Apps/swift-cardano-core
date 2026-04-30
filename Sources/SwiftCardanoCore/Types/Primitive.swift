@@ -437,6 +437,10 @@ public indirect enum Primitive: CBORSerializable, Sendable {
         switch value {
         case let v as Primitive:
             return v
+        case let v as any Serializable:
+            return try v.toDict()
+        case let v as any CBORSerializable:
+            return try v.toPrimitive()
         case let v as OrderedDictionary<Primitive, Primitive>:
             return .orderedDict(v)
         case let v as Int:

@@ -1,6 +1,41 @@
 import Foundation
+import OrderedCollections
 
 public protocol Serializable: CBORSerializable, JSONSerializable, Sendable  {}
+
+/// Default `JSONSerializable` implementation for any `CBORSerializable` type.
+/// Conforming to `Serializable` is sufficient — `toDict()` and `fromDict()` are
+/// provided here so types don't need to implement them separately.
+public extension JSONSerializable where Self: CBORSerializable {
+    static func fromDict(_ primitive: Primitive) throws -> Self {
+        try Self.init(from: primitive)
+    }
+    
+    func toDict() throws -> Primitive {
+        do {
+            let mirror = Mirror(reflecting: self)
+            var dict = OrderedDictionary<Primitive, Primitive>()
+            for child in mirror.children {
+                guard let label = child.label else { continue }
+
+                switch child.value {
+                    case let v as any Serializable:
+                        dict[.string(label)] = try v.toDict()
+                    case let v as any CBORSerializable:
+                        dict[.string(label)] = try v.toPrimitive()
+                    default:
+                        dict[.string(label)] = try Primitive.fromAny(child.value)
+                }
+            }
+            return .orderedDict(dict)
+        } catch {
+            // Mirror-based traversal can't represent fields that don't conform to
+            // CBORSerializable (e.g. Swift tuples). Fall back to the type's own
+            // CBOR encoding, which is always representable as a Primitive.
+            return try toPrimitive()
+        }
+    }
+}
 
 public extension Serializable {
     init(from decoder: Decoder) throws {

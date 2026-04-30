@@ -584,10 +584,22 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
         dict[.int(CBORKey.minPoolCost.rawValue)]    = .int(minPoolCost)
         dict[.int(CBORKey.adaPerUtxoByte.rawValue)] = .int(utxoCostPerByte)
 
-        let cborCM = try CostModels([
-            0: costModels.PlutusV1, 1: costModels.PlutusV2, 2: costModels.PlutusV3
-        ])
-        dict[.int(CBORKey.costModels.rawValue)] = try cborCM.toPrimitive()
+        // Round-trip the raw cost-model values directly. CostModels.init validates
+        // each array against a hardcoded template (e.g. PlutusV1 = 166 entries),
+        // which can't represent on-chain encodings that the wire actually emits
+        // (newer Conway nodes have been observed sending 332-int arrays). Skip
+        // the validation so values that decoded successfully also re-encode.
+        var cmDict: [Primitive: Primitive] = [:]
+        if !costModels.PlutusV1.isEmpty {
+            cmDict[.int(0)] = .indefiniteList(IndefiniteList(costModels.PlutusV1.map { Primitive.int($0) }))
+        }
+        if !costModels.PlutusV2.isEmpty {
+            cmDict[.int(1)] = .indefiniteList(IndefiniteList(costModels.PlutusV2.map { Primitive.int($0) }))
+        }
+        if !costModels.PlutusV3.isEmpty {
+            cmDict[.int(2)] = .indefiniteList(IndefiniteList(costModels.PlutusV3.map { Primitive.int($0) }))
+        }
+        dict[.int(CBORKey.costModels.rawValue)] = .dict(cmDict)
 
         if let mem  = doubleToNonNegativeInterval(executionUnitPrices.priceMemory),
            let step = doubleToNonNegativeInterval(executionUnitPrices.priceSteps) {

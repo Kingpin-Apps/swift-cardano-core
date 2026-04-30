@@ -1,10 +1,28 @@
 import Foundation
 import OrderedCollections
 
-public enum Vote: Int, Codable, Sendable {
+public enum Vote: Int, Serializable {
     case no = 0
     case yes = 1
     case abstain = 2
+
+    public init(from primitive: Primitive) throws {
+        let raw: Int
+        switch primitive {
+        case .uint(let u): raw = Int(u)
+        case .int(let i):  raw = i
+        default:
+            throw CardanoCoreError.deserializeError("Vote: expected uint, got \(primitive)")
+        }
+        guard let v = Vote(rawValue: raw) else {
+            throw CardanoCoreError.deserializeError("Vote: invalid rawValue \(raw)")
+        }
+        self = v
+    }
+
+    public func toPrimitive() throws -> Primitive {
+        .uint(UInt(rawValue))
+    }
 }
 
 public enum VoterType: Serializable {

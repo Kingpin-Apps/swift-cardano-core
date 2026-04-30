@@ -61,7 +61,7 @@ public struct NonNegativeInterval: CBORSerializable, Sendable {
 
 // MARK: - UnitInterval
 /// A unit interval is a number in the range between 0 and 1
-public struct UnitInterval: CBORSerializable, Sendable {
+public struct UnitInterval: Serializable {
     public let numerator: UInt64
     public let denominator: UInt64
 

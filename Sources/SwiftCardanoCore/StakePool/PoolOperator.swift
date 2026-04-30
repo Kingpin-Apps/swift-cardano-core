@@ -1,9 +1,9 @@
 import Foundation
 
-public struct PoolOperator: CBORSerializable, CustomStringConvertible, CustomDebugStringConvertible, Sendable {
-    
+public struct PoolOperator: Serializable {
+
     public let poolKeyHash: PoolKeyHash
-    
+
     public var description: String {
         do {
             return try self.toBech32()
@@ -11,8 +11,18 @@ public struct PoolOperator: CBORSerializable, CustomStringConvertible, CustomDeb
             return "PoolOperator(invalid)"
         }
     }
-    
+
     public var debugDescription: String { self.description }
+
+    /// JSON description renders as a bech32 `pool…` string instead of the
+    /// raw 28-byte hash. The CBOR/wire form (`toPrimitive`) keeps the bytes.
+    public func toDict() throws -> Primitive {
+        return .string(try toBech32())
+    }
+
+    public static func fromDict(_ primitive: Primitive) throws -> Self {
+        try Self.init(from: primitive)
+    }
     
     public init(poolKeyHash: PoolKeyHash) {
         self.poolKeyHash = poolKeyHash

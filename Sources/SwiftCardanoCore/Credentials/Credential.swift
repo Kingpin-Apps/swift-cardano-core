@@ -13,7 +13,7 @@ public enum IdFormat {
 }
 
 /// The credential can be  a verification key hash or a script hash.
-public protocol Credential: CBORSerializable, CustomStringConvertible, CustomDebugStringConvertible, Sendable {
+public protocol Credential: Serializable, CustomStringConvertible, CustomDebugStringConvertible {
     var credential: CredentialType { get }
     
     init(credential: CredentialType)
