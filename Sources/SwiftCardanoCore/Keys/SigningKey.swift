@@ -99,14 +99,16 @@ public struct ExtendedSigningKey: ExtendedSigningKeyProtocol {
     }
 }
 
-public enum SigningKeyType: Codable, Equatable, Hashable {
+public enum SigningKeyType: CBORSerializable, Sendable {
 
     case extendedSigningKey(any ExtendedSigningKeyProtocol)
     case signingKey(any SigningKeyProtocol)
-    
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        let data = try container.decode(Data.self)
+
+    public init(from primitive: Primitive) throws {
+        guard case let .bytes(data) = primitive else {
+            throw CardanoCoreError.deserializeError("Invalid SigningKeyType primitive")
+        }
+
         if data.count == 64 {
             self = .signingKey(try SigningKey(payload: data))
         } else {
@@ -114,17 +116,15 @@ public enum SigningKeyType: Codable, Equatable, Hashable {
         }
     }
 
-    public func encode(to encoder: Swift.Encoder) throws {
-        var container = encoder.singleValueContainer()
-        
+    public func toPrimitive() throws -> Primitive {
         switch self {
             case .extendedSigningKey(let key):
-                try container.encode(key)
+                return .bytes(key.payload)
             case .signingKey(let key):
-                try container.encode(key)
+                return .bytes(key.payload)
         }
     }
-    
+
     public func hash(into hasher: inout Hasher) {
         switch self {
             case .extendedSigningKey(let key):
