@@ -1,3 +1,9 @@
+## 0.3.17 (2026-05-08)
+
+### Fix
+
+- make SigningKeyType implement Sendable
+
 ## 0.3.16 (2026-04-30)
 
 ### Fix
