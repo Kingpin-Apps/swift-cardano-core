@@ -1,3 +1,9 @@
+## 0.3.18 (2026-05-08)
+
+### Fix
+
+- add Sendable to JSONLoadables
+
 ## 0.3.17 (2026-05-08)
 
 ### Fix
