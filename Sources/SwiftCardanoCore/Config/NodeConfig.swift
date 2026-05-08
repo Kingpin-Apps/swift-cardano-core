@@ -142,7 +142,7 @@ public struct NodeConfig: JSONLoadable {
     }
 }
 
-public struct PrometheusConfig: Codable, Equatable, Hashable {
+public struct PrometheusConfig: Codable, Equatable, Hashable, Sendable {
     public let host: String
     public let port: Int
     
@@ -159,7 +159,7 @@ public struct PrometheusConfig: Codable, Equatable, Hashable {
     }
 }
 
-public struct Options: Codable, Equatable, Hashable {
+public struct Options: Codable, Equatable, Hashable, Sendable {
     public let mapBackends: [String: [String]]
     public let mapSubtrace: [String: SubtraceConfig]
     
@@ -168,17 +168,17 @@ public struct Options: Codable, Equatable, Hashable {
     }
 }
 
-public struct SubtraceConfig: Codable, Equatable, Hashable {
+public struct SubtraceConfig: Codable, Equatable, Hashable, Sendable {
     public let subtrace: String
 }
 
-public struct Rotation: Codable, Equatable, Hashable {
+public struct Rotation: Codable, Equatable, Hashable, Sendable {
     public let rpKeepFilesNum: Int
     public let rpLogLimitBytes: Int
     public let rpMaxAgeHours: Int
 }
 
-public struct SetupScribe: Codable, Equatable, Hashable {
+public struct SetupScribe: Codable, Equatable, Hashable, Sendable {
     public let scFormat: String
     public let scKind: String
     public let scName: String

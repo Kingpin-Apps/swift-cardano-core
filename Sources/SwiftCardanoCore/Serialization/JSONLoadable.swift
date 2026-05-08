@@ -1,6 +1,6 @@
 import Foundation
 
-public protocol JSONLoadable: Codable, Hashable, Equatable {}
+public protocol JSONLoadable: Codable, Hashable, Equatable, Sendable {}
 
 public extension JSONLoadable {
     

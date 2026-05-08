@@ -19,7 +19,7 @@ public struct Topology: JSONLoadable {
     }
 }
 
-public struct BootstrapPeer: Codable, Equatable, Hashable {
+public struct BootstrapPeer: Codable, Equatable, Hashable, Sendable {
     public let address: String
     public let port: Int
     
@@ -29,7 +29,7 @@ public struct BootstrapPeer: Codable, Equatable, Hashable {
     }
 }
 
-public struct LocalRoot: Codable, Equatable, Hashable {
+public struct LocalRoot: Codable, Equatable, Hashable, Sendable {
     public let accessPoints: [String]
     public let advertise: Bool
     public let trustable: Bool
@@ -48,7 +48,7 @@ public struct LocalRoot: Codable, Equatable, Hashable {
     }
 }
 
-public struct PublicRoot: Codable, Equatable, Hashable {
+public struct PublicRoot: Codable, Equatable, Hashable, Sendable {
     public let accessPoints: [String]
     public let advertise: Bool
     
