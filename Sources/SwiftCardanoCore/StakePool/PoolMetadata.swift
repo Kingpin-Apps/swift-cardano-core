@@ -2,6 +2,9 @@ import Foundation
 import PotentCBOR
 import OrderedCollections
 import SwiftNcal
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 public struct PoolMetadata: Serializable {
     public let name: String?

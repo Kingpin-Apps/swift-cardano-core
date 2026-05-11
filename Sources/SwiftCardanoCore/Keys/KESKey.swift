@@ -171,16 +171,7 @@ public struct KESKeyPair {
 
     /// Generate a new KES key pair from random entropy.
     public static func generate() throws -> KESKeyPair {
-        // Generate 32 bytes of random entropy for the seed
-        var seed = Data(count: 32)
-        let result = seed.withUnsafeMutableBytes { ptr in
-            SecRandomCopyBytes(kSecRandomDefault, 32, ptr.baseAddress!)
-        }
-        guard result == errSecSuccess else {
-            throw CardanoCoreError.valueError("Failed to generate random seed")
-        }
-
-        return try fromSeed(seed)
+        return try fromSeed(Data.randomBytes(count: 32))
     }
 
     /// Generate a KES key pair from a 32-byte seed.

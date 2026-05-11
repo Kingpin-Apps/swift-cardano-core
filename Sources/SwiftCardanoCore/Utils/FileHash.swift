@@ -17,7 +17,7 @@ public extension FileHashable {
     /// - Parameter path: The path to the file
     /// - Returns: An instance of the conforming type
     static func load(from path: String) throws -> Self {
-        self.init(contents: try String(contentsOfFile: path))
+        self.init(contents: try String(contentsOfFile: path, encoding: .utf8))
     }
     
     /// Get the hash of the file contents

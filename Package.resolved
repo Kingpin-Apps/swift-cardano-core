@@ -1,5 +1,5 @@
 {
-  "originHash" : "c8dac4fe49f2385b0c8dbf1a1392efcfc1285db35f35319e65042195c7794c80",
+  "originHash" : "28712319c55f1e6a905979819591a593bb1afd6a2254b8bd0e1dfa168e17eb5f",
   "pins" : [
     {
       "identity" : "base32",
@@ -132,8 +132,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kingpin-Apps/swift-ncal.git",
       "state" : {
-        "revision" : "e42fbe3c3d45a159ac626c956c83466373927722",
-        "version" : "0.2.1"
+        "revision" : "092ff55a1e32ea7bd6faeb6a3884dd90109558ae",
+        "version" : "0.2.2"
       }
     },
     {

@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 /// A `URLProtocol` subclass that intercepts URL requests and returns preset responses.
 /// Register it via `MockURLProtocol.makeSession()` and pass the session to `fetch(session:)`.
