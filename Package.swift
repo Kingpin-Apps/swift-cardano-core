@@ -6,12 +6,12 @@ import PackageDescription
 let package = Package(
     name: "SwiftCardanoCore",
     platforms: [
-      .iOS(.v14),
+      .iOS(.v16),
       .macOS(.v14),
-      .watchOS(.v7),
-      .tvOS(.v14),
+      .watchOS(.v8),
+      .tvOS(.v15),
       .visionOS(.v1),
-      .macCatalyst(.v14),
+      .macCatalyst(.v15),
     ],
     products: [
         .library(
