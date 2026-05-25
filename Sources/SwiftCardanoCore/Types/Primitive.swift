@@ -9,8 +9,8 @@ public indirect enum Primitive: CBORSerializable, Sendable {
     case bytes(Data)
     case byteArray([UInt8])
     case string(String)
-    case int(Int)
-    case uint(UInt)
+    case int(Int64)
+    case uint(UInt64)
     case bigInt(BigInt)
     case bigUInt(BigUInt)
     case float(Double)
@@ -69,7 +69,7 @@ public indirect enum Primitive: CBORSerializable, Sendable {
         case .bool(let b):
             return .bool(b)
         case .number(let n):
-            if let i = n.integerValue { return .int(i) }
+            if let i = n.integerValue { return .int(Int64(i)) }
             if let d = n.doubleValue { return .float(d) }
             throw CardanoCoreError.valueError("Cannot convert JSON number to Primitive: \(n)")
         case .string(let s):
@@ -99,9 +99,9 @@ public indirect enum Primitive: CBORSerializable, Sendable {
         case .utf8String(let string):
             return .string(string)
         case .unsignedInt(let value):
-            return .uint(UInt(value))
+            return .uint(value)
         case .negativeInt(let value):
-            return .int(Int(bitPattern: ~UInt(value)))
+            return .int(Int64(bitPattern: ~value))
         case .float(let value):
             return .float(Double(value))
         case .double(let value):
@@ -218,9 +218,9 @@ public indirect enum Primitive: CBORSerializable, Sendable {
             return .utf8String(string)
         case .int(let value):
             return value >= 0
-                ? .unsignedInt(UInt64(value)) : .negativeInt(~UInt64(bitPattern: Int64(value)))
+                ? .unsignedInt(UInt64(value)) : .negativeInt(~UInt64(bitPattern: value))
         case .uint(let value):
-            return .unsignedInt(UInt64(value))
+            return .unsignedInt(value)
         case .float(let value):
             return .double(value)
         case .decimal(let decimal):
@@ -444,25 +444,25 @@ public indirect enum Primitive: CBORSerializable, Sendable {
         case let v as OrderedDictionary<Primitive, Primitive>:
             return .orderedDict(v)
         case let v as Int:
-            return .int(v)
+            return .int(Int64(v))
         case let v as UInt8:
-            return .uint(UInt(v))
+            return .uint(UInt64(v))
         case let v as UInt:
-            return .int(Int(v))
+            return .uint(UInt64(v))
         case let v as Int8:
-            return .int(Int(v))
+            return .int(Int64(v))
         case let v as Int16:
-            return .int(Int(v))
+            return .int(Int64(v))
         case let v as Int32:
-            return .int(Int(v))
+            return .int(Int64(v))
         case let v as Int64:
-            return .int(Int(v))
+            return .int(v)
         case let v as UInt16:
-            return .uint(UInt(v))
+            return .uint(UInt64(v))
         case let v as UInt32:
-            return .uint(UInt(v))
+            return .uint(UInt64(v))
         case let v as UInt64:
-            return .uint(UInt(v))
+            return .uint(v)
         case let v as Double:
             return .float(v)
         case let v as Float:
@@ -638,9 +638,20 @@ public indirect enum Primitive: CBORSerializable, Sendable {
     public var intValue: Int? {
         switch self {
         case .int(let value):
-            return value
+            return Int(clamping: value)
         case .uint(let value):
             return Int(clamping: value)
+        default:
+            return nil
+        }
+    }
+
+    public var int64Value: Int64? {
+        switch self {
+        case .int(let value):
+            return value
+        case .uint(let value):
+            return Int64(clamping: value)
         default:
             return nil
         }
@@ -651,7 +662,7 @@ public indirect enum Primitive: CBORSerializable, Sendable {
         case .int(let value):
             return UInt64(clamping: value)
         case .uint(let value):
-            return UInt64(value)
+            return value
         default:
             return nil
         }
