@@ -16,18 +16,18 @@ public struct PoolRetirement: CertificateSerializable {
     public static var CODE: CertificateCode { get { return .poolRetirement } }
     
     public let poolKeyHash: PoolKeyHash
-    public let epoch: Int
-    
+    public let epoch: EpochNumber
+
     public enum CodingKeys: String, CodingKey {
         case poolKeyHash
         case epoch
     }
-    
+
     /// Initialize a new PoolRetirement certificate
     /// - Parameters:
     ///   - poolKeyHash: The pool key hash
     ///   - epoch: The epoch
-    public init(poolKeyHash: PoolKeyHash, epoch: Int) {
+    public init(poolKeyHash: PoolKeyHash, epoch: EpochNumber) {
         self.poolKeyHash = poolKeyHash
         self.epoch = epoch
         
@@ -69,18 +69,18 @@ public struct PoolRetirement: CertificateSerializable {
               case let .uint(epoch) = primitive[2] else {
             throw CardanoCoreError.deserializeError("Invalid PoolRetirement type")
         }
-        guard case UInt(Self.CODE.rawValue) = code else {
+        guard case UInt64(Self.CODE.rawValue) = code else {
             throw CardanoCoreError.deserializeError("Invalid PoolRetirement type: \(code)")
         }
         let poolKeyHash = try PoolKeyHash(from: primitive[1])
-        self.init(poolKeyHash: poolKeyHash, epoch: Int(epoch))
+        self.init(poolKeyHash: poolKeyHash, epoch: EpochNumber(epoch))
     }
 
     public func toPrimitive() throws -> Primitive {
         return .list([
-            .uint(UInt(Int(Self.CODE.rawValue))),
+            .uint(UInt64(Self.CODE.rawValue)),
             poolKeyHash.toPrimitive(),
-            .int(Int(epoch))
+            .uint(epoch)
         ])
     }
     
@@ -98,17 +98,17 @@ public struct PoolRetirement: CertificateSerializable {
         guard case let .int(epochValue) = epochPrimitive else {
             throw CardanoCoreError.deserializeError("Invalid epoch value in PoolRetirement dictionary")
         }
-        
-        return PoolRetirement(poolKeyHash: poolOperator.poolKeyHash, epoch: Int(epochValue))
+
+        return PoolRetirement(poolKeyHash: poolOperator.poolKeyHash, epoch: EpochNumber(epochValue))
     }
-    
+
     public func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
         let poolOperator = PoolOperator(poolKeyHash: poolKeyHash)
-        
+
         dict[.string(CodingKeys.poolKeyHash.rawValue)] = .string(try poolOperator.id())
-        dict[.string(CodingKeys.epoch.rawValue)] = .int(Int(epoch))
-        
+        dict[.string(CodingKeys.epoch.rawValue)] = .uint(epoch)
+
         return .orderedDict(dict)
     }
 }

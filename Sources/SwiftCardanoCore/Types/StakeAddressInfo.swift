@@ -7,22 +7,22 @@ public struct StakeAddressInfo: Codable, Equatable, Sendable {
     public let active: Bool?
     
     /// The epoch in which the stake address became active
-    public let activeEpoch: Int?
-    
+    public let activeEpoch: EpochNumber?
+
     /// Stake address
     public let address: String
-    
+
     /// Governance Action Deposits
     public let govActionDeposits: [String:UInt64]?
-    
+
     /// Reward account balance
-    public let rewardAccountBalance: Int
-    
+    public let rewardAccountBalance: Int64
+
     /// Stake delegation pool ID
     public let stakeDelegation: PoolOperator?
-    
+
     /// StakeRegistration deposit
-    public let stakeRegistrationDeposit: Int?
+    public let stakeRegistrationDeposit: Int64?
     
     /// Vote delegation ID
     public let voteDelegation: DRep?
@@ -41,12 +41,12 @@ public struct StakeAddressInfo: Codable, Equatable, Sendable {
     
     public init(
         active: Bool = true,
-        activeEpoch: Int? = nil,
+        activeEpoch: EpochNumber? = nil,
         address: String,
         govActionDeposits: [String:UInt64]? = nil,
-        rewardAccountBalance: Int,
+        rewardAccountBalance: Int64,
         stakeDelegation: PoolOperator? = nil,
-        stakeRegistrationDeposit: Int? = nil,
+        stakeRegistrationDeposit: Int64? = nil,
         voteDelegation: DRep? = nil
     ) {
         self.active = active
@@ -67,8 +67,8 @@ public struct StakeAddressInfo: Codable, Equatable, Sendable {
             .decodeIfPresent(Bool.self, forKey: .active)
         
         self.activeEpoch = try container
-            .decodeIfPresent(Int.self, forKey: .activeEpoch)
-        
+            .decodeIfPresent(EpochNumber.self, forKey: .activeEpoch)
+
         self.address = try container
             .decodeIfPresent(String.self, forKey: .address)!
         self.govActionDeposits = try container
@@ -76,8 +76,8 @@ public struct StakeAddressInfo: Codable, Equatable, Sendable {
                 [String:UInt64].self,
                 forKey: .govActionDeposits
             )
-        self.stakeRegistrationDeposit = try container.decodeIfPresent(Int.self, forKey: .stakeRegistrationDeposit)
-        self.rewardAccountBalance = try container.decodeIfPresent(Int.self, forKey: .rewardAccountBalance) ?? 0
+        self.stakeRegistrationDeposit = try container.decodeIfPresent(Int64.self, forKey: .stakeRegistrationDeposit)
+        self.rewardAccountBalance = try container.decodeIfPresent(Int64.self, forKey: .rewardAccountBalance) ?? 0
         self.stakeDelegation = try? container.decodeIfPresent(PoolOperator.self, forKey: .stakeDelegation)
         self.voteDelegation = try? container.decodeIfPresent(DRep.self, forKey: .voteDelegation)
     }

@@ -19,12 +19,12 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
     public var inputs: ListOrOrderedSet<TransactionInput>
     public var outputs: [TransactionOutput]
     public var fee: Coin
-    public var ttl: Int?
+    public var ttl: SlotNumber?
     public var certificates: ListOrNonEmptyOrderedSet<Certificate>?
     public var withdrawals: Withdrawals?
     public var update: Update?
     public var auxiliaryDataHash: AuxiliaryDataHash?
-    public var validityStart: Int?
+    public var validityStart: SlotNumber?
     public var mint: MultiAsset?
     public var scriptDataHash: ScriptDataHash?
     public var collateral: ListOrNonEmptyOrderedSet<TransactionInput>?
@@ -125,12 +125,12 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
         inputs: ListOrOrderedSet<TransactionInput>,
         outputs: [TransactionOutput],
         fee: Coin,
-        ttl: Int? = nil,
+        ttl: SlotNumber? = nil,
         certificates: ListOrNonEmptyOrderedSet<Certificate>? = nil,
         withdrawals: Withdrawals? = nil,
         update: Update? = nil,
         auxiliaryDataHash: AuxiliaryDataHash? = nil,
-        validityStart: Int? = nil,
+        validityStart: SlotNumber? = nil,
         mint: MultiAsset? = nil,
         scriptDataHash: ScriptDataHash? = nil,
         collateral: ListOrNonEmptyOrderedSet<TransactionInput>? = nil,
@@ -303,9 +303,9 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
         }
 
         // Optional fields
-        let ttl: Int?
+        let ttl: SlotNumber?
         if let ttlPrimitive = primitiveDict[key(.ttl)], case .uint(let ttlValue) = ttlPrimitive {
-            ttl = Int(ttlValue)
+            ttl = SlotNumber(ttlValue)
         } else {
             ttl = nil
         }
@@ -338,11 +338,11 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
             auxiliaryDataHash = nil
         }
 
-        let validityStart: Int?
+        let validityStart: SlotNumber?
         if let validityStartPrimitive = primitiveDict[key(.validityStart)],
             case .uint(let validityStartValue) = validityStartPrimitive
         {
-            validityStart = Int(validityStartValue)
+            validityStart = SlotNumber(validityStartValue)
         } else {
             validityStart = nil
         }
@@ -571,11 +571,11 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
         let fee = Coin(feeValue)
 
         // Optional fields
-        var ttl: Int? = nil
+        var ttl: SlotNumber? = nil
         if let ttlPrimitive = orderedDict[.string(CodingKeys.ttl.stringValue)],
             case .int(let ttlValue) = ttlPrimitive
         {
-            ttl = ttlValue
+            ttl = SlotNumber(ttlValue)
         }
 
         var certificates: ListOrNonEmptyOrderedSet<Certificate>? = nil
@@ -600,11 +600,11 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
             auxiliaryDataHash = try AuxiliaryDataHash(from: auxiliaryDataHashPrimitive)
         }
 
-        var validityStart: Int? = nil
+        var validityStart: SlotNumber? = nil
         if let validityStartPrimitive = orderedDict[.string(CodingKeys.validityStart.stringValue)],
             case .int(let validityStartValue) = validityStartPrimitive
         {
-            validityStart = validityStartValue
+            validityStart = SlotNumber(validityStartValue)
         }
 
         var mint: MultiAsset? = nil

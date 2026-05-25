@@ -7,10 +7,10 @@ import Foundation
 /// epoch and slot information, and synchronization progress.
 public struct ChainTip: Codable, Equatable, Sendable {
     /// Absolute block height of the tip. `nil` if unknown or not applicable.
-    public let block: Int?
+    public let block: BlockNumber?
 
     /// Current epoch number at the tip. `nil` if unknown.
-    public let epoch: Int?
+    public let epoch: EpochNumber?
 
     /// Current era name at the tip (for example: "Byron", "Shelley", "Alonzo").
     /// `nil` if not provided by the backend.
@@ -21,14 +21,14 @@ public struct ChainTip: Codable, Equatable, Sendable {
     public let hash: String?
 
     /// Absolute slot number at the tip. `nil` if unknown.
-    public let slot: Int?
+    public let slot: SlotNumber?
 
     /// Slot index within the current epoch. `nil` if unknown.
-    public let slotInEpoch: Int?
+    public let slotInEpoch: SlotNumber?
 
     /// Number of remaining slots until the end of the current epoch.
     /// `nil` if unknown or not provided.
-    public let slotsToEpochEnd: Int?
+    public let slotsToEpochEnd: SlotNumber?
 
     /// Node synchronization progress expressed as a string (for example: "100.00")
     /// or a human-readable phrase depending on backend. `nil` if unknown.
@@ -47,13 +47,13 @@ public struct ChainTip: Codable, Equatable, Sendable {
     ///   - slotsToEpochEnd: Remaining slots until the end of the current epoch.
     ///   - syncProgress: Node synchronization progress as a string.
     public init(
-        block: Int?,
-        epoch: Int?,
+        block: BlockNumber?,
+        epoch: EpochNumber?,
         era: String?,
         hash: String?,
-        slot: Int?,
-        slotInEpoch: Int?,
-        slotsToEpochEnd: Int?,
+        slot: SlotNumber?,
+        slotInEpoch: SlotNumber?,
+        slotsToEpochEnd: SlotNumber?,
         syncProgress: String?
     ) {
         self.block = block
