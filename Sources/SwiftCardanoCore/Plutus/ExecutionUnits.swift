@@ -3,18 +3,18 @@ import PotentCBOR
 
 public struct ExecutionUnits: Serializable {
 
-    public var mem: Int
-    public var steps: Int
+    public var mem: Int64
+    public var steps: Int64
 
-    public init(mem: Int, steps: Int) {
+    public init(mem: Int64, steps: Int64) {
         self.mem = mem
         self.steps = steps
     }
-    
+
     public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
-        mem = try container.decode(Int.self)
-        steps = try container.decode(Int.self)
+        mem = try container.decode(Int64.self)
+        steps = try container.decode(Int64.self)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -43,11 +43,11 @@ public struct ExecutionUnits: Serializable {
               case let .uint(steps) = primitive[1] else {
             throw CardanoCoreError.deserializeError("Invalid ExecutionUnits primitive")
         }
-        
-        self.mem = Int(mem)
-        self.steps = Int(steps)
+
+        self.mem = Int64(mem)
+        self.steps = Int64(steps)
     }
-    
+
     public func toPrimitive() throws -> Primitive {
         return .list([
             .int(mem),

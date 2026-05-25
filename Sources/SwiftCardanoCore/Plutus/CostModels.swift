@@ -4,11 +4,11 @@ import PotentCBOR
 
 public struct CostModels: CBORSerializable, Sendable {
     typealias KEY_TYPE = Int
-    typealias VALUE_TYPE = OrderedDictionary<String, Int>
+    typealias VALUE_TYPE = OrderedDictionary<String, Int64>
 
-    public let plutusV1: OrderedDictionary<String, Int>?
-    public let plutusV2: OrderedDictionary<String, Int>?
-    public let plutusV3: OrderedDictionary<String, Int>?
+    public let plutusV1: OrderedDictionary<String, Int64>?
+    public let plutusV2: OrderedDictionary<String, Int64>?
+    public let plutusV3: OrderedDictionary<String, Int64>?
 
     enum CodingKeys: Int, CodingKey {
         case plutusV1 = 0
@@ -16,13 +16,13 @@ public struct CostModels: CBORSerializable, Sendable {
         case plutusV3 = 2
     }
 
-    public init(_ data: [Int: OrderedDictionary<String, Int>]) throws {
+    public init(_ data: [Int: OrderedDictionary<String, Int64>]) throws {
         plutusV1 = data[0]
         plutusV2 = data[1]
         plutusV3 = data[2]
     }
 
-    public init(_ data: [Int: [Int]]) throws {
+    public init(_ data: [Int: [Int64]]) throws {
         plutusV1 = try data[0].map { try Self.modelFromValues($0, version: 0) }
         plutusV2 = try data[1].map { try Self.modelFromValues($0, version: 1) }
         plutusV3 = try data[2].map { try Self.modelFromValues($0, version: 2) }
@@ -102,7 +102,7 @@ public struct CostModels: CBORSerializable, Sendable {
         var dict = [Int: Primitive]()
         for (key, value) in pairs {
             switch key {
-            case .int(let k): dict[k] = value
+            case .int(let k): dict[Int(k)] = value
             case .uint(let k): dict[Int(k)] = value
             default: break
             }
@@ -132,7 +132,7 @@ public struct CostModels: CBORSerializable, Sendable {
         return .dict(dict)
     }
 
-    private static func templateForVersion(_ version: Int) throws -> OrderedDictionary<String, Int>
+    private static func templateForVersion(_ version: Int) throws -> OrderedDictionary<String, Int64>
     {
         switch version {
         case 0: return PLUTUS_V1_COST_MODEL
@@ -144,8 +144,8 @@ public struct CostModels: CBORSerializable, Sendable {
         }
     }
 
-    private static func modelFromValues(_ values: [Int], version: Int) throws -> OrderedDictionary<
-        String, Int
+    private static func modelFromValues(_ values: [Int64], version: Int) throws -> OrderedDictionary<
+        String, Int64
     > {
         let template = try templateForVersion(version)
         // Allow an empty array as a convenience — fills all entries with 0.
@@ -159,14 +159,14 @@ public struct CostModels: CBORSerializable, Sendable {
             )
         }
 
-        var model = OrderedDictionary<String, Int>()
+        var model = OrderedDictionary<String, Int64>()
         for (key, value) in zip(template.keys, values) {
             model[key] = value
         }
         return model
     }
 
-    private static func intsFromPrimitiveList(_ primitive: Primitive) throws -> [Int] {
+    private static func intsFromPrimitiveList(_ primitive: Primitive) throws -> [Int64] {
         let items: [Primitive]
         switch primitive {
         case .list(let list):
@@ -181,7 +181,7 @@ public struct CostModels: CBORSerializable, Sendable {
         return try items.map {
             switch $0 {
             case .int(let value): return value
-            case .uint(let value): return Int(value)
+            case .uint(let value): return Int64(value)
             default:
                 throw CardanoCoreError.deserializeError("Invalid cost model parameter value: \($0)")
             }
@@ -189,12 +189,12 @@ public struct CostModels: CBORSerializable, Sendable {
     }
 
     private static func modelFromPrimitive(_ primitive: Primitive, version: Int) throws
-        -> OrderedDictionary<String, Int>
+        -> OrderedDictionary<String, Int64>
     {
         return try modelFromValues(intsFromPrimitiveList(primitive), version: version)
     }
 
-    private static func intsFromCBORList(_ cbor: CBOR) throws -> [Int] {
+    private static func intsFromCBORList(_ cbor: CBOR) throws -> [Int64] {
         let list: [CBOR]
         switch cbor {
         case .array(let array):
@@ -207,8 +207,8 @@ public struct CostModels: CBORSerializable, Sendable {
 
         return try list.map {
             switch $0 {
-            case .unsignedInt(let value): return Int(value)
-            case .negativeInt(let value): return -1 - Int(value)
+            case .unsignedInt(let value): return Int64(value)
+            case .negativeInt(let value): return -1 - Int64(value)
             default:
                 throw CardanoCoreError.deserializeError(
                     "Invalid cost model CBOR parameter value: \($0)")
@@ -217,7 +217,7 @@ public struct CostModels: CBORSerializable, Sendable {
     }
 
     private static func modelFromCBOR(_ cbor: CBOR, version: Int) throws -> OrderedDictionary<
-        String, Int
+        String, Int64
     > {
         switch cbor {
         case .byteString(let encoded):
@@ -264,7 +264,7 @@ extension CostModels: CustomStringConvertible, CustomDebugStringConvertible {
     }
 }
 
-public let PLUTUS_V1_COST_MODEL: OrderedDictionary = [
+public let PLUTUS_V1_COST_MODEL: OrderedDictionary<String, Int64> = [
     "addInteger-cpu-arguments-intercept": 197209,
     "addInteger-cpu-arguments-slope": 0,
     "addInteger-memory-arguments-intercept": 1,
@@ -433,7 +433,7 @@ public let PLUTUS_V1_COST_MODEL: OrderedDictionary = [
     "verifySignature-memory-arguments": 1,
 ]
 
-public let PLUTUS_V2_COST_MODEL: OrderedDictionary = [
+public let PLUTUS_V2_COST_MODEL: OrderedDictionary<String, Int64> = [
     "addInteger-cpu-arguments-intercept": 205665,
     "addInteger-cpu-arguments-slope": 812,
     "addInteger-memory-arguments-intercept": 1,
@@ -611,7 +611,7 @@ public let PLUTUS_V2_COST_MODEL: OrderedDictionary = [
     "verifySchnorrSecp256k1Signature-memory-arguments": 20_000_000_000,
 ]
 
-public let PLUTUS_V3_COST_MODEL: OrderedDictionary = [
+public let PLUTUS_V3_COST_MODEL: OrderedDictionary<String, Int64> = [
     "addInteger-cpu-arguments-intercept": 100788,
     "addInteger-cpu-arguments-slope": 420,
     "addInteger-memory-arguments-intercept": 1,

@@ -48,18 +48,18 @@ public struct ExUnitPrices: CBORSerializable, Sendable {
 
 // MARK: - ExUnits
 public struct ExUnits: CBORSerializable, Sendable {
-    public var mem: UInt
-    public var steps: UInt
+    public var mem: UInt64
+    public var steps: UInt64
 
-    public init(mem: UInt, steps: UInt) {
+    public init(mem: UInt64, steps: UInt64) {
         self.mem = mem
         self.steps = steps
     }
 
     public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
-        mem = try container.decode(UInt.self)
-        steps = try container.decode(UInt.self)
+        mem = try container.decode(UInt64.self)
+        steps = try container.decode(UInt64.self)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -75,16 +75,16 @@ public struct ExUnits: CBORSerializable, Sendable {
         guard elements.count == 2 else {
             throw CardanoCoreError.valueError("ExUnits must contain exactly 2 elements")
         }
-        let mem: UInt
+        let mem: UInt64
         switch elements[0] {
         case .uint(let v): mem = v
-        case .int(let v): mem = UInt(v)
+        case .int(let v): mem = UInt64(v)
         default: throw CardanoCoreError.valueError("Invalid ExUnits element types")
         }
-        let steps: UInt
+        let steps: UInt64
         switch elements[1] {
         case .uint(let v): steps = v
-        case .int(let v): steps = UInt(v)
+        case .int(let v): steps = UInt64(v)
         default: throw CardanoCoreError.valueError("Invalid ExUnits element types")
         }
         self.init(mem: mem, steps: steps)
@@ -92,8 +92,8 @@ public struct ExUnits: CBORSerializable, Sendable {
 
     public func toPrimitive() throws -> Primitive {
         return .list([
-            .int(Int(mem)),
-            .int(Int(steps)),
+            .uint(mem),
+            .uint(steps),
         ])
     }
 }
