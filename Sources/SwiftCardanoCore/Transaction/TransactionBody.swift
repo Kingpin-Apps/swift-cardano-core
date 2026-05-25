@@ -231,7 +231,7 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
     public func validate() throws {
         // Check mint asset bounds - values should be within reasonable bounds for Cardano
         // Cardano uses 64-bit signed integers, but very large values can cause issues
-        let maxMintAmount = 45_000_000_000_000_000  // Maximum reasonable mint amount for Cardano
+        let maxMintAmount: Int64 = 45_000_000_000_000_000  // Maximum reasonable mint amount for Cardano (max ADA supply in lovelace)
         if let mint = mint,
             try mint
                 .count(criteria: { _, _, v in abs(v) > maxMintAmount }) > 0
