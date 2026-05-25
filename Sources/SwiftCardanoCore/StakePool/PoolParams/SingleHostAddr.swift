@@ -78,10 +78,10 @@ public struct SingleHostAddr: Serializable, Sendable {
     
     public func toPrimitive() throws -> Primitive {
         var elements: [Primitive] = []
-        elements.append(.uint(UInt(Self.code)))
-        
+        elements.append(.uint(UInt64(Self.code)))
+
         if let port = self.port {
-            elements.append(.uint(UInt(port)))
+            elements.append(.uint(UInt64(port)))
         } else {
             elements.append(.null)
         }
@@ -105,14 +105,14 @@ public struct SingleHostAddr: Serializable, Sendable {
     
     public static func fromDict(_ dict: Primitive) throws -> SingleHostAddr {
         guard case let .orderedDict(dictValue) = dict,
-              let codePrimitive = dictValue[.uint(UInt(0))],
+              let codePrimitive = dictValue[.uint(UInt64(0))],
               case let .uint(code) = codePrimitive,
               code == Self.code else {
             throw CardanoCoreError.deserializeError("Invalid SingleHostAddr type in dict")
         }
-        
+
         var port: Int? = nil
-        if let portPrimitive = dictValue[.uint(UInt(1))] {
+        if let portPrimitive = dictValue[.uint(UInt64(1))] {
             switch portPrimitive {
                 case .uint(let portValue):
                     port = Int(portValue)
@@ -124,7 +124,7 @@ public struct SingleHostAddr: Serializable, Sendable {
         }
         
         var ipv4: IPv4Address? = nil
-        if let ipv4Primitive = dictValue[.uint(UInt(2))] {
+        if let ipv4Primitive = dictValue[.uint(UInt64(2))] {
             switch ipv4Primitive {
                 case .bytes(let ipv4Data):
                     if ipv4Data.count == 4 {
@@ -140,7 +140,7 @@ public struct SingleHostAddr: Serializable, Sendable {
         }
         
         var ipv6: IPv6Address? = nil
-        if let ipv6Primitive = dictValue[.uint(UInt(3))] {
+        if let ipv6Primitive = dictValue[.uint(UInt64(3))] {
             switch ipv6Primitive {
                 case .bytes(let ipv6Data):
                     if ipv6Data.count == 16 {
@@ -160,21 +160,21 @@ public struct SingleHostAddr: Serializable, Sendable {
     
     public func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
-        dict[.uint(UInt(0))] = .uint(UInt(Self.code))
+        dict[.uint(UInt64(0))] = .uint(UInt64(Self.code))
         if let port = self.port {
-            dict[.uint(UInt(1))] = .uint(UInt(port))
+            dict[.uint(UInt64(1))] = .uint(UInt64(port))
         } else {
-            dict[.uint(UInt(1))] = .null
+            dict[.uint(UInt64(1))] = .null
         }
         if let ipv4 = self.ipv4 {
-            dict[.uint(UInt(2))] = .bytes(ipv4.rawValue)
+            dict[.uint(UInt64(2))] = .bytes(ipv4.rawValue)
         } else {
-            dict[.uint(UInt(2))] = .null
+            dict[.uint(UInt64(2))] = .null
         }
         if let ipv6 = self.ipv6 {
-            dict[.uint(UInt(3))] = .bytes(ipv6.rawValue)
+            dict[.uint(UInt64(3))] = .bytes(ipv6.rawValue)
         } else {
-            dict[.uint(UInt(3))] = .null
+            dict[.uint(UInt64(3))] = .null
         }
         return .orderedDict(dict)
     }

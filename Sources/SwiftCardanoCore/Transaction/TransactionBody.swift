@@ -168,15 +168,15 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
 
         // Build CBOR primitive ordered dictionary without using self
         var dictionary: OrderedDictionary<Primitive, Primitive> = [:]
-        func key(_ key: CodingKeys) -> Primitive { .uint(UInt(key.rawValue)) }
+        func key(_ key: CodingKeys) -> Primitive { .uint(UInt64(key.rawValue)) }
 
         // Required fields
         try? { dictionary[key(.inputs)] = try inputs.toPrimitive() }()
         dictionary[key(.outputs)] = .list(try! outputs.map { try $0.toPrimitive() })
-        dictionary[key(.fee)] = .uint(UInt(fee))
+        dictionary[key(.fee)] = .uint(UInt64(fee))
 
         // Optional fields
-        if let ttl = ttl { dictionary[key(.ttl)] = .uint(UInt(ttl)) }
+        if let ttl = ttl { dictionary[key(.ttl)] = .uint(UInt64(ttl)) }
         if let certificates = certificates {
             dictionary[key(.certificates)] = try! certificates.toPrimitive()
         }
@@ -188,7 +188,7 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
             dictionary[key(.auxiliaryDataHash)] = auxiliaryDataHash.toPrimitive()
         }
         if let validityStart = validityStart {
-            dictionary[key(.validityStart)] = .uint(UInt(validityStart))
+            dictionary[key(.validityStart)] = .uint(UInt64(validityStart))
         }
         if let mint = mint { dictionary[key(.mint)] = mint.toPrimitive() }
         if let scriptDataHash = scriptDataHash {
@@ -200,12 +200,12 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
         if let requiredSigners = requiredSigners {
             dictionary[key(.requiredSigners)] = try! requiredSigners.toPrimitive()
         }
-        if let networkId = networkId { dictionary[key(.networkId)] = .uint(UInt(networkId)) }
+        if let networkId = networkId { dictionary[key(.networkId)] = .uint(UInt64(networkId)) }
         if let collateralReturn = collateralReturn {
             dictionary[key(.collateralReturn)] = try! collateralReturn.toPrimitive()
         }
         if let totalCollateral = totalCollateral {
-            dictionary[key(.totalCollateral)] = .uint(UInt(Int(totalCollateral)))
+            dictionary[key(.totalCollateral)] = .uint(UInt64(totalCollateral))
         }
         if let referenceInputs = referenceInputs {
             dictionary[key(.referenceInputs)] = try! referenceInputs.toPrimitive()
@@ -217,7 +217,7 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
             dictionary[key(.proposalProcedures)] = try! proposalProcedures.toPrimitive()
         }
         if let currentTreasuryAmount = currentTreasuryAmount {
-            dictionary[key(.currentTreasuryAmount)] = .uint(UInt(currentTreasuryAmount))
+            dictionary[key(.currentTreasuryAmount)] = .uint(UInt64(currentTreasuryAmount))
         }
         if let treasuryDonation = treasuryDonation {
             dictionary[key(.treasuryDonation)] = try! treasuryDonation.toPrimitive()
@@ -271,7 +271,7 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
             throw CardanoCoreError.deserializeError("Invalid TransactionBody type: \(primitive)")
         }
 
-        func key(_ key: CodingKeys) -> Primitive { .uint(UInt(key.rawValue)) }
+        func key(_ key: CodingKeys) -> Primitive { .uint(UInt64(key.rawValue)) }
 
         // Required fields
         guard let inputsPrimitive = primitiveDict[key(.inputs)] else {
@@ -468,18 +468,18 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
         var dictionary: OrderedDictionary<Primitive, Primitive> = [:]
 
         func key(_ key: CodingKeys) -> Primitive {
-            return .uint(UInt(key.rawValue))
+            return .uint(UInt64(key.rawValue))
         }
 
         // Required fields
         dictionary[key(CodingKeys.inputs)] = try inputs.toPrimitive()
         dictionary[key(CodingKeys.outputs)] =
             .list(try outputs.map { try $0.toPrimitive() })
-        dictionary[key(CodingKeys.fee)] = .uint(UInt(fee))
+        dictionary[key(CodingKeys.fee)] = .uint(UInt64(fee))
 
         // Optional fields
         if let ttl = ttl {
-            dictionary[key(CodingKeys.ttl)] = .uint(UInt(ttl))
+            dictionary[key(CodingKeys.ttl)] = .uint(UInt64(ttl))
         }
         if let certificates = certificates {
             dictionary[key(CodingKeys.certificates)] = try certificates.toPrimitive()
@@ -495,7 +495,7 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
         }
         if let validityStart = validityStart {
             dictionary[key(CodingKeys.validityStart)] =
-                .uint(UInt(validityStart))
+                .uint(UInt64(validityStart))
         }
         if let mint = mint {
             dictionary[key(CodingKeys.mint)] = mint.toPrimitive()
@@ -510,14 +510,14 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
             dictionary[key(CodingKeys.requiredSigners)] = try requiredSigners.toPrimitive()
         }
         if let networkId = networkId {
-            dictionary[key(CodingKeys.networkId)] = .uint(UInt(networkId))
+            dictionary[key(CodingKeys.networkId)] = .uint(UInt64(networkId))
         }
         if let collateralReturn = collateralReturn {
             dictionary[key(CodingKeys.collateralReturn)] = try collateralReturn.toPrimitive()
         }
         if let totalCollateral = totalCollateral {
             dictionary[key(CodingKeys.totalCollateral)] =
-                .uint(UInt(Int(totalCollateral)))
+                .uint(UInt64(totalCollateral))
         }
         if let referenceInputs = referenceInputs {
             dictionary[key(CodingKeys.referenceInputs)] = try referenceInputs.toPrimitive()
@@ -530,7 +530,7 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
         }
         if let currentTreasuryAmount = currentTreasuryAmount {
             dictionary[key(CodingKeys.currentTreasuryAmount)] =
-                .uint(UInt(currentTreasuryAmount))
+                .uint(UInt64(currentTreasuryAmount))
         }
         if let treasuryDonation = treasuryDonation {
             dictionary[key(CodingKeys.treasuryDonation)] = try treasuryDonation.toPrimitive()
@@ -636,7 +636,7 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
         if let networkIdPrimitive = orderedDict[.string(CodingKeys.networkId.stringValue)],
             case .int(let networkIdValue) = networkIdPrimitive
         {
-            networkId = networkIdValue
+            networkId = Int(networkIdValue)
         }
 
         var collateralReturn: TransactionOutput? = nil
@@ -751,11 +751,11 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
         // Required fields
         dict[.string(CodingKeys.inputs.stringValue)] = try inputs.toDict()
         dict[.string(CodingKeys.outputs.stringValue)] = .list(try outputs.map({ try $0.toDict() }))
-        dict[.string(CodingKeys.fee.stringValue)] = .int(Int(fee))
+        dict[.string(CodingKeys.fee.stringValue)] = .int(Int64(fee))
 
         // Optional fields
         if let ttl = ttl {
-            dict[.string(CodingKeys.ttl.stringValue)] = .int(ttl)
+            dict[.string(CodingKeys.ttl.stringValue)] = .int(Int64(ttl))
         }
         if let certificates = certificates {
             dict[.string(CodingKeys.certificates.stringValue)] = try certificates.toDict()
@@ -771,7 +771,7 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
                 auxiliaryDataHash.payload.toHex)
         }
         if let validityStart = validityStart {
-            dict[.string(CodingKeys.validityStart.stringValue)] = .int(validityStart)
+            dict[.string(CodingKeys.validityStart.stringValue)] = .int(Int64(validityStart))
         }
         if let mint = mint {
             dict[.string(CodingKeys.mint.stringValue)] = try mint.toDict()
@@ -786,13 +786,13 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
             dict[.string(CodingKeys.requiredSigners.stringValue)] = try requiredSigners.toDict()
         }
         if let networkId = networkId {
-            dict[.string(CodingKeys.networkId.stringValue)] = .int(networkId)
+            dict[.string(CodingKeys.networkId.stringValue)] = .int(Int64(networkId))
         }
         if let collateralReturn = collateralReturn {
             dict[.string(CodingKeys.collateralReturn.stringValue)] = try collateralReturn.toDict()
         }
         if let totalCollateral = totalCollateral {
-            dict[.string(CodingKeys.totalCollateral.stringValue)] = .int(Int(totalCollateral))
+            dict[.string(CodingKeys.totalCollateral.stringValue)] = .int(Int64(totalCollateral))
         }
         if let referenceInputs = referenceInputs {
             dict[.string(CodingKeys.referenceInputs.stringValue)] = try referenceInputs.toDict()
@@ -806,7 +806,7 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
         }
         if let currentTreasuryAmount = currentTreasuryAmount {
             dict[.string(CodingKeys.currentTreasuryAmount.stringValue)] = .int(
-                Int(currentTreasuryAmount))
+                Int64(currentTreasuryAmount))
         }
         if let treasuryDonation = treasuryDonation {
             dict[.string(CodingKeys.treasuryDonation.stringValue)] = try treasuryDonation.toDict()

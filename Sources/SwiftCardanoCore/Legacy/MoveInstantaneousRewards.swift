@@ -43,7 +43,7 @@ public struct MoveInstantaneousReward: Serializable, Sendable {
         }
         let sourceInt: Int
         switch primitive[0] {
-        case .int(let v): sourceInt = v
+        case .int(let v): sourceInt = Int(v)
         case .uint(let v): sourceInt = Int(v)
         default:
             throw CardanoCoreError.deserializeError("Invalid MoveInstantaneousReward source type")
@@ -69,7 +69,7 @@ public struct MoveInstantaneousReward: Serializable, Sendable {
                 }
                 let delta: Int
                 switch value {
-                case .int(let v): delta = v
+                case .int(let v): delta = Int(v)
                 case .uint(let v): delta = Int(v)
                 default:
                     throw CardanoCoreError.deserializeError(
@@ -93,19 +93,19 @@ public struct MoveInstantaneousReward: Serializable, Sendable {
 
     public func toPrimitive() throws -> Primitive {
         var elements: [Primitive] = []
-        elements.append(.int(source.rawValue))
+        elements.append(.int(Int64(source.rawValue)))
 
         if let rewards = rewards {
             var rewardsMap: [Primitive: Primitive] = [:]
             for (key, value) in rewards {
-                rewardsMap[.string(key)] = .int(value.deltaCoin)
+                rewardsMap[.string(key)] = .int(Int64(value.deltaCoin))
             }
             elements.append(.dict(rewardsMap))
         } else {
             elements.append(.null)
         }
         if let coin = coin {
-            elements.append(.int(Int(coin)))
+            elements.append(.int(Int64(coin)))
         } else {
             elements.append(.null)
         }
@@ -125,7 +125,7 @@ public struct MoveInstantaneousReward: Serializable, Sendable {
                 "Missing or invalid source in MoveInstantaneousReward")
         }
 
-        guard let source = MoveInstantaneousRewardSource(rawValue: sourceValue) else {
+        guard let source = MoveInstantaneousRewardSource(rawValue: Int(sourceValue)) else {
             throw CardanoCoreError.deserializeError(
                 "Invalid source value in MoveInstantaneousReward")
         }
@@ -143,7 +143,7 @@ public struct MoveInstantaneousReward: Serializable, Sendable {
                         throw CardanoCoreError.deserializeError(
                             "Invalid rewards format in MoveInstantaneousReward")
                     }
-                    rewardsMap[keyStr] = DeltaCoin(deltaCoin: delta)
+                    rewardsMap[keyStr] = DeltaCoin(deltaCoin: Int(delta))
                 }
                 rewards = rewardsMap
             } else {
@@ -170,12 +170,12 @@ public struct MoveInstantaneousReward: Serializable, Sendable {
     public func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
 
-        dict[.string(CodingKeys.source.rawValue)] = .int(source.rawValue)
+        dict[.string(CodingKeys.source.rawValue)] = .int(Int64(source.rawValue))
 
         if let rewards = rewards {
             var rewardsDict = OrderedDictionary<Primitive, Primitive>()
             for (key, value) in rewards {
-                rewardsDict[.string(key)] = .int(value.deltaCoin)
+                rewardsDict[.string(key)] = .int(Int64(value.deltaCoin))
             }
             dict[.string(CodingKeys.rewards.rawValue)] = .orderedDict(rewardsDict)
         } else {
@@ -183,7 +183,7 @@ public struct MoveInstantaneousReward: Serializable, Sendable {
         }
 
         if let coin = coin {
-            dict[.string(CodingKeys.coin.rawValue)] = .int(Int(coin))
+            dict[.string(CodingKeys.coin.rawValue)] = .int(Int64(coin))
         } else {
             dict[.string(CodingKeys.coin.rawValue)] = .null
         }
@@ -271,7 +271,7 @@ public struct MoveInstantaneousRewards: CertificateSerializable {
 
     public func toPrimitive() throws -> Primitive {
         return .list([
-            .int(Int(Self.CODE.rawValue)),
+            .int(Int64(Self.CODE.rawValue)),
             try moveInstantaneousRewards.toPrimitive(),
         ])
     }

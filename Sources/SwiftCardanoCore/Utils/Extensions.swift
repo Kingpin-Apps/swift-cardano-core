@@ -115,15 +115,15 @@ extension CBOR {
                 )
                 return .cborTag(cborTag)
             case .simple(let simpleValue):
-                return .int(Int(simpleValue))
+                return .int(Int64(simpleValue))
             case .float(let floatValue):
                 return .float(Double(floatValue))
             case .double(let doubleValue):
                 return .float(doubleValue)
             case .unsignedInt(let value):
-                return .uint(UInt(value))
+                return .uint(UInt64(value))
             case .negativeInt(let value):
-                return .int(-Int(value) - 1) // CBOR negative integers are encoded as -1 - n
+                return .int(-Int64(value) - 1) // CBOR negative integers are encoded as -1 - n
             case .indefiniteByteString(let data):
                 return .bytes(data)
             case .indefiniteUtf8String(let string):
@@ -432,25 +432,25 @@ extension AnyValue: CBORSerializable {
             case .indefiniteString(let string):
                 return .string(string)
             case .int8(let value):
-                return .int(Int(value))
+                return .int(Int64(value))
             case .int16(let value):
-                return .int(Int(value))
+                return .int(Int64(value))
             case .int32(let value):
-                return .int(Int(value))
+                return .int(Int64(value))
             case .int64(let value):
-                return .int(Int(value))
+                return .int(value)
             case .uint8(let value):
-                return .int(Int(value))
+                return .int(Int64(value))
             case .uint16(let value):
-                return .int(Int(value))
+                return .int(Int64(value))
             case .uint32(let value):
-                return .int(Int(value))
+                return .int(Int64(value))
             case .uint64(let value):
-                return .int(Int(value))
+                return .int(Int64(value))
             case .integer(let value):
-                return .int(Int(value))
+                return .int(Int64(value))
             case .unsignedInteger(let value):
-                return .int(Int(value))
+                return .int(Int64(value))
             case .float16(let value):
                 return .float(Double(value))
             case .float(let value):

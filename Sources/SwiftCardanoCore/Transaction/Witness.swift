@@ -208,7 +208,7 @@ public struct TransactionWitnessSet: Serializable, Equatable {
         }
         
         func key(_ codingKey: CodingKeys) -> Primitive {
-            return .uint(UInt(codingKey.rawValue))
+            return .uint(UInt64(codingKey.rawValue))
         }
         
         // vkeyWitnesses (key 0)
@@ -273,35 +273,35 @@ public struct TransactionWitnessSet: Serializable, Equatable {
         var dict: [Primitive: Primitive] = [:]
         
         if let vkeyWitnesses = vkeyWitnesses {
-            dict[.int(CodingKeys.vkeyWitnesses.rawValue)] = try vkeyWitnesses.toPrimitive()
+            dict[.int(Int64(CodingKeys.vkeyWitnesses.rawValue))] = try vkeyWitnesses.toPrimitive()
         }
-        
+
         if let nativeScripts = nativeScripts {
-            dict[.int(CodingKeys.nativeScripts.rawValue)] = try nativeScripts.toPrimitive()
+            dict[.int(Int64(CodingKeys.nativeScripts.rawValue))] = try nativeScripts.toPrimitive()
         }
-        
+
         if let bootstrapWitness = bootstrapWitness {
-            dict[.int(CodingKeys.bootstrapWitness.rawValue)] = try bootstrapWitness.toPrimitive()
+            dict[.int(Int64(CodingKeys.bootstrapWitness.rawValue))] = try bootstrapWitness.toPrimitive()
         }
-        
+
         if let plutusV1Script = plutusV1Script {
-            dict[.int(CodingKeys.plutusV1Script.rawValue)] = try plutusV1Script.toPrimitive()
+            dict[.int(Int64(CodingKeys.plutusV1Script.rawValue))] = try plutusV1Script.toPrimitive()
         }
-        
+
         if let plutusData = plutusData {
-            dict[.int(CodingKeys.plutusData.rawValue)] = try plutusData.toPrimitive()
+            dict[.int(Int64(CodingKeys.plutusData.rawValue))] = try plutusData.toPrimitive()
         }
-        
+
         if let redeemers = redeemers {
-            dict[.int(CodingKeys.redeemers.rawValue)] = try redeemers.toPrimitive()
+            dict[.int(Int64(CodingKeys.redeemers.rawValue))] = try redeemers.toPrimitive()
         }
-        
+
         if let plutusV2Script = plutusV2Script {
-            dict[.int(CodingKeys.plutusV2Script.rawValue)] = try plutusV2Script.toPrimitive()
+            dict[.int(Int64(CodingKeys.plutusV2Script.rawValue))] = try plutusV2Script.toPrimitive()
         }
-        
+
         if let plutusV3Script = plutusV3Script {
-            dict[.int(CodingKeys.plutusV3Script.rawValue)] = try plutusV3Script.toPrimitive()
+            dict[.int(Int64(CodingKeys.plutusV3Script.rawValue))] = try plutusV3Script.toPrimitive()
         }
         
         return .dict(dict)

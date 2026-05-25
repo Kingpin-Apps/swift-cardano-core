@@ -118,10 +118,10 @@ public struct PoolParams: Serializable {
         elements.append(vrfKeyHash.toPrimitive())
         
         // pledge (Int)
-        elements.append(.int(pledge))
-        
+        elements.append(.int(Int64(pledge)))
+
         // cost (Int)
-        elements.append(.int(cost))
+        elements.append(.int(Int64(cost)))
         
         // margin (UnitInterval)
         elements.append(try margin.toPrimitive())
@@ -223,8 +223,8 @@ public struct PoolParams: Serializable {
         return PoolParams(
             poolOperator: poolOperator.poolKeyHash,
             vrfKeyHash: vrfKeyHash,
-            pledge: pledge,
-            cost: cost,
+            pledge: Int(pledge),
+            cost: Int(cost),
             margin: margin,
             rewardAccount: rewardAccount,
             poolOwners: poolOwners,
@@ -239,9 +239,9 @@ public struct PoolParams: Serializable {
         
         dict[.string(CodingKeys.poolOperator.rawValue)] = .string(try poolOperator.id())
         dict[.string(CodingKeys.vrfKeyHash.rawValue)] = .string(vrfKeyHash.payload.toHex)
-        dict[.string(CodingKeys.pledge.rawValue)] = .int(pledge)
-        dict[.string(CodingKeys.cost.rawValue)] = .int(cost)
-        dict[.string(CodingKeys.margin.rawValue)] = .list([.uint(UInt(margin.numerator)), .uint(UInt(margin.denominator))])
+        dict[.string(CodingKeys.pledge.rawValue)] = .int(Int64(pledge))
+        dict[.string(CodingKeys.cost.rawValue)] = .int(Int64(cost))
+        dict[.string(CodingKeys.margin.rawValue)] = .list([.uint(UInt64(margin.numerator)), .uint(UInt64(margin.denominator))])
         dict[.string(CodingKeys.rewardAccount.rawValue)] = .string(rewardAccount.payload.toHex)
         dict[.string(CodingKeys.poolOwners.rawValue)] = .list(poolOwners.asArray.map { .string($0.payload.toHex) })
         if let relays = relays {

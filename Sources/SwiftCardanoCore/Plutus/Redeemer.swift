@@ -35,7 +35,7 @@ public enum RedeemerTag: Int, Serializable {
     }
 
     public func toPrimitive() throws -> Primitive {
-        return .int(rawValue)
+        return .int(Int64(rawValue))
     }
 
     // MARK: - JSONSerializable
@@ -44,14 +44,14 @@ public enum RedeemerTag: Int, Serializable {
         // Support both formats: int or dict with "tag" key
         switch primitive {
         case .int(let value):
-            guard let tag = RedeemerTag(rawValue: value) else {
+            guard let tag = RedeemerTag(rawValue: Int(value)) else {
                 throw CardanoCoreError.deserializeError("Invalid RedeemerTag value: \(value)")
             }
             return tag
         case .orderedDict(let dict):
             guard let tagValue = dict[.string("tag")],
                 case .int(let value) = tagValue,
-                let tag = RedeemerTag(rawValue: value)
+                let tag = RedeemerTag(rawValue: Int(value))
             else {
                 throw CardanoCoreError.deserializeError(
                     "Invalid RedeemerTag dictionary: \(primitive)")
@@ -75,7 +75,7 @@ public enum RedeemerTag: Int, Serializable {
     public func toDict() throws -> Primitive {
         return .orderedDict([
             .string("tag"): .string(description()),
-            .string("value"): .int(rawValue),
+            .string("value"): .int(Int64(rawValue)),
         ])
     }
 }
@@ -132,7 +132,7 @@ extension RedeemerProtocol {
     public func toPrimitive() throws -> Primitive {
         return .list([
             try tag?.toPrimitive() ?? .null,
-            .int(index),
+            .int(Int64(index)),
             try data.toPrimitive(),
             try exUnits?.toPrimitive() ?? .null,
         ])
@@ -172,7 +172,7 @@ extension RedeemerProtocol {
 
         return Self(
             tag: tag,
-            index: index,
+            index: Int(index),
             data: data,
             exUnits: exUnits
         )
@@ -183,7 +183,7 @@ extension RedeemerProtocol {
         if let tag = tag {
             dict[.string(RedeemerCodingKeys.tag.rawValue)] = try tag.toPrimitive()
         }
-        dict[.string(RedeemerCodingKeys.index.rawValue)] = .int(index)
+        dict[.string(RedeemerCodingKeys.index.rawValue)] = .int(Int64(index))
         dict[.string(RedeemerCodingKeys.data.rawValue)] = try data.toDict()
         if let exUnits = exUnits {
             dict[.string(RedeemerCodingKeys.exUnits.rawValue)] = try exUnits.toPrimitive()
@@ -246,7 +246,7 @@ public struct RedeemerKey: Serializable {
         }
         let index: Int
         switch primitive[1] {
-        case .int(let v): index = v
+        case .int(let v): index = Int(v)
         case .uint(let v): index = Int(v)
         default: throw CardanoCoreError.deserializeError("Invalid RedeemerKey primitive")
         }
@@ -258,7 +258,7 @@ public struct RedeemerKey: Serializable {
     public func toPrimitive() throws -> Primitive {
         return .list([
             try tag.toPrimitive(),
-            .int(index),
+            .int(Int64(index)),
         ])
     }
 
@@ -273,13 +273,13 @@ public struct RedeemerKey: Serializable {
         }
 
         let tag = try RedeemerTag.fromDict(elements[0])
-        return RedeemerKey(tag: tag, index: index)
+        return RedeemerKey(tag: tag, index: Int(index))
     }
 
     public func toDict() throws -> Primitive {
         return .list([
             try tag.toDict(),
-            .int(index),
+            .int(Int64(index)),
         ])
     }
 }

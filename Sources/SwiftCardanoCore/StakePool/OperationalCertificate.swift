@@ -216,8 +216,8 @@ public struct OperationalCertificate: TextEnvelopable, JSONSerializable, Sendabl
     public func toPrimitive() throws -> Primitive {
         return .list([
             .bytes(hotVKey.payload),
-            .uint(UInt(sequenceNumber)),
-            .uint(UInt(kesPeriod)),
+            .uint(sequenceNumber),
+            .uint(kesPeriod),
             .bytes(sigma)
         ])
     }
@@ -272,8 +272,8 @@ public struct OperationalCertificate: TextEnvelopable, JSONSerializable, Sendabl
     public func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
         dict[.string(CodingKeys.hotVKey.rawValue)] = .bytes(hotVKey.payload)
-        dict[.string(CodingKeys.sequenceNumber.rawValue)] = .uint(UInt(sequenceNumber))
-        dict[.string(CodingKeys.kesPeriod.rawValue)] = .uint(UInt(kesPeriod))
+        dict[.string(CodingKeys.sequenceNumber.rawValue)] = .uint(sequenceNumber)
+        dict[.string(CodingKeys.kesPeriod.rawValue)] = .uint(kesPeriod)
         dict[.string(CodingKeys.sigma.rawValue)] = .bytes(sigma)
         return .orderedDict(dict)
     }
@@ -305,8 +305,8 @@ public struct OperationalCertificate: TextEnvelopable, JSONSerializable, Sendabl
         // Construct the certificate body to sign: [kes_vkey, sequence_number, kes_period]
         let certBody: Primitive = .list([
             .bytes(kesVerificationKey.payload),
-            .uint(UInt(sequenceNumber)),
-            .uint(UInt(kesPeriod))
+            .uint(sequenceNumber),
+            .uint(kesPeriod)
         ])
         let certBodyBytes = try CBOREncoder().encode(certBody)
 
@@ -361,8 +361,8 @@ public struct OperationalCertificate: TextEnvelopable, JSONSerializable, Sendabl
     ) throws -> Data {
         let opcertBody: Primitive = .list([
             .bytes(hotVKey.payload),
-            .uint(UInt(sequenceNumber)),
-            .uint(UInt(kesPeriod)),
+            .uint(sequenceNumber),
+            .uint(kesPeriod),
             .bytes(sigma)
         ])
 

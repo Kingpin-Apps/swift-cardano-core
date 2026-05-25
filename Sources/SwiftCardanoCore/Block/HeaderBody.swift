@@ -228,14 +228,14 @@ public struct HeaderBody: Serializable {
             let major: Int
             switch pvElems[0] {
             case .uint(let val): major = Int(val)
-            case .int(let val): major = val
+            case .int(let val): major = Int(val)
             default:
                 throw CardanoCoreError.deserializeError("Invalid HeaderBody protocol major type")
             }
             let minor: Int
             switch pvElems[1] {
             case .uint(let val): minor = Int(val)
-            case .int(let val): minor = val
+            case .int(let val): minor = Int(val)
             default:
                 throw CardanoCoreError.deserializeError("Invalid HeaderBody protocol minor type")
             }
@@ -278,7 +278,7 @@ public struct HeaderBody: Serializable {
             let major: Int
             switch elements[12 + vrfOffset] {
             case .uint(let val): major = Int(val)
-            case .int(let val): major = val
+            case .int(let val): major = Int(val)
             default:
                 throw CardanoCoreError.deserializeError("Invalid HeaderBody protocol major type")
             }
@@ -286,7 +286,7 @@ public struct HeaderBody: Serializable {
             let minor: Int
             switch elements[13 + vrfOffset] {
             case .uint(let val): minor = Int(val)
-            case .int(let val): minor = val
+            case .int(let val): minor = Int(val)
             default:
                 throw CardanoCoreError.deserializeError("Invalid HeaderBody protocol minor type")
             }
@@ -297,8 +297,8 @@ public struct HeaderBody: Serializable {
 
     public func toPrimitive() throws -> Primitive {
         var fields: [Primitive] = [
-            .uint(UInt(blockNumber)),
-            .uint(UInt(slot)),
+            .uint(UInt64(blockNumber)),
+            .uint(UInt64(slot)),
             prevHash != nil ? prevHash!.toPrimitive() : .null,
             .bytes(issuerVKey),
             .bytes(vrfVKey),
@@ -312,16 +312,16 @@ public struct HeaderBody: Serializable {
         }
 
         fields += [
-            .uint(UInt(blockBodySize)),
+            .uint(UInt64(blockBodySize)),
             blockBodyHash.toPrimitive(),
             // operational_cert inlined
             .bytes(operationalCert.hotVKey.payload),
-            .uint(UInt(operationalCert.sequenceNumber)),
-            .uint(UInt(operationalCert.kesPeriod)),
+            .uint(UInt64(operationalCert.sequenceNumber)),
+            .uint(UInt64(operationalCert.kesPeriod)),
             .bytes(operationalCert.sigma),
             // protocol_version inlined
-            .uint(UInt(protocolVersion.major ?? 0)),
-            .uint(UInt(protocolVersion.minor ?? 0)),
+            .uint(UInt64(protocolVersion.major ?? 0)),
+            .uint(UInt64(protocolVersion.minor ?? 0)),
         ]
 
         return .list(fields)
@@ -429,8 +429,8 @@ public struct HeaderBody: Serializable {
 
     public func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
-        dict[.string(CodingKeys.blockNumber.rawValue)] = .uint(UInt(blockNumber))
-        dict[.string(CodingKeys.slot.rawValue)] = .uint(UInt(slot))
+        dict[.string(CodingKeys.blockNumber.rawValue)] = .uint(UInt64(blockNumber))
+        dict[.string(CodingKeys.slot.rawValue)] = .uint(UInt64(slot))
         if let prevHash {
             dict[.string(CodingKeys.prevHash.rawValue)] = try prevHash.toDict()
         } else {
@@ -442,7 +442,7 @@ public struct HeaderBody: Serializable {
         if let nonceVrf {
             dict[.string(CodingKeys.nonceVrf.rawValue)] = try nonceVrf.toDict()
         }
-        dict[.string(CodingKeys.blockBodySize.rawValue)] = .uint(UInt(blockBodySize))
+        dict[.string(CodingKeys.blockBodySize.rawValue)] = .uint(UInt64(blockBodySize))
         dict[.string(CodingKeys.blockBodyHash.rawValue)] = try blockBodyHash.toDict()
         dict[.string(CodingKeys.operationalCert.rawValue)] = try operationalCert.toDict()
         dict[.string(CodingKeys.protocolVersion.rawValue)] = try protocolVersion.toPrimitive()

@@ -171,25 +171,30 @@ extension ShelleyGenesis: CBORSerializable {
     }
 
     public func toPrimitive() throws -> Primitive {
-        .list([
-            .string(systemStart),
-            .uint(UInt(networkMagic)),
-            networkId == "Mainnet" ? .uint(1) : .uint(0),
-            Self.fractionPrimitive(activeSlotsCoeff),
-            .uint(UInt(securityParam)),
-            .uint(UInt(epochLength)),
-            .uint(UInt(slotsPerKESPeriod)),
-            .uint(UInt(maxKESEvolutions)),
-            .uint(UInt(slotLength)),
-            .uint(UInt(updateQuorum)),
-            .uint(UInt(maxLovelaceSupply)),
-            try protocolParams.toPrimitive(),
-            .list(genDelegs.map { k, v in
-                .list([.string(k), .list([.string(v.delegate), .string(v.vrf)])])
-            }),
-            .list(initialFunds.map { k, v in .list([.string(k), .int(v)]) }),
-            .list([]) // staking placeholder
-        ])
+        let networkIdPrim: Primitive = networkId == "Mainnet" ? .uint(1) : .uint(0)
+        let genDelegsList: Primitive = .list(genDelegs.map { k, v in
+            .list([.string(k), .list([.string(v.delegate), .string(v.vrf)])])
+        })
+        let initialFundsList: Primitive = .list(initialFunds.map { k, v in
+            .list([.string(k), .int(Int64(v))])
+        })
+        var elements: [Primitive] = []
+        elements.append(.string(systemStart))
+        elements.append(.uint(UInt64(networkMagic)))
+        elements.append(networkIdPrim)
+        elements.append(Self.fractionPrimitive(activeSlotsCoeff))
+        elements.append(.uint(UInt64(securityParam)))
+        elements.append(.uint(UInt64(epochLength)))
+        elements.append(.uint(UInt64(slotsPerKESPeriod)))
+        elements.append(.uint(UInt64(maxKESEvolutions)))
+        elements.append(.uint(UInt64(slotLength)))
+        elements.append(.uint(UInt64(updateQuorum)))
+        elements.append(.uint(maxLovelaceSupply))
+        elements.append(try protocolParams.toPrimitive())
+        elements.append(genDelegsList)
+        elements.append(initialFundsList)
+        elements.append(.list([])) // staking placeholder
+        return .list(elements)
     }
 
     // MARK: - Helpers
@@ -334,7 +339,7 @@ extension ShelleyGenesis: CBORSerializable {
                 let key = try readHexOrString(kv[0])
                 switch kv[1] {
                 case .uint(let u): result[key] = Int(u)
-                case .int(let i): result[key] = i
+                case .int(let i): result[key] = Int(i)
                 default: break
                 }
             }
@@ -343,7 +348,7 @@ extension ShelleyGenesis: CBORSerializable {
                 let key = try readHexOrString(k)
                 switch v {
                 case .uint(let u): result[key] = Int(u)
-                case .int(let i): result[key] = i
+                case .int(let i): result[key] = Int(i)
                 default: break
                 }
             }
@@ -366,7 +371,7 @@ extension ShelleyGenesis: CBORSerializable {
         let precision = 10_000_000
         let numerator = Int(d * Double(precision))
         let g = gcd(abs(numerator), precision)
-        let tag = CBORTag(tag: 30, value: .list([.int(numerator / g), .int(precision / g)]))
+        let tag = CBORTag(tag: 30, value: .list([.int(Int64(numerator / g)), .int(Int64(precision / g))]))
         return .cborTag(tag)
     }
 
@@ -423,25 +428,32 @@ extension ProtocolParams {
     }
 
     public func toPrimitive() throws -> Primitive {
-        .list([
-            .uint(UInt(minFeeA)),
-            .uint(UInt(minFeeB)),
-            .uint(UInt(maxBlockBodySize)),
-            .uint(UInt(maxTxSize)),
-            .uint(UInt(maxBlockHeaderSize)),
-            .uint(UInt(keyDeposit)),
-            .uint(UInt(poolDeposit)),
-            .uint(UInt(eMax)),
-            .uint(UInt(nOpt)),
-            ShelleyGenesis.fractionPrimitive2(a0),
-            ShelleyGenesis.fractionPrimitive2(rho),
-            ShelleyGenesis.fractionPrimitive2(tau),
-            ShelleyGenesis.fractionPrimitive2(decentralisationParam),
-            extraEntropy.tag == "NeutralNonce" ? .list([.uint(0)]) : .list([.uint(1)]),
-            .list([.uint(UInt(protocolVersion.major)), .uint(UInt(protocolVersion.minor))]),
-            .uint(UInt(minUTxOValue)),
-            .uint(UInt(minPoolCost))
+        let extraEntropyPrim: Primitive = extraEntropy.tag == "NeutralNonce"
+            ? .list([.uint(0)])
+            : .list([.uint(1)])
+        let protocolVersionPrim: Primitive = .list([
+            .uint(UInt64(protocolVersion.major)),
+            .uint(UInt64(protocolVersion.minor))
         ])
+        var elements: [Primitive] = []
+        elements.append(.uint(UInt64(minFeeA)))
+        elements.append(.uint(UInt64(minFeeB)))
+        elements.append(.uint(UInt64(maxBlockBodySize)))
+        elements.append(.uint(UInt64(maxTxSize)))
+        elements.append(.uint(UInt64(maxBlockHeaderSize)))
+        elements.append(.uint(keyDeposit))
+        elements.append(.uint(poolDeposit))
+        elements.append(.uint(UInt64(eMax)))
+        elements.append(.uint(UInt64(nOpt)))
+        elements.append(ShelleyGenesis.fractionPrimitive2(a0))
+        elements.append(ShelleyGenesis.fractionPrimitive2(rho))
+        elements.append(ShelleyGenesis.fractionPrimitive2(tau))
+        elements.append(ShelleyGenesis.fractionPrimitive2(decentralisationParam))
+        elements.append(extraEntropyPrim)
+        elements.append(protocolVersionPrim)
+        elements.append(.uint(minUTxOValue))
+        elements.append(.uint(minPoolCost))
+        return .list(elements)
     }
 
     private static func readExtraEntropy(_ p: Primitive) -> ExtraEntropy {
@@ -509,7 +521,7 @@ extension ShelleyGenesis {
         let precision = 10_000_000
         let numerator = Int(d * Double(precision))
         let g = gcd2(abs(numerator), precision)
-        let tag = CBORTag(tag: 30, value: .list([.int(numerator / g), .int(precision / g)]))
+        let tag = CBORTag(tag: 30, value: .list([.int(Int64(numerator / g)), .int(Int64(precision / g))]))
         return .cborTag(tag)
     }
 
