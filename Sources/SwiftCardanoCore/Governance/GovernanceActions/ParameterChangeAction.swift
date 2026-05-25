@@ -43,7 +43,7 @@ public struct ParameterChangeAction: GovernanceAction {
         }
         let code: Int
         switch elements[0] {
-        case .int(let v): code = v
+        case .int(let v): code = Int(v)
         case .uint(let v): code = Int(v)
         default: throw CardanoCoreError.deserializeError("Invalid ParameterChangeAction type")
         }
@@ -76,7 +76,7 @@ public struct ParameterChangeAction: GovernanceAction {
 
     public func toPrimitive() throws -> Primitive {
         return .list([
-            .int(Self.code.rawValue),
+            .int(Int64(Self.code.rawValue)),
             try id?.toPrimitive() ?? .null,
             try protocolParamUpdate.toPrimitive(),
             policyHash?.toPrimitive() ?? .null,
@@ -374,7 +374,7 @@ public struct ProtocolParamUpdate: CBORSerializable, Sendable {
 
         func intValue(_ key: CodingKeys) -> Int? {
             switch dict[key.rawValue] {
-            case .int(let v): return v
+            case .int(let v): return Int(v)
             case .uint(let v): return Int(v)
             default: return nil
             }
@@ -382,7 +382,7 @@ public struct ProtocolParamUpdate: CBORSerializable, Sendable {
         func uintValue(_ key: CodingKeys) -> UInt? {
             switch dict[key.rawValue] {
             case .int(let v): return UInt(v)
-            case .uint(let v): return v
+            case .uint(let v): return UInt(v)
             default: return nil
             }
         }
@@ -551,115 +551,115 @@ public struct ProtocolParamUpdate: CBORSerializable, Sendable {
         var dict: [Primitive: Primitive] = [:]
 
         if let minFeeA = minFeeA {
-            dict[.int(CodingKeys.minFeeA.rawValue)] = .int(Int(minFeeA))
+            dict[.int(Int64(CodingKeys.minFeeA.rawValue))] = .int(Int64(minFeeA))
         }
         if let minFeeB = minFeeB {
-            dict[.int(CodingKeys.minFeeB.rawValue)] = .int(Int(minFeeB))
+            dict[.int(Int64(CodingKeys.minFeeB.rawValue))] = .int(Int64(minFeeB))
         }
         if let maxBlockBodySize = maxBlockBodySize {
-            dict[.int(CodingKeys.maxBlockBodySize.rawValue)] = .int(Int(maxBlockBodySize))
+            dict[.int(Int64(CodingKeys.maxBlockBodySize.rawValue))] = .int(Int64(maxBlockBodySize))
         }
         if let maxTransactionSize = maxTransactionSize {
-            dict[.int(CodingKeys.maxTransactionSize.rawValue)] = .int(Int(maxTransactionSize))
+            dict[.int(Int64(CodingKeys.maxTransactionSize.rawValue))] = .int(Int64(maxTransactionSize))
         }
         if let maxBlockHeaderSize = maxBlockHeaderSize {
-            dict[.int(CodingKeys.maxBlockHeaderSize.rawValue)] = .int(Int(maxBlockHeaderSize))
+            dict[.int(Int64(CodingKeys.maxBlockHeaderSize.rawValue))] = .int(Int64(maxBlockHeaderSize))
         }
 
         if let keyDeposit = keyDeposit {
-            dict[.int(CodingKeys.keyDeposit.rawValue)] = .int(Int(keyDeposit))
+            dict[.int(Int64(CodingKeys.keyDeposit.rawValue))] = .int(Int64(keyDeposit))
         }
         if let poolDeposit = poolDeposit {
-            dict[.int(CodingKeys.poolDeposit.rawValue)] = .int(Int(poolDeposit))
+            dict[.int(Int64(CodingKeys.poolDeposit.rawValue))] = .int(Int64(poolDeposit))
         }
         if let maximumEpoch = maximumEpoch {
-            dict[.int(CodingKeys.maximumEpoch.rawValue)] = .int(Int(maximumEpoch))
+            dict[.int(Int64(CodingKeys.maximumEpoch.rawValue))] = .int(Int64(maximumEpoch))
         }
         if let nOpt = nOpt {
-            dict[.int(CodingKeys.nOpt.rawValue)] = .int(Int(nOpt))
+            dict[.int(Int64(CodingKeys.nOpt.rawValue))] = .int(Int64(nOpt))
         }
         if let poolPledgeInfluence = poolPledgeInfluence {
-            dict[.int(CodingKeys.poolPledgeInfluence.rawValue)] =
+            dict[.int(Int64(CodingKeys.poolPledgeInfluence.rawValue))] =
                 try poolPledgeInfluence.toPrimitive()
         }
 
         if let expansionRate = expansionRate {
-            dict[.int(CodingKeys.expansionRate.rawValue)] = try expansionRate.toPrimitive()
+            dict[.int(Int64(CodingKeys.expansionRate.rawValue))] = try expansionRate.toPrimitive()
         }
         if let treasuryGrowthRate = treasuryGrowthRate {
-            dict[.int(CodingKeys.treasuryGrowthRate.rawValue)] =
+            dict[.int(Int64(CodingKeys.treasuryGrowthRate.rawValue))] =
                 try treasuryGrowthRate.toPrimitive()
         }
         if let decentralizationConstant = decentralizationConstant {
-            dict[.int(CodingKeys.decentralizationConstant.rawValue)] =
+            dict[.int(Int64(CodingKeys.decentralizationConstant.rawValue))] =
                 try decentralizationConstant.toPrimitive()
         }
         if let extraEntropy = extraEntropy {
-            dict[.int(CodingKeys.extraEntropy.rawValue)] = .int(Int(extraEntropy))
+            dict[.int(Int64(CodingKeys.extraEntropy.rawValue))] = .int(Int64(extraEntropy))
         }
         if let protocolVersion = protocolVersion {
-            dict[.int(CodingKeys.protocolVersion.rawValue)] = try protocolVersion.toPrimitive()
+            dict[.int(Int64(CodingKeys.protocolVersion.rawValue))] = try protocolVersion.toPrimitive()
         }
 
         if let minPoolCost = minPoolCost {
-            dict[.int(CodingKeys.minPoolCost.rawValue)] = .int(Int(minPoolCost))
+            dict[.int(Int64(CodingKeys.minPoolCost.rawValue))] = .int(Int64(minPoolCost))
         }
         if let adaPerUtxoByte = adaPerUtxoByte {
-            dict[.int(CodingKeys.adaPerUtxoByte.rawValue)] = .int(Int(adaPerUtxoByte))
+            dict[.int(Int64(CodingKeys.adaPerUtxoByte.rawValue))] = .int(Int64(adaPerUtxoByte))
         }
         if let costModels = costModels {
-            dict[.int(CodingKeys.costModels.rawValue)] = try costModels.toPrimitive()
+            dict[.int(Int64(CodingKeys.costModels.rawValue))] = try costModels.toPrimitive()
         }
         if let executionCosts = executionCosts {
-            dict[.int(CodingKeys.executionCosts.rawValue)] = try executionCosts.toPrimitive()
+            dict[.int(Int64(CodingKeys.executionCosts.rawValue))] = try executionCosts.toPrimitive()
         }
         if let maxTxExUnits = maxTxExUnits {
-            dict[.int(CodingKeys.maxTxExUnits.rawValue)] = try maxTxExUnits.toPrimitive()
+            dict[.int(Int64(CodingKeys.maxTxExUnits.rawValue))] = try maxTxExUnits.toPrimitive()
         }
         if let maxBlockExUnits = maxBlockExUnits {
-            dict[.int(CodingKeys.maxBlockExUnits.rawValue)] = try maxBlockExUnits.toPrimitive()
+            dict[.int(Int64(CodingKeys.maxBlockExUnits.rawValue))] = try maxBlockExUnits.toPrimitive()
         }
         if let maxValueSize = maxValueSize {
-            dict[.int(CodingKeys.maxValueSize.rawValue)] = .int(Int(maxValueSize))
+            dict[.int(Int64(CodingKeys.maxValueSize.rawValue))] = .int(Int64(maxValueSize))
         }
         if let collateralPercentage = collateralPercentage {
-            dict[.int(CodingKeys.collateralPercentage.rawValue)] = .int(Int(collateralPercentage))
+            dict[.int(Int64(CodingKeys.collateralPercentage.rawValue))] = .int(Int64(collateralPercentage))
         }
 
         if let maxCollateralInputs = maxCollateralInputs {
-            dict[.int(CodingKeys.maxCollateralInputs.rawValue)] = .int(Int(maxCollateralInputs))
+            dict[.int(Int64(CodingKeys.maxCollateralInputs.rawValue))] = .int(Int64(maxCollateralInputs))
         }
         if let poolVotingThresholds = poolVotingThresholds {
-            dict[.int(CodingKeys.poolVotingThresholds.rawValue)] =
+            dict[.int(Int64(CodingKeys.poolVotingThresholds.rawValue))] =
                 try poolVotingThresholds.toPrimitive()
         }
         if let drepVotingThresholds = drepVotingThresholds {
-            dict[.int(CodingKeys.drepVotingThresholds.rawValue)] =
+            dict[.int(Int64(CodingKeys.drepVotingThresholds.rawValue))] =
                 try drepVotingThresholds.toPrimitive()
         }
         if let minCommitteeSize = minCommitteeSize {
-            dict[.int(CodingKeys.minCommitteeSize.rawValue)] = .int(Int(minCommitteeSize))
+            dict[.int(Int64(CodingKeys.minCommitteeSize.rawValue))] = .int(Int64(minCommitteeSize))
         }
         if let committeeTermLimit = committeeTermLimit {
-            dict[.int(CodingKeys.committeeTermLimit.rawValue)] = .int(Int(committeeTermLimit))
+            dict[.int(Int64(CodingKeys.committeeTermLimit.rawValue))] = .int(Int64(committeeTermLimit))
         }
 
         if let governanceActionValidityPeriod = governanceActionValidityPeriod {
-            dict[.int(CodingKeys.governanceActionValidityPeriod.rawValue)] = .int(
-                Int(governanceActionValidityPeriod))
+            dict[.int(Int64(CodingKeys.governanceActionValidityPeriod.rawValue))] = .int(
+                Int64(governanceActionValidityPeriod))
         }
         if let governanceActionDeposit = governanceActionDeposit {
-            dict[.int(CodingKeys.governanceActionDeposit.rawValue)] = .int(
-                Int(governanceActionDeposit))
+            dict[.int(Int64(CodingKeys.governanceActionDeposit.rawValue))] = .int(
+                Int64(governanceActionDeposit))
         }
         if let drepDeposit = drepDeposit {
-            dict[.int(CodingKeys.drepDeposit.rawValue)] = .int(Int(drepDeposit))
+            dict[.int(Int64(CodingKeys.drepDeposit.rawValue))] = .int(Int64(drepDeposit))
         }
         if let drepInactivityPeriod = drepInactivityPeriod {
-            dict[.int(CodingKeys.drepInactivityPeriod.rawValue)] = .int(Int(drepInactivityPeriod))
+            dict[.int(Int64(CodingKeys.drepInactivityPeriod.rawValue))] = .int(Int64(drepInactivityPeriod))
         }
         if let minFeeRefScriptCoinsPerByte = minFeeRefScriptCoinsPerByte {
-            dict[.int(CodingKeys.minFeeRefScriptCoinsPerByte.rawValue)] =
+            dict[.int(Int64(CodingKeys.minFeeRefScriptCoinsPerByte.rawValue))] =
                 try minFeeRefScriptCoinsPerByte.toPrimitive()
         }
 
@@ -712,9 +712,9 @@ extension ProtocolParamUpdate {
         }
 
         maxTxExUnits = ExUnits(
-            mem: UInt(p.maxTxExecutionUnits.memory), steps: UInt(p.maxTxExecutionUnits.steps))
+            mem: UInt64(p.maxTxExecutionUnits.memory), steps: UInt64(p.maxTxExecutionUnits.steps))
         maxBlockExUnits = ExUnits(
-            mem: UInt(p.maxBlockExecutionUnits.memory), steps: UInt(p.maxBlockExecutionUnits.steps))
+            mem: UInt64(p.maxBlockExecutionUnits.memory), steps: UInt64(p.maxBlockExecutionUnits.steps))
         maxValueSize = UInt32(p.maxValueSize)
         collateralPercentage = UInt16(p.collateralPercentage)
         maxCollateralInputs = UInt16(p.maxCollateralInputs)

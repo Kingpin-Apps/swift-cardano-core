@@ -9,7 +9,7 @@ public struct ConwayGenesis: JSONLoadable {
     public let govActionDeposit: UInt64
     public let dRepDeposit: UInt64
     public let dRepActivity: Int
-    public let minFeeRefScriptCostPerByte: Int
+    public let minFeeRefScriptCostPerByte: Int64
     public let plutusV3CostModel: [Int]
     public let constitution: ConwayGenesisConstitution
     public let committee: Committee
@@ -23,7 +23,7 @@ public struct ConwayGenesis: JSONLoadable {
         govActionDeposit: UInt64,
         dRepDeposit: UInt64,
         dRepActivity: Int,
-        minFeeRefScriptCostPerByte: Int,
+        minFeeRefScriptCostPerByte: Int64,
         plutusV3CostModel: [Int],
         constitution: ConwayGenesisConstitution,
         committee: Committee
@@ -104,7 +104,7 @@ extension ConwayGenesis: CBORSerializable {
                 govActionDeposit:           try c.decode(UInt64.self, forKey: .govActionDeposit),
                 dRepDeposit:                try c.decode(UInt64.self, forKey: .dRepDeposit),
                 dRepActivity:               try c.decode(Int.self, forKey: .dRepActivity),
-                minFeeRefScriptCostPerByte: try c.decode(Int.self, forKey: .minFeeRefScriptCostPerByte),
+                minFeeRefScriptCostPerByte: try c.decode(Int64.self, forKey: .minFeeRefScriptCostPerByte),
                 plutusV3CostModel:          try c.decode([Int].self, forKey: .plutusV3CostModel),
                 constitution:               try c.decode(ConwayGenesisConstitution.self, forKey: .constitution),
                 committee:                  try c.decode(Committee.self, forKey: .committee)
@@ -150,7 +150,7 @@ extension ConwayGenesis: CBORSerializable {
         govActionDeposit         = try Self.readUInt(f[5], label: "govActionDeposit")
         dRepDeposit              = try Self.readUInt(f[6], label: "dRepDeposit")
         dRepActivity             = Int(try Self.readUInt(f[7], label: "dRepActivity"))
-        minFeeRefScriptCostPerByte = Int(try Self.readUIntOrFraction(f[8], label: "minFeeRefScriptCostPerByte"))
+        minFeeRefScriptCostPerByte = Int64(try Self.readUIntOrFraction(f[8], label: "minFeeRefScriptCostPerByte"))
         plutusV3CostModel        = try Self.readIntList(f[9])
         constitution             = try ConwayGenesisConstitution(from: f[10])
         committee                = try Committee(from: f[11])
@@ -160,14 +160,14 @@ extension ConwayGenesis: CBORSerializable {
         .list([
             try poolVotingThresholds.toPrimitive(),
             try dRepVotingThresholds.toPrimitive(),
-            .uint(UInt(committeeMinSize)),
-            .uint(UInt(committeeMaxTermLength)),
-            .uint(UInt(govActionLifetime)),
-            .uint(UInt(govActionDeposit)),
-            .uint(UInt(dRepDeposit)),
-            .uint(UInt(dRepActivity)),
-            .uint(UInt(minFeeRefScriptCostPerByte)),
-            .list(plutusV3CostModel.map { .int($0) }),
+            .uint(UInt64(committeeMinSize)),
+            .uint(UInt64(committeeMaxTermLength)),
+            .uint(UInt64(govActionLifetime)),
+            .uint(govActionDeposit),
+            .uint(dRepDeposit),
+            .uint(UInt64(dRepActivity)),
+            .uint(UInt64(minFeeRefScriptCostPerByte)),
+            .list(plutusV3CostModel.map { .int(Int64($0)) }),
             try constitution.toPrimitive(),
             try committee.toPrimitive()
         ])
@@ -215,7 +215,7 @@ extension ConwayGenesis: CBORSerializable {
         }
         return items.compactMap { item -> Int? in
             switch item {
-            case .int(let i): return i
+            case .int(let i): return Int(i)
             case .uint(let u): return Int(u)
             default: return nil
             }
@@ -279,7 +279,7 @@ extension ConwayGenesisPoolVotingThresholds {
         let numerator = Int(d * Double(precision))
         func gcd(_ a: Int, _ b: Int) -> Int { b == 0 ? a : gcd(b, a % b) }
         let g = gcd(abs(numerator), precision)
-        return .cborTag(CBORTag(tag: 30, value: .list([.int(numerator / g), .int(precision / g)])))
+        return .cborTag(CBORTag(tag: 30, value: .list([.int(Int64(numerator / g)), .int(Int64(precision / g))])))
     }
 }
 
@@ -310,7 +310,7 @@ extension ConwayGenesisDRepVotingThresholds {
             let numerator = Int(d * Double(precision))
             func gcd(_ a: Int, _ b: Int) -> Int { b == 0 ? a : gcd(b, a % b) }
             let g = gcd(abs(numerator), precision)
-            return .cborTag(CBORTag(tag: 30, value: .list([.int(numerator / g), .int(precision / g)])))
+            return .cborTag(CBORTag(tag: 30, value: .list([.int(Int64(numerator / g)), .int(Int64(precision / g))])))
         }
         return .list([
             fraction(motionNoConfidence), fraction(committeeNormal), fraction(committeeNoConfidence),
@@ -437,7 +437,7 @@ extension Committee {
             default: continue
             }
             switch v {
-            case .int(let i): membersResult[keyStr] = i
+            case .int(let i): membersResult[keyStr] = Int(i)
             case .uint(let u): membersResult[keyStr] = Int(u)
             default: break
             }
@@ -451,10 +451,10 @@ extension Committee {
     public func toPrimitive() throws -> Primitive {
         var memberPairs: [(Primitive, Primitive)] = []
         for (k, v) in members {
-            memberPairs.append((.string(k), .int(v)))
+            memberPairs.append((.string(k), .int(Int64(v))))
         }
         let thresholdPrim = Primitive.cborTag(
-            CBORTag(tag: 30, value: .list([.int(threshold.numerator), .int(threshold.denominator)]))
+            CBORTag(tag: 30, value: .list([.int(Int64(threshold.numerator)), .int(Int64(threshold.denominator))]))
         )
         return .list([.frozenDict(Dictionary(uniqueKeysWithValues: memberPairs)), thresholdPrim])
     }
@@ -468,12 +468,12 @@ extension Committee {
             let num: Int
             let den: Int
             switch arr[0] {
-            case .int(let i): num = i
+            case .int(let i): num = Int(i)
             case .uint(let u): num = Int(u)
             default: throw CardanoCoreError.deserializeError("Committee: non-numeric numerator for threshold")
             }
             switch arr[1] {
-            case .int(let i): den = i
+            case .int(let i): den = Int(i)
             case .uint(let u): den = Int(u)
             default: throw CardanoCoreError.deserializeError("Committee: non-numeric denominator for threshold")
             }
@@ -482,12 +482,12 @@ extension Committee {
             let num: Int
             let den: Int
             switch arr[0] {
-            case .int(let i): num = i
+            case .int(let i): num = Int(i)
             case .uint(let u): num = Int(u)
             default: throw CardanoCoreError.deserializeError("Committee: non-numeric numerator for threshold")
             }
             switch arr[1] {
-            case .int(let i): den = i
+            case .int(let i): den = Int(i)
             case .uint(let u): den = Int(u)
             default: throw CardanoCoreError.deserializeError("Committee: non-numeric denominator for threshold")
             }

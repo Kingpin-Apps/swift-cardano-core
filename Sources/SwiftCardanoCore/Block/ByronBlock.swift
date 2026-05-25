@@ -283,12 +283,12 @@ extension ByronBlock: Serializable {
         case .ebb(let ebb):
             // ebbhead = [protocolMagic, prevBlock, bodyProof, [epoch, [difficulty]], []]
             let ebbhead: Primitive = .list([
-                .uint(UInt(ebb.protocolMagic)),
+                .uint(UInt64(ebb.protocolMagic)),
                 ebb.prevHash.map { .bytes($0) } ?? .bytes(Data()),
                 .bytes(Data()),  // bodyProof — not stored
                 .list([
-                    .uint(UInt(ebb.epoch)),
-                    .list([.uint(UInt(ebb.difficulty))]),
+                    .uint(ebb.epoch),
+                    .list([.uint(ebb.difficulty)]),
                 ]),
                 .list([]),  // extraData
             ])
@@ -297,24 +297,24 @@ extension ByronBlock: Serializable {
         case .bft(let bft):
             // blockhead = [protocolMagic, prevBlock, bodyProof, consensusData, extraData]
             let blockhead: Primitive = .list([
-                .uint(UInt(bft.protocolMagic)),
+                .uint(UInt64(bft.protocolMagic)),
                 bft.prevHash.map { .bytes($0) } ?? .bytes(Data()),
                 .bytes(Data()),  // bodyProof — not stored
                 .list([
-                    .list([.uint(UInt(bft.epoch)), .uint(UInt(bft.slotWithinEpoch))]),
+                    .list([.uint(bft.epoch), .uint(bft.slotWithinEpoch)]),
                     .bytes(bft.issuerVKey),
-                    .list([.uint(UInt(bft.difficulty))]),
+                    .list([.uint(bft.difficulty)]),
                     .list([.uint(0), .bytes(Data())]),  // signature placeholder
                 ]),
                 .list([
                     .list([
-                        .uint(UInt(bft.protocolVersion.major)),
-                        .uint(UInt(bft.protocolVersion.minor)),
-                        .uint(UInt(bft.protocolVersion.alt)),
+                        .uint(UInt64(bft.protocolVersion.major)),
+                        .uint(UInt64(bft.protocolVersion.minor)),
+                        .uint(UInt64(bft.protocolVersion.alt)),
                     ]),
                     .list([
                         .string(bft.softwareVersion.appName),
-                        .uint(UInt(bft.softwareVersion.number)),
+                        .uint(UInt64(bft.softwareVersion.number)),
                     ]),
                     .orderedDict([:]),  // attributes
                     .bytes(Data()),  // extraProof
@@ -434,37 +434,37 @@ extension ByronBlock: Serializable {
         case .ebb(let ebb):
             var dict = OrderedDictionary<Primitive, Primitive>()
             dict[.string("type")] = .string("ebb")
-            dict[.string("protocolMagic")] = .uint(UInt(ebb.protocolMagic))
+            dict[.string("protocolMagic")] = .uint(UInt64(ebb.protocolMagic))
             dict[.string("prevHash")] = ebb.prevHash.map { .string($0.toHex) } ?? .null
-            dict[.string("epoch")] = .uint(UInt(ebb.epoch))
-            dict[.string("difficulty")] = .uint(UInt(ebb.difficulty))
+            dict[.string("epoch")] = .uint(ebb.epoch)
+            dict[.string("difficulty")] = .uint(ebb.difficulty)
             return .orderedDict(dict)
 
         case .bft(let bft):
             var dict = OrderedDictionary<Primitive, Primitive>()
             dict[.string("type")] = .string("bft")
-            dict[.string("protocolMagic")] = .uint(UInt(bft.protocolMagic))
+            dict[.string("protocolMagic")] = .uint(UInt64(bft.protocolMagic))
             dict[.string("prevHash")] = bft.prevHash.map { .string($0.toHex) } ?? .null
-            dict[.string("epoch")] = .uint(UInt(bft.epoch))
-            dict[.string("slotWithinEpoch")] = .uint(UInt(bft.slotWithinEpoch))
+            dict[.string("epoch")] = .uint(bft.epoch)
+            dict[.string("slotWithinEpoch")] = .uint(bft.slotWithinEpoch)
             if let abs = bft.absoluteSlot {
-                dict[.string("absoluteSlot")] = .uint(UInt(abs))
+                dict[.string("absoluteSlot")] = .uint(abs)
             }
             dict[.string("issuerVKey")] = .string(bft.issuerVKey.toHex)
-            dict[.string("difficulty")] = .uint(UInt(bft.difficulty))
+            dict[.string("difficulty")] = .uint(bft.difficulty)
 
             var pvDict = OrderedDictionary<Primitive, Primitive>()
-            pvDict[.string("major")] = .uint(UInt(bft.protocolVersion.major))
-            pvDict[.string("minor")] = .uint(UInt(bft.protocolVersion.minor))
-            pvDict[.string("alt")] = .uint(UInt(bft.protocolVersion.alt))
+            pvDict[.string("major")] = .uint(UInt64(bft.protocolVersion.major))
+            pvDict[.string("minor")] = .uint(UInt64(bft.protocolVersion.minor))
+            pvDict[.string("alt")] = .uint(UInt64(bft.protocolVersion.alt))
             dict[.string("protocolVersion")] = .orderedDict(pvDict)
 
             var svDict = OrderedDictionary<Primitive, Primitive>()
             svDict[.string("appName")] = .string(bft.softwareVersion.appName)
-            svDict[.string("number")] = .uint(UInt(bft.softwareVersion.number))
+            svDict[.string("number")] = .uint(UInt64(bft.softwareVersion.number))
             dict[.string("softwareVersion")] = .orderedDict(svDict)
 
-            dict[.string("transactionCount")] = .uint(UInt(bft.transactionCount))
+            dict[.string("transactionCount")] = .uint(UInt64(bft.transactionCount))
             return .orderedDict(dict)
         }
     }

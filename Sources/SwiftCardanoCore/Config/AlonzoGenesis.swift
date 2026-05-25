@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - AlonzoGenesis
 public struct AlonzoGenesis: JSONLoadable {
-    public let lovelacePerUTxOWord: Int
+    public let lovelacePerUTxOWord: Int64
     public let executionPrices: ExecutionPrices
     public let maxTxExUnits: AlonzoGenesisExUnits
     public let maxBlockExUnits: AlonzoGenesisExUnits
@@ -12,7 +12,7 @@ public struct AlonzoGenesis: JSONLoadable {
     public let costModels: AlonzoCostModels
 
     public init(
-        lovelacePerUTxOWord: Int,
+        lovelacePerUTxOWord: Int64,
         executionPrices: ExecutionPrices,
         maxTxExUnits: AlonzoGenesisExUnits,
         maxBlockExUnits: AlonzoGenesisExUnits,
@@ -79,7 +79,7 @@ extension AlonzoGenesis: CBORSerializable {
         if String(describing: type(of: decoder)).contains("JSONDecoder") {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             self.init(
-                lovelacePerUTxOWord:  try c.decode(Int.self, forKey: .lovelacePerUTxOWord),
+                lovelacePerUTxOWord:  try c.decode(Int64.self, forKey: .lovelacePerUTxOWord),
                 executionPrices:      try c.decode(ExecutionPrices.self, forKey: .executionPrices),
                 maxTxExUnits:         try c.decode(AlonzoGenesisExUnits.self, forKey: .maxTxExUnits),
                 maxBlockExUnits:      try c.decode(AlonzoGenesisExUnits.self, forKey: .maxBlockExUnits),
@@ -117,7 +117,7 @@ extension AlonzoGenesis: CBORSerializable {
             throw CardanoCoreError.deserializeError(
                 "AlonzoGenesis: expected list of 8+ elements, got \(primitive)")
         }
-        lovelacePerUTxOWord   = Int(try Self.readUInt(f[0], label: "lovelacePerUTxOWord"))
+        lovelacePerUTxOWord   = Int64(try Self.readUInt(f[0], label: "lovelacePerUTxOWord"))
         costModels            = try AlonzoCostModels(from: f[1])
         executionPrices       = try ExecutionPrices(from: f[2])
         maxTxExUnits          = try AlonzoGenesisExUnits(from: f[3])
@@ -134,9 +134,9 @@ extension AlonzoGenesis: CBORSerializable {
             try executionPrices.toPrimitive(),
             try maxTxExUnits.toPrimitive(),
             try maxBlockExUnits.toPrimitive(),
-            .int(maxValueSize),
-            .int(collateralPercentage),
-            .int(maxCollateralInputs)
+            .int(Int64(maxValueSize)),
+            .int(Int64(collateralPercentage)),
+            .int(Int64(maxCollateralInputs))
         ])
     }
 
@@ -186,13 +186,13 @@ extension PriceRatio {
     }
 
     public func toPrimitive() throws -> Primitive {
-        let tag = CBORTag(tag: 30, value: .list([.int(numerator), .int(denominator)]))
+        let tag = CBORTag(tag: 30, value: .list([.int(Int64(numerator)), .int(Int64(denominator))]))
         return .cborTag(tag)
     }
 
     private static func readInt(_ p: Primitive, label: String) throws -> Int {
         switch p {
-        case .int(let i): return i
+        case .int(let i): return Int(i)
         case .uint(let u): return Int(u)
         default:
             throw CardanoCoreError.deserializeError("PriceRatio: expected int for \(label)")
@@ -212,12 +212,12 @@ extension AlonzoGenesisExUnits {
     }
 
     public func toPrimitive() throws -> Primitive {
-        .list([.int(exUnitsMem), .int(exUnitsSteps)])
+        .list([.int(Int64(exUnitsMem)), .int(Int64(exUnitsSteps))])
     }
 
     private static func readInt(_ p: Primitive, label: String) throws -> Int {
         switch p {
-        case .int(let i): return i
+        case .int(let i): return Int(i)
         case .uint(let u): return Int(u)
         default:
             throw CardanoCoreError.deserializeError("AlonzoGenesisExUnits: expected int for \(label)")
@@ -251,13 +251,13 @@ extension AlonzoCostModels {
             let langId: Int
             switch k {
             case .uint(let u): langId = Int(u)
-            case .int(let i): langId = i
+            case .int(let i): langId = Int(i)
             default: continue
             }
             guard langId == 0, case .list(let costs) = v else { continue }
             for (i, cost) in costs.enumerated() {
                 switch cost {
-                case .int(let c): v1["\(i)"] = c
+                case .int(let c): v1["\(i)"] = Int(c)
                 case .uint(let u): v1["\(i)"] = Int(u)
                 default: break
                 }
@@ -268,7 +268,7 @@ extension AlonzoCostModels {
 
     public func toPrimitive() throws -> Primitive {
         let costs: [Primitive] = plutusV1.keys.sorted().compactMap { k in
-            plutusV1[k].map { .int($0) }
+            plutusV1[k].map { .int(Int64($0)) }
         }
         let pairs: [(Primitive, Primitive)] = [(.uint(0), .list(costs))]
         return .dict(Dictionary(uniqueKeysWithValues: pairs))

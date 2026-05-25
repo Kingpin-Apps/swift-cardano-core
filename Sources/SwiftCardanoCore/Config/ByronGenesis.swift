@@ -126,7 +126,7 @@ extension ByronGenesis: CBORSerializable {
                 blockVersionData: try c.decode(BlockVersionData.self, forKey: .blockVersionData),
                 ftsSeed:          try c.decodeIfPresent(String.self, forKey: .ftsSeed),
                 protocolConsts:   try c.decode(ProtocolConsts.self, forKey: .protocolConsts),
-                startTime:        try c.decode(Int.self, forKey: .startTime),
+                startTime:        try c.decode(Int64.self, forKey: .startTime),
                 bootStakeholders: try c.decode([String: Int].self, forKey: .bootStakeholders),
                 heavyDelegation:  try c.decode([String: HeavyDelegation].self, forKey: .heavyDelegation),
                 nonAvvmBalances:  try c.decode([String: String].self, forKey: .nonAvvmBalances),
@@ -163,7 +163,7 @@ extension ByronGenesis: CBORSerializable {
         blockVersionData  = try BlockVersionData(from: dict["blockVersionData"] ?? .null)
         ftsSeed           = Self.optionalString(dict["ftsSeed"])
         protocolConsts    = try ProtocolConsts(from: dict["protocolConsts"] ?? .null)
-        startTime         = Int(try Self.readUInt(dict["startTime"] ?? .null, label: "startTime"))
+        startTime         = Int64(try Self.readUInt(dict["startTime"] ?? .null, label: "startTime"))
         bootStakeholders  = try Self.readStringIntMap(dict["bootStakeholders"] ?? .null, label: "bootStakeholders")
         heavyDelegation   = try Self.readHeavyDelegationMap(dict["heavyDelegation"] ?? .null)
         nonAvvmBalances   = try Self.readStringStringMap(dict["nonAvvmBalances"] ?? .null, label: "nonAvvmBalances")
@@ -178,7 +178,7 @@ extension ByronGenesis: CBORSerializable {
         pairs.append((.string("protocolConsts"), try protocolConsts.toPrimitive()))
         pairs.append((.string("blockVersionData"), try blockVersionData.toPrimitive()))
         pairs.append((.string("bootStakeholders"), .dict(Dictionary(uniqueKeysWithValues:
-            bootStakeholders.map { (.string($0.key), .int($0.value)) }))))
+            bootStakeholders.map { (.string($0.key), .int(Int64($0.value))) }))))
         pairs.append((.string("avvmDistr"), .dict(Dictionary(uniqueKeysWithValues:
             avvmDistr.map { (.string($0.key), .string($0.value)) }))))
         pairs.append((.string("nonAvvmBalances"), .dict(Dictionary(uniqueKeysWithValues:
@@ -249,7 +249,7 @@ extension ByronGenesis: CBORSerializable {
             for (k, v) in d {
                 guard case .string(let ks) = k else { continue }
                 switch v {
-                case .int(let i): result[ks] = i
+                case .int(let i): result[ks] = Int(i)
                 case .uint(let u): result[ks] = Int(u)
                 default: break
                 }
@@ -258,7 +258,7 @@ extension ByronGenesis: CBORSerializable {
             for (k, v) in d {
                 guard case .string(let ks) = k else { continue }
                 switch v {
-                case .int(let i): result[ks] = i
+                case .int(let i): result[ks] = Int(i)
                 case .uint(let u): result[ks] = Int(u)
                 default: break
                 }
@@ -331,7 +331,7 @@ extension BlockVersionData {
             (.string("maxProposalSize"), .string(maxProposalSize)),
             (.string("maxTxSize"), .string(maxTxSize)),
             (.string("mpcThd"), .string(mpcThd)),
-            (.string("scriptVersion"), .int(scriptVersion)),
+            (.string("scriptVersion"), .int(Int64(scriptVersion))),
             (.string("slotDuration"), .string(slotDuration)),
             (.string("softforkRule"), try softforkRule.toPrimitive()),
             (.string("txFeePolicy"), try txFeePolicy.toPrimitive()),
@@ -388,17 +388,17 @@ extension ProtocolConsts {
         let dict = try ByronGenesis.toStringDictPublic(primitive, label: "ProtocolConsts")
         k             = Int(try ByronGenesis.readUIntPublic(dict["k"] ?? .null, label: "k"))
         protocolMagic = Int(try ByronGenesis.readUIntPublic(dict["protocolMagic"] ?? .null, label: "protocolMagic"))
-        vssMaxTTL     = dict["vssMaxTTL"].flatMap { if case .uint(let u) = $0 { return Int(u) } else if case .int(let i) = $0 { return i }; return nil }
-        vssMinTTL     = dict["vssMinTTL"].flatMap { if case .uint(let u) = $0 { return Int(u) } else if case .int(let i) = $0 { return i }; return nil }
+        vssMaxTTL     = dict["vssMaxTTL"].flatMap { if case .uint(let u) = $0 { return Int(u) } else if case .int(let i) = $0 { return Int(i) }; return nil }
+        vssMinTTL     = dict["vssMinTTL"].flatMap { if case .uint(let u) = $0 { return Int(u) } else if case .int(let i) = $0 { return Int(i) }; return nil }
     }
 
     public func toPrimitive() throws -> Primitive {
         var pairs: [(Primitive, Primitive)] = [
-            (.string("k"), .int(k)),
-            (.string("protocolMagic"), .int(protocolMagic))
+            (.string("k"), .int(Int64(k))),
+            (.string("protocolMagic"), .int(Int64(protocolMagic)))
         ]
-        if let max = vssMaxTTL { pairs.append((.string("vssMaxTTL"), .int(max))) }
-        if let min = vssMinTTL { pairs.append((.string("vssMinTTL"), .int(min))) }
+        if let max = vssMaxTTL { pairs.append((.string("vssMaxTTL"), .int(Int64(max)))) }
+        if let min = vssMinTTL { pairs.append((.string("vssMinTTL"), .int(Int64(min)))) }
         return .dict(Dictionary(uniqueKeysWithValues: pairs))
     }
 }
@@ -417,7 +417,7 @@ extension HeavyDelegation {
             (.string("cert"), .string(cert)),
             (.string("delegatePk"), .string(delegatePk)),
             (.string("issuerPk"), .string(issuerPk)),
-            (.string("omega"), .int(omega))
+            (.string("omega"), .int(Int64(omega)))
         ]
         return .dict(Dictionary(uniqueKeysWithValues: pairs))
     }
@@ -434,7 +434,7 @@ extension VSSCert {
 
     public func toPrimitive() throws -> Primitive {
         let pairs: [(Primitive, Primitive)] = [
-            (.string("expiryEpoch"), .int(expiryEpoch)),
+            (.string("expiryEpoch"), .int(Int64(expiryEpoch))),
             (.string("signature"), .string(signature)),
             (.string("signingKey"), .string(signingKey)),
             (.string("vssKey"), .string(vssKey))

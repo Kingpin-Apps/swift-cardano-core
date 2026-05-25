@@ -410,12 +410,12 @@ extension ByronBlockHeader: Serializable {
         switch self {
         case .ebb(let ebb):
             return .list([
-                .uint(UInt(ebb.protocolMagic)),
+                .uint(UInt64(ebb.protocolMagic)),
                 ebb.prevBlock.map { .bytes($0) } ?? .bytes(Data()),
                 Self.dataToBodyProofPrimitive(ebb.bodyProof),
                 .list([
-                    .uint(UInt(ebb.epoch)),
-                    .list([.uint(UInt(ebb.difficulty))]),
+                    .uint(ebb.epoch),
+                    .list([.uint(ebb.difficulty)]),
                 ]),
                 .list([]),
             ])
@@ -423,24 +423,24 @@ extension ByronBlockHeader: Serializable {
         case .bft(let bft):
             let sigPrimitive = Self.encodeSig(bft.signature)
             return .list([
-                .uint(UInt(bft.protocolMagic)),
+                .uint(UInt64(bft.protocolMagic)),
                 bft.prevBlock.map { .bytes($0) } ?? .bytes(Data()),
                 Self.dataToBodyProofPrimitive(bft.bodyProof),
                 .list([
-                    .list([.uint(UInt(bft.slotId.epoch)), .uint(UInt(bft.slotId.slot))]),
+                    .list([.uint(bft.slotId.epoch), .uint(bft.slotId.slot)]),
                     .bytes(bft.issuerKey),
-                    .list([.uint(UInt(bft.difficulty))]),
+                    .list([.uint(bft.difficulty)]),
                     sigPrimitive,
                 ]),
                 .list([
                     .list([
-                        .uint(UInt(bft.blockVersion.major)),
-                        .uint(UInt(bft.blockVersion.minor)),
-                        .uint(UInt(bft.blockVersion.alt)),
+                        .uint(UInt64(bft.blockVersion.major)),
+                        .uint(UInt64(bft.blockVersion.minor)),
+                        .uint(UInt64(bft.blockVersion.alt)),
                     ]),
                     .list([
                         .string(bft.softwareVersion.appName),
-                        .uint(UInt(bft.softwareVersion.number)),
+                        .uint(UInt64(bft.softwareVersion.number)),
                     ]),
                     .orderedDict([:]),  // attributes
                     .bytes(Data()),  // extraProof
@@ -556,38 +556,38 @@ extension ByronBlockHeader: Serializable {
         case .ebb(let ebb):
             var dict = OrderedDictionary<Primitive, Primitive>()
             dict[.string("type")] = .string("ebb")
-            dict[.string("protocolMagic")] = .uint(UInt(ebb.protocolMagic))
+            dict[.string("protocolMagic")] = .uint(UInt64(ebb.protocolMagic))
             dict[.string("prevBlock")] = ebb.prevBlock.map { .string($0.toHex) } ?? .null
             dict[.string("bodyProof")] = .string(ebb.bodyProof.toHex)
-            dict[.string("epoch")] = .uint(UInt(ebb.epoch))
-            dict[.string("difficulty")] = .uint(UInt(ebb.difficulty))
-            if let abs = ebb.absoluteSlot { dict[.string("absoluteSlot")] = .uint(UInt(abs)) }
+            dict[.string("epoch")] = .uint(ebb.epoch)
+            dict[.string("difficulty")] = .uint(ebb.difficulty)
+            if let abs = ebb.absoluteSlot { dict[.string("absoluteSlot")] = .uint(abs) }
             return .orderedDict(dict)
 
         case .bft(let bft):
             var dict = OrderedDictionary<Primitive, Primitive>()
             dict[.string("type")] = .string("bft")
-            dict[.string("protocolMagic")] = .uint(UInt(bft.protocolMagic))
+            dict[.string("protocolMagic")] = .uint(UInt64(bft.protocolMagic))
             dict[.string("prevBlock")] = bft.prevBlock.map { .string($0.toHex) } ?? .null
             dict[.string("bodyProof")] = .string(bft.bodyProof.toHex)
-            dict[.string("slotEpoch")] = .uint(UInt(bft.slotId.epoch))
-            dict[.string("slotInEpoch")] = .uint(UInt(bft.slotId.slot))
+            dict[.string("slotEpoch")] = .uint(bft.slotId.epoch)
+            dict[.string("slotInEpoch")] = .uint(bft.slotId.slot)
             dict[.string("issuerKey")] = .string(bft.issuerKey.toHex)
-            dict[.string("difficulty")] = .uint(UInt(bft.difficulty))
+            dict[.string("difficulty")] = .uint(bft.difficulty)
             dict[.string("signature")] = sigToDict(bft.signature)
 
             var bvDict = OrderedDictionary<Primitive, Primitive>()
-            bvDict[.string("major")] = .uint(UInt(bft.blockVersion.major))
-            bvDict[.string("minor")] = .uint(UInt(bft.blockVersion.minor))
-            bvDict[.string("alt")] = .uint(UInt(bft.blockVersion.alt))
+            bvDict[.string("major")] = .uint(UInt64(bft.blockVersion.major))
+            bvDict[.string("minor")] = .uint(UInt64(bft.blockVersion.minor))
+            bvDict[.string("alt")] = .uint(UInt64(bft.blockVersion.alt))
             dict[.string("blockVersion")] = .orderedDict(bvDict)
 
             var svDict = OrderedDictionary<Primitive, Primitive>()
             svDict[.string("appName")] = .string(bft.softwareVersion.appName)
-            svDict[.string("number")] = .uint(UInt(bft.softwareVersion.number))
+            svDict[.string("number")] = .uint(UInt64(bft.softwareVersion.number))
             dict[.string("softwareVersion")] = .orderedDict(svDict)
 
-            if let abs = bft.absoluteSlot { dict[.string("absoluteSlot")] = .uint(UInt(abs)) }
+            if let abs = bft.absoluteSlot { dict[.string("absoluteSlot")] = .uint(abs) }
             return .orderedDict(dict)
         }
     }
@@ -785,7 +785,7 @@ extension ByronBlockHeader: Serializable {
     }
 
     private static func encodeDlg(_ d: Dlg) -> Primitive {
-        .list([.uint(UInt(d.epoch)), .bytes(d.issuer), .bytes(d.delegate), .bytes(d.certificate)])
+        .list([.uint(d.epoch), .bytes(d.issuer), .bytes(d.delegate), .bytes(d.certificate)])
     }
 
     private static func encodeLwDlgSig(_ l: LwDlgSig) -> Primitive {
@@ -794,7 +794,7 @@ extension ByronBlockHeader: Serializable {
 
     private static func encodeLwDlg(_ l: LwDlg) -> Primitive {
         .list([
-            .list([.uint(UInt(l.epochFrom)), .uint(UInt(l.epochTo))]),
+            .list([.uint(l.epochFrom), .uint(l.epochTo)]),
             .bytes(l.issuer), .bytes(l.delegate), .bytes(l.certificate),
         ])
     }
@@ -905,7 +905,7 @@ extension ByronBlockHeader: Serializable {
 
     private func dlgToDict(_ dlg: Dlg) -> Primitive {
         var d = OrderedDictionary<Primitive, Primitive>()
-        d[.string("epoch")] = .uint(UInt(dlg.epoch))
+        d[.string("epoch")] = .uint(dlg.epoch)
         d[.string("issuer")] = .string(dlg.issuer.toHex)
         d[.string("delegate")] = .string(dlg.delegate.toHex)
         d[.string("certificate")] = .string(dlg.certificate.toHex)
@@ -914,8 +914,8 @@ extension ByronBlockHeader: Serializable {
 
     private func lwDlgToDict(_ lwdlg: LwDlg) -> Primitive {
         var d = OrderedDictionary<Primitive, Primitive>()
-        d[.string("epochFrom")] = .uint(UInt(lwdlg.epochFrom))
-        d[.string("epochTo")] = .uint(UInt(lwdlg.epochTo))
+        d[.string("epochFrom")] = .uint(lwdlg.epochFrom)
+        d[.string("epochTo")] = .uint(lwdlg.epochTo)
         d[.string("issuer")] = .string(lwdlg.issuer.toHex)
         d[.string("delegate")] = .string(lwdlg.delegate.toHex)
         d[.string("certificate")] = .string(lwdlg.certificate.toHex)
