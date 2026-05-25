@@ -36,7 +36,7 @@ public struct PoolParams: Serializable {
         rewardAccount: RewardAccountHash,
         poolOwners: ListOrOrderedSet<VerificationKeyHash>,
         relays: [Relay]?,
-        poolMetadata: PoolMetadata?,
+        poolMetadata: PoolMetadata?
     ) {
         self.poolOperator = poolOperator
         self.vrfKeyHash = vrfKeyHash
