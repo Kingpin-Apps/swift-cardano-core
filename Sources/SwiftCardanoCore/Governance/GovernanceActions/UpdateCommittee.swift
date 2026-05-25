@@ -44,7 +44,7 @@ public struct UpdateCommittee: GovernanceAction {
         }
         let code: Int
         switch elements[0] {
-        case .int(let v): code = v
+        case .int(let v): code = Int(v)
         case .uint(let v): code = Int(v)
         default: throw CardanoCoreError.deserializeError("Invalid UpdateCommittee primitive")
         }
@@ -109,11 +109,11 @@ public struct UpdateCommittee: GovernanceAction {
         // Convert credentialEpochs dictionary to primitive
         var credentialEpochsDict: [Primitive: Primitive] = [:]
         for (credential, epoch) in credentialEpochs {
-            credentialEpochsDict[try credential.toPrimitive()] = .int(Int(epoch))
+            credentialEpochsDict[try credential.toPrimitive()] = .int(Int64(epoch))
         }
-        
+
         return .list([
-            .int(Self.code.rawValue),
+            .int(Int64(Self.code.rawValue)),
             try id?.toPrimitive() ?? .null,
             .list(credentialsList),
             .dict(credentialEpochsDict),

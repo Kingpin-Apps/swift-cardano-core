@@ -23,7 +23,7 @@ public struct SingleHostName: Serializable, Sendable {
         var iterator = elements.makeIterator()
         guard let codeElement = iterator.next(),
               case let .uint(code) = codeElement,
-              code == Self.code else {
+              code == UInt64(Self.code) else {
             throw CardanoCoreError.deserializeError("Invalid SingleHostName type")
         }
         
@@ -56,10 +56,10 @@ public struct SingleHostName: Serializable, Sendable {
     
     public func toPrimitive() throws -> Primitive {
         var elements: [Primitive] = []
-        elements.append(.uint(UInt(Self.code)))
-        
+        elements.append(.uint(UInt64(Self.code)))
+
         if let port = self.port {
-            elements.append(.uint(UInt(port)))
+            elements.append(.uint(UInt64(port)))
         } else {
             elements.append(.null)
         }
@@ -79,7 +79,7 @@ public struct SingleHostName: Serializable, Sendable {
         guard case let .orderedDict(dictValue) = dict,
               let codePrimitive = dictValue[.string("code")],
               case let .uint(codeValue) = codePrimitive,
-              codeValue == UInt(Self.code) else {
+              codeValue == UInt64(Self.code) else {
             throw CardanoCoreError.deserializeError("Invalid SingleHostName code")
         }
         
@@ -112,9 +112,9 @@ public struct SingleHostName: Serializable, Sendable {
     
     public func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
-        dict[.string("code")] = .uint(UInt(Self.code))
+        dict[.string("code")] = .uint(UInt64(Self.code))
         if let port = self.port {
-            dict[.string("port")] = .uint(UInt(port))
+            dict[.string("port")] = .uint(UInt64(port))
         } else {
             dict[.string("port")] = .null
         }

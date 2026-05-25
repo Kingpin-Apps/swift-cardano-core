@@ -188,7 +188,7 @@ public struct DatumOption: Serializable {
 
     public func toDict() throws -> Primitive {
         var dict = OrderedCollections.OrderedDictionary<Primitive, Primitive>()
-        dict[.string("_TYPE")] = .uint(UInt(type))
+        dict[.string("_TYPE")] = .uint(UInt64(type))
         dict[.string("datum")] = try datum.toDict()
         return .orderedDict(dict)
     }
@@ -349,7 +349,7 @@ public enum RawDatum: PlutusDataProtocol {
             }
             self = .dict(convertedDict)
         case .int(let int):
-            self = .int(int)
+            self = .int(Int(int))
         case .uint(let uint):
             self = .int(Int(uint))
         case .bytes(let bytes):
@@ -375,7 +375,7 @@ public enum RawDatum: PlutusDataProtocol {
             }
             return .dict(convertedDict)
         case .int(let int):
-            return .int(int)
+            return .int(Int64(int))
         case .bytes(let bytes):
             return .bytes(bytes)
         case .indefiniteList(let list):
@@ -450,7 +450,7 @@ public enum Datum: PlutusDataProtocol {
                     result[entry.key.toAnyValue()] = entry.value.toAnyValue()
                 })
         case .int(let int):
-            self = .int(int)
+            self = .int(Int(int))
         case .uint(let uint):
             self = .int(Int(uint))
         case .bytes(let bytes):
@@ -476,7 +476,7 @@ public enum Datum: PlutusDataProtocol {
                     result[entry.key.toPrimitive()] = entry.value.toPrimitive()
                 })
         case .int(let data):
-            return .int(data)
+            return .int(Int64(data))
         case .bytes(let data):
             return .bytes(data)
         case .indefiniteList(let data):

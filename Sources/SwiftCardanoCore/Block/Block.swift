@@ -161,11 +161,11 @@ public struct Block: Serializable {
         // auxiliary_data_set
         var auxDataDict = OrderedDictionary<Primitive, Primitive>()
         for (index, auxData) in auxiliaryDataSet {
-            auxDataDict[.uint(UInt(index))] = try auxData.toPrimitive()
+            auxDataDict[.uint(UInt64(index))] = try auxData.toPrimitive()
         }
 
         // invalid_transactions
-        let invalidTxs: [Primitive] = invalidTransactions.map { .uint(UInt($0)) }
+        let invalidTxs: [Primitive] = invalidTransactions.map { .uint(UInt64($0)) }
 
         return .list([
             try header.toPrimitive(),
@@ -274,12 +274,12 @@ public struct Block: Serializable {
 
         var auxDict = OrderedDictionary<Primitive, Primitive>()
         for (index, auxData) in auxiliaryDataSet {
-            auxDict[.uint(UInt(index))] = try auxData.toDict()
+            auxDict[.uint(UInt64(index))] = try auxData.toDict()
         }
         dict[.string(CodingKeys.auxiliaryDataSet.rawValue)] = .orderedDict(auxDict)
 
         dict[.string(CodingKeys.invalidTransactions.rawValue)] = .list(
-            invalidTransactions.map { .uint(UInt($0)) }
+            invalidTransactions.map { .uint(UInt64($0)) }
         )
 
         return .orderedDict(dict)

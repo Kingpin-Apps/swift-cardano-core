@@ -158,7 +158,7 @@ public struct PlutusV1Script: PlutusScriptable {
     public func toDict() throws -> Primitive {
         return .orderedDict([
             .string("type"): .string("PlutusV1Script"),
-            .string("version"): .uint(UInt(version)),
+            .string("version"): .uint(UInt64(version)),
             .string("data"): .string(data.base64EncodedString())
         ])
     }
@@ -211,7 +211,7 @@ public struct PlutusV2Script: PlutusScriptable {
     public func toDict() throws -> Primitive {
         return .orderedDict([
             .string("type"): .string("PlutusV2Script"),
-            .string("version"): .uint(UInt(version)),
+            .string("version"): .uint(UInt64(version)),
             .string("data"): .string(data.base64EncodedString())
         ])
     }
@@ -264,7 +264,7 @@ public struct PlutusV3Script: PlutusScriptable {
     public func toDict() throws -> Primitive {
         return .orderedDict([
             .string("type"): .string("PlutusV3Script"),
-            .string("version"): .uint(UInt(version)),
+            .string("version"): .uint(UInt64(version)),
             .string("data"): .string(data.base64EncodedString())
         ])
     }

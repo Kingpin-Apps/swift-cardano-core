@@ -126,7 +126,7 @@ public struct Constr: Serializable, CustomStringConvertible, Sendable {
                     CBORTag(
                         tag: 102,
                         value: .list([
-                            .int(Int(tagToUse)),
+                            .int(Int64(tagToUse)),
                             toEncode,
                         ])
                     )
@@ -136,7 +136,7 @@ public struct Constr: Serializable, CustomStringConvertible, Sendable {
                     CBORTag(
                         tag: 102,
                         value: .list([
-                            .int(Int(tagToUse)),
+                            .int(Int64(tagToUse)),
                             .list(primitives),
                         ])
                     )
@@ -178,7 +178,7 @@ public struct Constr: Serializable, CustomStringConvertible, Sendable {
 
     public func toDict() throws -> Primitive {
         var data: OrderedDictionary<Primitive, Primitive> = [:]
-        data[.string("constructor")] = .uint(UInt(self.tag ?? UInt64(Self.CONSTR_ID)))
+        data[.string("constructor")] = .uint(self.tag ?? UInt64(Self.CONSTR_ID))
         data[.string("fields")] = .list(
             try self.fields.map { field in
                 try Primitive.fromAny(field.toDict())

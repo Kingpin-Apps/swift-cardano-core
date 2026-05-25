@@ -36,8 +36,8 @@ public struct ScriptNofK: NativeScriptable {
 
     public func toPrimitive() throws -> Primitive {
         var elements: [Primitive] = []
-        elements.append(.uint(UInt(Self.TYPE.rawValue)))
-        elements.append(.uint(UInt(required)))
+        elements.append(.uint(UInt64(Self.TYPE.rawValue)))
+        elements.append(.uint(UInt64(required)))
         elements.append(.list(try scripts.map { try $0.toPrimitive() }))
         return .list(elements)
     }
@@ -62,14 +62,14 @@ public struct ScriptNofK: NativeScriptable {
         let nativeScripts = try scripts.map {
             try NativeScript.fromDict($0)
         }
-        
-        return ScriptNofK(required: required, scripts: nativeScripts)
+
+        return ScriptNofK(required: Int(required), scripts: nativeScripts)
     }
     
     public func toDict() throws -> Primitive {
         var dict: OrderedDictionary<Primitive, Primitive> = [:]
         dict[.string("type")] = .string(Self.TYPE.description())
-        dict[.string("required")] = .int(required)
+        dict[.string("required")] = .int(Int64(required))
         dict[.string("scripts")] = .list(try scripts.map({ try $0.toDict() }))
         return .orderedDict(dict)
     }

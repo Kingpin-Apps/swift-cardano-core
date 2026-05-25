@@ -21,7 +21,7 @@ internal func doubleToNonNegativeInterval(_ value: Double, precision: UInt64 = 1
     guard value >= 0 else { return nil }
     let num = UInt64((value * Double(precision)).rounded())
     let g = gcd(num, precision)
-    return NonNegativeInterval(lowerBound: UInt(num / g), upperBound: precision / g)
+    return NonNegativeInterval(lowerBound: num / g, upperBound: precision / g)
 }
 
 extension UnitInterval {

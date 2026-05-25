@@ -50,12 +50,12 @@ public struct OperationalCertificateIssueCounter: TextEnvelopable, JSONSerializa
         
         // Compute CBOR payload
         let primitive: Primitive = .list([
-            .uint(counterValue),
+            .uint(UInt64(counterValue)),
             .bytes(coldVerificationKey.payload)
         ])
         self._payload = try CBOREncoder().encode(primitive)
     }
-    
+
     /// Creates a new `OperationalCertificateIssueCounter` from a CBOR payload.
     /// - Parameters:
     ///   - payload: The CBOR-encoded payload.
@@ -74,7 +74,7 @@ public struct OperationalCertificateIssueCounter: TextEnvelopable, JSONSerializa
         let counter: UInt
         switch elements[0] {
         case .uint(let value):
-            counter = value
+            counter = UInt(value)
         case .int(let value) where value >= 0:
             counter = UInt(value)
         default:
@@ -82,13 +82,13 @@ public struct OperationalCertificateIssueCounter: TextEnvelopable, JSONSerializa
                 "Invalid counter value: expected uint, got \(elements[0])"
             )
         }
-        
+
         guard case let .bytes(vkey) = elements[1] else {
             throw CardanoCoreError.deserializeError(
                 "Invalid verification key: expected bytes, got \(elements[1])"
             )
         }
-        
+
         self.counterValue = counter
         self.coldVerificationKey = try StakePoolVerificationKey(payload: vkey)
         self._payload = payload
@@ -118,7 +118,7 @@ public struct OperationalCertificateIssueCounter: TextEnvelopable, JSONSerializa
         
         // Recompute CBOR payload
         let primitive: Primitive = .list([
-            .uint(counterValue),
+            .uint(UInt64(counterValue)),
             .bytes(coldVerificationKey.payload)
         ])
         _payload = try CBOREncoder().encode(primitive)
@@ -141,11 +141,11 @@ public struct OperationalCertificateIssueCounter: TextEnvelopable, JSONSerializa
                 "Invalid OperationalCertificateIssueCounter CBOR: expected array of 2 elements"
             )
         }
-        
+
         let counter: UInt
         switch elements[0] {
         case .uint(let value):
-            counter = value
+            counter = UInt(value)
         case .int(let value) where value >= 0:
             counter = UInt(value)
         default:
@@ -153,23 +153,23 @@ public struct OperationalCertificateIssueCounter: TextEnvelopable, JSONSerializa
                 "Invalid counter value: expected uint, got \(elements[0])"
             )
         }
-        
+
         guard case let .bytes(vkey) = elements[1] else {
             throw CardanoCoreError.deserializeError(
                 "Invalid verification key: expected bytes, got \(elements[1])"
             )
         }
-        
+
         self.counterValue = counter
         self.coldVerificationKey = try StakePoolVerificationKey(payload: vkey)
         self._type = Self.TYPE
         self._description = "Next certificate issue number: \(counter)"
         self._payload = try CBOREncoder().encode(primitive)
     }
-    
+
     public func toPrimitive() throws -> Primitive {
         return .list([
-            .uint(counterValue),
+            .uint(UInt64(counterValue)),
             .bytes(coldVerificationKey.payload)
         ])
     }
@@ -183,7 +183,7 @@ public struct OperationalCertificateIssueCounter: TextEnvelopable, JSONSerializa
         
         let counter: UInt
         if case let .uint(value)? = dictValue[.string("counter")] {
-            counter = value
+            counter = UInt(value)
         } else if case let .int(value)? = dictValue[.string("counter")], value >= 0 {
             counter = UInt(value)
         } else {
@@ -207,7 +207,7 @@ public struct OperationalCertificateIssueCounter: TextEnvelopable, JSONSerializa
     
     public func toDict() throws -> Primitive {
         var dict: OrderedDictionary<Primitive, Primitive> = [:]
-        dict[.string("counter")] = .uint(counterValue)
+        dict[.string("counter")] = .uint(UInt64(counterValue))
         dict[.string("coldVerificationKey")] = .string(coldVerificationKey.payload.toHex)
         return .orderedDict(dict)
     }

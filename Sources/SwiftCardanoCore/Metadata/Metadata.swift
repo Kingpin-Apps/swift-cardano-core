@@ -39,7 +39,11 @@ public enum TransactionMetadatum: Serializable, Hashable, Equatable {
                 throw CardanoCoreError.deserializeError("Integer value out of bounds for Int type")
             }
         case .int(let value):
-            self = .int(value)
+            if value >= Int64(Int.min) && value <= Int64(Int.max) {
+                self = .int(Int(value))
+            } else {
+                throw CardanoCoreError.deserializeError("Integer value out of bounds for Int type")
+            }
         case .bytes(let data):
             self = .bytes(data)
         case .string(let string):
@@ -75,7 +79,7 @@ public enum TransactionMetadatum: Serializable, Hashable, Equatable {
     public func toPrimitive() throws -> Primitive {
         switch self {
         case .int(let value):
-            return .uint(UInt(value))
+            return .uint(UInt64(value))
         case .bytes(let data):
             return .bytes(data)
         case .text(let string):
@@ -105,7 +109,11 @@ public enum TransactionMetadatum: Serializable, Hashable, Equatable {
                 throw CardanoCoreError.deserializeError("Integer value out of bounds for Int type")
             }
         case .int(let value):
-            return .int(value)
+            if value >= Int64(Int.min) && value <= Int64(Int.max) {
+                return .int(Int(value))
+            } else {
+                throw CardanoCoreError.deserializeError("Integer value out of bounds for Int type")
+            }
         case .bytes(let data):
             return .bytes(data)
         case .string(let string):
@@ -147,7 +155,7 @@ public enum TransactionMetadatum: Serializable, Hashable, Equatable {
     public func toDict() throws -> Primitive {
         switch self {
         case .int(let value):
-            return .int(value)
+            return .int(Int64(value))
         case .bytes(let data):
             return .string(data.base64EncodedString())
         case .text(let string):
@@ -426,7 +434,7 @@ public struct Metadata: Serializable, Equatable {
     public func toPrimitive() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
         for (key, value) in data {
-            dict[.uint(UInt(key))] = try value.toPrimitive()
+            dict[.uint(UInt64(key))] = try value.toPrimitive()
         }
         return .orderedDict(dict)
     }

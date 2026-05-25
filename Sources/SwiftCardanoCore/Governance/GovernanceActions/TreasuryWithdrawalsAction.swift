@@ -37,7 +37,7 @@ public struct TreasuryWithdrawalsAction: GovernanceAction {
         }
         let code: Int
         switch elements[0] {
-        case .int(let v): code = v
+        case .int(let v): code = Int(v)
         case .uint(let v): code = Int(v)
         default: throw CardanoCoreError.deserializeError("Invalid TreasuryWithdrawalsAction primitive")
         }
@@ -81,11 +81,11 @@ public struct TreasuryWithdrawalsAction: GovernanceAction {
         // Convert withdrawals dictionary to primitive
         var withdrawalsDict: [Primitive: Primitive] = [:]
         for (rewardAccount, coin) in withdrawals {
-            withdrawalsDict[.bytes(rewardAccount)] = .int(Int(coin))
+            withdrawalsDict[.bytes(rewardAccount)] = .int(Int64(coin))
         }
-        
+
         return .list([
-            .int(Self.code.rawValue),
+            .int(Int64(Self.code.rawValue)),
             .dict(withdrawalsDict),
             policyHash?.toPrimitive() ?? .null
         ])

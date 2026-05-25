@@ -4,17 +4,17 @@ import PotentCBOR
 
 // MARK: - NonNegativeInterval
 public struct NonNegativeInterval: CBORSerializable, Sendable {
-    public var lowerBound: UInt
+    public var lowerBound: UInt64
     public var upperBound: UInt64
 
-    public init(lowerBound: UInt, upperBound: UInt64) {
+    public init(lowerBound: UInt64, upperBound: UInt64) {
         self.lowerBound = lowerBound
         self.upperBound = upperBound
     }
 
     public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
-        lowerBound = try container.decode(UInt.self)
+        lowerBound = try container.decode(UInt64.self)
         upperBound = try container.decode(UInt64.self)
     }
 
@@ -23,7 +23,7 @@ public struct NonNegativeInterval: CBORSerializable, Sendable {
         try container.encode(lowerBound)
         try container.encode(upperBound)
     }
-    
+
     public init(from primitive: Primitive) throws {
         let elements: [Primitive]
         switch primitive {
@@ -40,20 +40,20 @@ public struct NonNegativeInterval: CBORSerializable, Sendable {
         guard elements.count == 2 else {
             throw CardanoCoreError.valueError("NonNegativeInterval must contain exactly 2 elements")
         }
-        func toUInt(_ p: Primitive) throws -> UInt {
+        func toUInt64(_ p: Primitive) throws -> UInt64 {
             switch p {
-            case .int(let v): return UInt(max(0, v))
+            case .int(let v): return UInt64(max(0, v))
             case .uint(let v): return v
             default: throw CardanoCoreError.valueError("NonNegativeInterval element must be integer")
             }
         }
-        self.init(lowerBound: try toUInt(elements[0]), upperBound: UInt64(try toUInt(elements[1])))
+        self.init(lowerBound: try toUInt64(elements[0]), upperBound: try toUInt64(elements[1]))
     }
 
     public func toPrimitive() throws -> Primitive {
         return .list([
-            .int(Int(lowerBound)),
-            .int(Int(upperBound))
+            .int(Int64(lowerBound)),
+            .int(Int64(upperBound))
         ])
     }
 
@@ -134,8 +134,8 @@ public struct UnitInterval: Serializable {
         let cborTag = CBORTag(
             tag: UInt64(UnitInterval.tag),
             value: .list([
-                .uint(UInt(numerator)),
-                .uint(UInt(denominator))
+                .uint(numerator),
+                .uint(denominator)
             ])
         )
         return .cborTag(cborTag)

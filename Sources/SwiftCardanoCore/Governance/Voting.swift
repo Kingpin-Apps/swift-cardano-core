@@ -10,7 +10,7 @@ public enum Vote: Int, Serializable {
         let raw: Int
         switch primitive {
         case .uint(let u): raw = Int(u)
-        case .int(let i):  raw = i
+        case .int(let i):  raw = Int(i)
         default:
             throw CardanoCoreError.deserializeError("Vote: expected uint, got \(primitive)")
         }
@@ -21,7 +21,7 @@ public enum Vote: Int, Serializable {
     }
 
     public func toPrimitive() throws -> Primitive {
-        .uint(UInt(rawValue))
+        .uint(UInt64(rawValue))
     }
 }
 
@@ -165,7 +165,7 @@ public struct VotingProcedure: Serializable {
     
     public func toPrimitive() throws -> Primitive {
         return .list([
-            .int(vote.rawValue),
+            .int(Int64(vote.rawValue)),
             try anchor?.toPrimitive() ?? .null
         ])
     }
@@ -198,7 +198,7 @@ public struct VotingProcedure: Serializable {
     
     public func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
-        dict[.string("vote")] = .int(vote.rawValue)
+        dict[.string("vote")] = .int(Int64(vote.rawValue))
         if let anchor = anchor {
             dict[.string("anchor")] = try anchor.toPrimitive()
         } else {
@@ -246,7 +246,7 @@ public struct Voter: Serializable {
     
     public func toPrimitive() throws -> Primitive {
         return .list([
-            .uint(UInt(code)),
+            .uint(UInt64(code)),
             try credential.toPrimitive()
         ])
     }
@@ -273,7 +273,7 @@ public struct Voter: Serializable {
     
     public func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
-        dict[.string("code")] = .int(code)
+        dict[.string("code")] = .int(Int64(code))
         dict[.string("credential")] = try credential.toPrimitive()
         return .orderedDict(dict)
     }

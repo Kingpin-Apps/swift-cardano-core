@@ -40,17 +40,17 @@ public enum NativeScript: Serializable {
         }
         
         switch type {
-            case UInt(ScriptPubkey.TYPE.rawValue):
+            case UInt64(ScriptPubkey.TYPE.rawValue):
                 self = .scriptPubkey(try ScriptPubkey(from: primitive))
-            case UInt(ScriptAll.TYPE.rawValue):
+            case UInt64(ScriptAll.TYPE.rawValue):
                 self = .scriptAll(try ScriptAll(from: primitive))
-            case UInt(ScriptAny.TYPE.rawValue):
+            case UInt64(ScriptAny.TYPE.rawValue):
                 self = .scriptAny(try ScriptAny(from: primitive))
-            case UInt(ScriptNofK.TYPE.rawValue):
+            case UInt64(ScriptNofK.TYPE.rawValue):
                 self = .scriptNofK(try ScriptNofK(from: primitive))
-            case UInt(BeforeScript.TYPE.rawValue):
+            case UInt64(BeforeScript.TYPE.rawValue):
                 self = .invalidBefore(try BeforeScript(from: primitive))
-            case UInt(AfterScript.TYPE.rawValue):
+            case UInt64(AfterScript.TYPE.rawValue):
                 self = .invalidHereAfter(try AfterScript(from: primitive))
             default:
                 throw CardanoCoreError.decodingError("NativeScript: unknown script type \(type)")

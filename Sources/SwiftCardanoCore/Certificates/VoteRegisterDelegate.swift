@@ -86,10 +86,10 @@ public struct VoteRegisterDelegate: CertificateSerializable {
 
     public func toPrimitive() throws -> Primitive {
         return .list([
-            .uint(UInt(Self.CODE.rawValue)),
+            .uint(UInt64(Self.CODE.rawValue)),
             try stakeCredential.toPrimitive(),
             try drep.toPrimitive(),
-            .int(Int(coin)),
+            .int(Int64(coin)),
         ])
     }
 
@@ -135,7 +135,7 @@ public struct VoteRegisterDelegate: CertificateSerializable {
         dict[.string(CodingKeys.stakeCredential.rawValue)] = .string(
             stakeCredential.credential.payload.toHex)
         dict[.string(CodingKeys.drep.rawValue)] = .string(try drep.id())
-        dict[.string(CodingKeys.coin.rawValue)] = .int(Int(coin))
+        dict[.string(CodingKeys.coin.rawValue)] = .int(Int64(coin))
         return .orderedDict(dict)
     }
 }
