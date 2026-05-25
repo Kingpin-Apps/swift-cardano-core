@@ -50,46 +50,46 @@ public struct BabbageTransactionOutput: Serializable {
         
         
         self.address = try Address(
-            from: primitiveDict[.uint(UInt(CodingKeys.address.rawValue))]!
+            from: primitiveDict[.uint(UInt64(CodingKeys.address.rawValue))]!
         )
         self.amount = try Value(
-            from: primitiveDict[.uint(UInt(CodingKeys.amount.rawValue))]!
+            from: primitiveDict[.uint(UInt64(CodingKeys.amount.rawValue))]!
         )
-        
-        if let datum = primitiveDict[.uint(UInt(CodingKeys.datum.rawValue))] {
+
+        if let datum = primitiveDict[.uint(UInt64(CodingKeys.datum.rawValue))] {
             self.datumOption = try DatumOption(from: datum)
         } else {
             self.datumOption = nil
         }
-        
-        if let scriptRef = primitiveDict[.uint(UInt(CodingKeys.scriptRef.rawValue))] {
+
+        if let scriptRef = primitiveDict[.uint(UInt64(CodingKeys.scriptRef.rawValue))] {
             self.scriptRef = try ScriptRef(from: scriptRef)
         } else {
             self.scriptRef = nil
         }
     }
-    
+
     public func toPrimitive() throws -> Primitive {
         var dict: Dictionary<Primitive, Primitive> = [
-            .int(CodingKeys.address.rawValue): address.toPrimitive(),
-            .int(CodingKeys.amount.rawValue): amount.toPrimitive()
+            .int(Int64(CodingKeys.address.rawValue)): address.toPrimitive(),
+            .int(Int64(CodingKeys.amount.rawValue)): amount.toPrimitive()
         ]
-        
+
         if datumOption != nil {
-            dict[.uint(UInt(CodingKeys.datum.rawValue))] = try datumOption!
+            dict[.uint(UInt64(CodingKeys.datum.rawValue))] = try datumOption!
                 .toPrimitive()
         }
-        
+
         if scriptRef != nil {
-            dict[.uint(UInt(CodingKeys.scriptRef.rawValue))] = try scriptRef!
+            dict[.uint(UInt64(CodingKeys.scriptRef.rawValue))] = try scriptRef!
                 .toPrimitive()
         }
-        
+
         return .dict(dict)
     }
-    
+
     // MARK: - JSONSerializable
-    
+
     public static func fromDict(_ dict: Primitive) throws -> BabbageTransactionOutput {
         guard case let .orderedDict(orderedDict) = dict else {
             throw CardanoCoreError.deserializeError("Invalid BabbageTransactionOutput dict format")
@@ -97,17 +97,17 @@ public struct BabbageTransactionOutput: Serializable {
         guard case let .string(addressStr) = orderedDict[.string("address")] else {
             throw CardanoCoreError.deserializeError("Invalid TransactionOutputPostAlonzo JSON format")
         }
-        
+
         // Handle both int and uint for amount
-        let amountValue: Int
+        let amountValue: Int64
         if case let .int(amountInt) = orderedDict[.string("amount")] {
             amountValue = amountInt
         } else if case let .uint(amountUInt) = orderedDict[.string("amount")] {
-            amountValue = Int(amountUInt)
+            amountValue = Int64(amountUInt)
         } else {
             throw CardanoCoreError.deserializeError("Invalid TransactionOutputPostAlonzo JSON format: invalid amount: \(String(describing: orderedDict[.string("amount")]))")
         }
-        
+
         let address = try Address(from: .string(addressStr))
         let amount = Value(coin: amountValue)
         
@@ -132,7 +132,7 @@ public struct BabbageTransactionOutput: Serializable {
     public func toDict() throws -> Primitive {
         var dict: OrderedDictionary<Primitive, Primitive> = [
             .string("address"): .string(try address.toBech32()),
-            .string("amount"): .uint(UInt(amount.coin))
+            .string("amount"): .uint(UInt64(amount.coin))
         ]
         if let datumOption = datumOption {
             dict[.string("datum")] = try datumOption.toDict()

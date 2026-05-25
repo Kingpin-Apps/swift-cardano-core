@@ -35,18 +35,18 @@ public struct Asset: Serializable, Comparable, AdditiveArithmetic {
         return Asset([:])
     }
     
-    public var data: OrderedDictionary<AssetName, Int> {
+    public var data: OrderedDictionary<AssetName, Int64> {
         get { _data }
         set { 
             _data = newValue
             _data = normalizeData(_data)
         }
     }
-    private var _data: OrderedDictionary<AssetName, Int> = [:]
+    private var _data: OrderedDictionary<AssetName, Int64> = [:]
     
-    public subscript(key: AssetName) -> Int? {
+    public subscript(key: AssetName) -> Int64? {
         get { return _data[key] }
-        set { 
+        set {
             if let value = newValue, value != 0 {
                 _data[key] = value
             } else {
@@ -63,7 +63,7 @@ public struct Asset: Serializable, Comparable, AdditiveArithmetic {
         return data.count
     }
     
-    public init(_ data: OrderedDictionary<AssetName, Int>) {
+    public init(_ data: OrderedDictionary<AssetName, Int64>) {
         self.data = data
     }
     
@@ -95,21 +95,21 @@ public struct Asset: Serializable, Comparable, AdditiveArithmetic {
                     throw CardanoCoreError.deserializeError("Invalid AssetName type: \(key)")
             }
             
-            // Extract coin from first element which can be .int or .uint\
-            let coinValue: Int
+            // Extract coin from first element which can be .int or .uint
+            let coinValue: Int64
             switch value {
                 case .int(let v):
-                    coinValue = v
+                    coinValue = Int64(v)
                 case .uint(let v):
-                    coinValue = Int(v)
+                    coinValue = Int64(v)
                 default:
                     throw CardanoCoreError.deserializeError("Invalid Asset amount type: \(value)")
             }
-            
-            self.data[AssetName(from: assetName)] = Int(coinValue)
+
+            self.data[AssetName(from: assetName)] = coinValue
         }
     }
-    
+
     public func toPrimitive() -> Primitive {
         var result: OrderedDictionary<Primitive, Primitive> = [:]
         for (key, value) in data {
@@ -117,14 +117,14 @@ public struct Asset: Serializable, Comparable, AdditiveArithmetic {
         }
         return .orderedDict(result)
     }
-    
+
     // MARK: - JSONSerializable
-    
+
     public static func fromDict(_ primitive: Primitive) throws -> Asset {
         guard case let .orderedDict(dict) = primitive else {
             throw CardanoCoreError.deserializeError("Invalid Asset type")
         }
-        var assetData: OrderedDictionary<AssetName, Int> = [:]
+        var assetData: OrderedDictionary<AssetName, Int64> = [:]
         for (key, value) in dict {
             let assetName: String
             switch key {
@@ -136,16 +136,16 @@ public struct Asset: Serializable, Comparable, AdditiveArithmetic {
                     throw CardanoCoreError.deserializeError("Invalid AssetName type: \(key)")
             }
             // Extract coin from first element which can be .int or .uint
-            let coinValue: Int
+            let coinValue: Int64
             switch value {
                 case .int(let v):
                     coinValue = v
                 case .uint(let v):
-                    coinValue = Int(v)
+                    coinValue = Int64(v)
                 default:
                     throw CardanoCoreError.deserializeError("Invalid Asset amount type: \(value)")
             }
-            assetData[AssetName(from: assetName)] = Int(coinValue)
+            assetData[AssetName(from: assetName)] = coinValue
         }
         return Asset(assetData)
     }
@@ -158,7 +158,7 @@ public struct Asset: Serializable, Comparable, AdditiveArithmetic {
         return .orderedDict(result)
     }
 
-    private func normalizeData(_ data: OrderedDictionary<AssetName, Int>) -> OrderedDictionary<AssetName, Int> {
+    private func normalizeData(_ data: OrderedDictionary<AssetName, Int64>) -> OrderedDictionary<AssetName, Int64> {
         return data.filter { $0.value != 0 }
     }
     

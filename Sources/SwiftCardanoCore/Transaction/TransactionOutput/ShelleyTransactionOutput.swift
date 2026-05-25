@@ -62,7 +62,7 @@ public struct ShelleyTransactionOutput: Serializable {
                 amount = Value(coin: amountInt)
             case .uint(let amountUInt):
                 // Simple coin-only value
-                amount = Value(coin: Int(amountUInt))
+                amount = Value(coin: Int64(amountUInt))
             case .orderedDict(let amountDict):
                 // Complex Value with multiAsset - deserialize from {coin, multiAsset} format
                 guard case let .int(coinValue) = amountDict[.string("coin")] else {
@@ -110,7 +110,7 @@ public struct ShelleyTransactionOutput: Serializable {
         // to avoid data loss during JSON round-tripping
         if amount.multiAsset.isEmpty {
             // Simple case: just coin
-            dict[.string("amount")] = .uint(UInt(amount.coin))
+            dict[.string("amount")] = .uint(UInt64(amount.coin))
         } else {
             // Complex case: coin + multiAsset - serialize as array [coin, multiAsset]
             var amountDict = OrderedDictionary<Primitive, Primitive>()

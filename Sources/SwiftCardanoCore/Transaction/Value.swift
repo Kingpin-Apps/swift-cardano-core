@@ -3,35 +3,42 @@ import Foundation
 public struct Value: CBORSerializable, Comparable, Sendable {
     
     /// Amount of ADA
-    public var coin: Int
-    
+    public var coin: Int64
+
     /// Multi-assets associated with the UTx
     public var multiAsset: MultiAsset
-    
+
     enum CodingKeys: CodingKey {
         case coin
         case multiAsset
     }
-    
-    public init(coin: Int = 0, multiAsset: MultiAsset = MultiAsset([:])) {
+
+    public init(coin: Int64 = 0, multiAsset: MultiAsset = MultiAsset([:])) {
         self.coin = coin
         self.multiAsset = multiAsset
     }
-    
+
     public init(from list: [Any]) throws {
         guard list.count == 2,
-              let coinValue = list[0] as? Int,
-              let dictValue = list[1] as? [String: [String: Int]] else {
+              let dictValue = list[1] as? [String: [String: Int64]] else {
+            throw CardanoCoreError.invalidArgument("Invalid Value data: \(list)")
+        }
+        let coinValue: Int64
+        if let v = list[0] as? Int64 {
+            coinValue = v
+        } else if let v = list[0] as? Int {
+            coinValue = Int64(v)
+        } else {
             throw CardanoCoreError.invalidArgument("Invalid Value data: \(list)")
         }
         self.coin = coinValue
         self.multiAsset = try MultiAsset(from: dictValue)
     }
-    
+
     public init(from primitive: Primitive) throws {
         switch primitive {
             case .uint(let coinValue):
-                self.coin = Int(coinValue)
+                self.coin = Int64(coinValue)
                 self.multiAsset = MultiAsset([:])
             case .list(let listValue):
                 guard listValue.count == 2 else {
@@ -40,12 +47,12 @@ public struct Value: CBORSerializable, Comparable, Sendable {
 
                 // Extract coin from first element which can be .int or .uint
                 let coinPrimitive = listValue[0]
-                let coinValue: Int
+                let coinValue: Int64
                 switch coinPrimitive {
                     case .int(let v):
-                        coinValue = v
+                        coinValue = Int64(v)
                     case .uint(let v):
-                        coinValue = Int(v)
+                        coinValue = Int64(v)
                     default:
                         throw CardanoCoreError.deserializeError("Invalid Value data: \(primitive)")
                 }
@@ -56,14 +63,14 @@ public struct Value: CBORSerializable, Comparable, Sendable {
                 throw CardanoCoreError.deserializeError("Invalid Value type")
         }
     }
-    
+
     public func toPrimitive() -> Primitive {
         if multiAsset.isEmpty {
-            return .int(Int(coin))
+            return .int(coin)
         }
-        
+
         return .list([
-            .int(Int(coin)),
+            .int(coin),
             multiAsset.toPrimitive()
         ])
     }
@@ -81,7 +88,7 @@ public struct Value: CBORSerializable, Comparable, Sendable {
 
     public static func + (lhs: Value, rhs: Coin) -> Value {
         return Value(
-            coin: lhs.coin + Int(rhs),
+            coin: lhs.coin + Int64(rhs),
             multiAsset: lhs.multiAsset
         )
     }
@@ -100,7 +107,7 @@ public struct Value: CBORSerializable, Comparable, Sendable {
     
     public static func - (lhs: Value, rhs: Coin) -> Value {
         return Value(
-            coin: lhs.coin - Int(rhs),
+            coin: lhs.coin - Int64(rhs),
             multiAsset: lhs.multiAsset
         )
     }
@@ -135,7 +142,7 @@ public struct Value: CBORSerializable, Comparable, Sendable {
     public init(from decoder: Decoder) throws {
         if String(describing: type(of: decoder)).contains("JSONDecoder") {
             let container = try decoder.container(keyedBy: CodingKeys.self)
-            let coin = try container.decode(Int.self, forKey: .coin)
+            let coin = try container.decode(Int64.self, forKey: .coin)
             let multiAsset = try container.decodeIfPresent(MultiAsset.self, forKey: .multiAsset) ?? MultiAsset([:])
             self.init(coin: coin, multiAsset: multiAsset)
         } else {

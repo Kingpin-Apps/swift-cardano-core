@@ -36,12 +36,12 @@ public struct MultiAsset: Serializable, Comparable {
         return normalizedData
     }
     
-    public init(from dict: [String: [String: Int]]) throws {
+    public init(from dict: [String: [String: Int64]]) throws {
         var data: [ScriptHash: Asset] = [:]
-        
+
         for (policyId, asset) in dict {
             let pid = ScriptHash(payload: policyId.hexStringToData)
-            var assetData: OrderedDictionary<AssetName, Int> = [:]
+            var assetData: OrderedDictionary<AssetName, Int64> = [:]
             for (assetName, amount) in asset {
                 let name = AssetName(from: assetName)
                 assetData[name] = amount
@@ -106,9 +106,9 @@ public struct MultiAsset: Serializable, Comparable {
         if String(describing: type(of: encoder)).contains("JSONEncoder") {
             var container = encoder.singleValueContainer()
             
-            let toEncode = data.reduce(into: [String: [String: Int]]()) { result, item in
+            let toEncode = data.reduce(into: [String: [String: Int64]]()) { result, item in
                 let (policyId, asset) = item
-                let assetDict = asset.data.reduce(into: [String: Int]()) { res, assetItem in
+                let assetDict = asset.data.reduce(into: [String: Int64]()) { res, assetItem in
                     let (assetName, amount) = assetItem
                     res[assetName.description] = amount
                 }
@@ -235,7 +235,7 @@ public struct MultiAsset: Serializable, Comparable {
     /// Filter items by criteria.
     /// - Parameter criteria: A function that takes in three input arguments (policy_id, asset_name, amount) and returns a bool. If returned value is True, then the asset will be kept, otherwise discarded.
     /// - Returns: A new filtered MultiAsset object.
-    public func filter(criteria: (ScriptHash, AssetName, Int) -> Bool) throws -> MultiAsset {
+    public func filter(criteria: (ScriptHash, AssetName, Int64) -> Bool) throws -> MultiAsset {
         var newMultiAsset = MultiAsset([:])
             
         for (policyId, asset) in data {
@@ -261,7 +261,7 @@ public struct MultiAsset: Serializable, Comparable {
         return newMultiAsset
     }
 
-    public func count(criteria: (ScriptHash, AssetName, Int) -> Bool) throws -> Int {
+    public func count(criteria: (ScriptHash, AssetName, Int64) -> Bool) throws -> Int {
         var count = 0
         for (policyId, asset) in data {
             for (assetName, amount) in asset.data {

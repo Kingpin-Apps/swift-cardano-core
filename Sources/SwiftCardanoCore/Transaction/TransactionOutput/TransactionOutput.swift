@@ -9,10 +9,10 @@ public struct TransactionOutput: Serializable {
     public var script: ScriptType?
     public var postAlonzo: Bool = false
 
-    public var lovelace: Int {
+    public var lovelace: Int64 {
         return amount.coin
     }
-    
+
     public init(
         address: Address,
         amount: Value,
@@ -28,10 +28,10 @@ public struct TransactionOutput: Serializable {
         self.script = script
         self.postAlonzo = postAlonzo
     }
-    
+
     public init(from
                 address: String,
-                amount: Int,
+                amount: Int64,
                 datumHash: String? = nil,
                 datumOption: DatumOption? = nil,
                 script: ScriptType? = nil,
