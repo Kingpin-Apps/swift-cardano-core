@@ -9,7 +9,7 @@ import Testing
     @Test("Initialize with all Plutus versions")
     func testInitFromDictionary() async throws {
         // Test initialization with all Plutus versions
-        let testData: [Int: OrderedDictionary<String, Int>] = [
+        let testData: [Int: OrderedDictionary<String, Int64>] = [
             0: OrderedDictionary(
                 uniqueKeysWithValues: ["addInteger-cpu-arguments-intercept": 100788]
             ),
@@ -34,7 +34,7 @@ import Testing
     @Test("Initialize with missing Plutus versions")
     func testInitWithMissingVersions() async throws {
         // Test initialization with missing Plutus versions
-        let testData: [Int: OrderedDictionary<String, Int>] = [
+        let testData: [Int: OrderedDictionary<String, Int64>] = [
             0: OrderedDictionary(
                 uniqueKeysWithValues: ["addInteger-cpu-arguments-intercept": 100788]
             )

@@ -15,7 +15,7 @@ struct ValueTests {
     
     @Test("Initialize Value with custom parameters")
     func testCustomInitialization() throws {
-        let coin = 1000000
+        let coin: Int64 = 1000000
         let multiAsset = try MultiAsset(from: .dict([.string("policyId"): .dict([.string("assetName"): .uint(5)])]))
         let value = Value(coin: coin, multiAsset: multiAsset)
         

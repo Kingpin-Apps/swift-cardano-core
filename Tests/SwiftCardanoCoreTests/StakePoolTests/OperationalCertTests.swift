@@ -511,8 +511,8 @@ func makeOperationalCertWithColdKey() throws -> OperationalCertificate {
         // Reconstruct the certificate body that was signed
         let certBody: Primitive = .list([
             .bytes(kesKeyPair.verificationKey.payload),
-            .uint(UInt(0)),   // sequenceNumber was 0
-            .uint(UInt(100))  // kesPeriod
+            .uint(UInt64(0)),   // sequenceNumber was 0
+            .uint(UInt64(100))  // kesPeriod
         ])
         let certBodyBytes = try CBOREncoder().encode(certBody)
 
@@ -543,8 +543,8 @@ func makeOperationalCertWithColdKey() throws -> OperationalCertificate {
         // Reconstruct the certificate body
         let certBody: Primitive = .list([
             .bytes(kesKeyPair.verificationKey.payload),
-            .uint(UInt(0)),
-            .uint(UInt(100))
+            .uint(UInt64(0)),
+            .uint(UInt64(100))
         ])
         let certBodyBytes = try CBOREncoder().encode(certBody)
 

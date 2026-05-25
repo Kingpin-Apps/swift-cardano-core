@@ -26,11 +26,13 @@ struct UTxOTests {
     @Test("Initialize UTxO from primitives")
     func testInitializationFromPrimitives() throws {
         let inputPrimitives = ("732bfd67e66be8e8288349fcaaa2294973ef6271cc189a239bb431275401b8e5", index)
-        let outputPrimitives = ("stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n",
-                                1000000,
-                                DatumOption?.none,
-                                ScriptType?.none,
-                                true)
+        let outputPrimitives: (String, Int, DatumOption?, ScriptType?, Bool?) = (
+            "stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n",
+            1000000,
+            DatumOption?.none,
+            ScriptType?.none,
+            true
+        )
         let utxo = try UTxO(
             from: inputPrimitives,
             outputPrimitives: outputPrimitives
@@ -38,10 +40,10 @@ struct UTxOTests {
         
         let input = try TransactionInput(from: inputPrimitives.0, index: inputPrimitives.1)
         let output = try TransactionOutput(from: outputPrimitives.0,
-                                           amount: outputPrimitives.1,
+                                           amount: Int64(outputPrimitives.1),
                                            datumOption: outputPrimitives.2,
                                            script: outputPrimitives.3,
-                                           postAlonzo: outputPrimitives.4)
+                                           postAlonzo: outputPrimitives.4 ?? true)
         
         #expect(utxo.input == input)
         #expect(utxo.output == output)

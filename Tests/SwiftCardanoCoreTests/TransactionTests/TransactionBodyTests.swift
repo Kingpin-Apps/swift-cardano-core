@@ -134,7 +134,7 @@ struct TransactionBodyTests {
         let input = TransactionInput(transactionId: transactionId, index: 0)
         let output = TransactionOutput(address: address, amount: amount)
         let fee = Coin(100000)
-        let ttl = 1000
+        let ttl: SlotNumber = 1000
         let certificates: [Certificate] = [
             Certificate.stakeRegistration(stakeRegistrationCertificate!),
         ]
@@ -148,7 +148,7 @@ struct TransactionBodyTests {
             epoch: 0
         )
         let auxiliaryDataHash = AuxiliaryDataHash(payload: Data(repeating: 0x01, count: 32))
-        let validityStart = 100
+        let validityStart: SlotNumber = 100
         let mint = try MultiAsset(from: .dict([.string("policyId"): .dict([.string("assetName"): .uint(5)])]))
         let scriptDataHash = ScriptDataHash(payload: Data(repeating: 0x02, count: 32))
         let collateral = [TransactionInput(transactionId: transactionId, index: 1)]

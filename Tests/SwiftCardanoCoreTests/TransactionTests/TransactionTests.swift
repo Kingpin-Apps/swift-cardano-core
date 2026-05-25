@@ -749,7 +749,7 @@ struct TransactionTests {
         let scriptHash = ScriptHash(payload: Data(repeating: 0x01, count: scriptHashSize))
         
         // Create asset with very large amount (equivalent to 1 << 64 in Python)
-        let largeAmount = Int.max
+        let largeAmount = Int64.max
         let asset = Asset([AssetName(from: "abc"): largeAmount])
         
         // Asset creation should be okay for regular asset

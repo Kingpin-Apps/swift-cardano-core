@@ -17,13 +17,13 @@ struct MockCBORSerializable: Serializable {
         guard case let .int(intValue) = primitive else {
             throw CardanoCoreError.deserializeError("Expected int primitive")
         }
-        self.value = intValue
+        self.value = Int(intValue)
     }
-    
+
     func toPrimitive() throws -> Primitive {
-        return .int(value)
+        return .int(Int64(value))
     }
-    
+
     static func fromDict(_ primitive: Primitive) throws -> MockCBORSerializable {
         guard case let .orderedDict(dict) = primitive else {
             throw CardanoCoreError.deserializeError("Expected orderedDict primitive")
@@ -31,12 +31,12 @@ struct MockCBORSerializable: Serializable {
         guard case let .int(intValue)? = dict[.string("value")] else {
             throw CardanoCoreError.deserializeError("Expected 'value' key with int primitive")
         }
-        return MockCBORSerializable(intValue)
+        return MockCBORSerializable(Int(intValue))
     }
-    
+
     func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
-        dict[.string("value")] = .int(value)
+        dict[.string("value")] = .int(Int64(value))
         return .orderedDict(dict)
     }
 

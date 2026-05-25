@@ -8,8 +8,8 @@ struct StakeAddressInfoTests {
     // Sample data for testing
     let sampleAddress = "stake1u9ylzsgxaa6xctf4juup682ar3juj85n8tx3hthnljg47zctvm3rc"
     let sampleGovActionDeposits = ["c832f194684d672316212e01efc6d28177e8965b7cd6956981fe37cc6715963e#0": UInt64(1000)]
-    let sampleStakeRegistrationDeposit = 2_000_000
-    let sampleRewardBalance = 5_000_000
+    let sampleStakeRegistrationDeposit: Int64 = 2_000_000
+    let sampleRewardBalance: Int64 = 5_000_000
     let sampleStakeDelegation = "pool1m5947rydk4n0ywe6ctlav0ztt632lcwjef7fsy93sflz7ctcx6z"
     let sampleDelegateRepresentative = "drep1kqhhkv66a0egfw7uyz7u8dv7fcvr4ck0c3ad9k9urx3yzhefup0"
     

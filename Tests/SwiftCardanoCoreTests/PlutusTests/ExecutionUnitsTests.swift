@@ -51,9 +51,9 @@ struct ExecutionUnitsTests {
     @Test("Edge cases handle large and negative numbers")
     func testEdgeCases() {
         // Test with large numbers
-        let largeUnits = ExecutionUnits(mem: Int.max - 1, steps: Int.max - 1)
-        #expect(largeUnits.mem == Int.max - 1)
-        #expect(largeUnits.steps == Int.max - 1)
+        let largeUnits = ExecutionUnits(mem: Int64.max - 1, steps: Int64.max - 1)
+        #expect(largeUnits.mem == Int64.max - 1)
+        #expect(largeUnits.steps == Int64.max - 1)
         
         // Test with negative numbers (while this might not be a valid use case,
         // it's good to test how the struct handles it)

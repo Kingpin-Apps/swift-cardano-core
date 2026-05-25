@@ -5,7 +5,7 @@ import PotentCBOR
 
 @Suite struct PoolRetirementTests {
     let poolKeyHash = try! stakePoolVerificationKey!.poolKeyHash()
-    let epoch = 540
+    let epoch: EpochNumber = 540
     
     @Test func testInitialization() async throws {
         let poolRetirement = PoolRetirement(

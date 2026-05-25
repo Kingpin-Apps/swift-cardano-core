@@ -5,7 +5,7 @@ import PotentCBOR
 
 @Suite struct AfterScriptTests {
     
-    let slot = 1000
+    let slot: SlotNumber = 1000
 
     @Test("Test AfterScript Initialization")
     func testInitialization() async throws {
