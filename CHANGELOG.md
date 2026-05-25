@@ -1,3 +1,24 @@
+## 0.3.22 (2026-05-25)
+
+### Fix
+
+- explicitly type max-mint constant Int64 to compile on armv7k watchOS
+- remove Swift 6.1+ trailing comma in PoolParams init
+
+### Refactor
+
+- cascade cleanup wave 4 — GREEN BUILD (43 remaining files)
+- cascade cleanup wave 3 — NativeScripts, Governance, Metadata, Plutus, Block, Interval
+- cascade cleanup wave 2 — TransactionBody, Witness, Plutus, StakePool, ShelleyGenesis, Extensions
+- cascade cleanup wave 1 — ParameterChangeAction, Byron blocks, Genesis configs
+- Phase F revisions — Fraction Int64, Byron timestamp Int64, BIP32 UInt32
+- substitute SlotNumber/EpochNumber/BlockNumber for slot+epoch fields (Phase D)
+- complete Phase C — ProtocolParameters CBOR paths Int64
+- widen ProtocolParameters money/cost fields to Int64 (Phase C partial)
+- widen Plutus exec/cost values to Int64 (Phase B)
+- widen UTxO/asset money fields to Int64 (Phase A)
+- widen Primitive.int/uint to Int64/UInt64
+
 ## 0.3.21 (2026-05-14)
 
 ### Fix
