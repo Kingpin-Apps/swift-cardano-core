@@ -3,20 +3,20 @@ import PotentCBOR
 
 
 public struct Fraction: CBORSerializable, Sendable {
-    public let numerator: Int
-    public let denominator: Int
-    
+    public let numerator: Int64
+    public let denominator: Int64
+
     public static let tag = 30
-    
+
     public var quotient: Double {
         return Double(numerator) / Double(denominator)
     }
-    public init(numerator: Int, denominator: Int) {
+    public init(numerator: Int64, denominator: Int64) {
         precondition(denominator != 0, "Denominator must not be zero")
         self.numerator = numerator
         self.denominator = denominator
     }
-    
+
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
 
@@ -35,8 +35,8 @@ public struct Fraction: CBORSerializable, Sendable {
                         "UnitInterval must contain exactly 2 elements")
                 }
                 self.init(
-                    numerator: arrayData[0].integerValue()!,
-                    denominator: arrayData[1].integerValue()!
+                    numerator: Int64(arrayData[0].integerValue()!),
+                    denominator: Int64(arrayData[1].integerValue()!)
                 )
             default:
                 throw CardanoCoreError.valueError("UnitInterval must be an array")
@@ -59,7 +59,7 @@ public struct Fraction: CBORSerializable, Sendable {
 
         try container.encode(cborData)
     }
-    
+
     public init(from primitive: Primitive) throws {
         guard case let .cborTag(tagged) = primitive else {
             throw CardanoCoreError.valueError("Invalid CBORTag type")
@@ -75,10 +75,10 @@ public struct Fraction: CBORSerializable, Sendable {
             throw CardanoCoreError.valueError(
                 "UnitInterval must contain exactly 2 elements")
         }
-            
+
         self.init(
-            numerator: arrayData[0].intValue!,
-            denominator: arrayData[1].intValue!
+            numerator: arrayData[0].int64Value!,
+            denominator: arrayData[1].int64Value!
         )
     }
 
@@ -86,8 +86,8 @@ public struct Fraction: CBORSerializable, Sendable {
         let cborTag = CBORTag(
             tag: UInt64(UnitInterval.tag),
             value: .list([
-                .uint(UInt(numerator)),
-                .uint(UInt(denominator))
+                .uint(UInt64(numerator)),
+                .uint(UInt64(denominator))
             ])
         )
         return .cborTag(cborTag)

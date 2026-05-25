@@ -10,8 +10,8 @@ public struct ByronGenesis: JSONLoadable {
     public let ftsSeed: String?
     /// Protocol constants
     public let protocolConsts: ProtocolConsts
-    /// Genesis start time
-    public let startTime: Int
+    /// Genesis start time (POSIX timestamp; Int64 to avoid Y2038 overflow on 32-bit platforms)
+    public let startTime: Int64
     /// Boot stakeholders
     public let bootStakeholders: [String: Int]
     /// Heavy delegation certificates
@@ -26,7 +26,7 @@ public struct ByronGenesis: JSONLoadable {
         blockVersionData: BlockVersionData,
         ftsSeed: String?,
         protocolConsts: ProtocolConsts,
-        startTime: Int,
+        startTime: Int64,
         bootStakeholders: [String: Int],
         heavyDelegation: [String: HeavyDelegation],
         nonAvvmBalances: [String: String],

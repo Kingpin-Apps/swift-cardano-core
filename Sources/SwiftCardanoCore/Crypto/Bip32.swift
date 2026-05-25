@@ -281,12 +281,12 @@ public class HDWallet {
         return derivedWallet
     }
 
-    public func derive(index: Int, isPrivate: Bool = true, hardened: Bool = false) throws -> HDWallet {
+    public func derive(index: UInt32, isPrivate: Bool = true, hardened: Bool = false) throws -> HDWallet {
         guard !self.rootXPrivateKey.isEmpty && !self.rootPublicKey.isEmpty else {
             throw CardanoCoreError.invalidDataError("Missing root keys. Can't do derivation.")
         }
 
-        let index = hardened ? index + (1 << 31) : index
+        let index = hardened ? index | 0x8000_0000 : index
 
         if isPrivate {
             let privateNode = (
@@ -340,16 +340,15 @@ public class HDWallet {
      Returns:
          HDWallet with child node derived.
      */
-    public func derivePrivateChildKeyByIndex(privateNode: (Data, Data, Data, Data, String), index: Int) throws -> HDWallet {
+    public func derivePrivateChildKeyByIndex(privateNode: (Data, Data, Data, Data, String), index: UInt32) throws -> HDWallet {
         let (kLP, kRP, AP, cP, path) = privateNode
-        assert(0 <= index && index < (1 << 32))
 
-        let iBytes = Data(withUnsafeBytes(of: UInt32(index).littleEndian, Array.init))
+        let iBytes = Data(withUnsafeBytes(of: index.littleEndian, Array.init))
 
         // compute Z, c
         let Z: Data
         let c: Data
-        if index < (1 << 31) {
+        if index < 0x8000_0000 {
             // regular child
             Z = Data(try! HMAC(key: cP.byteArray, variant: .sha2(.sha512)).authenticate((Data([0x02]) + AP + iBytes).byteArray))
             c = Data(try! HMAC(key: cP.byteArray, variant: .sha2(.sha512)).authenticate((Data([0x03]) + AP + iBytes).byteArray).suffix(32))
@@ -397,11 +396,11 @@ public class HDWallet {
         )
     }
 
-    public func derivePublicChildKeyByIndex(publicNode: (Data, Data, String), index: Int) throws -> HDWallet {
+    public func derivePublicChildKeyByIndex(publicNode: (Data, Data, String), index: UInt32) throws -> HDWallet {
         let (AP, cP, path) = publicNode
-        let iBytes = Data(withUnsafeBytes(of: UInt32(index).littleEndian, Array.init))
+        let iBytes = Data(withUnsafeBytes(of: index.littleEndian, Array.init))
 
-        guard index < (1 << 31) else {
+        guard index < 0x8000_0000 else {
             throw CardanoCoreError.invalidDataError("Cannot derive hardened index with public key")
         }
 
