@@ -370,7 +370,7 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
     // The CBOR encode/decode path above uses keyed containers for reliable round-tripping.
 
     /// Conway CDDL key assignments for protocol_param_update / current_pparams.
-    enum CBORKey: Int {
+    enum CBORKey: Int64 {
         case minFeeA = 0, minFeeB = 1, maxBlockBodySize = 2, maxTxSize = 3, maxBlockHeaderSize = 4
         case keyDeposit = 5, poolDeposit = 6, maximumEpoch = 7, nOpt = 8, poolPledgeInfluence = 9
         case expansionRate = 10, treasuryGrowthRate = 11
@@ -404,11 +404,11 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
             throw CardanoCoreError.deserializeError("ProtocolParameters CBOR must be a map")
         }
 
-        var map = [Int: Primitive]()
+        var map = [Int64: Primitive]()
         for (k, v) in pairs {
             switch k {
-            case .int(let n):  map[Int(n)] = v
-            case .uint(let n): map[Int(n)] = v
+            case .int(let n):  map[n] = v
+            case .uint(let n): map[Int64(n)] = v
             default:
                 throw CardanoCoreError.deserializeError("ProtocolParameters CBOR key must be integer")
             }
@@ -468,11 +468,11 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
 
         let txU = try ExUnits(from: require(.maxTxExUnits))
         let maxTxExecutionUnits = ProtocolParametersExecutionUnits(
-            memory: Int(txU.mem), steps: Int64(txU.steps)
+            memory: Int64(txU.mem), steps: Int64(txU.steps)
         )
         let blkU = try ExUnits(from: require(.maxBlockExUnits))
         let maxBlockExecutionUnits = ProtocolParametersExecutionUnits(
-            memory: Int(blkU.mem), steps: Int64(blkU.steps)
+            memory: Int64(blkU.mem), steps: Int64(blkU.steps)
         )
 
         let maxValueSize         = try intVal(.maxValueSize)
@@ -512,9 +512,9 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
         let dRepDeposit            = try intVal(.drepDeposit)
         let dRepActivity           = try intVal(.drepInactivityPeriod)
 
-        let minFeeRefScriptCostPerByte: Int?
+        let minFeeRefScriptCostPerByte: Int64?
         if let p = map[CBORKey.minFeeRefScriptCoinsPerByte.rawValue] {
-            minFeeRefScriptCostPerByte = Int((try NonNegativeInterval(from: p)).lowerBound)
+            minFeeRefScriptCostPerByte = Int64((try NonNegativeInterval(from: p)).lowerBound)
         } else {
             minFeeRefScriptCostPerByte = nil
         }
@@ -609,10 +609,10 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
         }
 
         dict[.int(CBORKey.maxTxExUnits.rawValue)] = try ExUnits(
-            mem: UInt(maxTxExecutionUnits.memory), steps: UInt(maxTxExecutionUnits.steps)
+            mem: UInt64(maxTxExecutionUnits.memory), steps: UInt64(maxTxExecutionUnits.steps)
         ).toPrimitive()
         dict[.int(CBORKey.maxBlockExUnits.rawValue)] = try ExUnits(
-            mem: UInt(maxBlockExecutionUnits.memory), steps: UInt(maxBlockExecutionUnits.steps)
+            mem: UInt64(maxBlockExecutionUnits.memory), steps: UInt64(maxBlockExecutionUnits.steps)
         ).toPrimitive()
 
         dict[.int(CBORKey.maxValueSize.rawValue)]         = .int(maxValueSize)
@@ -658,9 +658,9 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
     /// Decode from the 31-element positional CBOR array emitted by the n2c protocol.
     /// Conway CDDL positional order matches CBORKey assignments, with gaps at 12, 13, 15.
     private init(fromN2CArray elements: [Primitive]) throws {
-        func uint(_ idx: Int) throws -> Int {
+        func uint(_ idx: Int) throws -> Int64 {
             switch elements[idx] {
-            case .uint(let v): return Int(v)
+            case .uint(let v): return Int64(v)
             case .int(let v):  return v
             default: throw CardanoCoreError.deserializeError(
                 "Expected integer at n2c pparams position \(idx)")
@@ -705,7 +705,7 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
             throw CardanoCoreError.deserializeError("Invalid maxTxExUnits at n2c position 17")
         }
         let maxTxExecutionUnits = ProtocolParametersExecutionUnits(
-            memory: Int(try ProtocolParameters.uintFromPrimitive(txExArr[0])),
+            memory: Int64(try ProtocolParameters.uintFromPrimitive(txExArr[0])),
             steps:  Int64(try ProtocolParameters.uintFromPrimitive(txExArr[1]))
         )
 
@@ -713,7 +713,7 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
             throw CardanoCoreError.deserializeError("Invalid maxBlockExUnits at n2c position 18")
         }
         let maxBlockExecutionUnits = ProtocolParametersExecutionUnits(
-            memory: Int(try ProtocolParameters.uintFromPrimitive(blkExArr[0])),
+            memory: Int64(try ProtocolParameters.uintFromPrimitive(blkExArr[0])),
             steps:  Int64(try ProtocolParameters.uintFromPrimitive(blkExArr[1]))
         )
 
@@ -754,7 +754,7 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
         let govActionDeposit       = try uint(27)
         let dRepDeposit            = try uint(28)
         let dRepActivity           = try uint(29)
-        let minFeeRefScriptCostPerByte = Int(try ProtocolParameters.rationalToDouble(elements[30]))
+        let minFeeRefScriptCostPerByte = Int64(try ProtocolParameters.rationalToDouble(elements[30]))
 
         self.init(
             collateralPercentage: collateralPercentage,
@@ -818,11 +818,11 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
         default:
             throw CardanoCoreError.deserializeError("Cost models must be a CBOR map")
         }
-        var raw = [Int: [Int]]()
+        var raw = [Int: [Int64]]()
         for (k, v) in pairs {
             let key: Int
             switch k {
-            case .int(let n):  key = n
+            case .int(let n):  key = Int(n)
             case .uint(let n): key = Int(n)
             default: continue
             }
@@ -832,7 +832,7 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
             PlutusV1: raw[0] ?? [], PlutusV2: raw[1] ?? [], PlutusV3: raw[2] ?? [])
     }
 
-    private static func costModelInts(_ primitive: Primitive) throws -> [Int] {
+    private static func costModelInts(_ primitive: Primitive) throws -> [Int64] {
         let items: [Primitive]
         switch primitive {
         case .list(let arr):
@@ -846,10 +846,10 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
         default:
             throw CardanoCoreError.deserializeError("Invalid cost model value: \(primitive)")
         }
-        return try items.map { p throws -> Int in
+        return try items.map { p throws -> Int64 in
             switch p {
             case .int(let v):  return v
-            case .uint(let v): return Int(v)
+            case .uint(let v): return Int64(v)
             default: throw CardanoCoreError.deserializeError("Non-integer in cost model: \(p)")
             }
         }
@@ -884,10 +884,10 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
         return num / den
     }
 
-    private static func uintFromPrimitive(_ p: Primitive) throws -> UInt {
+    private static func uintFromPrimitive(_ p: Primitive) throws -> UInt64 {
         switch p {
         case .uint(let v): return v
-        case .int(let v) where v >= 0: return UInt(v)
+        case .int(let v) where v >= 0: return UInt64(v)
         default: throw CardanoCoreError.deserializeError("Expected unsigned integer, got \(p)")
         }
     }
@@ -896,7 +896,7 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
         switch primitive {
         case .string(let s):   return s
         case .int(let i):      return i
-        case .uint(let u):     return Int(u)
+        case .uint(let u):     return Int64(u)
         case .float(let f):    return f
         case .bool(let b):     return b
         case .null:            return NSNull()
@@ -921,7 +921,8 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
     private static func jsonAnyToPrimitive(_ value: Any) throws -> Primitive {
         switch value {
         case let s as String:  return .string(s)
-        case let i as Int:     return .int(i)
+        case let i as Int:     return .int(Int64(i))
+        case let i as Int64:   return .int(i)
         case let f as Double:  return .float(f)
         case let b as Bool:    return .bool(b)
         case let arr as [Any]: return .list(try arr.map { try jsonAnyToPrimitive($0) })
@@ -941,17 +942,17 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
 // MARK: - Supporting types
 
 public struct ProtocolParametersCostModels: Codable, Equatable, Hashable, Sendable {
-    public let PlutusV1: [Int]
-    public let PlutusV2: [Int]
-    public let PlutusV3: [Int]
+    public let PlutusV1: [Int64]
+    public let PlutusV2: [Int64]
+    public let PlutusV3: [Int64]
 
-    public init(PlutusV1: [Int], PlutusV2: [Int], PlutusV3: [Int]) {
+    public init(PlutusV1: [Int64], PlutusV2: [Int64], PlutusV3: [Int64]) {
         self.PlutusV1 = PlutusV1
         self.PlutusV2 = PlutusV2
         self.PlutusV3 = PlutusV3
     }
 
-    public func getVersion(_ version: Int) -> [Int]? {
+    public func getVersion(_ version: Int) -> [Int64]? {
         switch version {
             case 1: return PlutusV1
             case 2: return PlutusV2
