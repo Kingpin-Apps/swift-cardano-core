@@ -31,7 +31,7 @@ public struct InfoAction: GovernanceAction {
     
     public func toPrimitive() throws -> Primitive {
         return .list([
-            .int(Self.code.rawValue)
+            .int(Int64(Self.code.rawValue))
         ])
     }
 }

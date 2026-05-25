@@ -67,8 +67,8 @@ extension JSONSerializable {
             func anyToPrimitive(_ value: Any) throws -> Primitive {
                 switch value {
                 case let str as String: return .string(str)
-                case let i as Int: return .int(i)
-                case let u as UInt: return .uint(u)
+                case let i as Int: return .int(Int64(i))
+                case let u as UInt: return .uint(UInt64(u))
                 case let b as Bool: return .bool(b)
                 case let f as Double: return .float(f)
                 case let f as Float: return .float(Double(f))

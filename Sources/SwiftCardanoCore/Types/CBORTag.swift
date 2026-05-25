@@ -77,7 +77,7 @@ extension CBORTaggable {
     
     public func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
-        dict[.string("tag")] = .uint(UInt(tag))
+        dict[.string("tag")] = .uint(UInt64(tag))
         // The value is already a Primitive - just use it directly
         // It should already have string keys if it was created via toDict()
         dict[.string("value")] = value

@@ -79,9 +79,9 @@ public struct UnregisterDRep: CertificateSerializable {
 
     public func toPrimitive() throws -> Primitive {
         return .list([
-            .uint(UInt(Self.CODE.rawValue)),
+            .uint(UInt64(Self.CODE.rawValue)),
             try drepCredential.toPrimitive(),
-            .int(Int(coin)),
+            .int(Int64(coin)),
         ])
     }
 
@@ -114,7 +114,7 @@ public struct UnregisterDRep: CertificateSerializable {
     public func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
         dict[.string(CodingKeys.drepCredential.rawValue)] = .string(try drepCredential.id())
-        dict[.string(CodingKeys.coin.rawValue)] = .int(Int(coin))
+        dict[.string(CodingKeys.coin.rawValue)] = .int(Int64(coin))
         return .orderedDict(dict)
     }
 }

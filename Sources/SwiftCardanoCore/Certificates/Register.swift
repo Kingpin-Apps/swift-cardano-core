@@ -81,9 +81,9 @@ public struct Register: CertificateSerializable {
 
     public func toPrimitive() throws -> Primitive {
         return .list([
-            .uint(UInt(Self.CODE.rawValue)),
+            .uint(UInt64(Self.CODE.rawValue)),
             try stakeCredential.toPrimitive(),
-            .int(Int(coin))
+            .int(Int64(coin))
         ])
     }
     
@@ -113,7 +113,7 @@ public struct Register: CertificateSerializable {
     public func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
         dict[.string(CodingKeys.stakeCredential.rawValue)] = .string(stakeCredential.credential.payload.toHex)
-        dict[.string(CodingKeys.coin.rawValue)] = .int(Int(coin))
+        dict[.string(CodingKeys.coin.rawValue)] = .int(Int64(coin))
         return .orderedDict(dict)
     }
 

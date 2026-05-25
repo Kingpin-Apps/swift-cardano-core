@@ -37,7 +37,7 @@ public struct HardForkInitiationAction: GovernanceAction {
         }
         let code: Int
         switch elements[0] {
-        case .int(let v): code = v
+        case .int(let v): code = Int(v)
         case .uint(let v): code = Int(v)
         default: throw CardanoCoreError.deserializeError("Invalid HardForkInitiationAction primitive")
         }
@@ -56,7 +56,7 @@ public struct HardForkInitiationAction: GovernanceAction {
     
     public func toPrimitive() throws -> Primitive {
         return .list([
-            .int(Self.code.rawValue),
+            .int(Int64(Self.code.rawValue)),
             try id?.toPrimitive() ?? .null,
             try protocolVersion.toPrimitive()
         ])

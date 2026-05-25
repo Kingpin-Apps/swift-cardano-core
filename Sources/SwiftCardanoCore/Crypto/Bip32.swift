@@ -264,13 +264,13 @@ public class HDWallet {
             }
             
             if index.last == "'" {
-                guard let idx = Int(index.dropLast()) else {
+                guard let idx = UInt32(index.dropLast()) else {
                     throw BIP32Error.invalidPath("Invalid hardened index: \(index)")
                 }
                 derivedWallet = try derivedWallet.derive(
                     index: idx, isPrivate: isPrivate, hardened: true)
             } else {
-                guard let idx = Int(index) else {
+                guard let idx = UInt32(index) else {
                     throw BIP32Error.invalidPath("Invalid index: \(index)")
                 }
                 derivedWallet = try derivedWallet.derive(

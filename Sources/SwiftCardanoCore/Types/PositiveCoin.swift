@@ -20,7 +20,7 @@ public struct PositiveCoin: Serializable {
     }
 
     public func toPrimitive() throws -> Primitive {
-        return .int(Int(value))
+        return .int(Int64(value))
     }
     
     // MARK: - JSONSerializable
@@ -36,7 +36,7 @@ public struct PositiveCoin: Serializable {
     
     public func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
-        dict[.string("value")] = .int(Int(value))
+        dict[.string("value")] = .int(Int64(value))
         return .orderedDict(dict)
     }
 

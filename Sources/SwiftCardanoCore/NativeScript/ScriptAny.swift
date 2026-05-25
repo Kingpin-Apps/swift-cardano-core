@@ -33,7 +33,7 @@ public struct ScriptAny: NativeScriptable {
 
     public func toPrimitive() throws -> Primitive {
         let scriptPrimitives = try scripts.map { try $0.toPrimitive() }
-        return .list([.uint(UInt(Self.TYPE.rawValue)), .list(scriptPrimitives)])
+        return .list([.uint(UInt64(Self.TYPE.rawValue)), .list(scriptPrimitives)])
     }
     
     // MARK: - JSONSerializable

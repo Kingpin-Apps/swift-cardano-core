@@ -99,14 +99,14 @@ public enum BigInteger: Serializable, CustomStringConvertible, Sendable {
     public func toPrimitive() throws -> Primitive {
         switch self {
             case .int(let v):
-                return .int(Int(v))
+                return .int(v)
             case .bigUInt(let bigUInt):
                 return .bigUInt(bigUInt)
             case .bigNInt(let bigNInt):
                 return .bigInt(bigNInt)
         }
     }
-    
+
     // MARK: - JSONSerializable
     
     public static func fromDict(_ data: Primitive) throws -> BigInteger {
@@ -129,7 +129,7 @@ public enum BigInteger: Serializable, CustomStringConvertible, Sendable {
     public func toDict() throws -> Primitive {
         switch self {
             case .int(let value):
-                return .orderedDict([.string("int"): .int(Int(value))])
+                return .orderedDict([.string("int"): .int(value)])
             case .bigUInt(let value):
                 return .orderedDict([.string("int"): .bigUInt(value)])
             case .bigNInt(let value):

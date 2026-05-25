@@ -37,7 +37,7 @@ public struct Update: Serializable {
     public func toPrimitive() throws -> Primitive {
         return .list([
             try proposedprotocolParamUpdates.toPrimitive(),
-            .int(Int(epoch)),
+            .int(Int64(epoch)),
         ])
     }
 
@@ -75,7 +75,7 @@ public struct Update: Serializable {
         dict[.string(CodingKeys.proposedprotocolParamUpdates.rawValue)] =
             try proposedprotocolParamUpdates
             .toPrimitive()
-        dict[.string(CodingKeys.epoch.rawValue)] = .int(Int(epoch))
+        dict[.string(CodingKeys.epoch.rawValue)] = .int(Int64(epoch))
         return .orderedDict(dict)
     }
 

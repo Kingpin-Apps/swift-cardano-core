@@ -91,7 +91,7 @@ public struct GenesisKeyDelegation: CertificateSerializable {
 
     public func toPrimitive() throws -> Primitive {
         return .list([
-            .int(Int(Self.CODE.rawValue)),
+            .int(Int64(Self.CODE.rawValue)),
             .bytes(genesisHash.payload),
             .bytes(genesisDelegateHash.payload),
             .bytes(vrfKeyHash.payload)

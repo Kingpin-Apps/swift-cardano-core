@@ -216,7 +216,7 @@ public struct GovActionID: Serializable, Sendable {
     public func toPrimitive() throws -> Primitive {
         return .list([
             .string(transactionID.payload.toHex),
-            .uint(UInt(govActionIndex))
+            .uint(UInt64(govActionIndex))
         ])
     }
     

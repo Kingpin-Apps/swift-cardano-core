@@ -78,7 +78,7 @@ public struct ResignCommitteeCold: CertificateSerializable {
     
     public func toPrimitive() throws -> Primitive {
         return .list([
-            .uint(UInt(Self.CODE.rawValue)),
+            .uint(UInt64(Self.CODE.rawValue)),
             try committeeColdCredential.toPrimitive(),
             try anchor?.toPrimitive() ?? .null
         ])

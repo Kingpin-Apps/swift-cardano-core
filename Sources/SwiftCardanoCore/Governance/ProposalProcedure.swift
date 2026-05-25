@@ -83,7 +83,7 @@ public struct ProposalProcedure: TextEnvelopable, CBORSerializable, Sendable {
     
     public func toPrimitive() throws -> Primitive {
         return .list([
-            .uint(UInt(deposit)),
+            .uint(deposit),
             .bytes(rewardAccount),
             try govAction.toPrimitive(),
             try anchor.toPrimitive()

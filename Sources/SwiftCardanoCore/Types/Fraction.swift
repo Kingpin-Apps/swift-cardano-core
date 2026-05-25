@@ -34,9 +34,11 @@ public struct Fraction: CBORSerializable, Sendable {
                     throw CardanoCoreError.valueError(
                         "UnitInterval must contain exactly 2 elements")
                 }
+                let num: Int64 = arrayData[0].integerValue()!
+                let den: Int64 = arrayData[1].integerValue()!
                 self.init(
-                    numerator: Int64(arrayData[0].integerValue()!),
-                    denominator: Int64(arrayData[1].integerValue()!)
+                    numerator: num,
+                    denominator: den
                 )
             default:
                 throw CardanoCoreError.valueError("UnitInterval must be an array")

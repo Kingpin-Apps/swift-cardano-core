@@ -51,8 +51,8 @@ public struct ProtocolVersion: CBORSerializable, Sendable {
 
     public func toPrimitive() throws -> Primitive {
         return .list([
-            .int(major ?? 0),
-            .int(minor ?? 0)
+            .int(Int64(major ?? 0)),
+            .int(Int64(minor ?? 0))
         ])
     }
 

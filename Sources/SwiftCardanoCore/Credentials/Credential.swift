@@ -98,7 +98,7 @@ extension Credential {
     
     public func toPrimitive() throws -> Primitive {
         return .list([
-            .uint(UInt(code)),
+            .uint(UInt64(code)),
             try self.credential.toPrimitive()
         ])
     }

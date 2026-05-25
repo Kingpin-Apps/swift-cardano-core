@@ -95,10 +95,10 @@ public struct StakeRegisterDelegate: CertificateSerializable {
 
     public func toPrimitive() throws -> Primitive {
         return .list([
-            .uint(UInt(Self.CODE.rawValue)),
+            .uint(UInt64(Self.CODE.rawValue)),
             try stakeCredential.toPrimitive(),
             poolKeyHash.toPrimitive(),
-            .int(Int(coin))
+            .int(Int64(coin))
         ])
     }
     
@@ -143,7 +143,7 @@ public struct StakeRegisterDelegate: CertificateSerializable {
         dict[.string(CodingKeys.stakeCredential.rawValue)] =
             .string(stakeCredential.credential.payload.toHex)
         dict[.string(CodingKeys.poolKeyHash.rawValue)] = .string(try poolOperator.id())
-        dict[.string(CodingKeys.coin.rawValue)] = .int(Int(coin))
+        dict[.string(CodingKeys.coin.rawValue)] = .int(Int64(coin))
         
         return .orderedDict(dict)
     }

@@ -492,7 +492,7 @@ extension EraBlock: Serializable {
             innerBytes = try b.toCBORData()
         }
         return .list([
-            .uint(UInt(eraId)),
+            .uint(UInt64(eraId)),
             .cborTag(CBORTag(tag: 24, value: .bytes(innerBytes))),
         ])
     }
@@ -531,7 +531,7 @@ extension EraBlock: Serializable {
 
     public func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
-        dict[.string("era")] = .uint(UInt(eraId))
+        dict[.string("era")] = .uint(UInt64(eraId))
         let blockP: Primitive
         switch self {
         case .byron(let b): blockP = try b.toDict()

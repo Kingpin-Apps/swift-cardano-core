@@ -55,7 +55,7 @@ public struct MultiHostName: Serializable, Sendable {
     
     public func toPrimitive() throws -> Primitive {
         var elements: [Primitive] = []
-        elements.append(.uint(UInt(Self.code)))
+        elements.append(.uint(UInt64(Self.code)))
         
         if let dnsName = self.dnsName {
             elements.append(.string(dnsName))
@@ -98,7 +98,7 @@ public struct MultiHostName: Serializable, Sendable {
 
     public func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
-        dict[.string("type")] = .uint(UInt(Self.code))
+        dict[.string("type")] = .uint(UInt64(Self.code))
         if let dnsName = self.dnsName {
             dict[.string("dnsName")] = .string(dnsName)
         } else {

@@ -90,7 +90,7 @@ public struct PoolRegistration: CertificateSerializable {
 
     public func toPrimitive() throws -> Primitive {
         var elements: [Primitive] = []
-        elements.append(.uint(UInt(Self.CODE.rawValue)))
+        elements.append(.uint(UInt64(Self.CODE.rawValue)))
         
         let poolParamList = try poolParams.toPrimitive()
         if case let .list(poolParamsElements) = poolParamList {

@@ -25,7 +25,7 @@ public struct ScriptPubkey: NativeScriptable, Sendable {
 
     public func toPrimitive() throws -> Primitive {
         return .list([
-            .uint(UInt(Self.TYPE.rawValue)),
+            .uint(UInt64(Self.TYPE.rawValue)),
             keyHash.toPrimitive()
         ])
     }

@@ -48,7 +48,7 @@ public struct TransactionInput: Serializable {
     public func toPrimitive() throws -> Primitive {
         return .list([
             .bytes(transactionId.payload),
-            .uint(UInt(index))
+            .uint(UInt64(index))
         ])
     }
     
@@ -86,7 +86,7 @@ public struct TransactionInput: Serializable {
     public func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
         dict[.string("transactionId")] = .string(transactionId.payload.toHex)
-        dict[.string("index")] = .uint(UInt(index))
+        dict[.string("index")] = .uint(UInt64(index))
         return .orderedDict(dict)
     }
 

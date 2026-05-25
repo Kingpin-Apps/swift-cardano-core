@@ -102,7 +102,7 @@ public struct RawPlutusData: PlutusDataProtocol {
                 result[entry.key.toAnyValue()] = entry.value.toAnyValue()
             })
         } else if case let .int(intValue) = primitive {
-            self.data = .int(intValue)
+            self.data = .int(Int(intValue))
         } else if case let .uint(uintValue) = primitive {
             self.data = .int(Int(uintValue))
         } else if case let .bytes(data) = primitive {
@@ -248,7 +248,7 @@ public struct RawPlutusData: PlutusDataProtocol {
                         return CBORTag(
                             tag: 102,
                             value: .list([
-                                .int(constructor),
+                                .int(Int64(constructor)),
                                 .list(try convertedFields.map { try Primitive.fromAny($0) }),
                             ])
                         )

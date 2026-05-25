@@ -49,7 +49,7 @@ public struct Withdrawals: Serializable {
     public func toPrimitive() throws -> Primitive {
         var result: OrderedDictionary<Primitive, Primitive> = [:]
         for (key, value) in _data {
-            result[.bytes(key)] = .uint(UInt(value))
+            result[.bytes(key)] = .uint(UInt64(value))
         }
         return .orderedDict(result)
     }
@@ -75,7 +75,7 @@ public struct Withdrawals: Serializable {
     public func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
         for (key, value) in _data {
-            dict[.string(key.toHexString())] = .int(Int(value))
+            dict[.string(key.toHexString())] = .int(Int64(value))
         }
         return .orderedDict(dict)
     }

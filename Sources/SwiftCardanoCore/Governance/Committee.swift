@@ -28,7 +28,7 @@ public struct CommitteeMember: CBORSerializable, CustomStringConvertible, Custom
     public func toPrimitive() throws -> Primitive {
         return .orderedDict(
             OrderedDictionary<Primitive, Primitive>(uniqueKeysWithValues: [
-                try self.coldCredential.toPrimitive(): .int(Int(self.epoch))
+                try self.coldCredential.toPrimitive(): .int(Int64(self.epoch))
             ])
         )
     }

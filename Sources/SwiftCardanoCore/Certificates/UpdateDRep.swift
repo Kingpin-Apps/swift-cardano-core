@@ -79,7 +79,7 @@ public struct UpdateDRep: CertificateSerializable {
 
     public func toPrimitive() throws -> Primitive {
         return .list([
-            .uint(UInt(Self.CODE.rawValue)),
+            .uint(UInt64(Self.CODE.rawValue)),
             try drepCredential.toPrimitive(),
             try anchor?.toPrimitive() ?? .null,
         ])

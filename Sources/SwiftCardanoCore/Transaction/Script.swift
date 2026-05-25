@@ -178,7 +178,7 @@ public struct ScriptRef: CBORTaggable, Serializable {
     
     public func toDict() throws -> Primitive {
         var dict: OrderedDictionary<Primitive, Primitive> = [:]
-        dict[Primitive.string("tag")] = Primitive.int(Int(tag))
+        dict[Primitive.string("tag")] = Primitive.int(Int64(tag))
         
         // Encode value as base64 string
         let valueBytes: Data
