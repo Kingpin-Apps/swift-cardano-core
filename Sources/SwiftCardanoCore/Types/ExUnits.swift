@@ -1,8 +1,6 @@
 import Foundation
 import OrderedCollections
-import PotentASN1
-import PotentCBOR
-import PotentCodables
+import CBORCodable
 
 // MARK: - ExUnitPrices
 public struct ExUnitPrices: CBORSerializable, Sendable {

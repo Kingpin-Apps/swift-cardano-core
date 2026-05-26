@@ -1,5 +1,5 @@
 import Foundation
-import PotentCBOR
+import CBORCodable
 
 
 public struct ProposalProcedure: TextEnvelopable, CBORSerializable, Sendable {

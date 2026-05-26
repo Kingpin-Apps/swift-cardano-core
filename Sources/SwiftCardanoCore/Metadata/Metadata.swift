@@ -1,7 +1,6 @@
 import Foundation
 import OrderedCollections
-import PotentCBOR
-import PotentCodables
+import CBORCodable
 import SwiftNcal
 
 public typealias TransactionMetadatumLabel = UInt64

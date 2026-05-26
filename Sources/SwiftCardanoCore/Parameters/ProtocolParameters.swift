@@ -1,6 +1,6 @@
 import Foundation
 import OrderedCollections
-import PotentCBOR
+import CBORCodable
 
 public let ALONZO_COINS_PER_UTXO_WORD = 34482
 

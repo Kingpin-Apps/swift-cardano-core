@@ -1,7 +1,6 @@
 import Foundation
 import OrderedCollections
-@preconcurrency import PotentCBOR
-@preconcurrency import PotentCodables
+import CBORCodable
 
 public enum DatumType: Serializable {
     case datumHash(DatumHash)
@@ -281,7 +280,7 @@ public enum RawDatum: PlutusDataProtocol {
             if case CBOR.tagged(let tag, let data) = cbor {
                 self = .cborTag(
                     CBORTag(
-                        tag: UInt64(tag.rawValue),
+                        tag: UInt64(tag),
                         value: try data.toPrimitive()
                     )
                 )

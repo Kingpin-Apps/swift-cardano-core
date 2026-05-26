@@ -1,5 +1,5 @@
 import Foundation
-import PotentCBOR
+import CBORCodable
 import OrderedCollections
 
 
@@ -39,7 +39,7 @@ public struct StakeVoteDelegate: CertificateSerializable {
         self._payload =  try! CBORSerialization.data(from:
                 .array(
                     [
-                        CBOR(integerLiteral: Self.CODE.rawValue),
+                        CBOR(Self.CODE.rawValue),
                         try! CBOREncoder().encode(stakeCredential).toCBOR,
                         try! CBOREncoder().encode(poolKeyHash).toCBOR,
                         try! CBOREncoder().encode(drep).toCBOR

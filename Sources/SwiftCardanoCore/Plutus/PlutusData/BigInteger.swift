@@ -1,5 +1,5 @@
 @preconcurrency import BigInt
-import PotentCBOR
+import CBORCodable
 import OrderedCollections
 
 /// Representation of a big integer according to the CDDL's `big_int` description:

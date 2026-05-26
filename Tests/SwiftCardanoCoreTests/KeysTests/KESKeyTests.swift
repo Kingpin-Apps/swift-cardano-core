@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 import SwiftKES
-import PotentCBOR
+import CBORCodable
 @testable import SwiftCardanoCore
 
 // MARK: - Test Suite

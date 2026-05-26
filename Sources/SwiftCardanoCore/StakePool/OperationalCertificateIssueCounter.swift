@@ -1,5 +1,5 @@
 import Foundation
-import PotentCBOR
+import CBORCodable
 import OrderedCollections
 
 /// Manages the issue counter for Cardano Stake Pool Operational Certificates.

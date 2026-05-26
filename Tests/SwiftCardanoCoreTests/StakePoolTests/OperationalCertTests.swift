@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-import PotentCBOR
+import CBORCodable
 import SwiftNcal
 import SwiftKES
 @testable import SwiftCardanoCore

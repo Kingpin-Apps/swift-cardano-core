@@ -1,5 +1,4 @@
 import Foundation
-import PotentCodables
 
 
 // MARK: - ByteString
@@ -92,13 +91,3 @@ public struct BoundedBytes: CBORSerializable, CustomStringConvertible, Sendable 
     }
 }
 
-// MARK: - RawBytesTransformer
-public struct RawBytesTransformer: ValueEncodingTransformer {
-    public typealias Source = Data
-    public typealias Target = Data
-    
-    public func encode(_ value: Data) throws -> Data {
-        return value
-    }
-
-}

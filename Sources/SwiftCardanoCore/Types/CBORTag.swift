@@ -1,5 +1,5 @@
 import Foundation
-import PotentCBOR
+import CBORCodable
 import OrderedCollections
 
 public protocol CBORTaggable: Serializable, Sendable {
@@ -13,7 +13,7 @@ extension CBORTaggable {
     public func taggedCBOR() -> CBOR {
         let cborData = try! CBOREncoder().encode(value).toCBOR
         return .tagged(
-            CBOR.Tag(rawValue: tag),
+            UInt64(tag),
             cborData
         )
     }
@@ -23,7 +23,7 @@ extension CBORTaggable {
             throw CardanoCoreError.valueError("CBOR value is not tagged")
         }
         return try Self(
-            tag: tag.rawValue,
+            tag: tag,
             value: try value.toPrimitive()
         )
     }
@@ -33,7 +33,7 @@ extension CBORTaggable {
         let cborData = try container.decode(CBOR.self)
 
         if case let .tagged(tag, cborData) = cborData {
-            let tag = tag.rawValue
+            let tag = tag
 //            let value = try AnyValue.wrapped(cborData.unwrapped)
             try self.init(tag: tag, value: cborData.toPrimitive())
         } else {

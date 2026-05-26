@@ -1,5 +1,5 @@
 import Foundation
-import PotentCBOR
+import CBORCodable
 import OrderedCollections
 
 public struct GenesisKeyDelegation: CertificateSerializable {
@@ -37,7 +37,7 @@ public struct GenesisKeyDelegation: CertificateSerializable {
         self._payload =  try! CBORSerialization.data(from:
                 .array(
                     [
-                        CBOR(integerLiteral: Self.CODE.rawValue),
+                        CBOR(Self.CODE.rawValue),
                         try! CBOREncoder().encode(genesisHash).toCBOR,
                         try! CBOREncoder().encode(genesisDelegateHash).toCBOR,
                         try! CBOREncoder().encode(vrfKeyHash).toCBOR

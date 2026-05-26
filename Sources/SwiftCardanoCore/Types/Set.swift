@@ -1,6 +1,5 @@
 import Foundation
-import PotentCBOR
-import PotentCodables
+import CBORCodable
 
 
 // Generic wrapper for CBOR-tagged sets (tag 258)
@@ -36,9 +35,9 @@ extension SetTaggable {
         let cborData = try container.decode(CBOR.self)
 
         if case let .tagged(tag, value) = cborData {
-            guard tag.rawValue == Self.TAG else {
+            guard tag == Self.TAG else {
                 throw CardanoCoreError.valueError(
-                    "Invalid CBOR tag: expected \(Self.TAG ) but found \(tag.rawValue)")
+                    "Invalid CBOR tag: expected \(Self.TAG ) but found \(tag)")
             }
 
             guard case let .array(arrayData) = value else {
@@ -55,7 +54,7 @@ extension SetTaggable {
             }
             let elements = Set(decodedElements)
             try self.init(
-                tag: tag.rawValue,
+                tag: tag,
                 value: .list(
                     elements.map {
                         try Primitive.fromAny($0)
@@ -65,7 +64,7 @@ extension SetTaggable {
             self.elements = elements
         } else if case let .array(arrayData) = cborData {
             let decodedElements = try arrayData.map {
-                try CBOR.Decoder.default.decode(Element.self, from: $0.unwrapped as! Data)
+                try CBORDecoder().decode(Element.self, from: $0.unwrapped as! Data)
             }
             let elements = Set(decodedElements)
             try self.init(
@@ -83,7 +82,7 @@ extension SetTaggable {
     
     public func toCBOR() throws -> CBOR {
         return .tagged(
-            CBOR.Tag(rawValue: Self.TAG),
+            UInt64(Self.TAG),
             try .array(elements.map { try $0.toPrimitive().toCBOR() })
         )
     }
@@ -315,9 +314,9 @@ public struct NonEmptyOrderedSet<T: CBORSerializable & Hashable & Sendable>: Set
         let cborData = try container.decode(CBOR.self)
 
         if case let .tagged(tag, value) = cborData {
-            guard tag.rawValue == Self.TAG else {
+            guard tag == Self.TAG else {
                 throw CardanoCoreError.valueError(
-                    "Invalid CBOR tag: expected \(Self.TAG) but found \(tag.rawValue)")
+                    "Invalid CBOR tag: expected \(Self.TAG) but found \(tag)")
             }
 
             guard case let .array(arrayData) = value, !arrayData.isEmpty else {

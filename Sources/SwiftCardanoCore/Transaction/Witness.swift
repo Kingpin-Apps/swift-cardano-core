@@ -1,5 +1,5 @@
 import Foundation
-import PotentCBOR
+import CBORCodable
 import OrderedCollections
 
 public struct VerificationKeyWitness: Serializable, TextEnvelopable {

@@ -1,8 +1,7 @@
 import Foundation
 import Testing
 import OrderedCollections
-import PotentCBOR
-import PotentCodables
+import CBORCodable
 @testable import SwiftCardanoCore
 
 @Suite("Datum Tests")

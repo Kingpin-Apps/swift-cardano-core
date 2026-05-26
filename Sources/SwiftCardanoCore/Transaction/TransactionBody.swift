@@ -1,6 +1,6 @@
 import Foundation
 import OrderedCollections
-import PotentCBOR
+import CBORCodable
 import SwiftNcal
 
 public struct TransactionBody: Serializable, TextEnvelopable, Equatable {

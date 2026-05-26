@@ -1,5 +1,5 @@
 import Foundation
-import PotentCBOR
+import CBORCodable
 
 public struct CommitteeColdSigningKey: SigningKeyProtocol {
     public var _payload: Data

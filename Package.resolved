@@ -1,5 +1,5 @@
 {
-  "originHash" : "dc2297d1f21a3e9d1cab0f3e7147c009f1afceb09997d23fa8fe0eb042744992",
+  "originHash" : "d9c1645d23e562d5028c20321be6ded5c8637f26ec156425b95df96d3cce1e75",
   "pins" : [
     {
       "identity" : "base32",
@@ -29,33 +29,6 @@
       }
     },
     {
-      "identity" : "float16",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/SusanDoggie/Float16.git",
-      "state" : {
-        "revision" : "936ae66adccf1c91bcaeeb9c0cddde78a13695c3",
-        "version" : "1.1.1"
-      }
-    },
-    {
-      "identity" : "potentcodables",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/KINGH242/PotentCodables.git",
-      "state" : {
-        "revision" : "1b3880253008d76dc16e48d6140a81d061214324",
-        "version" : "3.6.0"
-      }
-    },
-    {
-      "identity" : "regex",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/sharplet/Regex.git",
-      "state" : {
-        "revision" : "76c2b73d4281d77fc3118391877efd1bf972f515",
-        "version" : "2.1.1"
-      }
-    },
-    {
       "identity" : "swift-asn1",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-asn1.git",
@@ -74,12 +47,21 @@
       }
     },
     {
+      "identity" : "swift-cbor-codable",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/Kingpin-Apps/swift-cbor-codable.git",
+      "state" : {
+        "revision" : "82025e789e64527d6e5927232afa52391d6b7995",
+        "version" : "0.3.0"
+      }
+    },
+    {
       "identity" : "swift-collections",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-collections.git",
       "state" : {
-        "revision" : "8c0c0a8b49e080e54e5e328cc552821ff07cd341",
-        "version" : "1.2.1"
+        "revision" : "fea17c02d767f46b23070fdfdacc28a03a39232a",
+        "version" : "1.5.1"
       }
     },
     {
@@ -105,8 +87,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kingpin-Apps/swift-kes.git",
       "state" : {
-        "revision" : "248c28ab0fabf011b162a60d5f9b298bd4ee3ad2",
-        "version" : "0.1.2"
+        "revision" : "38e282d16e4c1145a885d8c25c0d43115194766f",
+        "version" : "0.2.0"
       }
     },
     {
@@ -132,17 +114,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kingpin-Apps/swift-ncal.git",
       "state" : {
-        "revision" : "20612ca55a3977c8e77cd1bee1e0d363df133e3b",
-        "version" : "0.2.3"
-      }
-    },
-    {
-      "identity" : "swift-numerics",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/apple/swift-numerics",
-      "state" : {
-        "revision" : "e0ec0f5f3af6f3e4d5e7a19d2af26b481acb6ba8",
-        "version" : "1.0.3"
+        "revision" : "d7ea3dcd60911affa52e52a7a69b7b86f01db3ed",
+        "version" : "0.3.0"
       }
     },
     {

@@ -1,6 +1,6 @@
 import Foundation
 import OrderedCollections
-import PotentCBOR
+import CBORCodable
 
 /// Operational certificate as defined in the Conway CDDL:
 /// ```

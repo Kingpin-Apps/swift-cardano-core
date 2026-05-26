@@ -1,6 +1,5 @@
 import Foundation
-import PotentCBOR
-import PotentCodables
+import CBORCodable
 import OrderedCollections
 
 public struct MultiAsset: Serializable, Comparable {

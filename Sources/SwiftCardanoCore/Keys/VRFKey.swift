@@ -1,6 +1,6 @@
 import Foundation
 import SwiftNcal
-import PotentCBOR
+import CBORCodable
 
 public struct VRFSigningKey: SigningKeyProtocol {
     public var _payload: Data

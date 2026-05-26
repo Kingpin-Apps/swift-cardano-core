@@ -1,5 +1,5 @@
 import Foundation
-import PotentCBOR
+import CBORCodable
 
 // MARK: - PlutusScript
 public protocol PlutusScriptable: Serializable {

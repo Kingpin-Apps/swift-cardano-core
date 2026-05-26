@@ -1,6 +1,6 @@
 import Foundation
 import SwiftNcal
-import PotentCBOR
+import CBORCodable
 #if canImport(CryptoKit)
 import CryptoKit
 #elseif canImport(Crypto)

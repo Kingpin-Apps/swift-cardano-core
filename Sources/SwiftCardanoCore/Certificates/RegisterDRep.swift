@@ -1,5 +1,5 @@
 import Foundation
-import PotentCBOR
+import CBORCodable
 import OrderedCollections
 
 /// DRep registration certificate
@@ -47,7 +47,7 @@ public struct RegisterDRep: CertificateSerializable {
         self._payload =  try! CBORSerialization.data(from:
                 .array(
                     [
-                        CBOR(integerLiteral: Self.CODE.rawValue),
+                        CBOR(Self.CODE.rawValue),
                         try! CBOREncoder().encode(drepCredential).toCBOR,
                         try! CBOREncoder().encode(coin).toCBOR,
                         try! CBOREncoder().encode(anchor).toCBOR

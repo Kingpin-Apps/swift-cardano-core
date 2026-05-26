@@ -1,6 +1,6 @@
 import Foundation
 import OrderedCollections
-import PotentCBOR
+import CBORCodable
 
 public enum MoveInstantaneousRewardSource: Int, Codable, Sendable {
     case reserves = 0
@@ -225,7 +225,7 @@ public struct MoveInstantaneousRewards: CertificateSerializable {
             from:
                 .array(
                     [
-                        CBOR(integerLiteral: Self.CODE.rawValue),
+                        CBOR(Self.CODE.rawValue),
                         try! CBOREncoder().encode(moveInstantaneousRewards).toCBOR,
                     ]
                 )

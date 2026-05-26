@@ -1,6 +1,5 @@
 import Foundation
-import PotentCBOR
-@preconcurrency import PotentCodables
+import CBORCodable
 import SwiftNcal
 
 /// Protocol for types that can be parameterized with generic type arguments
@@ -87,7 +86,7 @@ public func getConstructorIDAndFields(value: CBOR) throws -> (Int, [AnyValue]) {
             "Value does not match the data schema of AlonzoMetadata.")
     }
 
-    if tag.rawValue == 102 {
+    if tag == 102 {
         guard innerValue.arrayValue?.count == 2 else {
             throw
                 CardanoCoreError
@@ -103,10 +102,10 @@ public func getConstructorIDAndFields(value: CBOR) throws -> (Int, [AnyValue]) {
         )
     } else {
         var constr: Int
-        if 121 <= tag.rawValue && tag.rawValue < 128 {
-            constr = Int(tag.rawValue - 121)
-        } else if 1280 <= tag.rawValue && tag.rawValue < 1536 {
-            constr = Int(tag.rawValue - 1280 + 7)
+        if 121 <= tag && tag < 128 {
+            constr = Int(tag - 121)
+        } else if 1280 <= tag && tag < 1536 {
+            constr = Int(tag - 1280 + 7)
         } else {
             throw
                 CardanoCoreError

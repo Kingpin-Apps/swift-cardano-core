@@ -1,5 +1,5 @@
 import Testing
-import PotentCBOR
+import CBORCodable
 @testable import SwiftCardanoCore
 
 

@@ -1,7 +1,6 @@
 import Foundation
 import OrderedCollections
-import PotentCBOR
-@preconcurrency import PotentCodables
+import CBORCodable
 import Testing
 
 @testable import SwiftCardanoCore

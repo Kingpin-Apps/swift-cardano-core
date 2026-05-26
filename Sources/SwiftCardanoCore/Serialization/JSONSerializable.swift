@@ -1,6 +1,5 @@
 import Foundation
 import OrderedCollections
-import PotentCodables
 
 public protocol JSONDescribable: Codable, CustomStringConvertible, CustomDebugStringConvertible {
     func toJSON() throws -> String?

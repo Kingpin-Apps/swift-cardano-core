@@ -1,5 +1,5 @@
 import Foundation
-import PotentCBOR
+import CBORCodable
 
 public let VERIFICATION_KEY_HASH_SIZE = 28,
 SCRIPT_HASH_SIZE = 28,

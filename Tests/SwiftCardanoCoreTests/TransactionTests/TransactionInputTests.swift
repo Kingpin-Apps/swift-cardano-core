@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-import PotentCBOR
+import CBORCodable
 @testable import SwiftCardanoCore
 
 @Suite("TransactionInput Tests")

@@ -1,5 +1,5 @@
 import Foundation
-import PotentCBOR
+import CBORCodable
 
 public struct IndefiniteList<T: Sendable>: CBORSerializable, Sendable where T: Hashable {
     private var items: [T]
@@ -25,7 +25,7 @@ public struct IndefiniteList<T: Sendable>: CBORSerializable, Sendable where T: H
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         
-        let indefiniteArray: CBOR = .indefiniteArray(items.map { CBOR.fromAny($0) })
+        let indefiniteArray: CBOR = .indefiniteArray(items.map { CBOR.fromAnyCardano($0) })
 
         try container.encode(indefiniteArray)
     }

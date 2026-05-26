@@ -1,5 +1,5 @@
 import Foundation
-@preconcurrency import PotentCBOR
+import CBORCodable
 import CryptoSwift
 import OrderedCollections
 import SwiftBase58
@@ -337,7 +337,8 @@ public struct ByronAddress: CBORSerializable, CustomStringConvertible, Equatable
         // Per CIP-0019 and the Cardano on-chain format, the payload is wrapped in
         // CBOR tag 24 ("encoded CBOR data item") before being placed in the array.
         let outerCBOR = CBOR.array([
-            .tagged(.encodedCBORDataItem, .byteString(payloadBytes)),
+            // Tag 24 = "encoded CBOR data item" (RFC 8949).
+            .tagged(24, .byteString(payloadBytes)),
             .unsignedInt(UInt64(crc32))
         ])
         let rawBytes = try CBOREncoder().encode(outerCBOR)

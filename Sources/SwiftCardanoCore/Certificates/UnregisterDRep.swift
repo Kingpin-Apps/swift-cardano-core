@@ -1,6 +1,6 @@
 import Foundation
 import OrderedCollections
-import PotentCBOR
+import CBORCodable
 
 public struct UnregisterDRep: CertificateSerializable {
     public var _payload: Data
@@ -34,7 +34,7 @@ public struct UnregisterDRep: CertificateSerializable {
             from:
                 .array(
                     [
-                        CBOR(integerLiteral: Self.CODE.rawValue),
+                        CBOR(Self.CODE.rawValue),
                         try! CBOREncoder().encode(drepCredential).toCBOR,
                         try! CBOREncoder().encode(coin).toCBOR,
                     ]

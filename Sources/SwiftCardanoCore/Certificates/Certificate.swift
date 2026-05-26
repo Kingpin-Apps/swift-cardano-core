@@ -1,5 +1,5 @@
 import Foundation
-import PotentCBOR
+import CBORCodable
 
 enum CertificateType: String, Codable {
     case shelley = "CertificateShelley"

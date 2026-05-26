@@ -1,7 +1,6 @@
 import Foundation
 import OrderedCollections
-import PotentCBOR
-import PotentCodables
+import CBORCodable
 
 /// Redeemer tag, which indicates the type of redeemer.
 public enum RedeemerTag: Int, Serializable {

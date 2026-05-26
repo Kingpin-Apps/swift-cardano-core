@@ -1,33 +1,22 @@
 import Foundation
 import FractionNumber
 import OrderedCollections
-import PotentCBOR
-import PotentJSON
-@preconcurrency import PotentCodables
+import CBORCodable
 import BigInt
 
 // MARK: - CBOR Extensions
-extension CBOR: @retroactive Codable {
-    public init(from decoder: Swift.Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        let cborData = try container.decode(Data.self)
-        let cbor = try CBORSerialization.cbor(from: cborData)
-        self = cbor
-    }
-    
-    public func encode(to encoder: Swift.Encoder) throws {
-        let cbor = try CBORSerialization.data(from: self)
-        try cbor.encode(to: encoder)
-    }
-}
+// (CBOR conforms to Codable in its home module; we used to override the
+// conformance here to encode CBOR as raw Data, but that override was
+// shadowed by the home-module conformance anyway. The original behavior
+// is preserved by CBORCodable's own Codable implementation.)
 
 extension CBOR {
-    public static func fromAny(_ value: Any) -> CBOR {
+    public static func fromAnyCardano(_ value: Any) -> CBOR {
         if let anyValue = value as? AnyValue {
             let unwrapped = anyValue.unwrapped!
-            return CBOR.fromAny(unwrapped)
+            return CBOR.fromAnyCardano(unwrapped)
         } else if let stringValue = value as? String {
-            return .utf8String(stringValue)
+            return .textString(stringValue)
         } else if let boolValue = value as? Bool {
             return .boolean(boolValue)
         }
@@ -58,15 +47,13 @@ extension CBOR {
             return .double(doubleValue)
         }
         // Handle collections
-        else if let arrayValue = value as? Array {
-            return .array(arrayValue.map { CBOR.fromAny($0) })
-        } else if let arrayValue = value as? [Any] {
-            return .array(arrayValue.map { CBOR.fromAny($0) })
+        else if let arrayValue = value as? [Any] {
+            return .array(arrayValue.map { CBOR.fromAnyCardano($0) })
         } else if let indefiniteListValue = value as? IndefiniteList<AnyValue> {
-            return .indefiniteArray(indefiniteListValue.map { CBOR.fromAny($0) })
+            return .indefiniteArray(indefiniteListValue.map { CBOR.fromAnyCardano($0) })
         }
         // Handle tagged values
-        else if let taggedValue = value as? (Tag, CBOR) {
+        else if let taggedValue = value as? (UInt64, CBOR) {
             return .tagged(taggedValue.0, taggedValue.1)
         } else if let taggedValue = value as? CBORTag {
             return taggedValue.taggedCBOR()
@@ -81,7 +68,7 @@ extension CBOR {
         } else if let codable = value as? any Codable {
             return .byteString(try! CBOREncoder().encode(codable))
         } else if let hashable = value as? AnyHashable {
-            return CBOR.fromAny(hashable.base)
+            return CBOR.fromAnyCardano(hashable.base)
         } else {
             return .null
         }
@@ -93,7 +80,7 @@ extension CBOR {
                 return .null
             case .boolean(let bool):
                 return .bool(bool)
-            case .utf8String(let string):
+            case .textString(let string):
                 return .string(string)
             case .byteString(let data):
                 return .bytes(data)
@@ -110,7 +97,7 @@ extension CBOR {
                 return .orderedDict(resultDict)
             case .tagged(let tag, let value):
                 let cborTag = CBORTag(
-                    tag: tag.rawValue,
+                    tag: tag,
                     value: try value.toPrimitive()
                 )
                 return .cborTag(cborTag)
@@ -124,10 +111,12 @@ extension CBOR {
                 return .uint(UInt64(value))
             case .negativeInt(let value):
                 return .int(-Int64(value) - 1) // CBOR negative integers are encoded as -1 - n
-            case .indefiniteByteString(let data):
-                return .bytes(data)
-            case .indefiniteUtf8String(let string):
-                return .string(string)
+            case .indefiniteByteString(let chunks):
+                var out = Data()
+                for c in chunks { out.append(c) }
+                return .bytes(out)
+            case .indefiniteTextString(let chunks):
+                return .string(chunks.joined())
             case .indefiniteArray(let array):
                 let primitiveArray = try array.map { try $0.toPrimitive() }
                 return .indefiniteList(IndefiniteList(primitiveArray))
@@ -220,7 +209,7 @@ extension Data {
 extension Dictionary where Key == AnyHashable, Value == Any {
     public var mapKeysToCbor: OrderedDictionary<CBOR, CBOR> {
         return self.reduce(into: [:]) { result, element in
-            result[CBOR.fromAny(element.key)] = CBOR.fromAny(element.value)
+            result[CBOR.fromAnyCardano(element.key)] = CBOR.fromAnyCardano(element.value)
         }
     }
 }
@@ -228,7 +217,7 @@ extension Dictionary where Key == AnyHashable, Value == Any {
 extension OrderedDictionary where Key == AnyHashable, Value == AnyHashable {
     public var mapKeysToCbor: OrderedDictionary<CBOR, CBOR> {
         return self.reduce(into: [:]) { result, element in
-            result[CBOR.fromAny(element.key.base)] = CBOR.fromAny(element.value.base)
+            result[CBOR.fromAnyCardano(element.key.base)] = CBOR.fromAnyCardano(element.value.base)
         }
     }
 }
@@ -372,7 +361,7 @@ extension AnyValue: CBORSerializable {
                         self = .nil
                     case .boolean(let bool):
                         self = .bool(bool)
-                    case .utf8String(let string):
+                    case .textString(let string):
                         self = .string(string)
                     case .byteString(let data):
                         self = .data(data)
@@ -401,11 +390,11 @@ extension AnyValue: CBORSerializable {
                         self = .double(doubleValue)
                     default:
                         // For other CBOR types, attempt to get their raw value
-                        if let intValue: Int64 = cbor.integerValue() {
+                        if let intValue = cbor.int64Value {
                             self = .integer(BigInt(intValue))
-                        } else if let stringValue = cbor.utf8StringValue {
+                        } else if let stringValue = cbor.textStringValue {
                             self = .string(stringValue)
-                        } else if let dataValue = cbor.bytesStringValue {
+                        } else if let dataValue = cbor.byteStringValue {
                             self = .data(dataValue)
                         } else {
                             throw CardanoCoreError.deserializeError("Unsupported CBOR type for AnyValue conversion")
@@ -503,19 +492,6 @@ extension AnyValue: CBORSerializable {
     }
 }
 
-
-// MARK: - SingleValueEncodingContainer Extension
-
-public extension SingleValueEncodingContainer {
-    
-    mutating func encode<Transformer: ValueEncodingTransformer>(
-        _ value: Transformer.Target,
-        using transformer: Transformer
-    ) throws where Transformer.Source: Encodable {
-        try encode(transformer.encode(value))
-    }
-    
-}
 
 extension Array where Element: Hashable & Sendable {
     public static func == (lhs: Array<Element>, rhs: IndefiniteList<Element>) -> Bool {

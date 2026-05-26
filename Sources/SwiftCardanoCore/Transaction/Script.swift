@@ -1,7 +1,6 @@
 import Foundation
 import CryptoSwift
-import PotentCBOR
-import PotentCodables
+import CBORCodable
 import OrderedCollections
 
 public struct Script: Codable, Equatable, Hashable, Sendable {

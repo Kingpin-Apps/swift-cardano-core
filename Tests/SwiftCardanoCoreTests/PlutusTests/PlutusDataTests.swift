@@ -2,9 +2,7 @@ import BigInt
 import Foundation
 import FractionNumber
 import OrderedCollections
-import PotentASN1
-import PotentCBOR
-@preconcurrency import PotentCodables
+import CBORCodable
 import SwiftNcal
 import Testing
 

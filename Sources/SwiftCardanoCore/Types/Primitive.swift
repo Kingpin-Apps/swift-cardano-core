@@ -1,9 +1,7 @@
 @preconcurrency import BigInt
 import Foundation
 import OrderedCollections
-@preconcurrency import PotentCBOR
-import PotentCodables
-import PotentJSON
+import CBORCodable
 
 public indirect enum Primitive: CBORSerializable, Sendable {
     case bytes(Data)
@@ -41,7 +39,10 @@ public indirect enum Primitive: CBORSerializable, Sendable {
         if String(describing: type(of: decoder)).contains("JSONDecoder") {
             let container = try decoder.singleValueContainer()
             let jsonString = try container.decode(String.self)
-            let json = try JSONSerialization.json(from: jsonString, options: [.allowFragments])
+            guard let data = jsonString.data(using: .utf8) else {
+                throw CardanoCoreError.valueError("Invalid JSON string")
+            }
+            let json = try JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed])
             self = try Primitive.from(json: json)
         } else {
             let container = try decoder.singleValueContainer()
@@ -54,7 +55,8 @@ public indirect enum Primitive: CBORSerializable, Sendable {
         if String(describing: type(of: encoder)).contains("JSONEncoder") {
             var container = encoder.singleValueContainer()
             let json = try self.toJSON()
-            let jsonString = try JSONSerialization.string(from: json)
+            let data = try JSONSerialization.data(withJSONObject: json, options: [.fragmentsAllowed])
+            let jsonString = String(data: data, encoding: .utf8) ?? ""
             try container.encode(jsonString)
         } else {
             var container = encoder.singleValueContainer()
@@ -62,41 +64,54 @@ public indirect enum Primitive: CBORSerializable, Sendable {
         }
     }
 
-    public static func from(json: JSON) throws -> Primitive {
-        switch json {
-        case .null:
+    /// Reconstruct a Primitive from a Foundation JSON value (the output
+    /// of `JSONSerialization.jsonObject(with:)`).
+    public static func from(json: Any) throws -> Primitive {
+        if json is NSNull {
             return .null
-        case .bool(let b):
-            return .bool(b)
-        case .number(let n):
-            if let i = n.integerValue { return .int(Int64(i)) }
-            if let d = n.doubleValue { return .float(d) }
-            throw CardanoCoreError.valueError("Cannot convert JSON number to Primitive: \(n)")
-        case .string(let s):
+        }
+        // Order matters — NSNumber bridges from Bool, so check Bool first
+        // via CFGetTypeID. Easier: check the raw objCType byte.
+        if let n = json as? NSNumber {
+            if CFGetTypeID(n) == CFBooleanGetTypeID() {
+                return .bool(n.boolValue)
+            }
+            // Int vs Double — peek at the Core Foundation number type.
+            if CFNumberIsFloatType(n) {
+                return .float(n.doubleValue)
+            }
+            return .int(n.int64Value)
+        }
+        if let s = json as? String {
             return .string(s)
-        case .array(let arr):
+        }
+        if let arr = json as? [Any] {
             return .list(try arr.map { try from(json: $0) })
-        case .object(let dict):
-            // Reconstruct cborTag: Primitive.toJSON() encodes .cborTag as {"tag": N, "value": ...}
+        }
+        if let dict = json as? [String: Any] {
+            // Reconstruct cborTag: Primitive.toJSON() encodes .cborTag as
+            // {"tag": N, "value": ...}.
             if dict.count == 2,
-                let tagJ = dict["tag"], let valueJ = dict["value"],
-                case .number(let tagNum) = tagJ,
-                let tagRaw = tagNum.integerValue.map(UInt64.init)
+               let tagNum = dict["tag"] as? NSNumber,
+               !CFNumberIsFloatType(tagNum),
+               let valueAny = dict["value"]
             {
-                let valuePrimitive = try from(json: valueJ)
+                let tagRaw = UInt64(tagNum.int64Value)
+                let valuePrimitive = try from(json: valueAny)
                 return .cborTag(CBORTag(tag: tagRaw, value: valuePrimitive))
             }
             var result: OrderedDictionary<Primitive, Primitive> = [:]
             for (k, v) in dict { result[.string(k)] = try from(json: v) }
             return .orderedDict(result)
         }
+        throw CardanoCoreError.valueError("Cannot convert JSON value to Primitive: \(json)")
     }
 
     public static func from(cbor: CBOR) throws -> Primitive {
         switch cbor {
         case .byteString(let data):
             return .bytes(data)
-        case .utf8String(let string):
+        case .textString(let string):
             return .string(string)
         case .unsignedInt(let value):
             return .uint(value)
@@ -142,7 +157,7 @@ public indirect enum Primitive: CBORSerializable, Sendable {
         case .simple(let simple):
             return .cborSimpleValue(.simple(simple))
         case .tagged(let tag, let value):
-            if tag.rawValue == UInt64(UnitInterval.tag) {
+            if tag == UInt64(UnitInterval.tag) {
                 // Handle both Int and UInt64 types for fraction components
                 let numerator: Int
                 let denominator: Int
@@ -176,14 +191,14 @@ public indirect enum Primitive: CBORSerializable, Sendable {
                     denominator: UInt64(denominator)
                 )
                 return .unitInterval(unitInterval)
-            } else if tag == CBOR.Tag.iso8601DateTime {
+            } else if tag == UInt64.iso8601DateTime {
                 guard let date = value.unwrapped else {
                     throw CardanoCoreError.valueError("Invalid date format")
                 }
                 return .datetime(
                     Date(timeIntervalSince1970: date as! TimeInterval)
                 )
-            } else if tag == CBOR.Tag.epochDateTime {
+            } else if tag == UInt64.epochDateTime {
                 guard let date = value.unwrapped else {
                     throw CardanoCoreError.valueError("Invalid date format")
                 }
@@ -193,14 +208,18 @@ public indirect enum Primitive: CBORSerializable, Sendable {
             }
 
             let wrapped = CBORTag(
-                tag: tag.rawValue,
+                tag: tag,
                 value: try value.toPrimitive()
             )
             return .cborTag(wrapped)
-        case .indefiniteByteString(let string):
-            return .bytes(string)
-        case .indefiniteUtf8String(let string):
-            return .string(string)
+        case .indefiniteByteString(let chunks):
+            // CBORCodable preserves chunk boundaries; concat for Primitive's
+            // single-Data .bytes case.
+            var out = Data()
+            for c in chunks { out.append(c) }
+            return .bytes(out)
+        case .indefiniteTextString(let chunks):
+            return .string(chunks.joined())
         case .undefined:
             return .null
         case .half(let value):
@@ -215,7 +234,7 @@ public indirect enum Primitive: CBORSerializable, Sendable {
         case .byteArray(let array):
             return .byteString(Data(array))
         case .string(let string):
-            return .utf8String(string)
+            return .textString(string)
         case .int(let value):
             return value >= 0
                 ? .unsignedInt(UInt64(value)) : .negativeInt(~UInt64(bitPattern: value))
@@ -224,7 +243,7 @@ public indirect enum Primitive: CBORSerializable, Sendable {
         case .float(let value):
             return .double(value)
         case .decimal(let decimal):
-            return .utf8String(decimal.description)
+            return .textString(decimal.description)
         case .bool(let value):
             return .boolean(value)
         case .tuple(let tup):
@@ -234,11 +253,22 @@ public indirect enum Primitive: CBORSerializable, Sendable {
         case .indefiniteList(let list):
             return .indefiniteArray(try list.getAll().map { try $0.toCBOR() })
         case .dict(let dict):
+            // Swift's Dictionary is unordered, so emit pairs in bytewise
+            // lexicographic order of their encoded keys (matches
+            // PotentCBOR's historical behavior and Cardano's expected
+            // map-key ordering). Use `.orderedDict` for intentional
+            // insertion-order preservation.
+            let pairs = try dict.map { entry -> (CBOR, CBOR, Data) in
+                let keyCBOR = try entry.key.toCBOR()
+                let valueCBOR = try entry.value.toCBOR()
+                var writer = CBORWriter()
+                try writer.encode(keyCBOR)
+                return (keyCBOR, valueCBOR, writer.data)
+            }
+            let sorted = pairs.sorted { $0.2.lexicographicallyPrecedes($1.2) }
             return .map(
-                OrderedDictionary(
-                    uniqueKeysWithValues: try dict.map {
-                        (try $0.key.toCBOR(), try $0.value.toCBOR())
-                    }))
+                OrderedDictionary(uniqueKeysWithValues: sorted.map { ($0.0, $0.1) })
+            )
         case .indefiniteDictionary(let dict):
             return .indefiniteMap(
                 OrderedDictionary(
@@ -257,12 +287,12 @@ public indirect enum Primitive: CBORSerializable, Sendable {
         case .datetime(let date):
             return try CBOREncoder().encode(date).toCBOR
         case .regex(let regex):
-            return .utf8String(regex.pattern)
+            return .textString(regex.pattern)
         case .cborSimpleValue(let simple):
             return simple
         case .cborTag(let tag):
             return .tagged(
-                CBOR.Tag(rawValue: tag.tag),
+                UInt64(tag.tag),
                 try CBOREncoder().encode(tag.value).toCBOR
             )
         case .orderedSet(let set):
@@ -271,7 +301,7 @@ public indirect enum Primitive: CBORSerializable, Sendable {
             return try set.toCBOR()
         case .unitInterval(let unitInterval):
             return .tagged(
-                CBOR.Tag(rawValue: UInt64(UnitInterval.tag)),
+                UInt64(UInt64(UnitInterval.tag)),
                 .array([
                     .unsignedInt(UInt64(unitInterval.numerator)),
                     .unsignedInt(UInt64(unitInterval.denominator)),
@@ -301,38 +331,41 @@ public indirect enum Primitive: CBORSerializable, Sendable {
         }
     }
 
-    public func toJSON() throws -> JSON {
+    /// Produce a Foundation JSON value (the kind `JSONSerialization`
+    /// accepts as `withJSONObject:`). Top-level value can be NSNull,
+    /// NSNumber, String, [Any], or [String: Any].
+    public func toJSON() throws -> Any {
         switch self {
         case .bytes(let data):
-            return .string(data.base64EncodedString())
+            return data.base64EncodedString()
         case .byteArray(let array):
-            return .string(Data(array).base64EncodedString())
+            return Data(array).base64EncodedString()
         case .string(let string):
-            return .string(string)
+            return string
         case .int(let value):
-            return .number(JSON.Number(value))
+            return NSNumber(value: value)
         case .uint(let value):
-            return .number(JSON.Number(value))
+            return NSNumber(value: value)
         case .float(let value):
-            return .number(JSON.Number(value))
+            return NSNumber(value: value)
         case .decimal(let decimal):
-            return .string(decimal.description)
+            return decimal.description
         case .bool(let value):
-            return .bool(value)
+            return NSNumber(value: value)
         case .tuple(let tup):
-            return .array(try tup.elements.map { try $0.toJSON() })
+            return try tup.elements.map { try $0.toJSON() }
         case .list(let list):
-            return .array(try list.map { try $0.toJSON() })
+            return try list.map { try $0.toJSON() }
         case .indefiniteList(let list):
-            return .array(try list.getAll().map { try $0.toJSON() })
+            return try list.getAll().map { try $0.toJSON() }
         case .dict(let dict):
-            var jsonDict: OrderedDictionary<String, JSON> = [:]
+            var jsonDict: [String: Any] = [:]
             for (key, value) in dict {
                 jsonDict[String(describing: key)] = try value.toJSON()
             }
-            return .object(jsonDict)
+            return jsonDict
         case .orderedDict(let dict):
-            var jsonDict: OrderedDictionary<String, JSON> = [:]
+            var jsonDict: [String: Any] = [:]
             for (key, value) in dict {
                 // Use string value if available, otherwise fall back to description
                 let keyStr: String
@@ -343,26 +376,26 @@ public indirect enum Primitive: CBORSerializable, Sendable {
                 }
                 jsonDict[keyStr] = try value.toJSON()
             }
-            return .object(jsonDict)
+            return jsonDict
         case .indefiniteDictionary(let dict):
-            var jsonDict: OrderedDictionary<String, JSON> = [:]
+            var jsonDict: [String: Any] = [:]
             for (key, value) in dict {
                 jsonDict[String(describing: key)] = try value.toJSON()
             }
-            return .object(jsonDict)
+            return jsonDict
         case .datetime(let date):
-            return .string(date.ISO8601Format())
+            return date.ISO8601Format()
         case .regex(let regex):
-            return .string(regex.pattern)
+            return regex.pattern
         case .cborSimpleValue(let simple):
             return try simple.toPrimitive().toJSON()
         case .cborTag(let tag):
-            return .object([
-                "tag": .number(JSON.Number(tag.tag)),
+            return [
+                "tag": NSNumber(value: tag.tag),
                 "value": try tag.value.toJSON(),
-            ])
+            ] as [String: Any]
         case .null:
-            return .null
+            return NSNull()
         default:
             throw CardanoCoreError.typeError(
                 "Cannot convert Primitive type \(type(of: self)) to JSON")

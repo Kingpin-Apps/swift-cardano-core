@@ -1,6 +1,6 @@
 import Foundation
 import OrderedCollections
-import PotentCBOR
+import CBORCodable
 
 public struct VoteRegisterDelegate: CertificateSerializable {
     public var _payload: Data
@@ -38,7 +38,7 @@ public struct VoteRegisterDelegate: CertificateSerializable {
             from:
                 .array(
                     [
-                        CBOR(integerLiteral: Self.CODE.rawValue),
+                        CBOR(Self.CODE.rawValue),
                         try! CBOREncoder().encode(stakeCredential).toCBOR,
                         try! CBOREncoder().encode(drep).toCBOR,
                         try! CBOREncoder().encode(coin).toCBOR,

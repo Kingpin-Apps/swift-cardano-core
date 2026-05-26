@@ -1,5 +1,5 @@
 import Foundation
-import PotentCBOR
+import CBORCodable
 
 
 public struct Fraction: CBORSerializable, Sendable {
@@ -23,7 +23,7 @@ public struct Fraction: CBORSerializable, Sendable {
         let cborData = try container.decode(CBOR.self)
 
         if case let .tagged(tag, cborData) = cborData {
-            guard tag.rawValue == UInt64(UnitInterval.tag) else {
+            guard tag == UInt64(UnitInterval.tag) else {
                 throw CardanoCoreError.valueError(
                     "UnitInterval must be tagged with tag \(UnitInterval.tag)")
             }
@@ -34,8 +34,8 @@ public struct Fraction: CBORSerializable, Sendable {
                     throw CardanoCoreError.valueError(
                         "UnitInterval must contain exactly 2 elements")
                 }
-                let num: Int64 = arrayData[0].integerValue()!
-                let den: Int64 = arrayData[1].integerValue()!
+                let num: Int64 = arrayData[0].int64Value!
+                let den: Int64 = arrayData[1].int64Value!
                 self.init(
                     numerator: num,
                     denominator: den
@@ -52,7 +52,7 @@ public struct Fraction: CBORSerializable, Sendable {
         var container = encoder.singleValueContainer()
 
         let cborData: CBOR = .tagged(
-            CBOR.Tag(rawValue: UInt64(UnitInterval.tag)),
+            UInt64(UInt64(UnitInterval.tag)),
             [
                 .unsignedInt(UInt64(numerator)),
                 .unsignedInt(UInt64(denominator)),

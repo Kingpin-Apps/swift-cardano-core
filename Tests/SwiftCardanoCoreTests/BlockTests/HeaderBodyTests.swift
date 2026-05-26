@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-import PotentCBOR
+import CBORCodable
 @testable import SwiftCardanoCore
 
 func makeHeaderBody(prevHash: BlockHeaderHash? = BlockHeaderHash(payload: Data(repeating: 0xAA, count: BLOCK_HEADER_HASH_SIZE))) throws -> HeaderBody {

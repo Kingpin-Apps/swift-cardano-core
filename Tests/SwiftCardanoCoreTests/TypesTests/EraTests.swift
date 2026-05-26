@@ -1,6 +1,5 @@
 import Testing
-import PotentCBOR
-import PotentCodables
+import CBORCodable
 @testable import SwiftCardanoCore
 
 @Suite struct EraTests {

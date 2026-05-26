@@ -1,5 +1,5 @@
 import Foundation
-import PotentCBOR
+import CBORCodable
 
 public struct DRepSigningKey: SigningKeyProtocol {
     public var _payload: Data

@@ -1,5 +1,5 @@
 import Foundation
-import PotentCBOR
+import CBORCodable
 import SwiftNcal
 
 public struct StakePoolSigningKey: SigningKeyProtocol {

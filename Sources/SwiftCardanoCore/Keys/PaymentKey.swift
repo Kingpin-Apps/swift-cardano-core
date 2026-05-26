@@ -1,5 +1,5 @@
 import Foundation
-import PotentCBOR
+import CBORCodable
 
 
 /// A PaymentSigningKey is a type of ``SigningKey`` 

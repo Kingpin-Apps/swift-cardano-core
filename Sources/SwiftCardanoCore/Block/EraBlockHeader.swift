@@ -1,6 +1,6 @@
 import Foundation
 import OrderedCollections
-import PotentCBOR
+import CBORCodable
 
 /// A Cardano block header from any era, decoded from the NtN wire format.
 ///

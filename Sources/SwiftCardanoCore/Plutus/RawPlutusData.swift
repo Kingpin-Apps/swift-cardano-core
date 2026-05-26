@@ -1,7 +1,6 @@
 import Foundation
 import OrderedCollections
-import PotentCBOR
-@preconcurrency import PotentCodables
+import CBORCodable
 
 public struct RawPlutusData: PlutusDataProtocol {
     public let data: RawDatum
@@ -140,12 +139,12 @@ public struct RawPlutusData: PlutusDataProtocol {
                     let value = tag.value.listValue!.map { dfs($0) }
                     return try! AnyValue.wrapped(
                         CBOR.tagged(
-                            CBOR.Tag(rawValue: tag.tag),
+                            UInt64(tag.tag),
                             CBOR.array(value.map { try! CBOREncoder().encode($0).toCBOR })))
                 } else {
                     return try! AnyValue.wrapped(
                         CBOR.tagged(
-                            CBOR.Tag(rawValue: tag.tag), try! CBOREncoder().encode(tag.value).toCBOR
+                            UInt64(tag.tag), try! CBOREncoder().encode(tag.value).toCBOR
                         ))
                 }
             }
@@ -174,7 +173,7 @@ public struct RawPlutusData: PlutusDataProtocol {
             } else if let tag = obj as? CBORTag {
                 let (constructor, fields) = try getConstructorIDAndFields(
                     value: CBOR.tagged(
-                        CBOR.Tag(rawValue: tag.tag), try CBOREncoder().encode(tag.value).toCBOR))
+                        UInt64(tag.tag), try CBOREncoder().encode(tag.value).toCBOR))
                 return [
                     "constructor": constructor,
                     "fields": try fields.map { try dfs($0) },

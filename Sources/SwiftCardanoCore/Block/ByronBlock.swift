@@ -1,6 +1,6 @@
 import Foundation
 import OrderedCollections
-import PotentCBOR
+import CBORCodable
 
 /// A Byron era block — either an Epoch Boundary Block or a regular BFT block.
 ///

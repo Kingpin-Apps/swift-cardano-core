@@ -1,7 +1,7 @@
 import Testing
 import Foundation
 import OrderedCollections
-import PotentCBOR
+import CBORCodable
 @testable import SwiftCardanoCore
 
 // MARK: - CBOR Test Suite
@@ -10,7 +10,7 @@ struct CBORTests {
         let value: Any = "hello"
         let cborValue = CBOR.fromAny(value)
         
-        #expect(cborValue == .utf8String("hello"))
+        #expect(cborValue == .textString("hello"))
     }
     
     @Test func testIntegerEncoding() async throws {
@@ -68,8 +68,8 @@ struct DictionaryTests {
         let dict: [AnyHashable: Any] = ["key": "value", "number": 42]
         let cborMap = dict.mapKeysToCbor
         
-        #expect(cborMap[CBOR.utf8String("key")] == CBOR.utf8String("value"))
-        #expect(cborMap[CBOR.utf8String("number")] == CBOR.unsignedInt(42))
+        #expect(cborMap[CBOR.textString("key")] == CBOR.textString("value"))
+        #expect(cborMap[CBOR.textString("number")] == CBOR.unsignedInt(42))
     }
 }
 

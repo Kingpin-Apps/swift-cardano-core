@@ -1,7 +1,7 @@
 import Foundation
 import SwiftNcal
 import SwiftKES
-import PotentCBOR
+import CBORCodable
 
 /// A KES (Key Evolving Signature) signing key.
 ///

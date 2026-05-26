@@ -1,5 +1,5 @@
 import Foundation
-import PotentCBOR
+import CBORCodable
 import OrderedCollections
 
 
@@ -36,7 +36,7 @@ public struct AuthCommitteeHot: CertificateSerializable {
         self._payload =  try! CBORSerialization.data(from:
                 .array(
                     [
-                        CBOR(integerLiteral: Self.CODE.rawValue),
+                        CBOR(Self.CODE.rawValue),
                         try! CBOREncoder().encode(committeeColdCredential).toCBOR,
                         try! CBOREncoder().encode(committeeHotCredential).toCBOR
                     ]

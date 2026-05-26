@@ -1,5 +1,5 @@
 import Foundation
-import PotentCBOR
+import CBORCodable
 import FractionNumber
 import OrderedCollections
 
@@ -27,7 +27,7 @@ public struct PoolRegistration: CertificateSerializable {
     public init(poolParams: PoolParams) {
         self.poolParams = poolParams
         
-        var cbor: [CBOR] = [CBOR(integerLiteral: Self.CODE.rawValue)]
+        var cbor: [CBOR] = [CBOR(Self.CODE.rawValue)]
         cbor.append(
             contentsOf: try! CBOREncoder().encode(poolParams).toCBOR.arrayValue!
         )

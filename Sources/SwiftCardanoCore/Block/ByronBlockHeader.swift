@@ -1,6 +1,6 @@
 import Foundation
 import OrderedCollections
-import PotentCBOR
+import CBORCodable
 import SwiftNcal
 
 /// A parsed Byron era block header — either an Epoch Boundary Block header or a

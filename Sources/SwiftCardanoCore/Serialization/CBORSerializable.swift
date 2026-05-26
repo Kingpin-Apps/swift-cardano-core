@@ -1,5 +1,5 @@
 import Foundation
-import PotentCBOR
+import CBORCodable
 
 public protocol CBORSerializable: Codable, Equatable, Hashable {
     init(from primitive: Primitive) throws
@@ -26,8 +26,15 @@ extension CBORSerializable {
     }
     
     public func toCBORData(deterministic: Bool = false) throws -> Data {
+        // Cardano's notion of "deterministic" CBOR (CIP-21) is NOT the same
+        // as RFC 8949 §4.2 — Cardano preserves indefinite-length arrays for
+        // PlutusData list semantics, while §4.2 collapses them. Leaving
+        // CBORCodable's deterministic flag off lets indefinite-length items
+        // round-trip; map-key ordering is the caller's responsibility for
+        // now. A Cardano-specific deterministic mode can layer on top
+        // later.
+        _ = deterministic
         let cborEncoder = CBOREncoder()
-        cborEncoder.deterministic = deterministic
         return try cborEncoder.encode(self)
     }
     

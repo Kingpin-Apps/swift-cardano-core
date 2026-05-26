@@ -1,6 +1,6 @@
 import Foundation
 import OrderedCollections
-import PotentCBOR
+import CBORCodable
 
 public struct CostModels: CBORSerializable, Sendable {
     typealias KEY_TYPE = Int

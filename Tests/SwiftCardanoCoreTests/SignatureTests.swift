@@ -1,7 +1,7 @@
 import Testing
 import Foundation
 
-import PotentCBOR
+import CBORCodable
 @testable import SwiftCardanoCore
 
 let signatureTestsArguments: Zip2Sequence<[any ConstrainedBytes.Type], [Int]> = zip([
