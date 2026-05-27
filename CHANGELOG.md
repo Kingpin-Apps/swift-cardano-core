@@ -1,3 +1,9 @@
+## 0.4.1 (2026-05-27)
+
+### Fix
+
+- improve wasm and android compatibility
+
 ## 0.4.0 (2026-05-26)
 
 ### Refactor
