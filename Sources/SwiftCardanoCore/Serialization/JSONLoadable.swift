@@ -15,7 +15,12 @@ public extension JSONLoadable {
         }
         
         let data = try JSONEncoder().encode(self)
+        // `.atomic` writes via a temp file, which WASI doesn't support.
+        #if os(WASI)
+        try data.write(to: URL(fileURLWithPath: path))
+        #else
         try data.write(to: URL(fileURLWithPath: path), options: .atomic)
+        #endif
     }
     
     /// Load the object from a JSON file.

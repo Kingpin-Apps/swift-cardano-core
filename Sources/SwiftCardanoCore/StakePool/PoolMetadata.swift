@@ -184,7 +184,10 @@ public struct PoolMetadata: Serializable {
     /// Downloads the pool metadata JSON from `url`, verifies it against `poolMetadataHash`,
     /// parses the content, and returns a fully-populated `PoolMetadata`.
     ///
+    /// Not available on WASI — that platform has no networking primitives.
+    ///
     /// - Throws: `CardanoCoreError.valueError` if the downloaded content does not match the hash.
+    #if !os(WASI)
     public static func fetch(
         url: Url,
         poolMetadataHash: PoolMetadataHash? = nil,
@@ -221,6 +224,7 @@ public struct PoolMetadata: Serializable {
             poolMetadataHash: poolMetadataHash
         )
     }
+    #endif
 
 }
 

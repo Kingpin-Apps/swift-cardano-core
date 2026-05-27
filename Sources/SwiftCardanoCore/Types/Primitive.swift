@@ -70,14 +70,15 @@ public indirect enum Primitive: CBORSerializable, Sendable {
         if json is NSNull {
             return .null
         }
-        // Order matters — NSNumber bridges from Bool, so check Bool first
-        // via CFGetTypeID. Easier: check the raw objCType byte.
+        // Order matters — NSNumber bridges from Bool, so check Bool first.
+        // Use `objCType` (portable across Darwin and swift-corelibs-foundation)
+        // instead of CoreFoundation helpers, which aren't public on Linux/WASM/Android.
         if let n = json as? NSNumber {
-            if CFGetTypeID(n) == CFBooleanGetTypeID() {
+            let typeCode = String(cString: n.objCType)
+            if typeCode == "c" {
                 return .bool(n.boolValue)
             }
-            // Int vs Double — peek at the Core Foundation number type.
-            if CFNumberIsFloatType(n) {
+            if typeCode == "f" || typeCode == "d" {
                 return .float(n.doubleValue)
             }
             return .int(n.int64Value)
@@ -93,7 +94,8 @@ public indirect enum Primitive: CBORSerializable, Sendable {
             // {"tag": N, "value": ...}.
             if dict.count == 2,
                let tagNum = dict["tag"] as? NSNumber,
-               !CFNumberIsFloatType(tagNum),
+               String(cString: tagNum.objCType) != "f",
+               String(cString: tagNum.objCType) != "d",
                let valueAny = dict["value"]
             {
                 let tagRaw = UInt64(tagNum.int64Value)
