@@ -1,3 +1,9 @@
+## 0.4.2 (2026-05-28)
+
+### Fix
+
+- bump crypto deps and rename SwiftNcal → SwiftNaCl
+
 ## 0.4.1 (2026-05-27)
 
 ### Fix
