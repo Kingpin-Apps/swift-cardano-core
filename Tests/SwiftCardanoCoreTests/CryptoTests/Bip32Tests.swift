@@ -89,4 +89,60 @@ struct HDWalletTests {
     func isEntropy_invalidCharacters() async throws {
         #expect(HDWallet.isEntropy(entropy: "*(#_") == false)
     }
+
+    // MARK: - Multi-language mnemonic support
+
+    /// Round-trip a freshly-generated phrase in each BIP-39 language back through
+    /// `HDWallet.fromMnemonic`. Pre-fix the function hard-coded an English-only
+    /// validation step, so non-English phrases threw `invalidDataError` even though
+    /// the downstream `Mnemonic(from:)` constructor handled them fine.
+    @Test("fromMnemonic accepts phrases in every supported language")
+    func fromMnemonic_allSupportedLanguages() async throws {
+        for language in SUPPORTED_MNEMONIC_LANGS {
+            let words = try HDWallet.generateMnemonic(language: language, wordCount: .twelve)
+            // Generators in non-English locales return ASCII-space-joined arrays; the
+            // upstream Mnemonic API also tolerates U+3000 (handled in the Japanese test
+            // below). Either separator round-trips through NFKD normalization.
+            let phrase = words.joined(separator: " ")
+            let wallet = try HDWallet.fromMnemonic(mnemonic: phrase)
+            #expect(!wallet.xPrivateKey.isEmpty, "Empty xPrivateKey for language \(language)")
+            #expect(!wallet.publicKey.isEmpty, "Empty publicKey for language \(language)")
+        }
+    }
+
+    /// Japanese BIP-39 phrases use `U+3000 IDEOGRAPHIC SPACE` as their canonical word
+    /// separator. NFKD has a compatibility mapping `U+3000 → U+0020`, so the existing
+    /// `decomposedStringWithCompatibilityMapping` call in `fromMnemonic` covers the
+    /// separator-conversion without a language-specific code path.
+    @Test("fromMnemonic handles Japanese ideographic-space separator")
+    func fromMnemonic_japaneseIdeographicSpace() async throws {
+        let words = try HDWallet.generateMnemonic(language: .japanese, wordCount: .twelve)
+        let asciiJoined = words.joined(separator: " ")
+        let ideographicJoined = words.joined(separator: "\u{3000}")
+
+        let walletAscii = try HDWallet.fromMnemonic(mnemonic: asciiJoined)
+        let walletIdeographic = try HDWallet.fromMnemonic(mnemonic: ideographicJoined)
+
+        // Both separators decompose to ASCII space under NFKD, so the derived keys
+        // must be byte-identical.
+        #expect(walletAscii.xPrivateKey == walletIdeographic.xPrivateKey)
+        #expect(walletAscii.publicKey == walletIdeographic.publicKey)
+        #expect(walletAscii.chainCode == walletIdeographic.chainCode)
+    }
+
+    /// The wallet derived from a non-English phrase must match the wallet built from
+    /// the equivalent raw entropy — proves the language path doesn't perturb the seed
+    /// derivation, just the wordlist used to recover entropy.
+    @Test("fromMnemonic non-English wallet matches fromEntropy")
+    func fromMnemonic_nonEnglishMatchesFromEntropy() async throws {
+        // Pick Spanish — different wordlist, same ASCII-space separator, so we isolate
+        // the wordlist-detection change from the separator-handling one.
+        let words = try HDWallet.generateMnemonic(language: .spanish, wordCount: .twelve)
+        let phrase = words.joined(separator: " ")
+        let walletFromPhrase = try HDWallet.fromMnemonic(mnemonic: phrase)
+        let walletFromEntropy = try HDWallet.fromEntropy(entropy: walletFromPhrase.entropy ?? "")
+        #expect(walletFromPhrase.xPrivateKey == walletFromEntropy.xPrivateKey)
+        #expect(walletFromPhrase.publicKey == walletFromEntropy.publicKey)
+        #expect(walletFromPhrase.chainCode == walletFromEntropy.chainCode)
+    }
 }

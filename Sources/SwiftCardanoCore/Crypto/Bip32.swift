@@ -174,15 +174,31 @@ public class HDWallet {
         )
     }
 
+    /// Build an HDWallet from a BIP-39 mnemonic phrase in any supported language.
+    ///
+    /// Language is auto-detected from the wordlist via ``SwiftMnemonic/Mnemonic/init(from:)``,
+    /// so the same call handles English, Japanese, Spanish, etc. Japanese phrases use
+    /// `U+3000 IDEOGRAPHIC SPACE` as their canonical word separator; NFKD normalization
+    /// (``Swift/String/decomposedStringWithCompatibilityMapping``) collapses that to ASCII
+    /// space, so the downstream split-and-decode pipeline doesn't need language-specific
+    /// handling.
     public static func fromMnemonic(mnemonic: String, passphrase: String = "") throws -> HDWallet {
-        guard try isMnemonic(mnemonic: mnemonic) else {
-            throw CardanoCoreError.invalidDataError("Invalid mnemonic words.")
+        let normalizedMnemonic = mnemonic.decomposedStringWithCompatibilityMapping
+        let words = normalizedMnemonic
+            .components(separatedBy: " ")
+            .filter { !$0.isEmpty }
+
+        // `Mnemonic(from:)` auto-detects the wordlist language and validates the
+        // BIP-39 checksum — no separate `isMnemonic` pre-check needed, and the old
+        // pre-check was hardcoded to English which silently rejected valid Japanese /
+        // Spanish / etc. phrases.
+        let _mnemonic: Mnemonic
+        do {
+            _mnemonic = try Mnemonic(from: words)
+        } catch {
+            throw CardanoCoreError.invalidDataError("Invalid mnemonic words: \(error)")
         }
 
-        
-        let normalizedMnemonic = mnemonic.decomposedStringWithCompatibilityMapping
-        
-        let _mnemonic = try Mnemonic(from: normalizedMnemonic.components(separatedBy: " "))
         let seed = HDWallet.generateSeed(passphrase: passphrase, entropy: _mnemonic.entropy)
 
         return try HDWallet.fromSeed(
