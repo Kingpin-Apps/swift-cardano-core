@@ -1,6 +1,6 @@
 import Foundation
 import CBORCodable
-import SwiftNcal
+import SwiftNaCl
 
 public struct StakeSigningKey: SigningKeyProtocol {
     public var _payload: Data
@@ -33,7 +33,7 @@ public struct StakeVerificationKey: VerificationKeyProtocol {
     
     public func rewardAccountHash(network: NetworkId) throws -> RewardAccountHash {
         let vKeyHash = VerificationKeyHash(
-            payload: try SwiftNcal.Hash().blake2b(
+            payload: try SwiftNaCl.Hash().blake2b(
                 data: payload,
                 digestSize: VERIFICATION_KEY_HASH_SIZE,
                 encoder: RawEncoder.self

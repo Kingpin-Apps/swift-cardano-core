@@ -1,5 +1,5 @@
 import Foundation
-import SwiftNcal
+import SwiftNaCl
 import CBORCodable
 #if canImport(CryptoKit)
 import CryptoKit
@@ -12,13 +12,13 @@ public protocol ExtendedSigningKeyProtocol: PayloadCBORSerializable {}
 
 public extension SigningKeyProtocol {
     func sign(data: Data) throws -> Data {
-        let signingKey = try SwiftNcal.SigningKey(seed: payload)
+        let signingKey = try SwiftNaCl.SigningKey(seed: payload)
         let signedMessage = try signingKey.sign(message: data)
         return signedMessage.getSignature
     }
     
     func toVerificationKey<T>() throws -> T where T: VerificationKeyProtocol {
-        let signingKey = try SwiftNcal.SigningKey(seed: payload)
+        let signingKey = try SwiftNaCl.SigningKey(seed: payload)
         var vkey =  try T(
             payload: signingKey.verifyKey.bytes,
             type: type.replacingOccurrences(of: "Signing", with: "Verification"),
@@ -29,7 +29,7 @@ public extension SigningKeyProtocol {
     }
     
     static func generate() throws -> Self {
-        let signingKey = try SwiftNcal.SigningKey.generate()
+        let signingKey = try SwiftNaCl.SigningKey.generate()
         var sKey = try Self(payload: signingKey.bytes)
         sKey._payload = signingKey.bytes
         return sKey

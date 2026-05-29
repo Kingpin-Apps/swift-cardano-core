@@ -1,6 +1,6 @@
 import Foundation
 import OrderedCollections
-import SwiftNcal
+import SwiftNaCl
 
 /// Cardano block as defined in the Conway CDDL:
 /// ```

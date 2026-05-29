@@ -1,5 +1,5 @@
 import Foundation
-import SwiftNcal
+import SwiftNaCl
 import CBORCodable
 
 public struct VRFSigningKey: SigningKeyProtocol {
@@ -27,7 +27,7 @@ public struct VRFSigningKey: SigningKeyProtocol {
     /// - Parameter message: The message to create a proof for
     /// - Returns: The VRF proof bytes (80 bytes)
     public func prove(message: Data) throws -> Data {
-        let signingKey = try SwiftNcal.VRFSigningKey(bytes: payload)
+        let signingKey = try SwiftNaCl.VRFSigningKey(bytes: payload)
         let proof = try signingKey.prove(message: message)
         return proof.bytes
     }
@@ -40,7 +40,7 @@ public struct VRFSigningKey: SigningKeyProtocol {
     /// - Parameter message: The message to create a VRF certificate for
     /// - Returns: A ``VRFCert`` containing the VRF output and proof
     public func certify(message: Data) throws -> VRFCert {
-        let signingKey = try SwiftNcal.VRFSigningKey(bytes: payload)
+        let signingKey = try SwiftNaCl.VRFSigningKey(bytes: payload)
         let proof = try signingKey.prove(message: message)
         let output = try proof.hash()
         return try VRFCert(output: output.bytes, proof: proof.bytes)
@@ -74,7 +74,7 @@ public struct VRFVerificationKey: VerificationKeyProtocol {
     /// - Returns: Hash output in bytes.
     public func hash() throws -> VrfKeyHash {
         return VrfKeyHash(
-            payload: try SwiftNcal.Hash().blake2b(
+            payload: try SwiftNaCl.Hash().blake2b(
                 data: payload,
                 digestSize: VRF_KEY_HASH_SIZE,
                 encoder: RawEncoder.self
@@ -83,7 +83,7 @@ public struct VRFVerificationKey: VerificationKeyProtocol {
     }
     
     public static func fromSigningKey(_ key: VRFSigningKey) throws -> VRFVerificationKey {
-        let vrfSKey = try SwiftNcal.VRFSigningKey(bytes: key.payload)
+        let vrfSKey = try SwiftNaCl.VRFSigningKey(bytes: key.payload)
         return try VRFVerificationKey(payload: vrfSKey.verifyingKey.bytes)
     }
 }
@@ -99,7 +99,7 @@ public struct VRFKeyPair {
     
     // static method to generate a new VRFKeyPair
     public static func generate() throws -> VRFKeyPair {
-        let vrfKeyPair = SwiftNcal.VRFKeyPair.generate()
+        let vrfKeyPair = SwiftNaCl.VRFKeyPair.generate()
         return VRFKeyPair(
             signingKey: try VRFSigningKey(
                 payload: vrfKeyPair.signingKey.bytes

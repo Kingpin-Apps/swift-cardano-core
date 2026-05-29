@@ -1,5 +1,5 @@
 import Foundation
-import SwiftNcal
+import SwiftNaCl
 import CBORCodable
 #if canImport(CryptoKit)
 import CryptoKit
@@ -15,7 +15,7 @@ public extension VerificationKeyProtocol {
     /// - Returns: Hash output in bytes.
     func hash() throws -> VerificationKeyHash {
         return VerificationKeyHash(
-            payload: try SwiftNcal.Hash().blake2b(
+            payload: try SwiftNaCl.Hash().blake2b(
                 data: payload,
                 digestSize: VERIFICATION_KEY_HASH_SIZE,
                 encoder: RawEncoder.self

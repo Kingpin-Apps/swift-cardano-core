@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-import SwiftNcal
+import SwiftNaCl
 import CBORCodable
 @testable import SwiftCardanoCore
 
@@ -78,7 +78,7 @@ import CBORCodable
     }
 
     @Test func testCustomTypeAndDescription() async throws {
-        let vrfKeyPair = SwiftNcal.VRFKeyPair.generate()
+        let vrfKeyPair = SwiftNaCl.VRFKeyPair.generate()
         let customType = "CustomVRFType"
         let customDescription = "Custom VRF Description"
         let sk = VRFSigningKey(
@@ -128,7 +128,7 @@ import CBORCodable
     }
 
     @Test func testCustomTypeAndDescription() async throws {
-        let vrfKeyPair = SwiftNcal.VRFKeyPair.generate()
+        let vrfKeyPair = SwiftNaCl.VRFKeyPair.generate()
         let customType = "CustomVRFVKeyType"
         let customDescription = "Custom VRF VKey Description"
         let vk = VRFVerificationKey(

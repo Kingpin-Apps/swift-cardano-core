@@ -1,6 +1,6 @@
 import Foundation
 import CBORCodable
-import SwiftNcal
+import SwiftNaCl
 
 public struct StakePoolSigningKey: SigningKeyProtocol {
     public var _payload: Data
@@ -35,7 +35,7 @@ public struct StakePoolVerificationKey: VerificationKeyProtocol {
     /// - Returns: Hash output in bytes.
     public func poolKeyHash() throws -> PoolKeyHash {
         return PoolKeyHash(
-            payload: try SwiftNcal.Hash().blake2b(
+            payload: try SwiftNaCl.Hash().blake2b(
                 data: payload,
                 digestSize: POOL_KEY_HASH_SIZE,
                 encoder: RawEncoder.self

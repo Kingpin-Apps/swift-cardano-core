@@ -3,7 +3,7 @@ import Foundation
 import FractionNumber
 import OrderedCollections
 import CBORCodable
-import SwiftNcal
+import SwiftNaCl
 import Testing
 
 @testable import SwiftCardanoCore

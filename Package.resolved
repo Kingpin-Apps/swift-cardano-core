@@ -1,5 +1,5 @@
 {
-  "originHash" : "7e79dbc39020b1a0899ce919eb223b27dc5e08ab2c172dfc4a98dd90f72b1ff0",
+  "originHash" : "e8904671c0bf1ad0772ae9c30595450d0063cc1eb69bd705d7be79309eb4f93f",
   "pins" : [
     {
       "identity" : "base32",
@@ -15,8 +15,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/attaswift/BigInt.git",
       "state" : {
-        "revision" : "0ed110f7555c34ff468e72e1686e59721f2b0da6",
-        "version" : "5.3.0"
+        "revision" : "e07e00fa1fd435143a2dcf8b7eec9a7710b2fdfe",
+        "version" : "5.7.0"
       }
     },
     {
@@ -51,8 +51,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kingpin-Apps/swift-base58.git",
       "state" : {
-        "revision" : "56580535fe13c6ae21051ba159fea6b3bef3599d",
-        "version" : "0.1.3"
+        "revision" : "79043ca4d78560205e7790aec49962815e1190ed",
+        "version" : "0.1.4"
       }
     },
     {
@@ -60,8 +60,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kingpin-Apps/swift-cbor-codable.git",
       "state" : {
-        "revision" : "a88d9020bba674cc8894665cceea2e005417f359",
-        "version" : "0.3.1"
+        "revision" : "51e206ef4b68703fad6fe7133c3b29a6ae25929b",
+        "version" : "0.3.2"
       }
     },
     {
@@ -78,8 +78,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-crypto.git",
       "state" : {
-        "revision" : "95ba0316a9b733e92bb6b071255ff46263bbe7dc",
-        "version" : "3.15.1"
+        "revision" : "1b6b2e274e85105bfa155183145a1dcfd63331f1",
+        "version" : "4.5.0"
       }
     },
     {
@@ -96,8 +96,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kingpin-Apps/swift-kes.git",
       "state" : {
-        "revision" : "fbb0c5dddbcaef4e9633a5767c65b054805019cb",
-        "version" : "0.2.1"
+        "revision" : "1ec6d8782c3fcbad10abeb320f4e11049d830057",
+        "version" : "1.0.1"
       }
     },
     {
@@ -114,17 +114,17 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kingpin-Apps/swift-mnemonic.git",
       "state" : {
-        "revision" : "b1c6b3310c50a47ce95699ceb2c31755ea73c414",
-        "version" : "0.2.4"
+        "revision" : "b5fea69fa51b83f53b28673de31b788a0f93eb4a",
+        "version" : "0.2.5"
       }
     },
     {
-      "identity" : "swift-ncal",
+      "identity" : "swift-nacl",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/Kingpin-Apps/swift-ncal.git",
+      "location" : "https://github.com/Kingpin-Apps/swift-nacl.git",
       "state" : {
-        "revision" : "d46a64cdea70232376ce333e1a3b969a7fb07e09",
-        "version" : "0.3.2"
+        "revision" : "23df3eed6c4a9ac8f906260253604fdb74f7ed7f",
+        "version" : "1.0.1"
       }
     },
     {

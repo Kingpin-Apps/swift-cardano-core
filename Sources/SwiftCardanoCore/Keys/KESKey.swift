@@ -1,5 +1,5 @@
 import Foundation
-import SwiftNcal
+import SwiftNaCl
 import SwiftKES
 import CBORCodable
 
@@ -127,7 +127,7 @@ public struct KESVerificationKey: VerificationKeyProtocol {
     /// - Returns: Hash output as a `KesKeyHash`
     public func hash() throws -> KesKeyHash {
         return KesKeyHash(
-            payload: try SwiftNcal.Hash().blake2b(
+            payload: try SwiftNaCl.Hash().blake2b(
                 data: payload,
                 digestSize: KES_KEY_HASH_SIZE,
                 encoder: RawEncoder.self

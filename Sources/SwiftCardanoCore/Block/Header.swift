@@ -1,7 +1,7 @@
 import Foundation
 import OrderedCollections
 import SwiftKES
-import SwiftNcal
+import SwiftNaCl
 
 /// Block header as defined in the Conway CDDL:
 /// `header = [header_body, body_signature : kes_signature]`

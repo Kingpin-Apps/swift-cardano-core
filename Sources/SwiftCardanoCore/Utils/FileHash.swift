@@ -1,5 +1,5 @@
 import Foundation
-import SwiftNcal
+import SwiftNaCl
 
 /// Protocol for hashing file contents
 /// - Requires `contents` property to be settable
@@ -23,7 +23,7 @@ public extension FileHashable {
     /// Get the hash of the file contents
     /// - Returns: The hash of the file contents
     func hash() throws -> String {
-        let hash =  try SwiftNcal.Hash().blake2b(
+        let hash =  try SwiftNaCl.Hash().blake2b(
             data: self.contents.data(using: .utf8)!,
             digestSize: Self.HASH_SIZE,
             encoder: RawEncoder.self

@@ -1,7 +1,7 @@
 import Foundation
 import OrderedCollections
 import CBORCodable
-import SwiftNcal
+import SwiftNaCl
 
 public typealias TransactionMetadatumLabel = UInt64
 
@@ -846,7 +846,7 @@ public struct AuxiliaryData: Serializable, Equatable {
     /// - Returns: Hash output in bytes.
     public func hash() throws -> AuxiliaryDataHash {
         return AuxiliaryDataHash(
-            payload: try SwiftNcal.Hash().blake2b(
+            payload: try SwiftNaCl.Hash().blake2b(
                 data: self.toCBORData(),
                 digestSize: AUXILIARY_DATA_HASH_SIZE,
                 encoder: RawEncoder.self

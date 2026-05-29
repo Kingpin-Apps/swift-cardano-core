@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-import SwiftNcal
+import SwiftNaCl
 @testable import SwiftCardanoCore
 
 // MARK: - Sample JSON Keys

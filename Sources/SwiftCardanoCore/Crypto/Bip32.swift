@@ -6,7 +6,7 @@
 import Clibsodium
 import CryptoSwift
 import Foundation
-import SwiftNcal
+import SwiftNaCl
 import BigInt
 import SwiftMnemonic
 #if canImport(CryptoKit)

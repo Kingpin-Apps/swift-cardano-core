@@ -1,7 +1,7 @@
 import Testing
 import Foundation
 import CBORCodable
-import SwiftNcal
+import SwiftNaCl
 import SwiftKES
 @testable import SwiftCardanoCore
 
@@ -518,7 +518,7 @@ func makeOperationalCertWithColdKey() throws -> OperationalCertificate {
 
         // Verify the sigma using the cold verification key
         // When smessage contains signature + message concatenated, verify returns the original message
-        let verifyKey = try SwiftNcal.VerifyKey(key: coldKeyPair.verificationKey.payload)
+        let verifyKey = try SwiftNaCl.VerifyKey(key: coldKeyPair.verificationKey.payload)
         let signedMessage = cert.sigma + certBodyBytes
         let verified = try verifyKey.verify(smessage: signedMessage)
         #expect(verified == certBodyBytes)
@@ -549,7 +549,7 @@ func makeOperationalCertWithColdKey() throws -> OperationalCertificate {
         let certBodyBytes = try CBOREncoder().encode(certBody)
 
         // Verification with the wrong key should fail
-        let wrongVerifyKey = try SwiftNcal.VerifyKey(key: wrongColdKeyPair.verificationKey.payload)
+        let wrongVerifyKey = try SwiftNaCl.VerifyKey(key: wrongColdKeyPair.verificationKey.payload)
         let signedMessage = cert.sigma + certBodyBytes
         #expect(throws: (any Error).self) {
             _ = try wrongVerifyKey.verify(smessage: signedMessage)

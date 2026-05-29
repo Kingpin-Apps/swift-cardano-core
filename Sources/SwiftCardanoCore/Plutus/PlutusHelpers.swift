@@ -1,6 +1,6 @@
 import Foundation
 import CBORCodable
-import SwiftNcal
+import SwiftNaCl
 
 /// Protocol for types that can be parameterized with generic type arguments
 public protocol ParameterizedType {

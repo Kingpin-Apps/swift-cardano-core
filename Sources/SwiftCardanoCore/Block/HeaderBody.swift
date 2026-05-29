@@ -1,6 +1,6 @@
 import Foundation
 import OrderedCollections
-import SwiftNcal
+import SwiftNaCl
 
 /// Block header body as defined in the Cardano CDDL.
 ///

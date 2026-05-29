@@ -1,6 +1,6 @@
 import Foundation
 import OrderedCollections
-import SwiftNcal
+import SwiftNaCl
 
 public struct UTxO: Serializable {
     public var input: TransactionInput
@@ -121,7 +121,7 @@ public struct UTxO: Serializable {
     // MARK: - Hashable
     
     public func hash() throws -> String {
-        let hash =  try SwiftNcal.Hash().blake2b(
+        let hash =  try SwiftNaCl.Hash().blake2b(
             data: input.toCBORData() + output.toCBORData(),
             digestSize: UTXO_HASH_SIZE,
             encoder: RawEncoder.self

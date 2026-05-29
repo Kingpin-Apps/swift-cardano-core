@@ -1,7 +1,7 @@
 import Foundation
 import CBORCodable
 import OrderedCollections
-import SwiftNcal
+import SwiftNaCl
 #if canImport(FoundationNetworking)
 import FoundationNetworking
 #endif
@@ -58,7 +58,7 @@ public struct PoolMetadata: Serializable {
             throw CardanoCoreError.valueError("Metadata must be less than or equal to 512 bytes.")
         }
         
-        let hash =  try SwiftNcal.Hash().blake2b(
+        let hash =  try SwiftNaCl.Hash().blake2b(
             data: jsonData,
             digestSize: POOL_METADATA_HASH_SIZE,
             encoder: RawEncoder.self
@@ -173,7 +173,7 @@ public struct PoolMetadata: Serializable {
 
     /// Returns `true` if the blake2b-256 hash of `data` equals the expected `hash` payload.
     public static func matches(data: Data, hash: PoolMetadataHash) throws -> Bool {
-        let computed = try SwiftNcal.Hash().blake2b(
+        let computed = try SwiftNaCl.Hash().blake2b(
             data: data,
             digestSize: POOL_METADATA_HASH_SIZE,
             encoder: RawEncoder.self

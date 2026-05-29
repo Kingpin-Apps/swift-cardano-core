@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-import SwiftNcal
+import SwiftNaCl
 import CBORCodable
 @testable import SwiftCardanoCore
 

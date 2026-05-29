@@ -1,5 +1,5 @@
 import Foundation
-import SwiftNcal
+import SwiftNaCl
 import CBORCodable
 import OrderedCollections
 
