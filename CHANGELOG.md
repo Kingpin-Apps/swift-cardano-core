@@ -1,3 +1,9 @@
+## 0.4.4 (2026-05-29)
+
+### Fix
+
+- **bip32**: accept BIP-39 phrases in any supported language (#1)
+
 ## 0.4.3 (2026-05-28)
 
 ### Fix
