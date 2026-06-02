@@ -9,7 +9,8 @@ struct AssetNameTests {
     func testInitialization() throws {
         let assetName = try AssetName(payload: Data([0x4D, 0x59, 0x5F, 0x4E, 0x46, 0x54, 0x5F, 0x31]))
         
-        #expect(assetName.description == "AssetName(MY_NFT_1)")
+        #expect(assetName.description == "MY_NFT_1")
+        #expect(assetName.debugDescription == "AssetName(MY_NFT_1)")
     }
     
     @Test("Asset initialization from primitive")
@@ -17,8 +18,10 @@ struct AssetNameTests {
         let assetName1 = AssetName(from: "MY_NFT_1")
         let assetName2 = AssetName(from: "MY_NFT_1".data(using: .utf8)!.toHex)
         
-        #expect(assetName1.description == "AssetName(MY_NFT_1)")
-        #expect(assetName2.description == "AssetName(MY_NFT_1)")
+        #expect(assetName1.description == "MY_NFT_1")
+        #expect(assetName1.debugDescription == "AssetName(MY_NFT_1)")
+        #expect(assetName2.description == "MY_NFT_1")
+        #expect(assetName2.debugDescription == "AssetName(MY_NFT_1)")
     }
 }
 

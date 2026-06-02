@@ -25,7 +25,7 @@ public struct AssetName: ConstrainedBytes, Hashable, Equatable, Sendable {
     }
 
     public var description: String {
-        return "AssetName(\(self.payload.toString))"
+        return self.payload.toString
     }
 }
 
