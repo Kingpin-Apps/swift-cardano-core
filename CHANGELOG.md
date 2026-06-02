@@ -1,3 +1,9 @@
+## 0.4.5 (2026-06-02)
+
+### Fix
+
+- remove wrapper around AssetName
+
 ## 0.4.4 (2026-05-29)
 
 ### Fix
