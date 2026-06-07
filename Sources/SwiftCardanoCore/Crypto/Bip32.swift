@@ -152,7 +152,42 @@ public class HDWallet {
     public static func fromSeed(
         seed: String, entropy: String? = nil, passphrase: String? = nil, mnemonic: String? = nil
     ) throws -> HDWallet {
-        let seedData = Data(hex: seed)
+        return try fromSeed(
+            seedData: Data(hex: seed),
+            entropy: entropy,
+            passphrase: passphrase,
+            mnemonic: mnemonic
+        )
+    }
+
+    /// Build an `HDWallet` from a 96-byte seed already in `Data` form,
+    /// skipping the hex round-trip that the `seed: String` overload
+    /// performs.
+    ///
+    /// Prefer this variant when constructing a wallet from a derived
+    /// master key (Ledger / Daedalus / arbitrary BIP32-ED25519 seed)
+    /// rather than from a user-supplied hex string. Swift `String`
+    /// values aren't zeroed on deallocation, so a 64-byte private
+    /// scalar hex-encoded into a `String` lingers in the heap for the
+    /// caller's process lifetime; passing the raw `Data` keeps the
+    /// secret material out of the string allocator entirely.
+    ///
+    /// - Parameters:
+    ///   - seedData: 96-byte seed (BIP32-ED25519: 64-byte private +
+    ///     32-byte chain code) — typically the output of an ICARUS /
+    ///     Ledger / Daedalus master-key derivation.
+    ///   - entropy: Optional companion BIP-39 entropy (hex) — purely
+    ///     informational, propagated into the returned wallet.
+    ///   - passphrase: Optional BIP-39 passphrase — purely
+    ///     informational.
+    ///   - mnemonic: Optional companion BIP-39 mnemonic — purely
+    ///     informational.
+    public static func fromSeed(
+        seedData: Data,
+        entropy: String? = nil,
+        passphrase: String? = nil,
+        mnemonic: String? = nil
+    ) throws -> HDWallet {
         let seedModified = tweakBits(seed: seedData)
 
         let kL = seedModified.prefix(32)

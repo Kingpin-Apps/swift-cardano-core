@@ -2,6 +2,7 @@
 //  Created by Hareem Adderley on 19/06/2024 AT 8:13 PM
 //  Copyright © 2024 Kingpin Apps. All rights reserved.
 //
+import Foundation
 import Testing
 import SwiftMnemonic
 
@@ -24,6 +25,29 @@ struct HDWalletTests {
         #expect(try HDWallet.isMnemonic(mnemonic: Self.mnemonic12))
         #expect(try HDWallet.isMnemonic(mnemonic: Self.mnemonic15))
         #expect(try HDWallet.isMnemonic(mnemonic: Self.mnemonic24))
+    }
+
+    @Test("fromSeed(seedData:) matches fromSeed(seed: hex) for the same bytes")
+    func fromSeed_dataAndHexMatch() async throws {
+        // 96-byte synthetic seed — exercises the Data-accepting overload
+        // added to keep secret material out of the Swift string allocator.
+        var bytes = [UInt8]()
+        for i in 0..<96 {
+            bytes.append(UInt8(i & 0xFF))
+        }
+        let seedData = Data(bytes)
+        let seedHex = seedData.hexEncodedString()
+
+        let viaData = try HDWallet.fromSeed(seedData: seedData)
+        let viaHex = try HDWallet.fromSeed(seed: seedHex)
+
+        #expect(viaData.rootXPrivateKey == viaHex.rootXPrivateKey)
+        #expect(viaData.rootPublicKey == viaHex.rootPublicKey)
+        #expect(viaData.rootChainCode == viaHex.rootChainCode)
+        #expect(viaData.xPrivateKey == viaHex.xPrivateKey)
+        #expect(viaData.publicKey == viaHex.publicKey)
+        #expect(viaData.chainCode == viaHex.chainCode)
+        #expect(viaData.path == viaHex.path)
     }
 
     @Test("Valid mnemonic with explicit language")
