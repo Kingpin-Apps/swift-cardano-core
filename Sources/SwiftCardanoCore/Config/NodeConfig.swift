@@ -160,9 +160,14 @@ public struct PrometheusConfig: Codable, Equatable, Hashable, Sendable {
 }
 
 public struct Options: Codable, Equatable, Hashable, Sendable {
-    public let mapBackends: [String: [String]]
-    public let mapSubtrace: [String: SubtraceConfig]
-    
+    // Optional: a node config's logging `options` block is frequently empty
+    // (`"options": {}`) — e.g. the current preview/preprod configs — and these
+    // legacy iohk-monitoring fields are irrelevant to everything we read from a
+    // node config (genesis file paths, etc.). Requiring them made `NodeConfig.load`
+    // (and `GenesisParameters(nodeConfigFilePath:)`) throw `keyNotFound`.
+    public let mapBackends: [String: [String]]?
+    public let mapSubtrace: [String: SubtraceConfig]?
+
     private enum CodingKeys: String, CodingKey {
         case mapBackends, mapSubtrace
     }

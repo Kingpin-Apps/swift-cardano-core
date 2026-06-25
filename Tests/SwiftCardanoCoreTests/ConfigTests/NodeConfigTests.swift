@@ -41,6 +41,32 @@ struct NodeConfigTests {
         #expect(config.traceForge == nil)
     }
 
+    @Test func testDecodeWithEmptyLoggingOptions() async throws {
+        // The current preview/preprod node configs ship `"options": {}` — the
+        // legacy iohk-monitoring `mapBackends`/`mapSubtrace` fields are absent.
+        // Decoding must tolerate that (regression: it threw keyNotFound).
+        let json = """
+        {
+            "AlonzoGenesisFile": "alonzo-genesis.json",
+            "ByronGenesisFile": "byron-genesis.json",
+            "ConwayGenesisFile": "conway-genesis.json",
+            "ShelleyGenesisFile": "shelley-genesis.json",
+            "Protocol": "Cardano",
+            "options": {}
+        }
+        """
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("nodeConfig-empty-options-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: tempURL) }
+        try json.write(to: tempURL, atomically: true, encoding: .utf8)
+
+        let config = try NodeConfig.load(from: tempURL.path)
+        #expect(config.shelleyGenesisFile == "shelley-genesis.json")
+        #expect(config.options != nil)
+        #expect(config.options?.mapBackends == nil)
+        #expect(config.options?.mapSubtrace == nil)
+    }
+
     @Test func testSaveLoad() async throws {
         let tempDirURL = FileManager.default.temporaryDirectory
         let tempFileURL = tempDirURL.appendingPathComponent("nodeConfig.json")
