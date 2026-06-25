@@ -14,7 +14,33 @@ struct NodeConfigTests {
     @Test func testInit() async throws {
         _ = try NodeConfig.load(from: filePath!)
     }
-    
+
+    /// Recent cardano-node releases drop fields such as `EnableP2P`, and the set
+    /// of tracing flags shifts between versions. Decoding must tolerate a config
+    /// that only carries the genesis-file references.
+    @Test func testForgivingDecodeWithMissingFields() async throws {
+        let json = """
+        {
+            "AlonzoGenesisFile": "alonzo-genesis.json",
+            "ByronGenesisFile": "byron-genesis.json",
+            "ConwayGenesisFile": "conway-genesis.json",
+            "ShelleyGenesisFile": "shelley-genesis.json",
+            "Protocol": "Cardano",
+            "SomeFieldAddedInAFutureRelease": true
+        }
+        """
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("nodeConfig-minimal-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: tempURL) }
+        try json.write(to: tempURL, atomically: true, encoding: .utf8)
+
+        let config = try NodeConfig.load(from: tempURL.path)
+        #expect(config.shelleyGenesisFile == "shelley-genesis.json")
+        #expect(config.byronGenesisFile == "byron-genesis.json")
+        #expect(config.enableP2P == nil)
+        #expect(config.traceForge == nil)
+    }
+
     @Test func testSaveLoad() async throws {
         let tempDirURL = FileManager.default.temporaryDirectory
         let tempFileURL = tempDirURL.appendingPathComponent("nodeConfig.json")
