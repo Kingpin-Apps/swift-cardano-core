@@ -11,10 +11,29 @@ public protocol SetTaggable<Element>: CBORTaggable {
 
 extension SetTaggable {
     public var tag: UInt64 { 258 }
+
+    /// Elements in a deterministic, canonical order: sorted by their CBOR
+    /// encoding (bytewise lexicographic).
+    ///
+    /// `elements` is a Swift `Set`, whose iteration order is randomized per
+    /// process. Encoding it directly produces non-deterministic CBOR, so the
+    /// transaction-body hash a vkey witness is signed over can differ from the
+    /// body that is ultimately serialized and submitted — the ledger then
+    /// rejects the tx with `InvalidWitnessesUTXOW`. Sorting makes every encode
+    /// path stable and matches cardano-cli / the ledger's canonical ordering.
+    public var canonicalElements: [Element] {
+        guard let sorted = try? elements.sorted(by: {
+            try $0.toCBORData().lexicographicallyPrecedes($1.toCBORData())
+        }) else {
+            return Array(elements)
+        }
+        return sorted
+    }
+
     public var value: Primitive {
         get {
             return .list(
-                elements.map {
+                canonicalElements.map {
                     try! Primitive.fromAny($0)
                 }
             )
@@ -83,7 +102,7 @@ extension SetTaggable {
     public func toCBOR() throws -> CBOR {
         return .tagged(
             UInt64(Self.TAG),
-            try .array(elements.map { try $0.toPrimitive().toCBOR() })
+            try .array(canonicalElements.map { try $0.toPrimitive().toCBOR() })
         )
     }
 }
@@ -92,7 +111,7 @@ public struct OrderedSet<T: CBORSerializable & Hashable & Sendable>: SetTaggable
     public typealias Element = T
     public var elements: Set<Element> = Set()
     public var elementsOrdered: [Element] {
-        Array(Set(elements))
+        canonicalElements
     }
 
     public init(tag: UInt64 = 258, value: Primitive) throws {
@@ -283,7 +302,7 @@ public struct NonEmptyOrderedSet<T: CBORSerializable & Hashable & Sendable>: Set
     public typealias Element = T
     public var elements: Set<Element> = Set()
     public var elementsOrdered: [Element] {
-        Array(Set(elements))
+        canonicalElements
     }
 
     public init(tag: UInt64 = Self.TAG, value: Primitive) throws {

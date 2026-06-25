@@ -354,3 +354,47 @@ struct ListOrNonEmptyOrderedSetTests {
     }
 }
 
+
+// MARK: - Canonical (deterministic) set encoding
+
+/// Regression tests for the non-deterministic set encoding that produced
+/// invalid vkey witnesses on multi-input transactions: `SetTaggable.elements`
+/// is a Swift `Set`, so encoding it directly yielded per-process-random byte
+/// order — the tx-body hash a witness was signed over could differ from the
+/// serialized body, and the ledger rejected it (`InvalidWitnessesUTXOW`).
+@Suite struct SetCanonicalEncodingTests {
+    // 32-byte transaction id (64 hex chars).
+    static let txid = String(repeating: "ab", count: 32)
+
+    @Test
+    func testOrderedSetCanonicalElementsAreByteSorted() throws {
+        let in0 = try TransactionInput(from: Self.txid, index: 0)
+        let in1 = try TransactionInput(from: Self.txid, index: 1)
+        let in2 = try TransactionInput(from: Self.txid, index: 2)
+
+        let set = try OrderedSet([in2, in0, in1])
+        let ordered = set.canonicalElements
+
+        #expect(ordered.count == 3)
+        for i in 1..<ordered.count {
+            #expect(
+                try ordered[i - 1].toCBORData().lexicographicallyPrecedes(ordered[i].toCBORData()),
+                "canonicalElements must be sorted by CBOR bytes"
+            )
+        }
+    }
+
+    @Test
+    func testOrderedSetEncodingIsStableAndInsertionOrderIndependent() throws {
+        let in0 = try TransactionInput(from: Self.txid, index: 0)
+        let in1 = try TransactionInput(from: Self.txid, index: 1)
+        let in2 = try TransactionInput(from: Self.txid, index: 2)
+
+        let a = try OrderedSet([in2, in0, in1])
+        let b = try OrderedSet([in0, in1, in2])
+
+        // Same logical set → identical canonical CBOR, every time.
+        #expect(try a.toCBORData() == b.toCBORData())
+        #expect(try a.toCBORData() == a.toCBORData())
+    }
+}
