@@ -235,20 +235,15 @@ public struct Voter: Serializable {
     // MARK: - CBORSerializable
     
     public init(from primitive: Primitive) throws {
-        guard case let .list(elements) = primitive,
-              elements.count == 2,
-              case .uint(_) = elements[0] else {
-            throw CardanoCoreError.deserializeError("Invalid Voter primitive: \(primitive)")
-        }
-        
-        self.credential = try VoterType(from: elements[1])
+        // The CDDL voter is a flat `[voter_type, hash]` — the same shape as
+        // `VoterType`. Decode the whole primitive as a VoterType rather than
+        // expecting an extra wrapping list (which produced `[code, [tag, hash]]`
+        // and made the ledger reject the tx with "expected bytes").
+        self.credential = try VoterType(from: primitive)
     }
-    
+
     public func toPrimitive() throws -> Primitive {
-        return .list([
-            .uint(UInt64(code)),
-            try credential.toPrimitive()
-        ])
+        return try credential.toPrimitive()
     }
     
     // MARK: - JSONSerializable

@@ -53,6 +53,51 @@ import CBORCodable
         #expect(decodedVotingProcedure == originalVotingProcedure)
     }
 
+    @Test("Test VotingProcedure with no anchor round-trips (null anchor)")
+    func testVotingProcedureNoAnchorCBORSerialization() async throws {
+        // A vote with no rationale encodes its anchor as CBOR null. Decoding must
+        // recognise the null and set anchor = nil — relies on `Primitive.null ==
+        // Primitive.null` being true (regression: it was false, so decode tried
+        // `Anchor(from: .null)` → "Invalid Anchor type").
+        let original = VotingProcedure(vote: voteYes, anchor: nil)
+
+        let encoded = try CBOREncoder().encode(original)
+        let decoded = try CBORDecoder().decode(VotingProcedure.self, from: encoded)
+
+        #expect(decoded.anchor == nil)
+        #expect(decoded.vote == voteYes)
+        #expect(decoded == original)
+    }
+
+    @Test("Test Primitive null equality")
+    func testPrimitiveNullEquality() async throws {
+        #expect(Primitive.null == Primitive.null)
+        #expect(Primitive.null != Primitive.int(0))
+        #expect(Primitive.null != Primitive.bool(false))
+    }
+
+    @Test("Test Voter encodes as flat [voter_type, keyhash] (not nested)")
+    func testVoterFlatEncoding() async throws {
+        // CDDL: voter = [voter_type, addr_keyhash]. The second element must be the
+        // 28-byte key hash, not a nested credential list (regression: it emitted
+        // `[code, [tag, hash]]`, which the ledger rejected with "expected bytes").
+        let keyhash = VerificationKeyHash(payload: Data(repeating: 0x03, count: 28))
+        let voter = Voter(credential: .drepKeyhash(keyhash))
+
+        let primitive = try voter.toPrimitive()
+        guard case let .list(elements) = primitive, elements.count == 2 else {
+            Issue.record("Expected a 2-element list, got \(primitive)")
+            return
+        }
+        #expect(elements[0] == .uint(2)) // drep keyhash voter type
+        guard case let .bytes(hashBytes) = elements[1] else {
+            Issue.record("Expected second element to be .bytes, got \(elements[1])")
+            return
+        }
+        #expect(hashBytes == keyhash.payload)
+        #expect(try Voter(from: primitive) == voter)
+    }
+
     @Test("Test Voter Initialization")
     func testVoterInitialization() async throws {
         let voter = Voter(credential: .stakePoolKeyhash(VerificationKeyHash(payload: Data(repeating: 0x04, count: 32))))

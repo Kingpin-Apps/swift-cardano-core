@@ -36,6 +36,30 @@ import CBORCodable
         #expect(decodedID == originalID)
     }
 
+    @Test("Test GovActionID toPrimitive encodes transaction id as bytes")
+    func testGovActionIDPrimitiveEncodesBytes() async throws {
+        // CDDL: gov_action_id = [transaction_id : $hash32, index]. The txid must
+        // be a 32-byte bytestring, not a hex text string (regression: it was
+        // `.string`, which the ledger rejected with "expected bytes").
+        let transactionID = TransactionId(payload: Data(repeating: 0x01, count: 32))
+        let original = GovActionID(transactionID: transactionID, govActionIndex: 0)
+
+        let primitive = try original.toPrimitive()
+        guard case let .list(elements) = primitive, elements.count == 2 else {
+            Issue.record("Expected a 2-element list primitive")
+            return
+        }
+        guard case let .bytes(txidBytes) = elements[0] else {
+            Issue.record("Expected transaction id to be .bytes, got \(elements[0])")
+            return
+        }
+        #expect(txidBytes == transactionID.payload)
+
+        // And it must round-trip back to an equal value.
+        let roundTripped = try GovActionID(from: primitive)
+        #expect(roundTripped == original)
+    }
+
     @Test("Test GovActionID Bech32")
     func testGovActionIDCIP129() async throws {
         let govActionID_1 = GovActionID(

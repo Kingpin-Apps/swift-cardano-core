@@ -214,8 +214,12 @@ public struct GovActionID: Serializable, Sendable {
     }
     
     public func toPrimitive() throws -> Primitive {
+        // The CDDL is `gov_action_id = [transaction_id : $hash32, index : ...]`,
+        // i.e. the transaction id is a 32-byte bytestring, NOT a hex text string.
+        // Emitting `.string(...)` here made the ledger reject votes/proposals with
+        // `DeserialiseFailure "expected bytes"`.
         return .list([
-            .string(transactionID.payload.toHex),
+            .bytes(transactionID.payload),
             .uint(UInt64(govActionIndex))
         ])
     }

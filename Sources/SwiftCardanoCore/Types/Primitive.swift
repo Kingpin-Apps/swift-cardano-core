@@ -462,6 +462,8 @@ public indirect enum Primitive: CBORSerializable, Sendable {
             return a == b
         case (.bigUInt(let a), .bigUInt(let b)):
             return a == b
+        case (.null, .null):
+            return true
         default:
             return false
         }
