@@ -237,15 +237,24 @@ public enum SigningKeyType: CBORSerializable, Sendable {
     public func toVerificationKeyType() throws -> VerificationKeyType {
         switch self {
             case .extendedSigningKey(let key):
+                // A transaction vkey witness (and any address-deriving use) must
+                // carry the non-extended 32-byte Ed25519 verification key. The
+                // extended (64-byte) key embeds the BIP32 chain code, which the
+                // ledger rejects with "decodeVerKeyDSIGN: wrong length, expected
+                // 32 bytes but got 64". Collapse to the non-extended form here,
+                // matching `toVerificationKey()`.
                 if let skey = key as? PaymentExtendedSigningKey {
                     let evkey: PaymentExtendedVerificationKey = try skey.toVerificationKey()
-                    return .extendedVerificationKey(evkey)
+                    let vkey: PaymentVerificationKey = try evkey.toNonExtended()
+                    return .verificationKey(vkey)
                 } else if let skey = key as? StakeExtendedSigningKey {
                     let evkey: StakeExtendedVerificationKey = try skey.toVerificationKey()
-                    return .extendedVerificationKey(evkey)
+                    let vkey: StakeVerificationKey = try evkey.toNonExtended()
+                    return .verificationKey(vkey)
                 } else if let skey = key as? ExtendedSigningKey {
                     let evkey: ExtendedVerificationKey = try skey.toVerificationKey()
-                    return .extendedVerificationKey(evkey)
+                    let vkey: VerificationKey = try evkey.toNonExtended()
+                    return .verificationKey(vkey)
                 } else {
                     throw CardanoCoreError.invalidKeyTypeError("Invalid key type: \(key)")
                 }
