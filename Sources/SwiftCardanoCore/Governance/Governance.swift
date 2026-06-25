@@ -412,17 +412,26 @@ public struct Constitution: CBORSerializable, Sendable {
     public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         anchor = try container.decode(Anchor.self)
-        scriptHash = try container.decode(ScriptHash.self)
+        // The guardrails script hash is optional; `encode` writes `nil` as a CBOR
+        // null, so it must be decoded with `decodeIfPresent` (a plain `decode`
+        // throws on the null and makes a guardrails-less constitution un-round-trippable).
+        scriptHash = try container.decodeIfPresent(ScriptHash.self)
     }
-    
+
     public init(from primitive: Primitive) throws {
         guard case let .list(primitive) = primitive,
               primitive.count == 2 else {
             throw CardanoCoreError.deserializeError("Invalid Constitution type")
         }
         self.anchor = try Anchor(from: primitive[0])
-        self.scriptHash = try ScriptHash(from: primitive[1])
-        
+        // A constitution with no guardrails script encodes its script hash as
+        // `.null` (see `toPrimitive`); map that back to nil rather than feeding
+        // `.null` to `ScriptHash(from:)`, which throws "Invalid ScriptHash type: null".
+        if case .null = primitive[1] {
+            self.scriptHash = nil
+        } else {
+            self.scriptHash = try ScriptHash(from: primitive[1])
+        }
     }
     
     public func encode(to encoder: Encoder) throws {

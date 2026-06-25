@@ -155,4 +155,29 @@ import CBORCodable
 
         #expect(decodedConstitution == constitution)
     }
+
+    @Test("Test Constitution round-trips with no guardrails script hash")
+    func testConstitutionNilScriptHashRoundTrip() async throws {
+        let anchor = Anchor(
+            anchorUrl: try! Url("https://example.com"),
+            anchorDataHash: AnchorDataHash(
+                payload: Data(repeating: 0x02, count: 32)
+            )
+        )
+        // A constitution without a guardrails script encodes its script hash as
+        // null; it must decode back to nil rather than throwing.
+        let constitution = Constitution(anchor: anchor, scriptHash: nil)
+
+        // CBOR (Decodable) path
+        let encodedData = try CBOREncoder().encode(constitution)
+        let decodedConstitution = try CBORDecoder().decode(Constitution.self, from: encodedData)
+        #expect(decodedConstitution == constitution)
+        #expect(decodedConstitution.scriptHash == nil)
+
+        // Primitive path
+        let primitive = try constitution.toPrimitive()
+        let fromPrimitive = try Constitution(from: primitive)
+        #expect(fromPrimitive == constitution)
+        #expect(fromPrimitive.scriptHash == nil)
+    }
 }
