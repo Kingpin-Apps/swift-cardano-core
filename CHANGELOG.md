@@ -1,3 +1,45 @@
+## 0.5.0 (2026-07-08)
+
+### Feat
+
+- **network**: add Codable and CustomStringConvertible conformances
+
+## 0.4.12 (2026-06-25)
+
+### Fix
+
+- Constitution decodes a nil guardrails script hash (was: 'Invalid ScriptHash type: null' on round-trip)
+
+## 0.4.11 (2026-06-25)
+
+### Fix
+
+- make NodeConfig logging Options (mapBackends/mapSubtrace) optional for empty options blocks
+
+## 0.4.10 (2026-06-25)
+
+### Fix
+
+- governance vote encoding — null Primitive equality, GovActionID txid bytes, flat Voter shape
+
+## 0.4.9 (2026-06-25)
+
+### Fix
+
+- encode tagged sets in deterministic canonical order to keep tx-body hash stable
+
+## 0.4.8 (2026-06-25)
+
+### Fix
+
+- return non-extended verification key from toVerificationKeyType for extended keys
+
+## 0.4.7 (2026-06-24)
+
+### Fix
+
+- tolerate missing optional fields when decoding NodeConfig
+
 ## 0.4.6 (2026-06-07)
 
 ### Fix
