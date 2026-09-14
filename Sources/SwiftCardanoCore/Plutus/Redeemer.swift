@@ -25,8 +25,8 @@ public enum RedeemerTag: Int, Serializable {
     // MARK: - CBORSerializable
 
     public init(from primitive: Primitive) throws {
-        guard case .uint(let value) = primitive,
-            let tag = RedeemerTag(rawValue: Int(value))
+        guard let value = primitive.intValue,
+            let tag = RedeemerTag(rawValue: value)
         else {
             throw CardanoCoreError.deserializeError("Invalid RedeemerTag primitive: \(primitive)")
         }
@@ -113,7 +113,7 @@ extension RedeemerProtocol {
 
         let tag = try RedeemerTag(from: primitive[0])
 
-        guard case .uint(let index) = primitive[1] else {
+        guard let index = primitive[1].intValue else {
             throw CardanoCoreError.deserializeError("Invalid Redeemer index")
         }
 
@@ -122,7 +122,7 @@ extension RedeemerProtocol {
 
         self.init(
             tag: tag,
-            index: Int(index),
+            index: index,
             data: data,
             exUnits: exUnits
         )
@@ -312,7 +312,7 @@ public struct RedeemerValue: Serializable {
             throw CardanoCoreError.deserializeError("Invalid RedeemerValue primitive")
         }
 
-        let data = try PlutusData.init(from: primitive[2])
+        let data = try PlutusData.init(from: primitive[0])
         let exUnits = try ExecutionUnits(from: primitive[1])
 
         self.data = data
@@ -321,7 +321,7 @@ public struct RedeemerValue: Serializable {
 
     public func toPrimitive() throws -> Primitive {
         return .list([
-            try Primitive.fromAny(data),
+            try data.toPrimitive(),
             try exUnits.toPrimitive(),
         ])
     }

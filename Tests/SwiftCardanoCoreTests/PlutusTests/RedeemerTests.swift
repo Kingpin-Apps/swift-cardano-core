@@ -304,6 +304,49 @@ struct RedeemerTests {
         #expect(decoded[key2]?.exUnits == value2.exUnits)
     }
 
+    @Test("Test RedeemerValue and RedeemerMap round-trip through Primitive")
+    func testRedeemerValuePrimitiveRoundTrip() throws {
+        let value = RedeemerValue(
+            data: try RawPlutusData(data: .int(42)).toPlutusData(),
+            exUnits: ExecutionUnits(mem: 10, steps: 20)
+        )
+
+        let primitive = try value.toPrimitive()
+        let decoded = try RedeemerValue(from: primitive)
+        #expect(decoded == value)
+
+        var redeemerMap = RedeemerMap()
+        redeemerMap[RedeemerKey(tag: .spend, index: 0)] = value
+        let mapPrimitive = try redeemerMap.toPrimitive()
+        let decodedMap = try RedeemerMap(from: mapPrimitive)
+        #expect(decodedMap == redeemerMap)
+    }
+
+    @Test("Test RedeemerValue rejects a primitive with the wrong arity")
+    func testRedeemerValueInvalidPrimitive() throws {
+        #expect(throws: CardanoCoreError.self) {
+            _ = try RedeemerValue(from: .list([.int(1)]))
+        }
+    }
+
+    @Test("Test Transaction with Conway map-format redeemers decodes from CBOR hex")
+    func testTransactionWithMapRedeemersFromCBORHex() throws {
+        // Regression: RedeemerValue(from: Primitive) indexed past the end of the
+        // two-element list and trapped when decoding map-format redeemers.
+        let cborHex = "84a800d9010281825820d35ecc156a28dc0c8a4733b48708c0026d79378ff39154e6b8523dcc3613b01a00018282583900bdd8e5f8db86d80670fc094be34f53bc261a99938aaaf58e3aef9d9f72a002baaf3977687d494f05f4903575f1a703d17d52af61c54b7756821a001e8480a1581cd8906ca5c7ba124a0407a32dab37b2c82b13b3dcd9111e42940dcea4a14555534443781b00000002540be40082583900bdd8e5f8db86d80670fc094be34f53bc261a99938aaaf58e3aef9d9f72a002baaf3977687d494f05f4903575f1a703d17d52af61c54b77561a1dac1dfc021a0002c28409a1581cd8906ca5c7ba124a0407a32dab37b2c82b13b3dcd9111e42940dcea4a14555534443781b00000002540be4000b582094c9a9a1c88e045be23911c06700bdead9d626ea26aa13d18cde3ec83d7388730dd9010281825820d35ecc156a28dc0c8a4733b48708c0026d79378ff39154e6b8523dcc3613b01a001082583900bdd8e5f8db86d80670fc094be34f53bc261a99938aaaf58e3aef9d9f72a002baaf3977687d494f05f4903575f1a703d17d52af61c54b77561a1dc9413a111a000423c6a205a182010082d87980821907d11a0005ccf506d90102815251010000322253330034a229309b2b2b9a01f5f6"
+
+        let transaction = try Transaction.fromCBORHex(cborHex)
+        guard case .map(let redeemerMap)? = transaction.transactionWitnessSet.redeemers else {
+            Issue.record("Expected map-format redeemers")
+            return
+        }
+
+        let key = RedeemerKey(tag: .mint, index: 0)
+        #expect(redeemerMap.count == 1)
+        #expect(redeemerMap[key]?.exUnits == ExecutionUnits(mem: 2001, steps: 380149))
+        #expect(try transaction.toCBORHex() == cborHex)
+    }
+
     @Test("Test empty RedeemerMap in TransactionWitnessSet serialization")
     func testEmptyMapDeserialization() throws {
         let emptyMap = RedeemerMap()

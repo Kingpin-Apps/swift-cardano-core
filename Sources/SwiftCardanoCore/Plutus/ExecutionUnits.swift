@@ -39,13 +39,13 @@ public struct ExecutionUnits: Serializable {
     public init(from primitive: Primitive) throws {
         guard case let .list(primitive) = primitive,
               primitive.count == 2,
-              case let .uint(mem) = primitive[0],
-              case let .uint(steps) = primitive[1] else {
+              let mem = primitive[0].int64Value,
+              let steps = primitive[1].int64Value else {
             throw CardanoCoreError.deserializeError("Invalid ExecutionUnits primitive")
         }
 
-        self.mem = Int64(mem)
-        self.steps = Int64(steps)
+        self.mem = mem
+        self.steps = steps
     }
 
     public func toPrimitive() throws -> Primitive {
