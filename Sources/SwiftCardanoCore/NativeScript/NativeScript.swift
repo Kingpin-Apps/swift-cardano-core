@@ -91,8 +91,10 @@ public enum NativeScript: Serializable {
             case "all": return .scriptAll(try ScriptAll.fromDict(dict))
             case "any": return .scriptAny(try ScriptAny.fromDict(dict))
             case "atLeast": return .scriptNofK(try ScriptNofK.fromDict(dict))
-            case "before": return .invalidBefore(try BeforeScript.fromDict(dict))
-            case "after": return .invalidHereAfter(try AfterScript.fromDict(dict))
+            // cardano-cli simple script JSON: "before" = valid only before the slot
+            // (invalid_hereafter, code 5); "after" = valid from the slot (invalid_before, code 4).
+            case "before": return .invalidHereAfter(try AfterScript.fromDict(dict))
+            case "after": return .invalidBefore(try BeforeScript.fromDict(dict))
             default: throw CardanoCoreError.decodingError("Unknown NativeScript type: \(type)")
         }
     }
@@ -131,8 +133,8 @@ public enum NativeScriptType: Int, Sendable {
             case .scriptAll: return "all"
             case .scriptAny: return "any"
             case .scriptNofK: return "atLeast"
-            case .invalidBefore: return "before"
-            case .invalidHereAfter: return "after"
+            case .invalidBefore: return "after"
+            case .invalidHereAfter: return "before"
         }
     }
 }

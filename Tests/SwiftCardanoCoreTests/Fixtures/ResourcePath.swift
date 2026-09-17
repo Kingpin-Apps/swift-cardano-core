@@ -280,14 +280,15 @@ let atLeastNativescriptFilePath = (
     inDirectory: "data/nativescripts"
 )
 
+// cardano-cli JSON "before" is AfterScript (invalid_hereafter); "after" is BeforeScript (invalid_before).
 let afterNativescriptFilePath = (
-    forResource: "after",
+    forResource: "before",
     ofType: "json",
     inDirectory: "data/nativescripts"
 )
 
 let beforeNativescriptFilePath = (
-    forResource: "before",
+    forResource: "after",
     ofType: "json",
     inDirectory: "data/nativescripts"
 )

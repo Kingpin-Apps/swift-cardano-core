@@ -1,6 +1,7 @@
 import Foundation
 import OrderedCollections
 
+/// `invalid_before` (code 4): valid only from `slot` onwards. cardano-cli JSON type `"after"`.
 public struct BeforeScript: NativeScriptable {
     public static let TYPE = NativeScriptType.invalidBefore
     public let slot: SlotNumber
@@ -31,6 +32,12 @@ public struct BeforeScript: NativeScriptable {
     public static func fromDict(_ dict: Primitive) throws -> BeforeScript {
         guard case let .orderedDict(dictValue) = dict else {
             throw CardanoCoreError.decodingError("Invalid BeforeScript dict format")
+        }
+
+        if let typePrimitive = dictValue[.string("type")] {
+            guard case let .string(type) = typePrimitive, type == Self.TYPE.description() else {
+                throw CardanoCoreError.decodingError("Invalid BeforeScript type: \(typePrimitive)")
+            }
         }
 
         guard let slotPrimitive = dictValue[.string("slot")] else {

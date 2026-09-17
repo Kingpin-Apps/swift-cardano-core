@@ -5,7 +5,7 @@ import CBORCodable
 
 @Suite struct BeforeScriptTests {
     
-    let slot: SlotNumber = 3000
+    let slot: SlotNumber = 1000
 
     @Test("Test BeforeScript Initialization")
     func testInitialization() async throws {
