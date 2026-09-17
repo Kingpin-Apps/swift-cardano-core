@@ -1,3 +1,9 @@
+## 0.5.2 (2026-09-16)
+
+### Fix
+
+- swap native script JSON before/after time-lock mapping to match cardano-cli
+
 ## 0.5.1 (2026-09-14)
 
 ### Fix
