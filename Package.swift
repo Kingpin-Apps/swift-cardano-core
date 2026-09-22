@@ -21,7 +21,9 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/apple/swift-crypto.git", from: "4.5.0"),
         .package(url: "https://github.com/apple/swift-log.git", from: "1.12.0"),
-        .package(url: "https://github.com/attaswift/BigInt.git", from: "5.7.0"),
+        // BigInt 6.x is source-compatible with 5.7.0; the major bump only raised the
+        // manifest's tools version. Keep 5.x admissible for consumers still on it.
+        .package(url: "https://github.com/attaswift/BigInt.git", "5.7.0"..<"7.0.0"),
         .package(url: "https://github.com/Frizlab/swift-fraction-number.git", from: "0.1.0"),
         .package(url: "https://github.com/Kingpin-Apps/swift-base58.git", from: "0.1.4"),
         .package(url: "https://github.com/Kingpin-Apps/swift-cbor-codable.git", .upToNextMinor(from: "0.3.2")),

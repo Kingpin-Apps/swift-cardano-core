@@ -1,5 +1,5 @@
 {
-  "originHash" : "ae6075879962d5d91c3d043f530c11329fd9077f4d7ef6d417852e6553bbf0b8",
+  "originHash" : "56e4ca1bdf60f296548251ff59904765b3c58e29cdb679dd4a0e7de6d6e7fb63",
   "pins" : [
     {
       "identity" : "base32",
@@ -15,8 +15,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/attaswift/BigInt.git",
       "state" : {
-        "revision" : "e07e00fa1fd435143a2dcf8b7eec9a7710b2fdfe",
-        "version" : "5.7.0"
+        "revision" : "63feef7820abb1a8fb08587d7da56bb0b7db8751",
+        "version" : "6.0.1"
       }
     },
     {
@@ -24,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/krzyzanowskim/CryptoSwift.git",
       "state" : {
-        "revision" : "e45a26384239e028ec87fbcc788f513b67e10d8f",
-        "version" : "1.9.0"
+        "revision" : "f2a627b84c1ff96f21ac2fcb623ab36142dd5512",
+        "version" : "1.10.0"
       }
     },
     {
@@ -42,8 +42,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-asn1.git",
       "state" : {
-        "revision" : "f70225981241859eb4aa1a18a75531d26637c8cc",
-        "version" : "1.4.0"
+        "revision" : "3b6410f7dee09eb33cdd26260c5fd47fda19b0e2",
+        "version" : "1.7.3"
       }
     },
     {
@@ -51,8 +51,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kingpin-Apps/swift-base58.git",
       "state" : {
-        "revision" : "79043ca4d78560205e7790aec49962815e1190ed",
-        "version" : "0.1.4"
+        "revision" : "009c0635973723323ca04f30a1323e03d5952bd2",
+        "version" : "0.1.5"
       }
     },
     {
@@ -60,8 +60,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kingpin-Apps/swift-cbor-codable.git",
       "state" : {
-        "revision" : "51e206ef4b68703fad6fe7133c3b29a6ae25929b",
-        "version" : "0.3.2"
+        "revision" : "e35f13077f893193fad30f869b28c372188398f3",
+        "version" : "0.3.3"
       }
     },
     {
@@ -69,8 +69,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-collections.git",
       "state" : {
-        "revision" : "fea17c02d767f46b23070fdfdacc28a03a39232a",
-        "version" : "1.5.1"
+        "revision" : "a0cb0954ecb21e4e31b0070e6ed5674e8556685a",
+        "version" : "1.6.0"
       }
     },
     {
@@ -78,8 +78,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-crypto.git",
       "state" : {
-        "revision" : "1b6b2e274e85105bfa155183145a1dcfd63331f1",
-        "version" : "4.5.0"
+        "revision" : "da9d28d69ebe3894b18376c8f2395c2f37b8448f",
+        "version" : "4.5.2"
       }
     },
     {
@@ -87,8 +87,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Frizlab/swift-fraction-number.git",
       "state" : {
-        "revision" : "5eecb3b1f49c6abfcf1561faf63a86347018d787",
-        "version" : "0.1.0"
+        "revision" : "4ba1bfc9b5867cb9472f55dd1e45d4c7477f9453",
+        "version" : "0.2.0"
       }
     },
     {
@@ -96,8 +96,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kingpin-Apps/swift-kes.git",
       "state" : {
-        "revision" : "1ec6d8782c3fcbad10abeb320f4e11049d830057",
-        "version" : "1.0.1"
+        "revision" : "c79b68762e420d181a9144c6b77c9b24d9bb33e3",
+        "version" : "1.0.2"
       }
     },
     {
@@ -105,8 +105,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-log.git",
       "state" : {
-        "revision" : "2aed77ae5ec9a86d8fe42c12275e4c2653a286ee",
-        "version" : "1.13.1"
+        "revision" : "9c6fb14227f55d8f711ce3847dc2f419fb0ecacb",
+        "version" : "1.15.1"
       }
     },
     {
@@ -123,8 +123,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kingpin-Apps/swift-nacl.git",
       "state" : {
-        "revision" : "23df3eed6c4a9ac8f906260253604fdb74f7ed7f",
-        "version" : "1.0.1"
+        "revision" : "03f8a9e2a7626fdc56f100da78f101fe05002298",
+        "version" : "1.0.3"
       }
     },
     {
@@ -141,8 +141,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mxcl/Version.git",
       "state" : {
-        "revision" : "67ce582bb9de70e1eb2ee41fd71aad3b5f86d97b",
-        "version" : "2.2.0"
+        "revision" : "3043fcd2a50375db76d89ff206a612471833d1c2",
+        "version" : "2.2.1"
       }
     }
   ],
