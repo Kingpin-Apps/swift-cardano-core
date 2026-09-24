@@ -151,3 +151,24 @@ public struct CommitteeHotCredential: GovernanceCredential {
         self.credential = credential
     }
 }
+
+extension CredentialType {
+    /// The ledger's order for a credential: a script hash before a key hash,
+    /// then by the hash itself.
+    ///
+    /// It comes from the order the ledger declares its own `Credential` type in,
+    /// and it is the order a `set` of credentials and a map keyed by one are
+    /// written in — so anything rebuilding either has to follow it, or the bytes
+    /// change and with them the hash of whatever they sit in.
+    public static func ledgerOrder(_ lhs: CredentialType, _ rhs: CredentialType) -> Bool {
+        func parts(_ credential: CredentialType) -> (isKeyHash: Bool, payload: Data) {
+            switch credential {
+                case .scriptHash(let hash): return (false, hash.payload)
+                case .verificationKeyHash(let hash): return (true, hash.payload)
+            }
+        }
+        let (lhs, rhs) = (parts(lhs), parts(rhs))
+        if lhs.isKeyHash != rhs.isKeyHash { return !lhs.isKeyHash }
+        return lhs.payload.lexicographicallyPrecedes(rhs.payload)
+    }
+}

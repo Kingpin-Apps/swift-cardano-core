@@ -4,10 +4,15 @@ import Foundation
 public struct NewConstitution: GovernanceAction {
     public static var code: GovActionCode { get { .newConstitution } }
     
-    public let id: GovActionID
+    /// The previous action of the same kind, which this one has to follow.
+    ///
+    /// The CDDL makes it nullable, and the first action of a chain genuinely has
+    /// none — a transaction proposing one cannot be read at all if this is
+    /// required.
+    public let id: GovActionID?
     public let constitution: Constitution
     
-    public init(id: GovActionID, constitution: Constitution) {
+    public init(id: GovActionID?, constitution: Constitution) {
         self.id = id
         self.constitution = constitution
     }
@@ -20,7 +25,7 @@ public struct NewConstitution: GovernanceAction {
             throw CardanoCoreError.deserializeError("Invalid NewConstitution type: \(code)")
         }
         
-        id = try container.decode(GovActionID.self)
+        id = try container.decodeIfPresent(GovActionID.self)
         constitution = try container.decode(Constitution.self)
     }
     
@@ -45,14 +50,14 @@ public struct NewConstitution: GovernanceAction {
             throw CardanoCoreError.deserializeError("Invalid NewConstitution primitive")
         }
         
-        self.id = try GovActionID(from: elements[1])
+        self.id = elements[1] == .null ? nil : try GovActionID(from: elements[1])
         self.constitution = try Constitution(from: elements[2])
     }
     
     public func toPrimitive() throws -> Primitive {
         return .list([
             .int(Int64(Self.code.rawValue)),
-            try id.toPrimitive(),
+            try id?.toPrimitive() ?? .null,
             try constitution.toPrimitive()
         ])
     }

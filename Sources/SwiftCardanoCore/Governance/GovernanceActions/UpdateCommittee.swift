@@ -1,4 +1,5 @@
 import Foundation
+import OrderedCollections
 
 public struct UpdateCommittee: GovernanceAction {
     public static var code: GovActionCode { get { .updateCommittee } }
@@ -103,20 +104,26 @@ public struct UpdateCommittee: GovernanceAction {
     }
     
     public func toPrimitive() throws -> Primitive {
-        // Convert coldCredentials set to list
-        let credentialsList = try coldCredentials.map { try $0.toPrimitive() }
-        
-        // Convert credentialEpochs dictionary to primitive
-        var credentialEpochsDict: [Primitive: Primitive] = [:]
-        for (credential, epoch) in credentialEpochs {
-            credentialEpochsDict[try credential.toPrimitive()] = .int(Int64(epoch))
+        // Both collections are unordered in Swift, so they are put in the
+        // ledger's own credential order on the way out. Writing a `Set` or a
+        // `Dictionary` in iteration order instead gives different bytes from one
+        // run to the next, and a different hash for the body they sit in.
+        let removed = coldCredentials
+            .sorted { CredentialType.ledgerOrder($0.credential, $1.credential) }
+        let added = credentialEpochs
+            .sorted { CredentialType.ledgerOrder($0.key.credential, $1.key.credential) }
+
+        var epochs = OrderedDictionary<Primitive, Primitive>()
+        for (credential, epoch) in added {
+            epochs[try credential.toPrimitive()] = .uint(epoch)
         }
 
         return .list([
             .int(Int64(Self.code.rawValue)),
             try id?.toPrimitive() ?? .null,
-            .list(credentialsList),
-            .dict(credentialEpochsDict),
+            // The CDDL's `set` is a `#6.258` tag around the elements.
+            .orderedSet(try OrderedSet(try removed.map { try $0.toPrimitive() })),
+            .orderedDict(epochs),
             try interval.toPrimitive()
         ])
     }
