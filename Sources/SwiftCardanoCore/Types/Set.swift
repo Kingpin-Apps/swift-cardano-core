@@ -7,20 +7,33 @@ public protocol SetTaggable<Element>: CBORTaggable {
     associatedtype Element: CBORSerializable & Hashable
 
     var elements: Set<Element> { get set }
+
+    /// The elements in the order they were given. For a set read off the wire
+    /// that is the order it was written in, which has to survive a round trip:
+    /// the ledger keeps a transaction's certificates and proposals in the order
+    /// the transaction lists them, both when it hashes the body and when it
+    /// tells a script which certificate a redeemer is for.
+    var elementsOrdered: [Element] { get set }
 }
 
 extension SetTaggable {
     public var tag: UInt64 { 258 }
 
-    /// Elements in a deterministic, canonical order: sorted by their CBOR
-    /// encoding (bytewise lexicographic).
+    /// The same elements in the same order, with the later of any duplicates
+    /// dropped — what makes an ordered set a set.
+    static func deduplicated(_ elements: [Element]) -> [Element] {
+        var seen = Set<Element>()
+        return elements.filter { seen.insert($0).inserted }
+    }
+
+    /// The elements sorted by their CBOR encoding, bytewise.
     ///
-    /// `elements` is a Swift `Set`, whose iteration order is randomized per
-    /// process. Encoding it directly produces non-deterministic CBOR, so the
-    /// transaction-body hash a vkey witness is signed over can differ from the
-    /// body that is ultimately serialized and submitted — the ledger then
-    /// rejects the tx with `InvalidWitnessesUTXOW`. Sorting makes every encode
-    /// path stable and matches cardano-cli / the ledger's canonical ordering.
+    /// This is the order to put a set in when it was built from an unordered
+    /// collection and so has no order of its own to keep. A Swift `Set` iterates
+    /// differently from one process to the next, and encoding straight from one
+    /// gives different bytes each run: the body hash a vkey witness signs then
+    /// differs from the body that is finally submitted, and the ledger rejects
+    /// the transaction with `InvalidWitnessesUTXOW`.
     public var canonicalElements: [Element] {
         guard let sorted = try? elements.sorted(by: {
             try $0.toCBORData().lexicographicallyPrecedes($1.toCBORData())
@@ -33,7 +46,7 @@ extension SetTaggable {
     public var value: Primitive {
         get {
             return .list(
-                canonicalElements.map {
+                elementsOrdered.map {
                     try! Primitive.fromAny($0)
                 }
             )
@@ -46,6 +59,20 @@ extension SetTaggable {
     }
 
     public static var TAG: UInt64 { 258 }
+
+    /// The elements inside a `#6.258` tag, in the order they were written.
+    static func taggedElements(_ tag: CBORTag) throws -> [Primitive] {
+        switch tag.value {
+            case .list(let elements):
+                return elements
+            case .indefiniteList(let elements):
+                return elements.getAll()
+            default:
+                throw CardanoCoreError.deserializeError(
+                    "A set tag has to wrap a list, but this one wrapped \(tag.value)"
+                )
+        }
+    }
 
     public var count: Int { return elements.count }
 
@@ -71,25 +98,24 @@ extension SetTaggable {
                 )
                 return element
             }
-            let elements = Set(decodedElements)
+            let ordered = Self.deduplicated(decodedElements)
             try self.init(
                 tag: tag,
-                value: .list(
-                    elements.map {
-                        try Primitive.fromAny($0)
-                    }
-                )
+                value: .list(try ordered.map { try Primitive.fromAny($0) })
             )
-            self.elements = elements
+            self.elements = Set(ordered)
+            self.elementsOrdered = ordered
         } else if case let .array(arrayData) = cborData {
             let decodedElements = try arrayData.map {
                 try CBORDecoder().decode(Element.self, from: $0.unwrapped as! Data)
             }
-            let elements = Set(decodedElements)
+            let ordered = Self.deduplicated(decodedElements)
             try self.init(
                 tag: Self.TAG,
-                value: .list(elements.map { try Primitive.fromAny($0)     })
+                value: .list(try ordered.map { try Primitive.fromAny($0) })
             )
+            self.elements = Set(ordered)
+            self.elementsOrdered = ordered
         } else {
             throw CardanoCoreError.valueError("Invalid CBOR format for SetWrapper")
         }
@@ -102,7 +128,7 @@ extension SetTaggable {
     public func toCBOR() throws -> CBOR {
         return .tagged(
             UInt64(Self.TAG),
-            try .array(canonicalElements.map { try $0.toPrimitive().toCBOR() })
+            try .array(elementsOrdered.map { try $0.toPrimitive().toCBOR() })
         )
     }
 }
@@ -110,35 +136,37 @@ extension SetTaggable {
 public struct OrderedSet<T: CBORSerializable & Hashable & Sendable>: SetTaggable {
     public typealias Element = T
     public var elements: Set<Element> = Set()
-    public var elementsOrdered: [Element] {
-        canonicalElements
-    }
+    public var elementsOrdered: [Element] = []
 
     public init(tag: UInt64 = 258, value: Primitive) throws {
         guard tag == Self.TAG else {
             fatalError("Invalid CBOR tag: expected \(Self.TAG) but found \(tag)")
         }
         self.value = value
-        self.elements = Set(
-            try value.listValue!.map {
-                try T.init(from: $0.toPrimitive())
-            }
+        let ordered = Self.deduplicated(
+            try value.listValue!.map { try T.init(from: $0.toPrimitive()) }
         )
+        self.elements = Set(ordered)
+        self.elementsOrdered = ordered
     }
 
+    /// A set has no order of its own, so the elements are put in canonical
+    /// order — otherwise the bytes would change from run to run.
     public init(_ elements: Set<Element>) throws {
+        try self.init(elements.sorted {
+            try $0.toCBORData().lexicographicallyPrecedes($1.toCBORData())
+        } as [Element])
+    }
+
+    /// Keeps the order the elements are given in, dropping later duplicates.
+    public init(_ elements: [Element]) throws {
+        let ordered = Self.deduplicated(elements)
         try self.init(
             tag: Self.TAG,
-            value: .list(
-                elements.map {
-                    try! $0.toPrimitive()
-                })
+            value: .list(try ordered.map { try $0.toPrimitive() })
         )
-        self.elements = elements
-    }
-    
-    public init(_ elements: [Element]) throws {
-        try self.init(Set(elements))
+        self.elements = Set(ordered)
+        self.elementsOrdered = ordered
     }
     
     // MARK: - Convenience Methods
@@ -231,7 +259,7 @@ public struct OrderedSet<T: CBORSerializable & Hashable & Sendable>: SetTaggable
     
     /// Returns the first element in canonical order, or nil if the set is empty.
     public var first: Element? {
-        return canonicalElements.first
+        return elementsOrdered.first
     }
     
     /// Creates a new OrderedSet by filtering elements that satisfy the predicate
@@ -266,20 +294,27 @@ public struct OrderedSet<T: CBORSerializable & Hashable & Sendable>: SetTaggable
     public init(from primitive: Primitive) throws {
         switch primitive {
         case .list(let array):
-            let decodedElements = try array.map { try Element(from: $0) }
-            try self.init(Set(decodedElements))
+            try self.init(try array.map { try Element(from: $0) })
             
         case .indefiniteList(let indefiniteArray):
-            let decodedElements = try indefiniteArray.map { try Element(from: $0) }
-            try self.init(Set(decodedElements))
+            try self.init(try indefiniteArray.map { try Element(from: $0) })
             
         case .orderedSet(let orderedSet):
-            let decodedElements = try orderedSet.elements.map { try Element(from: $0) }
-            try self.init(Set(decodedElements))
+            try self.init(try orderedSet.elementsOrdered.map { try Element(from: $0) })
+            
+        case .nonEmptyOrderedSet(let set):
+            try self.init(try set.elementsOrdered.map { try Element(from: $0) })
+            
+        case .cborTag(let tag) where tag.tag == Self.TAG:
+            // A Conway `set` is a #6.258 tag around a list. The decoder hands
+            // the tag through untouched, so unwrap it here — otherwise any
+            // field held as a bare set, such as a transaction's proposal
+            // procedures, cannot be decoded at all.
+            try self.init(try Self.taggedElements(tag).map { try Element(from: $0) })
             
         case .frozenSet(let frozenSet):
-            let decodedElements = try frozenSet.map { try Element(from: $0) }
-            try self.init(Set(decodedElements))
+            // A Swift `Set` has no order to keep, so this one is sorted.
+            try self.init(Set(try frozenSet.map { try Element(from: $0) }))
             
         default:
             throw CardanoCoreError.deserializeError(
@@ -291,7 +326,7 @@ public struct OrderedSet<T: CBORSerializable & Hashable & Sendable>: SetTaggable
     /// Converts OrderedSet to a Primitive representation
     /// - Returns: A Primitive representation of this OrderedSet
     public func toPrimitive() throws -> Primitive {
-        let primitiveElements = try canonicalElements.map { try $0.toPrimitive() }
+        let primitiveElements = try elementsOrdered.map { try $0.toPrimitive() }
         return .orderedSet(
             try OrderedSet<Primitive>(primitiveElements)
         )
@@ -301,9 +336,7 @@ public struct OrderedSet<T: CBORSerializable & Hashable & Sendable>: SetTaggable
 public struct NonEmptyOrderedSet<T: CBORSerializable & Hashable & Sendable>: SetTaggable {
     public typealias Element = T
     public var elements: Set<Element> = Set()
-    public var elementsOrdered: [Element] {
-        canonicalElements
-    }
+    public var elementsOrdered: [Element] = []
 
     public init(tag: UInt64 = Self.TAG, value: Primitive) throws {
         guard case let .list(list) = value else {
@@ -317,15 +350,19 @@ public struct NonEmptyOrderedSet<T: CBORSerializable & Hashable & Sendable>: Set
             fatalError("Invalid CBOR tag: expected \(Self.TAG) but found \(tag)")
         }
         self.value = value
-        self.elements = Set(
-            try value.listValue!.map {
-                try T.init(from: $0.toPrimitive())
-            })
+        let ordered = Self.deduplicated(
+            try value.listValue!.map { try T.init(from: $0.toPrimitive()) }
+        )
+        self.elements = Set(ordered)
+        self.elementsOrdered = ordered
     }
 
+    /// Keeps the order the elements are given in, dropping later duplicates.
     public init(_ elements: [Element]) {
         precondition(!elements.isEmpty, "NonEmptyOrderedSet must contain at least one element")
-        self.elements = Set(elements)
+        let ordered = Self.deduplicated(elements)
+        self.elements = Set(ordered)
+        self.elementsOrdered = ordered
     }
 
     public init(from decoder: Decoder) throws {
@@ -587,12 +624,10 @@ public struct NonEmptyOrderedSet<T: CBORSerializable & Hashable & Sendable>: Set
                     "Cannot create NonEmptyOrderedSet from empty ordered set"
                 )
             }
-            let decodedElements = try orderedSet.elements.map { try Element(from: $0) }
-            self.init(Array(decodedElements))
+            self.init(try orderedSet.elementsOrdered.map { try Element(from: $0) })
             
         case .nonEmptyOrderedSet(let nonEmptyOrderedSet):
-            let decodedElements = try nonEmptyOrderedSet.elements.map { try Element(from: $0) }
-            self.init(Array(decodedElements))
+            self.init(try nonEmptyOrderedSet.elementsOrdered.map { try Element(from: $0) })
             
         case .frozenSet(let frozenSet):
             guard !frozenSet.isEmpty else {
@@ -602,6 +637,19 @@ public struct NonEmptyOrderedSet<T: CBORSerializable & Hashable & Sendable>: Set
             }
             let decodedElements = try frozenSet.map { try Element(from: $0) }
             self.init(decodedElements)
+            
+        case .cborTag(let tag) where tag.tag == Self.TAG:
+            // A Conway `nonempty_set` is a #6.258 tag around a list. The
+            // decoder hands the tag through untouched, so unwrap it here —
+            // otherwise any field held as a bare set, such as a transaction's
+            // proposal procedures, cannot be decoded at all.
+            let elements = try Self.taggedElements(tag)
+            guard !elements.isEmpty else {
+                throw CardanoCoreError.deserializeError(
+                    "Cannot create NonEmptyOrderedSet from an empty set"
+                )
+            }
+            self.init(try elements.map { try Element(from: $0) })
             
         default:
             throw CardanoCoreError.deserializeError(
@@ -613,7 +661,11 @@ public struct NonEmptyOrderedSet<T: CBORSerializable & Hashable & Sendable>: Set
     /// Converts NonEmptyOrderedSet to a Primitive representation
     /// - Returns: A Primitive representation of this NonEmptyOrderedSet
     public func toPrimitive() throws -> Primitive {
-        let primitiveElements = try canonicalElements.map { try $0.toPrimitive() }
-        return .list(primitiveElements)
+        let primitiveElements = try elementsOrdered.map { try $0.toPrimitive() }
+        // Keep the `#6.258` tag. Writing a plain list instead changes the bytes
+        // of any body that holds one — the transaction's proposal procedures,
+        // for instance — and so changes its hash, which is what a witness signs
+        // and what a script sees as the transaction id.
+        return .nonEmptyOrderedSet(NonEmptyOrderedSet<Primitive>(primitiveElements))
     }
 }

@@ -385,26 +385,35 @@ struct ListOrNonEmptyOrderedSetTests {
     }
 
     @Test
-    func testOrderedSetEncodingIsStableAndInsertionOrderIndependent() throws {
+    func testOrderedSetEncodingIsStable() throws {
         let in0 = try TransactionInput(from: Self.txid, index: 0)
         let in1 = try TransactionInput(from: Self.txid, index: 1)
         let in2 = try TransactionInput(from: Self.txid, index: 2)
 
+        // A set keeps the order it was given, and encodes the same way every
+        // time. That order is what makes a decoded body re-encode to the bytes
+        // it came from, and so keep its hash.
         let a = try OrderedSet([in2, in0, in1])
         let b = try OrderedSet([in0, in1, in2])
-
-        // Same logical set → identical canonical CBOR, every time.
-        #expect(try a.toCBORData() == b.toCBORData())
         #expect(try a.toCBORData() == a.toCBORData())
+        #expect(try a.toCBORData() != b.toCBORData())
+
+        // A Swift `Set` has no order of its own, so one built from it comes out
+        // canonical rather than in whatever order the Set happened to iterate.
+        let fromSet = try OrderedSet(Set([in2, in0, in1]))
+        #expect(fromSet.elementsOrdered == [in0, in1, in2])
     }
 }
 
 // MARK: - Ordering determinism
 
-/// Tagged sets store their elements in a Swift `Set`, whose iteration order is
-/// randomised per process. Anything that hands those elements back as a
-/// sequence has to impose a deterministic order, or callers see a different
-/// element order — and a different element *index* — on every run.
+/// A tagged set keeps the order its elements were given in, because that order
+/// is part of what it means: the ledger reads a transaction's certificates and
+/// proposals in the order they were written, and re-encoding them in any other
+/// order changes the body's hash. The order also has to be stable — the elements
+/// are backed by a Swift `Set`, whose iteration order is randomised per process,
+/// so anything reading straight from that would give a different element order,
+/// and a different element *index*, on every run.
 @Suite("Tagged set ordering is deterministic")
 struct TaggedSetOrderingTests {
 
@@ -415,24 +424,36 @@ struct TaggedSetOrderingTests {
         )
     }
 
-    @Test("asArray matches canonical order, not Set iteration order")
-    func orderedSetAsArrayIsCanonical() throws {
+    @Test("asArray keeps the order the elements were given in")
+    func orderedSetAsArrayKeepsItsOrder() throws {
         let elements = [input(0xCC), input(0xAA), input(0xBB)]
         let set = try OrderedSet(elements)
         let value = ListOrOrderedSet.orderedSet(set)
 
         #expect(value.asArray == set.elementsOrdered)
-        #expect(value.asArray.map { $0.transactionId.payload.first } == [0xAA, 0xBB, 0xCC])
+        #expect(value.asArray.map { $0.transactionId.payload.first } == [0xCC, 0xAA, 0xBB])
     }
 
-    @Test("asList matches canonical order for non-empty ordered sets")
-    func nonEmptyOrderedSetAsListIsCanonical() throws {
+    @Test("asList keeps the order for non-empty ordered sets")
+    func nonEmptyOrderedSetAsListKeepsItsOrder() throws {
         let elements = [input(0xCC), input(0xAA), input(0xBB)]
         let set = NonEmptyOrderedSet(elements)
         let value = ListOrNonEmptyOrderedSet.nonEmptyOrderedSet(set)
 
         #expect(value.asList == set.elementsOrdered)
-        #expect(value.asList.map { $0.transactionId.payload.first } == [0xAA, 0xBB, 0xCC])
+        #expect(value.asList.map { $0.transactionId.payload.first } == [0xCC, 0xAA, 0xBB])
+    }
+
+    /// The order has to survive the trip a transaction actually takes: decoded
+    /// into a `Primitive` and read back out. Losing it there changes the bytes
+    /// of the body the set sits in, and so changes the transaction's hash.
+    @Test("A set round-trips without changing its bytes")
+    func roundTripKeepsTheBytes() throws {
+        let set = try OrderedSet([input(0xCC), input(0xAA), input(0xBB)])
+        let encoded = try set.toCBORData()
+        let decoded = try OrderedSet<TransactionInput>(from: try set.toPrimitive())
+        #expect(decoded.elementsOrdered == set.elementsOrdered)
+        #expect(try decoded.toCBORData() == encoded)
     }
 
     @Test("asArray agrees with the subscript at every index")
@@ -463,10 +484,10 @@ struct TaggedSetOrderingTests {
         }
     }
 
-    @Test("first is the canonically first element, not an arbitrary one")
-    func firstIsCanonical() throws {
+    @Test("first is the first element in order, not an arbitrary one")
+    func firstFollowsTheOrder() throws {
         let set = try OrderedSet([input(0xCC), input(0xAA), input(0xBB)])
         #expect(set.first == set.elementsOrdered.first)
-        #expect(set.first?.transactionId.payload.first == 0xAA)
+        #expect(set.first?.transactionId.payload.first == 0xCC)
     }
 }
