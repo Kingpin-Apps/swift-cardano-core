@@ -162,3 +162,92 @@ import Testing
         #expect(!printed.contains("SwiftCardanoCore.CostModels("))
     }
 }
+
+// MARK: - Language views encoding
+
+@Suite("CostModels language views")
+struct CostModelsLanguageViewTests {
+
+    /// The ledger's language-views encoding, which `script_data_hash` is taken
+    /// over: PlutusV2 and PlutusV3 use an unsigned-integer key and a
+    /// definite-length array of costs.
+    @Test("PlutusV3 encodes as an integer key and a definite-length array")
+    func plutusV3LanguageView() throws {
+        let values: [Int64] = [1, 2, 3]
+        let models = try CostModels([2: values])
+        let bytes = try models.toCBORData()
+
+        // a1 -> map(1), 02 -> key uint 2, 83 -> definite array(3), then the costs.
+        #expect(bytes.toHex == "a10283010203")
+    }
+
+    @Test("PlutusV2 encodes as an integer key and a definite-length array")
+    func plutusV2LanguageView() throws {
+        let models = try CostModels([1: [7, 8]])
+        let bytes = try models.toCBORData()
+        #expect(bytes.toHex == "a101820708")
+    }
+
+    /// PlutusV1 keeps the ledger's legacy shape (cardano-ledger#2512): a
+    /// byte-string key holding the language id, and a byte string holding the
+    /// serialised cost model.
+    @Test("PlutusV1 keeps its legacy byte-string encoding")
+    func plutusV1LanguageView() throws {
+        let models = try CostModels([0: [1, 2]])
+        let bytes = try models.toCBORData()
+        #expect(bytes.toHex.hasPrefix("a14100"))
+    }
+
+    @Test("integer keys sort before the longer PlutusV1 byte-string key")
+    func canonicalKeyOrder() throws {
+        let models = try CostModels([0: [1], 1: [2], 2: [3]])
+        let hex = try models.toCBORData().toHex
+        let v2KeyIndex = try #require(hex.range(of: "01")?.lowerBound)
+        let v1KeyIndex = try #require(hex.range(of: "4100")?.lowerBound)
+        #expect(v2KeyIndex < v1KeyIndex)
+    }
+
+    @Test("a language view round-trips back to the same values")
+    func languageViewRoundTrip() throws {
+        let values: [Int64] = [10, 20, 30, 40]
+        let models = try CostModels([2: values])
+        let decoded = try CostModels.fromCBOR(data: try models.toCBORData())
+        #expect(Array(try #require(decoded.plutusV3).values) == values)
+    }
+}
+
+// MARK: - Cost model length
+
+@Suite("CostModels length tolerance")
+struct CostModelsLengthTests {
+
+    /// Cost models grow with every Plutus release. Rejecting an array that is
+    /// longer than the built-in template makes the library unable to read
+    /// current protocol parameters at all.
+    @Test("a cost model longer than the built-in template is accepted in order")
+    func longerThanTemplate() throws {
+        let template = PLUTUS_V3_COST_MODEL.count
+        let values = (0..<(template + 53)).map { Int64($0) }
+
+        let models = try CostModels([2: values])
+        let decoded = Array(try #require(models.plutusV3).values)
+
+        #expect(decoded.count == values.count)
+        #expect(decoded == values)
+    }
+
+    @Test("a cost model shorter than the built-in template is accepted in order")
+    func shorterThanTemplate() throws {
+        let values: [Int64] = [5, 6, 7]
+        let models = try CostModels([2: values])
+        #expect(Array(try #require(models.plutusV3).values) == values)
+    }
+
+    @Test("an over-long cost model still encodes every value")
+    func longerThanTemplateEncodes() throws {
+        let values = (0..<(PLUTUS_V3_COST_MODEL.count + 10)).map { Int64($0) }
+        let models = try CostModels([2: values])
+        let decoded = try CostModels.fromCBOR(data: try models.toCBORData())
+        #expect(Array(try #require(decoded.plutusV3).values) == values)
+    }
+}

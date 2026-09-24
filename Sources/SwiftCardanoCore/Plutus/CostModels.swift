@@ -42,9 +42,15 @@ public struct CostModels: CBORSerializable, Sendable {
                 throw CardanoCoreError.deserializeError("Invalid CostModels CBOR")
             }
 
-            plutusV1 = try map[CBOR(Data([0]))].map { try Self.modelFromCBOR($0, version: 0) }
-            plutusV2 = try map[CBOR(Data([1]))].map { try Self.modelFromCBOR($0, version: 1) }
-            plutusV3 = try map[CBOR(Data([2]))].map { try Self.modelFromCBOR($0, version: 2) }
+            plutusV1 = try Self.entry(for: 0, in: map).map {
+                try Self.modelFromCBOR($0, version: 0)
+            }
+            plutusV2 = try Self.entry(for: 1, in: map).map {
+                try Self.modelFromCBOR($0, version: 1)
+            }
+            plutusV3 = try Self.entry(for: 2, in: map).map {
+                try Self.modelFromCBOR($0, version: 2)
+            }
         }
     }
 
@@ -55,20 +61,46 @@ public struct CostModels: CBORSerializable, Sendable {
             try container.encodeIfPresent(plutusV2, forKey: .plutusV2)
             try container.encodeIfPresent(plutusV3, forKey: .plutusV3)
         } else {
-            var entries = OrderedDictionary<CBOR, CBOR>()
+            // This is the ledger's "language views" encoding, the one the
+            // script integrity hash is taken over.
+            //
+            // PlutusV1 keeps a legacy shape (cardano-ledger#2512): its
+            // language id is wrapped in a byte string, and its cost model is
+            // the *serialised bytes* of an indefinite-length array.
+            //
+            // PlutusV2 and PlutusV3 use the plain shape: an unsigned-integer
+            // key and a definite-length array of costs. Encoding them the V1
+            // way produces a hash that no node will agree with.
+            var pairs: [(key: CBOR, value: CBOR)] = []
 
             if let v1 = plutusV1 {
                 let v1Array = CBOR.indefiniteArray(v1.values.map { CBOR($0) })
-                entries[CBOR(Data([0]))] = CBOR(try CBORSerialization.data(from: v1Array))
+                pairs.append(
+                    (CBOR(Data([0])), CBOR(try CBORSerialization.data(from: v1Array)))
+                )
             }
 
             if let v2 = plutusV2 {
-                entries[CBOR(Data([1]))] = CBOR.indefiniteArray(v2.values.map { CBOR($0) })
+                pairs.append((CBOR.unsignedInt(1), CBOR.array(v2.values.map { CBOR($0) })))
             }
 
             if let v3 = plutusV3 {
-                entries[CBOR(Data([2]))] = CBOR.indefiniteArray(v3.values.map { CBOR($0) })
+                pairs.append((CBOR.unsignedInt(2), CBOR.array(v3.values.map { CBOR($0) })))
             }
+
+            // Canonical map-key order: shorter encodings first, then bytewise.
+            // A V1 key is a 2-byte byte string, so it sorts after the 1-byte
+            // integer keys of V2 and V3.
+            let sorted = try pairs.sorted { lhs, rhs in
+                let lhsKey = try CBORSerialization.data(from: lhs.key)
+                let rhsKey = try CBORSerialization.data(from: rhs.key)
+                if lhsKey.count != rhsKey.count { return lhsKey.count < rhsKey.count }
+                return lhsKey.lexicographicallyPrecedes(rhsKey)
+            }
+
+            let entries = OrderedDictionary<CBOR, CBOR>(
+                uniqueKeysWithValues: sorted.map { ($0.key, $0.value) }
+            )
 
             let cbor: CBOR = .map(entries)
             var container = encoder.singleValueContainer()
@@ -153,15 +185,24 @@ public struct CostModels: CBORSerializable, Sendable {
             return OrderedDictionary(
                 uniqueKeys: template.keys, values: Array(repeating: 0, count: template.count))
         }
-        guard values.count == template.count else {
-            throw CardanoCoreError.deserializeError(
-                "Invalid cost model length for version \(version). Expected \(template.count), got \(values.count)"
-            )
-        }
 
+        // The built-in templates name the parameters of the protocol version
+        // they were written for, but a cost model grows with every Plutus
+        // release — mainnet's PlutusV3 model has outgrown its template more
+        // than once. Rejecting a longer array makes the library unable to read
+        // current protocol parameters at all, and rejecting a shorter one
+        // makes it unable to read older ones.
+        //
+        // Only the *order* of the values matters for encoding and for the
+        // script integrity hash, so keep every value the node sent and name
+        // the ones the template does not cover positionally.
         var model = OrderedDictionary<String, Int64>()
-        for (key, value) in zip(template.keys, values) {
-            model[key] = value
+        for (index, value) in values.enumerated() {
+            if index < template.count {
+                model[template.keys[index]] = value
+            } else {
+                model["unnamedParam\(index)"] = value
+            }
         }
         return model
     }
@@ -214,6 +255,14 @@ public struct CostModels: CBORSerializable, Sendable {
                     "Invalid cost model CBOR parameter value: \($0)")
             }
         }
+    }
+
+    /// Looks up one language's cost model, accepting either key encoding:
+    /// an unsigned integer, or the 1-byte byte string that the PlutusV1
+    /// language view uses.
+    private static func entry(for language: Int, in map: OrderedDictionary<CBOR, CBOR>) -> CBOR? {
+        if let value = map[CBOR.unsignedInt(UInt64(language))] { return value }
+        return map[CBOR(Data([UInt8(language)]))]
     }
 
     private static func modelFromCBOR(_ cbor: CBOR, version: Int) throws -> OrderedDictionary<

@@ -266,6 +266,23 @@ outputWithDatum.postAlonzo = true // Enable post-Alonzo features
 - <doc:Plutus> - Advanced Plutus script development
 - <doc:Addresses> - Script addresses and payment credentials
 
+## Cost models and the script integrity hash
+
+``CostModels`` encodes to the ledger's **language views** form — the one
+`script_data_hash` is taken over — not the shape cost models have inside protocol
+parameters:
+
+- **PlutusV2 and V3** use an unsigned-integer key and a definite-length array of
+  costs.
+- **PlutusV1** keeps a legacy shape from the ledger's own history: a byte-string key
+  holding the language id, and a byte string holding the serialised cost model.
+- Keys are emitted in canonical order, so the integer keys precede the longer V1 key.
+
+A cost model may be any length. The built-in parameter-name templates describe the
+protocol version they were written for, and every Plutus release adds parameters, so
+a model longer than its template keeps all of its values in order rather than being
+rejected — which is what a current node sends.
+
 ## Related Symbols
 
 - ``NativeScript``
