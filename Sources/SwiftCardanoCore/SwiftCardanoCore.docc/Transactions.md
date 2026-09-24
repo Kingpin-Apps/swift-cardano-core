@@ -110,6 +110,29 @@ print("Transaction ID: \(transactionId?.payload.toHex ?? "unknown")")
 
 ## Advanced Transaction Features
 
+### Slots and Time
+
+A transaction's validity interval is in slots, and a Plutus script sees it as
+POSIX milliseconds. ``SlotTimeline`` converts between them.
+
+```swift
+SlotTimeline.mainnet.milliseconds(forSlot: 4_492_800)   // 1596059091000
+SlotTimeline.mainnet.slot(atMilliseconds: 1_596_059_091_000)  // 4492800
+```
+
+Slots are not a uniform grid, which is the trap. Mainnet's Byron era ran on
+twenty-second slots and everything since Shelley runs on one-second slots, so
+reading a present-day slot as `systemStart + slot` puts it about two and a half
+years early — a mistake that makes a deadline check pass or fail for the wrong
+reason rather than failing loudly.
+
+``SlotTimeline/mainnet``, ``SlotTimeline/preprod`` and ``SlotTimeline/preview``
+carry the boundaries, each checked against the blocks either side of them. For any
+other chain, ``SlotTimeline/init(systemStart:eraHistory:)`` reads what
+`cardano-cli query era-history` reports, and
+``SlotTimeline/forChain(genesis:)`` picks a timeline from a chain's genesis
+parameters — returning `nil` rather than guessing when they do not say enough.
+
 ### Multi-Signature Transactions
 
 ```swift

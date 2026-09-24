@@ -73,6 +73,10 @@ public enum BigInteger: Serializable, CustomStringConvertible, Sendable {
                 } else {
                     self = .bigUInt(BigUInt(v))
                 }
+            case .bigUInt(let value):
+                self = .bigUInt(value)
+            case .bigInt(let value):
+                self = value.sign == .plus ? .bigUInt(value.magnitude) : .bigNInt(value)
             case .cborTag(let tag) where tag.tag == 2:
                 self = .bigUInt(try Self.magnitude(ofBignum: tag))
             case .cborTag(let tag) where tag.tag == 3:
