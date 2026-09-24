@@ -1,3 +1,9 @@
+## 0.7.1 (2026-09-24)
+
+### Fix
+
+- decode CBOR tag 258 wrapping an indefinite-length array without trapping
+
 ## 0.7.0 (2026-09-24)
 
 ### Feat
