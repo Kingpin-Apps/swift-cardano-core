@@ -60,30 +60,45 @@ let txHash = transaction.id
 print("Transaction Hash: \(txHash?.payload.toHex ?? "unknown")")
 ```
 
-### 3. Deterministic Encoding
+### 3. Encoding is deterministic, and faithful
 
 Encoding the same value twice always produces the same bytes, in the same process
-and across processes. This matters because a transaction body is hashed: a witness
-signs the hash of the body as it was encoded at signing time, so an encoding that
-varies between runs produces a signature the ledger rejects.
+and across processes. More than that: a transaction decoded from CBOR re-encodes to
+the bytes it came from.
+
+Both matter because a transaction body is hashed, and that hash is its id and what
+a witness signs. An encoding that varies between runs produces a signature the
+ledger rejects; an encoding that differs from the original gives the wrong
+transaction id and invalidates every signature already on it.
 
 ```swift
-let cbor = try transaction.toCBORData()
+let original = try Transaction.fromCBORHex(hex)
 
-// Always true, including in another process.
-assert(cbor == (try transaction.toCBORData()))
+// The same bytes back, including in another process.
+assert(try original.toCBORHex() == hex)
 ```
 
-Two things make this hold:
+Four things make this hold:
 
-- **Tagged sets** (CBOR tag 258 — inputs, collateral, required signers, certificates,
-  scripts) store their elements in a Swift `Set`, whose iteration order is randomised
-  per process. They are encoded, and read back through `asArray` / `asList`, in
-  canonical order: sorted by each element's CBOR encoding. `first` and the subscript
-  follow the same order, so an element's index is stable.
-- **Redeemer maps** keep the order they were decoded in, so a transaction decoded from
-  CBOR re-encodes to the bytes it came from. This is what `script_data_hash` is
-  computed over, and it is taken over the exact bytes.
+- **Tagged sets** (CBOR tag 258 — inputs, collateral, required signers,
+  certificates, proposals, scripts) keep the order their elements were given in,
+  which for a set read off the wire is the order it was written in. That order is
+  part of what a transaction means: the ledger reads a transaction's certificates
+  in the order they are listed, and a certificate redeemer's index counts through
+  that same order. `asArray` / `asList`, `first` and the subscript all follow it,
+  so an element's index is stable. A set built from a Swift `Set` has no order of
+  its own and comes out sorted by each element's CBOR encoding, since a `Set`
+  iterates differently from one process to the next.
+- **A transaction body keeps its field order.** The ledger's own encoder does not
+  put the field numbers in ascending order — it writes the required signers before
+  the mint, among others — so ``TransactionBody/writtenFieldOrder`` records the
+  order a body was read in and re-encodes in it. Fields added afterwards follow in
+  numeric order.
+- **Redeemer maps** keep the order they were decoded in. This is what
+  `script_data_hash` is computed over, and it is taken over the exact bytes.
+- **Plutus maps** keep their order too, because a Plutus map is an ordered list of
+  pairs rather than a dictionary: sorting one changes the value, and with it the
+  datum's hash and whatever `serialiseData` returns to a script.
 
 > Note: `toCBORData(deterministic:)` accepts a flag that is currently ignored.
 > Cardano's notion of deterministic encoding (CIP-21) is not RFC 8949 §4.2 — it

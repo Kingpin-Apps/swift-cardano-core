@@ -145,6 +145,38 @@ let redeemer = Redeemer(
 )
 ```
 
+#### Two values are equal when they describe the same data
+
+``PlutusData`` carries representation detail that has no meaning on chain: a byte
+string is held as `.boundedBytes` or `.byteString` depending on its length, an
+integer as `.int`, `.bigUInt` or `.bigNInt` depending on its magnitude, a list as
+`.array` or `.indefiniteArray` depending on how it was written, and a ``Constr``
+remembers whether its fields were written with an indefinite-length array.
+
+`==` ignores all of it and compares structure and content, which is what the
+ledger compares. It has to: a datum read off the chain and the same value rebuilt
+in Swift routinely take different representations, so comparing that detail would
+make two values with byte-identical CBOR come out unequal.
+
+```swift
+let fromChain = PlutusData.bytes(.byteString(ByteString(bytes: raw)))
+let rebuilt   = PlutusData.bytes(.boundedBytes(try BoundedBytes(bytes: raw)))
+
+assert(fromChain == rebuilt)                                  // the same bytes
+assert(try fromChain.toCBORHex() == rebuilt.toCBORHex())       // and the same CBOR
+```
+
+Encoding follows the same rule from the other side, so equal values always produce
+equal bytes — and therefore the same datum hash. An integer goes on the wire in the
+smallest form that holds it, and as a CBOR bignum only when it does not fit in 64
+bits, whichever case it happens to be held in.
+
+A map, though, keeps its order: a Plutus map is an ordered list of pairs rather
+than a dictionary, so `{1: a, 2: b}` and `{2: b, 1: a}` are different values with
+different hashes. That is why the API takes an `OrderedDictionary` — build one from
+a sequence of pairs rather than from a Swift dictionary literal, which has no order
+to give.
+
 ## Script Usage in Transactions
 
 ### Native Script Transactions
