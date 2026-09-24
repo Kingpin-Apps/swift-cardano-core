@@ -220,17 +220,10 @@ public struct RedeemerKey: Serializable {
         self.index = index
     }
 
-    public init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        tag = try container.decode(RedeemerTag.self)
-        index = try container.decode(Int.self)
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.unkeyedContainer()
-        try container.encode(tag)
-        try container.encode(index)
-    }
+    // Codable goes through `toPrimitive()` / `init(from primitive:)` — the
+    // hand-written unkeyed-container versions encoded the tag as a nested
+    // map instead of the integer the ledger expects, so `toCBORData()`
+    // disagreed with the primitive encoding used everywhere else.
 
     public func hash(into hasher: inout Hasher) {
         hasher.combine(tag)
@@ -293,17 +286,7 @@ public struct RedeemerValue: Serializable {
         self.exUnits = exUnits
     }
 
-    public init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        data = try container.decode(PlutusData.self)
-        exUnits = try container.decode(ExecutionUnits.self)
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.unkeyedContainer()
-        try container.encode(data)
-        try container.encode(exUnits)
-    }
+    // Codable goes through `toPrimitive()` / `init(from primitive:)`.
 
     public init(from primitive: Primitive) throws {
         guard case .list(let primitive) = primitive,
@@ -349,15 +332,30 @@ public struct RedeemerValue: Serializable {
 }
 
 /// Represents a mapping of RedeemerKeys to RedeemerValues.
+///
+/// Backed by an `OrderedDictionary` so that the entry order a transaction was
+/// decoded with survives a re-encode. The Conway redeemers field is a CBOR map,
+/// and `script_data_hash` is computed over its *exact* bytes — iterating a
+/// Swift `Dictionary` here would re-emit the entries in an arbitrary order and
+/// produce a hash that does not match the transaction being validated.
 public struct RedeemerMap: Serializable {
-    private var storage: [RedeemerKey: RedeemerValue]
+    private var storage: OrderedDictionary<RedeemerKey, RedeemerValue>
 
     public init() {
         self.storage = [:]
     }
 
-    public init(_ map: [RedeemerKey: RedeemerValue]) {
+    public init(_ map: OrderedDictionary<RedeemerKey, RedeemerValue>) {
         self.storage = map
+    }
+
+    /// Builds a map from an unordered dictionary.
+    ///
+    /// Swift's `Dictionary` has no order to preserve, so the entries are laid
+    /// out in canonical order (bytewise on the encoded key) to keep the result
+    /// reproducible across processes.
+    public init(_ map: [RedeemerKey: RedeemerValue]) {
+        self.storage = Self.canonicallyOrdered(map.map { ($0.key, $0.value) })
     }
 
     public init(uniqueKeysWithValues elements: [(RedeemerKey, RedeemerValue)]) {
@@ -367,13 +365,33 @@ public struct RedeemerMap: Serializable {
         }
     }
 
+    /// Orders key/value pairs by the bytewise encoding of their keys.
+    private static func canonicallyOrdered(
+        _ pairs: [(RedeemerKey, RedeemerValue)]
+    ) -> OrderedDictionary<RedeemerKey, RedeemerValue> {
+        let sorted = (try? pairs.sorted {
+            try $0.0.toCBORData().lexicographicallyPrecedes($1.0.toCBORData())
+        }) ?? pairs
+        var result = OrderedDictionary<RedeemerKey, RedeemerValue>()
+        for (key, value) in sorted {
+            result[key] = value
+        }
+        return result
+    }
+
     public subscript(key: RedeemerKey) -> RedeemerValue? {
         get { storage[key] }
         set { storage[key] = newValue }
     }
 
-    public var dictionary: [RedeemerKey: RedeemerValue] {
+    /// The entries in their preserved order.
+    public var dictionary: OrderedDictionary<RedeemerKey, RedeemerValue> {
         return storage
+    }
+
+    /// The entries as `(key, value)` pairs, in their preserved order.
+    public var pairs: [(key: RedeemerKey, value: RedeemerValue)] {
+        return storage.map { (key: $0.key, value: $0.value) }
     }
 
     public var isEmpty: Bool {
@@ -414,67 +432,88 @@ public struct RedeemerMap: Serializable {
         }
     }
 
+    /// Hashes the entries order-independently, matching ``==``.
     public func hash(into hasher: inout Hasher) {
-        hasher.combine(storage)
+        hasher.combine(storage.count)
+        var combined = 0
+        for (key, value) in storage {
+            var elementHasher = Hasher()
+            elementHasher.combine(key)
+            elementHasher.combine(value)
+            combined ^= elementHasher.finalize()
+        }
+        hasher.combine(combined)
     }
 
+    /// Two maps are equal when they hold the same entries, regardless of order.
     public static func == (lhs: RedeemerMap, rhs: RedeemerMap) -> Bool {
-        lhs.storage == rhs.storage
+        guard lhs.storage.count == rhs.storage.count else { return false }
+        return lhs.storage.allSatisfy { rhs.storage[$0.key] == $0.value }
     }
 
     public init(from primitive: Primitive) throws {
-        var primitiveDict: OrderedDictionary<Primitive, Primitive> = [:]
+        let pairs: [(Primitive, Primitive)]
 
         switch primitive {
         case .dict(let dict):
-            primitiveDict.merge(dict) { (_, new) in new }
+            // Unordered source — fall back to canonical key order below.
+            pairs = dict.map { ($0.key, $0.value) }
         case .orderedDict(let orderedDict):
-            primitiveDict = orderedDict
+            pairs = orderedDict.map { ($0.key, $0.value) }
         default:
             throw CardanoCoreError.deserializeError("Invalid RedeemerMap primitive: \(primitive)")
         }
 
-        storage = [:]
-        for (keyPrimitive, valuePrimitive) in primitiveDict {
-            let key = try RedeemerKey(from: keyPrimitive)
-            let value = try RedeemerValue(from: valuePrimitive)
-            storage[key] = value
+        let decoded = try pairs.map { (keyPrimitive, valuePrimitive) in
+            (try RedeemerKey(from: keyPrimitive), try RedeemerValue(from: valuePrimitive))
+        }
+
+        if case .dict = primitive {
+            storage = Self.canonicallyOrdered(decoded)
+        } else {
+            storage = [:]
+            for (key, value) in decoded {
+                storage[key] = value
+            }
         }
     }
 
     public func toPrimitive() throws -> Primitive {
-        var dict: [Primitive: Primitive] = [:]
+        var dict = OrderedDictionary<Primitive, Primitive>()
 
         for (key, value) in storage {
-            let keyPrimitive = try key.toPrimitive()
-            let valuePrimitive = try value.toPrimitive()
-            dict[keyPrimitive] = valuePrimitive
+            dict[try key.toPrimitive()] = try value.toPrimitive()
         }
 
-        return .dict(dict)
+        return .orderedDict(dict)
     }
 
     // MARK: - JSONSerializable
 
     public static func fromDict(_ primitive: Primitive) throws -> RedeemerMap {
-        var primitiveDict: OrderedDictionary<Primitive, Primitive> = [:]
+        let pairs: [(Primitive, Primitive)]
 
         switch primitive {
         case .dict(let dict):
-            primitiveDict.merge(dict) { (_, new) in new }
+            pairs = dict.map { ($0.key, $0.value) }
         case .orderedDict(let orderedDict):
-            primitiveDict = orderedDict
+            pairs = orderedDict.map { ($0.key, $0.value) }
         default:
             throw CardanoCoreError.deserializeError("Invalid RedeemerMap dict: \(primitive)")
         }
 
-        var storage: [RedeemerKey: RedeemerValue] = [:]
-        for (keyPrimitive, valuePrimitive) in primitiveDict {
-            let key = try RedeemerKey.fromDict(keyPrimitive)
-            let value = try RedeemerValue.fromDict(valuePrimitive)
-            storage[key] = value
+        let decoded = try pairs.map { (keyPrimitive, valuePrimitive) in
+            (try RedeemerKey.fromDict(keyPrimitive), try RedeemerValue.fromDict(valuePrimitive))
         }
 
+        if case .dict = primitive {
+            return RedeemerMap(Self.canonicallyOrdered(decoded))
+        }
+
+        var storage = OrderedDictionary<RedeemerKey, RedeemerValue>()
+        for (key, value) in decoded {
+            storage[key] = value
+        }
         return RedeemerMap(storage)
     }
 

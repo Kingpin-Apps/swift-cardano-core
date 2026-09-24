@@ -358,3 +358,57 @@ struct RedeemerTests {
         #expect(decoded.redeemers == .map(emptyMap))
     }
 }
+
+// MARK: - Map order preservation
+
+/// `script_data_hash` is taken over the *exact* bytes of the redeemers field,
+/// so a decoded redeemer map has to re-encode to the bytes it came from.
+@Suite("RedeemerMap preserves entry order")
+struct RedeemerMapOrderTests {
+
+    /// A two-entry redeemer map whose keys are deliberately not in canonical
+    /// order: `[1, 0]` (mint) comes before `[0, 0]` (spend).
+    private let nonCanonicalHex =
+        "a2" + "820100" + "82d87a80820102" + "820000" + "82d87a80820102"
+
+    @Test("a decoded redeemer map re-encodes to the same bytes")
+    func roundTripPreservesOrder() throws {
+        let original = try #require(Data(hexString: nonCanonicalHex))
+        let redeemers = try Redeemers.fromCBOR(data: original)
+        #expect(try redeemers.toCBORData().toHex == nonCanonicalHex)
+    }
+
+    @Test("re-encoding is stable across repeated calls")
+    func repeatedEncodingIsStable() throws {
+        let original = try #require(Data(hexString: nonCanonicalHex))
+        let redeemers = try Redeemers.fromCBOR(data: original)
+        let first = try redeemers.toCBORData()
+        for _ in 0..<20 {
+            #expect(try redeemers.toCBORData() == first)
+        }
+    }
+
+    @Test("entries come back in the order they were decoded")
+    func decodedOrderIsPreserved() throws {
+        let original = try #require(Data(hexString: nonCanonicalHex))
+        guard case .map(let map) = try Redeemers.fromCBOR(data: original) else {
+            Issue.record("Expected a map-encoded redeemers field")
+            return
+        }
+        #expect(map.pairs.map { $0.key.tag } == [.mint, .spend])
+    }
+
+    @Test("building from an unordered dictionary still produces stable bytes")
+    func unorderedSourceIsCanonicalised() throws {
+        let value = RedeemerValue(
+            data: PlutusData.bigInt(.int(0)),
+            exUnits: ExecutionUnits(mem: 1, steps: 2)
+        )
+        let map = RedeemerMap([
+            RedeemerKey(tag: .mint, index: 0): value,
+            RedeemerKey(tag: .spend, index: 0): value,
+        ])
+        // Canonical key order puts [0, 0] before [1, 0].
+        #expect(map.pairs.map { $0.key.tag } == [.spend, .mint])
+    }
+}
