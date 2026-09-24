@@ -38,6 +38,21 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
     public var currentTreasuryAmount: Coin?
     public var treasuryDonation: PositiveCoin?
 
+    /// The field numbers in the order this body was written in, when it was
+    /// read off the wire.
+    ///
+    /// A transaction's id is the hash of its body *as written*, and the ledger's
+    /// own encoder does not put the field numbers in ascending order — it writes
+    /// the required signers before the mint, among others. Re-encoding in
+    /// numeric order gives different bytes, so a different hash: the wrong
+    /// transaction id, and a witness signed over the rebuilt body that the
+    /// ledger rejects. Fields this body was not read with follow in numeric
+    /// order.
+    ///
+    /// It does not take part in equality; two bodies with the same contents are
+    /// the same body however their fields happened to be laid out.
+    public var writtenFieldOrder: [Int] = []
+
     enum CodingKeys: Int, CodingKey {
         case inputs = 0
         case outputs = 1
@@ -462,6 +477,15 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
             currentTreasuryAmount: currentTreasuryAmount,
             treasuryDonation: treasuryDonation
         )
+        // Remember how the fields were laid out, so re-encoding this body
+        // reproduces the bytes it was read from — and with them its hash.
+        self.writtenFieldOrder = primitiveDict.keys.compactMap {
+            switch $0 {
+                case .uint(let number): return Int(number)
+                case .int(let number): return Int(number)
+                default: return nil
+            }
+        }
     }
 
     public func toPrimitive() throws -> Primitive {
@@ -536,7 +560,24 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
             dictionary[key(CodingKeys.treasuryDonation)] = try treasuryDonation.toPrimitive()
         }
 
-        return .orderedDict(dictionary)
+        return .orderedDict(inWrittenOrder(dictionary))
+    }
+
+    /// Puts the fields back in the order this body was written in, with any it
+    /// gained since following in numeric order.
+    private func inWrittenOrder(
+        _ fields: OrderedDictionary<Primitive, Primitive>
+    ) -> OrderedDictionary<Primitive, Primitive> {
+        guard !writtenFieldOrder.isEmpty else { return fields }
+        var ordered = OrderedDictionary<Primitive, Primitive>()
+        for number in writtenFieldOrder {
+            let key = Primitive.uint(UInt64(number))
+            if let value = fields[key] { ordered[key] = value }
+        }
+        for (key, value) in fields where ordered[key] == nil {
+            ordered[key] = value
+        }
+        return ordered
     }
 
     // MARK: - JSONSerializable
