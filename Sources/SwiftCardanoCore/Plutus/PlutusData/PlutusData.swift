@@ -125,25 +125,17 @@ public enum PlutusData: Serializable, Sendable {
                 IndefiniteList(try array.map { try $0.toPrimitive(isRoot: false) }))
 
         case .map(let dict):
-            // PlutusData maps must be serialized with keys in bytewise
-            // lexicographic order of their canonical CBOR encoding —
-            // Cardano's deterministic-encoding rule. Sort here so the
-            // output is stable regardless of the input's iteration order
-            // (Swift Dictionary literals are hash-ordered, which is
-            // platform-dependent).
-            var entries: [(keyBytes: [UInt8], key: Primitive, value: Primitive)] = []
-            entries.reserveCapacity(dict.count)
-            for (k, v) in dict {
-                let keyPrim = try k.toPrimitive(isRoot: false)
-                let valPrim = try v.toPrimitive(isRoot: false)
-                var writer = CBORWriter()
-                try writer.encode(try keyPrim.toCBOR())
-                entries.append((Array(writer.data), keyPrim, valPrim))
-            }
-            entries.sort { $0.keyBytes.lexicographicallyPrecedes($1.keyBytes) }
+            // A Plutus map is an *ordered* list of pairs, so its order is part
+            // of its value and has to be written out as given. Sorting the keys
+            // here — a reasonable-looking nod to deterministic CBOR — changes
+            // the value: it changes a datum's hash, and it changes what
+            // `serialiseData` returns to a script. The ledger writes its own
+            // maps in list order, and the script context's redeemer map is one
+            // that is genuinely not sorted.
             var primitiveDict = OrderedDictionary<Primitive, Primitive>()
-            for entry in entries {
-                primitiveDict[entry.key] = entry.value
+            for (key, value) in dict {
+                primitiveDict[try key.toPrimitive(isRoot: false)] =
+                    try value.toPrimitive(isRoot: false)
             }
             return .orderedDict(primitiveDict)
 

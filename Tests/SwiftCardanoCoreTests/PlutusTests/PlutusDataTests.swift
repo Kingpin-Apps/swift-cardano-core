@@ -284,10 +284,13 @@ struct PlutusDataDictTests {
 
     @Test("Test PlutusData CBOR Dict serialization")
     func testPlutusDataCBORDict() throws {
+        // The pairs are given as a sequence, not as a Swift dictionary literal:
+        // a Plutus map is an ordered list of pairs, so the order it is built in
+        // is the order it is written in, and a dictionary literal has none.
         let test = try DictTest(
             a: OrderedDictionary(uniqueKeysWithValues: [
-                0: LargestTest(),
-                1: LargestTest(),
+                (0, LargestTest()),
+                (1, LargestTest()),
             ]))
         let expectedCBOR = "d87c9fa200d905028001d9050280ff"
         let CBORHex = try test.toCBORHex(deterministic: true)
