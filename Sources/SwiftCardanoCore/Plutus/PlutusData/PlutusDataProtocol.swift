@@ -46,15 +46,15 @@ extension PlutusDataProtocol {
         return try Self.init(from: plutusData)
     }
     
-    // Eqauality implementation
+    /// Two values are equal when they describe the same Plutus data. Comparing
+    /// the data itself rather than its rendered description keeps this in step
+    /// with ``PlutusData``'s own value equality.
     public static func == (lhs: Self, rhs: Self) -> Bool {
-        do {
-            let lhsPlutus = try lhs.toPlutusData()
-            let rhsPlutus = try rhs.toPlutusData()
-            return lhsPlutus.description == rhsPlutus.description
-        } catch {
+        guard let lhsPlutus = try? lhs.toPlutusData(),
+              let rhsPlutus = try? rhs.toPlutusData() else {
             return false
         }
+        return lhsPlutus == rhsPlutus
     }
 }
 
