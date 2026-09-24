@@ -1,3 +1,15 @@
+## 0.6.0 (2026-09-23)
+
+### Fix
+
+- let a governance action name no ancestor, and order a committee update
+- keep the tag-30 wrapper when encoding a non-negative interval
+- re-encode a transaction body in the field order it was read in
+- keep a tagged set's element order and its 258 tag through a round trip
+- keep a Plutus map in its given order, since the order is part of its value
+- write a Plutus integer in the smallest form that holds it, and read CBOR bignums
+- compare Plutus data by value rather than by how it is represented
+
 ## 0.5.4 (2026-09-23)
 
 ### Fix
