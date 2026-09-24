@@ -1,3 +1,11 @@
+## 0.5.4 (2026-09-23)
+
+### Fix
+
+- correct PlutusV2/V3 language view encoding and accept longer cost models
+- preserve redeemer map order so script_data_hash round-trips
+- return tagged set elements in canonical order instead of Set iteration order
+
 ## 0.5.3 (2026-09-22)
 
 ### Fix
