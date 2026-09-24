@@ -175,9 +175,9 @@ extension JSONSerializable {
         case .indefiniteList(let list), .indefiniteFrozenList(let list):
             return try list.map { try primitiveToAny($0, hexEncodeBytes: hexEncodeBytes) }
         case .orderedSet(let s):
-            return try s.elements.map { try primitiveToAny($0, hexEncodeBytes: hexEncodeBytes) }
+            return try s.elementsOrdered.map { try primitiveToAny($0, hexEncodeBytes: hexEncodeBytes) }
         case .nonEmptyOrderedSet(let s):
-            return try s.elements.map { try primitiveToAny($0, hexEncodeBytes: hexEncodeBytes) }
+            return try s.elementsOrdered.map { try primitiveToAny($0, hexEncodeBytes: hexEncodeBytes) }
         case .frozenSet(let s):
             return try Array(s).map { try primitiveToAny($0, hexEncodeBytes: hexEncodeBytes) }
         case .orderedDict(let dict):

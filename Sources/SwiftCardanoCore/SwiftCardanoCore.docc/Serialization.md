@@ -62,14 +62,33 @@ print("Transaction Hash: \(txHash?.payload.toHex ?? "unknown")")
 
 ### 3. Deterministic Encoding
 
-```swift
-// Ensure deterministic encoding for reproducible hashes
-let deterministicCBOR = try transaction.toCBORData(deterministic: true)
-let deterministicHex = try transaction.toCBORHex(deterministic: true)
+Encoding the same value twice always produces the same bytes, in the same process
+and across processes. This matters because a transaction body is hashed: a witness
+signs the hash of the body as it was encoded at signing time, so an encoding that
+varies between runs produces a signature the ledger rejects.
 
-// This will always produce the same bytes for the same transaction
-assert(deterministicCBOR == try transaction.toCBORData(deterministic: true))
+```swift
+let cbor = try transaction.toCBORData()
+
+// Always true, including in another process.
+assert(cbor == (try transaction.toCBORData()))
 ```
+
+Two things make this hold:
+
+- **Tagged sets** (CBOR tag 258 — inputs, collateral, required signers, certificates,
+  scripts) store their elements in a Swift `Set`, whose iteration order is randomised
+  per process. They are encoded, and read back through `asArray` / `asList`, in
+  canonical order: sorted by each element's CBOR encoding. `first` and the subscript
+  follow the same order, so an element's index is stable.
+- **Redeemer maps** keep the order they were decoded in, so a transaction decoded from
+  CBOR re-encodes to the bytes it came from. This is what `script_data_hash` is
+  computed over, and it is taken over the exact bytes.
+
+> Note: `toCBORData(deterministic:)` accepts a flag that is currently ignored.
+> Cardano's notion of deterministic encoding (CIP-21) is not RFC 8949 §4.2 — it
+> preserves indefinite-length items for PlutusData — so the flag is reserved for a
+> Cardano-specific mode rather than CBORCodable's.
 
 ## Advanced Serialization
 

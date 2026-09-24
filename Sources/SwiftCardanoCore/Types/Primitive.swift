@@ -612,9 +612,9 @@ public indirect enum Primitive: CBORSerializable, Sendable {
         case .cborTag(let tag):
             return .array([.int(Int(tag.tag)), tag.value.toAnyValue()])
         case .orderedSet(let set):
-            return .array(set.elements.map { $0.toAnyValue() })
+            return .array(set.elementsOrdered.map { $0.toAnyValue() })
         case .nonEmptyOrderedSet(let set):
-            return .array(set.elements.map { $0.toAnyValue() })
+            return .array(set.elementsOrdered.map { $0.toAnyValue() })
         case .unitInterval(let unitInterval):
             return .array(
                 [

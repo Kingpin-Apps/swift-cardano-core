@@ -398,3 +398,75 @@ struct ListOrNonEmptyOrderedSetTests {
         #expect(try a.toCBORData() == a.toCBORData())
     }
 }
+
+// MARK: - Ordering determinism
+
+/// Tagged sets store their elements in a Swift `Set`, whose iteration order is
+/// randomised per process. Anything that hands those elements back as a
+/// sequence has to impose a deterministic order, or callers see a different
+/// element order — and a different element *index* — on every run.
+@Suite("Tagged set ordering is deterministic")
+struct TaggedSetOrderingTests {
+
+    private func input(_ idByte: UInt8, index: UInt16 = 0) -> TransactionInput {
+        TransactionInput(
+            transactionId: TransactionId(payload: Data(repeating: idByte, count: 32)),
+            index: index
+        )
+    }
+
+    @Test("asArray matches canonical order, not Set iteration order")
+    func orderedSetAsArrayIsCanonical() throws {
+        let elements = [input(0xCC), input(0xAA), input(0xBB)]
+        let set = try OrderedSet(elements)
+        let value = ListOrOrderedSet.orderedSet(set)
+
+        #expect(value.asArray == set.elementsOrdered)
+        #expect(value.asArray.map { $0.transactionId.payload.first } == [0xAA, 0xBB, 0xCC])
+    }
+
+    @Test("asList matches canonical order for non-empty ordered sets")
+    func nonEmptyOrderedSetAsListIsCanonical() throws {
+        let elements = [input(0xCC), input(0xAA), input(0xBB)]
+        let set = NonEmptyOrderedSet(elements)
+        let value = ListOrNonEmptyOrderedSet.nonEmptyOrderedSet(set)
+
+        #expect(value.asList == set.elementsOrdered)
+        #expect(value.asList.map { $0.transactionId.payload.first } == [0xAA, 0xBB, 0xCC])
+    }
+
+    @Test("asArray agrees with the subscript at every index")
+    func asArrayAgreesWithSubscript() throws {
+        let set = try OrderedSet([input(0xCC), input(0xAA), input(0xBB)])
+        let value = ListOrOrderedSet.orderedSet(set)
+        for index in 0..<value.count {
+            #expect(value.asArray[index] == value[index])
+        }
+    }
+
+    @Test("asList agrees with the subscript at every index")
+    func asListAgreesWithSubscript() throws {
+        let set = NonEmptyOrderedSet([input(0xCC), input(0xAA), input(0xBB)])
+        let value = ListOrNonEmptyOrderedSet.nonEmptyOrderedSet(set)
+        for index in 0..<value.count {
+            #expect(value.asList[index] == value[index])
+        }
+    }
+
+    @Test("repeated reads return the same order")
+    func repeatedReadsAreStable() throws {
+        let set = try OrderedSet([input(0x03), input(0x01), input(0x02), input(0x04)])
+        let value = ListOrOrderedSet.orderedSet(set)
+        let first = value.asArray
+        for _ in 0..<20 {
+            #expect(value.asArray == first)
+        }
+    }
+
+    @Test("first is the canonically first element, not an arbitrary one")
+    func firstIsCanonical() throws {
+        let set = try OrderedSet([input(0xCC), input(0xAA), input(0xBB)])
+        #expect(set.first == set.elementsOrdered.first)
+        #expect(set.first?.transactionId.payload.first == 0xAA)
+    }
+}

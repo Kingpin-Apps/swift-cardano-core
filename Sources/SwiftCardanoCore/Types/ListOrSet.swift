@@ -25,7 +25,7 @@ public enum ListOrOrderedSet<T: Serializable>: Serializable {
             case .list(let array):
                 return array
             case .orderedSet(let set):
-                return set.elements.map { $0 }
+                return set.elementsOrdered
             case .indefiniteList(let indefiniteList):
                 return indefiniteList.map { $0 }
         }
@@ -36,7 +36,7 @@ public enum ListOrOrderedSet<T: Serializable>: Serializable {
             case .list(let array):
                 return IndefiniteList(array)
             case .orderedSet(let set):
-                return IndefiniteList(set.elements.map { $0 })
+                return IndefiniteList(set.elementsOrdered)
             case .indefiniteList(let indefiniteList):
                 return indefiniteList
         }
@@ -73,7 +73,7 @@ public enum ListOrOrderedSet<T: Serializable>: Serializable {
             case .orderedSet(let set):
                 self = .orderedSet(
                     try OrderedSet(
-                        try set.elements.map { try T.init(from: $0) }
+                        try set.elementsOrdered.map { try T.init(from: $0) }
                     )
                 )
             case .cborTag(let tag):
@@ -98,7 +98,7 @@ public enum ListOrOrderedSet<T: Serializable>: Serializable {
             case .list(let array):
                 return .list(try array.map { try $0.toPrimitive() })
             case .orderedSet(let set):
-                let primitives = try set.elements.map { try $0.toPrimitive() }
+                let primitives = try set.elementsOrdered.map { try $0.toPrimitive() }
                 return .orderedSet(try OrderedSet(primitives))
             case .indefiniteList(let indefiniteList):
                 return .indefiniteList(IndefiniteList(try indefiniteList.map { try $0.toPrimitive() }))
@@ -189,7 +189,7 @@ public enum ListOrNonEmptyOrderedSet<T: Serializable>: Serializable {
             case .list(let array):
                 return array
             case .nonEmptyOrderedSet(let set):
-                return set.elements.map { $0 }
+                return set.elementsOrdered
             case .indefiniteList(let indefiniteList):
                 return indefiniteList.map { $0 }
         }
@@ -200,7 +200,7 @@ public enum ListOrNonEmptyOrderedSet<T: Serializable>: Serializable {
             case .list(let array):
                 return IndefiniteList(array)
             case .nonEmptyOrderedSet(let set):
-                return IndefiniteList(set.elements.map { $0 })
+                return IndefiniteList(set.elementsOrdered)
             case .indefiniteList(let indefiniteList):
                 return indefiniteList
         }
@@ -237,7 +237,7 @@ public enum ListOrNonEmptyOrderedSet<T: Serializable>: Serializable {
                 self = .indefiniteList(IndefiniteList(try elements.map { try T.init(from: $0) }))
             case .nonEmptyOrderedSet(let elements):
                 self = .nonEmptyOrderedSet(NonEmptyOrderedSet(
-                    try elements.elements.map { try T.init(from: $0) }
+                    try elements.elementsOrdered.map { try T.init(from: $0) }
                 ))
             case .cborTag(let tag):
                 if tag.tag == 258 {
@@ -261,7 +261,7 @@ public enum ListOrNonEmptyOrderedSet<T: Serializable>: Serializable {
             case .list(let array):
                 return .list(try array.map { try $0.toPrimitive() })
             case .nonEmptyOrderedSet(let set):
-                let primitives = try set.elements.map { try $0.toPrimitive() }
+                let primitives = try set.elementsOrdered.map { try $0.toPrimitive() }
                 return .nonEmptyOrderedSet(NonEmptyOrderedSet(primitives))
             case .indefiniteList(let indefiniteList):
                 return .indefiniteList(IndefiniteList(try indefiniteList.map { try $0.toPrimitive() }))

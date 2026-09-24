@@ -318,10 +318,10 @@ extension AnyValue: CBORSerializable {
             case .regex(let regex):
                 self = .string(regex.pattern)
             case .orderedSet(let set):
-                let anyValueArray = try set.elements.map { try AnyValue(from: $0) }
+                let anyValueArray = try set.elementsOrdered.map { try AnyValue(from: $0) }
                 self = .array(anyValueArray)
             case .nonEmptyOrderedSet(let set):
-                let anyValueArray = try set.elements.map { try AnyValue(from: $0) }
+                let anyValueArray = try set.elementsOrdered.map { try AnyValue(from: $0) }
                 self = .array(anyValueArray)
             case .unitInterval(let unitInterval):
                 // Represent fraction as a 2-element array [numerator, denominator]

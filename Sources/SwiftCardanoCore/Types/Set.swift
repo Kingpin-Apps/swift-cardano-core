@@ -229,9 +229,9 @@ public struct OrderedSet<T: CBORSerializable & Hashable & Sendable>: SetTaggable
         return try OrderedSet(elements.subtracting(other.elements))
     }
     
-    /// Returns an arbitrary element from the set, or nil if the set is empty
+    /// Returns the first element in canonical order, or nil if the set is empty.
     public var first: Element? {
-        return elements.first
+        return canonicalElements.first
     }
     
     /// Creates a new OrderedSet by filtering elements that satisfy the predicate
@@ -291,7 +291,7 @@ public struct OrderedSet<T: CBORSerializable & Hashable & Sendable>: SetTaggable
     /// Converts OrderedSet to a Primitive representation
     /// - Returns: A Primitive representation of this OrderedSet
     public func toPrimitive() throws -> Primitive {
-        let primitiveElements = try elements.map { try $0.toPrimitive() }
+        let primitiveElements = try canonicalElements.map { try $0.toPrimitive() }
         return .orderedSet(
             try OrderedSet<Primitive>(primitiveElements)
         )
@@ -494,9 +494,9 @@ public struct NonEmptyOrderedSet<T: CBORSerializable & Hashable & Sendable>: Set
         return try OrderedSet(elements.subtracting(other.elements))
     }
     
-    /// Gets the first element (any element since sets are unordered)
+    /// Gets the first element in canonical order.
     public var first: Element {
-        return elements.first!
+        return canonicalElements.first!
     }
     
     /// Creates a new NonEmptyOrderedSet by filtering elements that satisfy the predicate
@@ -613,7 +613,7 @@ public struct NonEmptyOrderedSet<T: CBORSerializable & Hashable & Sendable>: Set
     /// Converts NonEmptyOrderedSet to a Primitive representation
     /// - Returns: A Primitive representation of this NonEmptyOrderedSet
     public func toPrimitive() throws -> Primitive {
-        let primitiveElements = try elements.map { try $0.toPrimitive() }
+        let primitiveElements = try canonicalElements.map { try $0.toPrimitive() }
         return .list(primitiveElements)
     }
 }
