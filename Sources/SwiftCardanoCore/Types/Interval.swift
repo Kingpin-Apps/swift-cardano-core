@@ -34,6 +34,11 @@ public struct NonNegativeInterval: CBORSerializable, Sendable {
                 throw CardanoCoreError.valueError("NonNegativeInterval tag-30 value must be an array")
             }
             elements = arr
+        case .unitInterval(let interval):
+            // The CBOR decoder turns every `#6.30` tag into a `unitInterval`,
+            // whatever the ratio actually is, so a non-negative interval
+            // arrives in that shape too — and has to be read back out of it.
+            elements = [.uint(interval.numerator), .uint(interval.denominator)]
         default:
             throw CardanoCoreError.valueError("Invalid NonNegativeInterval type: \(primitive)")
         }
@@ -51,10 +56,14 @@ public struct NonNegativeInterval: CBORSerializable, Sendable {
     }
 
     public func toPrimitive() throws -> Primitive {
-        return .list([
-            .int(Int64(lowerBound)),
-            .int(Int64(upperBound))
-        ])
+        // The CDDL's `nonnegative_interval` is `#6.30([uint, positive_int])`.
+        // Writing the bare array instead changes the bytes of anything holding
+        // one — a pool's pledge influence, the execution unit prices — and so
+        // changes the hash of the body it sits in.
+        return .cborTag(CBORTag(tag: 30, value: .list([
+            .uint(lowerBound),
+            .uint(upperBound),
+        ])))
     }
 
 }
