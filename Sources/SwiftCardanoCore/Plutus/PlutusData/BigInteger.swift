@@ -1,3 +1,4 @@
+import Foundation
 @preconcurrency import BigInt
 import CBORCodable
 import OrderedCollections
@@ -18,41 +19,32 @@ public enum BigInteger: Serializable, CustomStringConvertible, Sendable {
         switch self {
             case .int(let v): return "Int(\(v))"
             case .bigUInt(let d): return "BigUInt(\(d))"
-            case .bigNInt(let d): return "BigNInt(-\(d))"
+            case .bigNInt(let d): return "BigNInt(\(d))"
         }
     }
     
+    /// The integer this holds, whichever case carries it.
+    public var value: BigInt {
+        switch self {
+            case .int(let value): return BigInt(value)
+            case .bigUInt(let value): return BigInt(value)
+            case .bigNInt(let value): return value
+        }
+    }
+    
+    /// The integer itself, narrowed to `Int64`. Traps when it does not fit;
+    /// use ``value`` to keep the full range.
     public var intValue : Int64 {
-        switch self {
-            case .int(let v):
-                return v
-            case .bigUInt(let bigUInt):
-                return Int64(bigUInt)
-            case .bigNInt(let bigNInt):
-                return Int64(-1*bigNInt)
-        }
+        return Int64(value)
     }
     
+    /// The integer's magnitude, with its sign dropped.
     public var bigUIntValue : BigUInt {
-        switch self {
-            case .int(let v):
-                return BigUInt(v)
-            case .bigUInt(let bigUInt):
-                return bigUInt
-            case .bigNInt(let bigNInt):
-                return BigUInt(-1*bigNInt)
-        }
+        return value.magnitude
     }
     
     public var bigNIntValue : BigInt {
-        switch self {
-            case .int(let v):
-                return BigInt((v))
-            case .bigUInt(let bigUInt):
-                return BigInt(BigUInt(bigUInt))
-            case .bigNInt(let bigNInt):
-                return bigNInt
-        }
+        return value
     }
     
     /// Convenience initializer for unsigned magnitude bytes.
@@ -72,38 +64,59 @@ public enum BigInteger: Serializable, CustomStringConvertible, Sendable {
     public init(from primitive: Primitive) throws {
         switch primitive {
             case .int(let v):
-                self = .int(Int64(v))
+                self = .int(v)
             case .uint(let v):
-                self = .int(Int64(v))
+                // An unsigned value above `Int64.max` still fits CBOR's
+                // unsigned integer, so it cannot be narrowed here.
+                if let small = Int64(exactly: v) {
+                    self = .int(small)
+                } else {
+                    self = .bigUInt(BigUInt(v))
+                }
             case .cborTag(let tag) where tag.tag == 2:
-                guard case let .bytes(bigUInt) = tag.value else {
-                    throw CardanoCoreError.deserializeError("Invalid bigUInt CBOR tag value: \(tag.value)")
-                }
-                self = .bigUInt(try CBORDecoder().decode(
-                    BigUInt.self,
-                    from: bigUInt
-                ))
+                self = .bigUInt(try Self.magnitude(ofBignum: tag))
             case .cborTag(let tag) where tag.tag == 3:
-                guard case let .bytes(bigNInt) = tag.value else {
-                    throw CardanoCoreError.deserializeError("Invalid bigNInt CBOR tag value: \(tag.value)")
-                }
-                self = .bigNInt(try CBORDecoder().decode(
-                    BigInt.self,
-                    from: bigNInt
-                ))
+                // Tag 3 carries -1 - n, so the value is one below the
+                // negated magnitude.
+                self = .bigNInt(-1 - BigInt(try Self.magnitude(ofBignum: tag)))
             default:
                 throw CardanoCoreError.deserializeError("Invalid BigInt type: \(primitive)")
         }
     }
     
     public func toPrimitive() throws -> Primitive {
-        switch self {
-            case .int(let v):
-                return .int(v)
-            case .bigUInt(let bigUInt):
-                return .bigUInt(bigUInt)
-            case .bigNInt(let bigNInt):
-                return .bigInt(bigNInt)
+        // An integer is written as a CBOR bignum only when it does not fit in
+        // 64 bits, which is the rule the ledger follows. Normalising here is
+        // what makes two equal values encode alike — and so hash alike —
+        // however each of them happens to be held.
+        let value = self.value
+        if let small = Int64(exactly: value) {
+            return .int(small)
+        }
+        if value.sign == .plus {
+            if let unsigned = UInt64(exactly: value.magnitude) {
+                return .uint(unsigned)
+            }
+            return .cborTag(CBORTag(tag: 2, value: .bytes(value.magnitude.serialize())))
+        }
+        // Tag 3 carries -1 - n, so what goes on the wire is one below the
+        // magnitude.
+        return .cborTag(CBORTag(tag: 3, value: .bytes((value.magnitude - 1).serialize())))
+    }
+    
+    /// The big-endian magnitude carried by a CBOR bignum tag.
+    private static func magnitude(ofBignum tag: CBORTag) throws -> BigUInt {
+        switch tag.value {
+            case .bytes(let data):
+                return BigUInt(data)
+            case .byteArray(let bytes):
+                return BigUInt(Data(bytes))
+            case .byteString(let byteString):
+                return BigUInt(byteString.bytes)
+            default:
+                throw CardanoCoreError.deserializeError(
+                    "Invalid bignum CBOR tag value: \(tag.value)"
+                )
         }
     }
 
