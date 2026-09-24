@@ -8,6 +8,12 @@ public enum ListOrOrderedSet<T: Serializable>: Serializable {
     case list([Element])
     case orderedSet(OrderedSet<Element>)
     case indefiniteList(IndefiniteList<Element>)
+    /// A `#6.258` set whose payload was written as an *indefinite-length* array.
+    ///
+    /// Kept distinct from `.orderedSet` so the value re-encodes to the same bytes
+    /// it was decoded from. Collapsing it into `.orderedSet` would emit a
+    /// definite-length array and change the transaction hash.
+    case indefiniteOrderedSet(IndefiniteList<Element>)
 
     public var count: Int {
         switch self {
@@ -15,7 +21,7 @@ public enum ListOrOrderedSet<T: Serializable>: Serializable {
                 return array.count
             case .orderedSet(let set):
                 return set.count
-            case .indefiniteList(let indefiniteList):
+            case .indefiniteList(let indefiniteList), .indefiniteOrderedSet(let indefiniteList):
                 return indefiniteList.count
         }
     }
@@ -26,7 +32,7 @@ public enum ListOrOrderedSet<T: Serializable>: Serializable {
                 return array
             case .orderedSet(let set):
                 return set.elementsOrdered
-            case .indefiniteList(let indefiniteList):
+            case .indefiniteList(let indefiniteList), .indefiniteOrderedSet(let indefiniteList):
                 return indefiniteList.map { $0 }
         }
     }
@@ -37,7 +43,7 @@ public enum ListOrOrderedSet<T: Serializable>: Serializable {
                 return IndefiniteList(array)
             case .orderedSet(let set):
                 return IndefiniteList(set.elementsOrdered)
-            case .indefiniteList(let indefiniteList):
+            case .indefiniteList(let indefiniteList), .indefiniteOrderedSet(let indefiniteList):
                 return indefiniteList
         }
     }
@@ -48,7 +54,7 @@ public enum ListOrOrderedSet<T: Serializable>: Serializable {
                 return try OrderedSet(array)
             case .orderedSet(let set):
                 return set
-            case .indefiniteList(let indefiniteList):
+            case .indefiniteList(let indefiniteList), .indefiniteOrderedSet(let indefiniteList):
                 return try OrderedSet(indefiniteList.map { $0 })
         }
     }
@@ -77,16 +83,22 @@ public enum ListOrOrderedSet<T: Serializable>: Serializable {
                     )
                 )
             case .cborTag(let tag):
-                if tag.tag == 258 {
-                    self = .orderedSet(
-                        try OrderedSet(
-                            try tag.value.listValue!.map {
-                                try T.init(from: $0.toPrimitive())
-                            }
-                        )
-                    )
-                } else {
+                guard tag.tag == 258 else {
                     throw CardanoCoreError.valueError("Invalid ListOrOrderedSet CBOR tag")
+                }
+                switch tag.value {
+                    case .list(let elements):
+                        self = .orderedSet(
+                            try OrderedSet(try elements.map { try T.init(from: $0) })
+                        )
+                    case .indefiniteList(let elements):
+                        self = .indefiniteOrderedSet(
+                            IndefiniteList(try elements.getAll().map { try T.init(from: $0) })
+                        )
+                    default:
+                        throw CardanoCoreError.deserializeError(
+                            "A #6.258 set tag has to wrap a list, but this one wrapped \(tag.value)"
+                        )
                 }
             default:
                 throw CardanoCoreError.valueError("Invalid ListOrOrderedSet type")
@@ -102,6 +114,17 @@ public enum ListOrOrderedSet<T: Serializable>: Serializable {
                 return .orderedSet(try OrderedSet(primitives))
             case .indefiniteList(let indefiniteList):
                 return .indefiniteList(IndefiniteList(try indefiniteList.map { try $0.toPrimitive() }))
+            case .indefiniteOrderedSet(let indefiniteList):
+                // Re-emit `#6.258` around an indefinite-length array, byte-for-byte
+                // as it was decoded.
+                return .cborTag(
+                    CBORTag(
+                        tag: 258,
+                        value: .indefiniteList(
+                            IndefiniteList(try indefiniteList.map { try $0.toPrimitive() })
+                        )
+                    )
+                )
         }
     }
 
@@ -128,7 +151,7 @@ public enum ListOrOrderedSet<T: Serializable>: Serializable {
                 return array.contains(element)
             case .orderedSet(let set):
                 return set.contains(element)
-            case .indefiniteList(let indefiniteList):
+            case .indefiniteList(let indefiniteList), .indefiniteOrderedSet(let indefiniteList):
                 return indefiniteList.contains(element)
         }
     }
@@ -144,6 +167,9 @@ public enum ListOrOrderedSet<T: Serializable>: Serializable {
             case .indefiniteList(var indefiniteList):
                 indefiniteList.add(element)
                 self = .indefiniteList(indefiniteList)
+            case .indefiniteOrderedSet(var indefiniteList):
+                indefiniteList.add(element)
+                self = .indefiniteOrderedSet(indefiniteList)
         }
     }
 
@@ -159,7 +185,7 @@ public enum ListOrOrderedSet<T: Serializable>: Serializable {
                     return nil
                 }
                 return set.elementsOrdered[index]
-            case .indefiniteList(let indefiniteList):
+            case .indefiniteList(let indefiniteList), .indefiniteOrderedSet(let indefiniteList):
                 return indefiniteList.get(at: index)
         }
     }
@@ -172,6 +198,12 @@ public enum ListOrNonEmptyOrderedSet<T: Serializable>: Serializable {
     case list([Element])
     case nonEmptyOrderedSet(NonEmptyOrderedSet<Element>)
     case indefiniteList(IndefiniteList<Element>)
+    /// A `#6.258` set whose payload was written as an *indefinite-length* array.
+    ///
+    /// Kept distinct from `.nonEmptyOrderedSet` so the value re-encodes to the same
+    /// bytes it was decoded from. Collapsing it into `.nonEmptyOrderedSet` would emit
+    /// a definite-length array and change `script_data_hash`.
+    case indefiniteNonEmptyOrderedSet(IndefiniteList<Element>)
 
     public var count: Int {
         switch self {
@@ -179,7 +211,7 @@ public enum ListOrNonEmptyOrderedSet<T: Serializable>: Serializable {
                 return array.count
             case .nonEmptyOrderedSet(let set):
                 return set.count
-            case .indefiniteList(let indefiniteList):
+            case .indefiniteList(let indefiniteList), .indefiniteNonEmptyOrderedSet(let indefiniteList):
                 return indefiniteList.count
         }
     }
@@ -190,7 +222,7 @@ public enum ListOrNonEmptyOrderedSet<T: Serializable>: Serializable {
                 return array
             case .nonEmptyOrderedSet(let set):
                 return set.elementsOrdered
-            case .indefiniteList(let indefiniteList):
+            case .indefiniteList(let indefiniteList), .indefiniteNonEmptyOrderedSet(let indefiniteList):
                 return indefiniteList.map { $0 }
         }
     }
@@ -201,7 +233,7 @@ public enum ListOrNonEmptyOrderedSet<T: Serializable>: Serializable {
                 return IndefiniteList(array)
             case .nonEmptyOrderedSet(let set):
                 return IndefiniteList(set.elementsOrdered)
-            case .indefiniteList(let indefiniteList):
+            case .indefiniteList(let indefiniteList), .indefiniteNonEmptyOrderedSet(let indefiniteList):
                 return indefiniteList
         }
     }
@@ -213,7 +245,7 @@ public enum ListOrNonEmptyOrderedSet<T: Serializable>: Serializable {
                 return NonEmptyOrderedSet(array)
             case .nonEmptyOrderedSet(let set):
                 return set
-            case .indefiniteList(let indefiniteList):
+            case .indefiniteList(let indefiniteList), .indefiniteNonEmptyOrderedSet(let indefiniteList):
                 return NonEmptyOrderedSet(indefiniteList.map { $0 })
         }
     }
@@ -240,16 +272,22 @@ public enum ListOrNonEmptyOrderedSet<T: Serializable>: Serializable {
                     try elements.elementsOrdered.map { try T.init(from: $0) }
                 ))
             case .cborTag(let tag):
-                if tag.tag == 258 {
-                    self = .nonEmptyOrderedSet(
-                        NonEmptyOrderedSet(
-                            try tag.value.listValue!.map {
-                                try T.init(from: $0.toPrimitive())
-                            }
+                guard tag.tag == 258 else {
+                    throw CardanoCoreError.valueError("Invalid ListOrNonEmptyOrderedSet CBOR tag")
+                }
+                switch tag.value {
+                    case .list(let elements):
+                        self = .nonEmptyOrderedSet(
+                            NonEmptyOrderedSet(try elements.map { try T.init(from: $0) })
                         )
-                    )
-                } else {
-                    throw CardanoCoreError.valueError("Invalid ListOrOrderedSet CBOR tag")
+                    case .indefiniteList(let elements):
+                        self = .indefiniteNonEmptyOrderedSet(
+                            IndefiniteList(try elements.getAll().map { try T.init(from: $0) })
+                        )
+                    default:
+                        throw CardanoCoreError.deserializeError(
+                            "A #6.258 set tag has to wrap a list, but this one wrapped \(tag.value)"
+                        )
                 }
             default:
                 throw CardanoCoreError.valueError("Invalid ListOrNonEmptyOrderedSet type: \(primitive)")
@@ -265,6 +303,17 @@ public enum ListOrNonEmptyOrderedSet<T: Serializable>: Serializable {
                 return .nonEmptyOrderedSet(NonEmptyOrderedSet(primitives))
             case .indefiniteList(let indefiniteList):
                 return .indefiniteList(IndefiniteList(try indefiniteList.map { try $0.toPrimitive() }))
+            case .indefiniteNonEmptyOrderedSet(let indefiniteList):
+                // Re-emit `#6.258` around an indefinite-length array, byte-for-byte
+                // as it was decoded.
+                return .cborTag(
+                    CBORTag(
+                        tag: 258,
+                        value: .indefiniteList(
+                            IndefiniteList(try indefiniteList.map { try $0.toPrimitive() })
+                        )
+                    )
+                )
         }
     }
 
@@ -292,7 +341,7 @@ public enum ListOrNonEmptyOrderedSet<T: Serializable>: Serializable {
                 return array.contains(element)
             case .nonEmptyOrderedSet(let set):
                 return set.contains(element)
-            case .indefiniteList(let indefiniteList):
+            case .indefiniteList(let indefiniteList), .indefiniteNonEmptyOrderedSet(let indefiniteList):
                 return indefiniteList.contains(element)
         }
     }
@@ -308,6 +357,9 @@ public enum ListOrNonEmptyOrderedSet<T: Serializable>: Serializable {
             case .indefiniteList(var indefiniteList):
                 indefiniteList.add(element)
                 self = .indefiniteList(indefiniteList)
+            case .indefiniteNonEmptyOrderedSet(var indefiniteList):
+                indefiniteList.add(element)
+                self = .indefiniteNonEmptyOrderedSet(indefiniteList)
         }
     }
 
@@ -323,7 +375,7 @@ public enum ListOrNonEmptyOrderedSet<T: Serializable>: Serializable {
                     return nil
                 }
                 return set.elementsOrdered[index]
-            case .indefiniteList(let indefiniteList):
+            case .indefiniteList(let indefiniteList), .indefiniteNonEmptyOrderedSet(let indefiniteList):
                 return indefiniteList.get(at: index)
         }
     }

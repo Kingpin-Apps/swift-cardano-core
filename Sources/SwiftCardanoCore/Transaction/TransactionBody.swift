@@ -768,7 +768,8 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
                 return .list(try array.map { try $0.toPrimitive() })
             case .orderedSet(let set):
                 return .list(try set.elementsOrdered.map { try $0.toPrimitive() })
-            case .indefiniteList(let indefiniteList):
+            case .indefiniteList(let indefiniteList),
+                 .indefiniteOrderedSet(let indefiniteList):
                 return .indefiniteList(
                     IndefiniteList<Primitive>(try indefiniteList.map { try $0.toPrimitive() }))
             }
@@ -783,7 +784,8 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
                 return .list(try array.map { try $0.toPrimitive() })
             case .nonEmptyOrderedSet(let set):
                 return .list(try set.elementsOrdered.map { try $0.toPrimitive() })
-            case .indefiniteList(let indefiniteList):
+            case .indefiniteList(let indefiniteList),
+                 .indefiniteNonEmptyOrderedSet(let indefiniteList):
                 return .indefiniteList(
                     IndefiniteList<Primitive>(try indefiniteList.map { try $0.toPrimitive() }))
             }
