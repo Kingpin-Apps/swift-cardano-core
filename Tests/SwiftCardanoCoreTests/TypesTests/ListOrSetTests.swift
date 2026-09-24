@@ -451,9 +451,26 @@ struct TaggedSetOrderingTests {
     func roundTripKeepsTheBytes() throws {
         let set = try OrderedSet([input(0xCC), input(0xAA), input(0xBB)])
         let encoded = try set.toCBORData()
-        let decoded = try OrderedSet<TransactionInput>(from: try set.toPrimitive())
-        #expect(decoded.elementsOrdered == set.elementsOrdered)
-        #expect(try decoded.toCBORData() == encoded)
+
+        let throughPrimitive = try OrderedSet<TransactionInput>(from: try set.toPrimitive())
+        #expect(throughPrimitive.elementsOrdered == set.elementsOrdered)
+        #expect(try throughPrimitive.toCBORData() == encoded)
+
+        let throughCBOR = try OrderedSet<TransactionInput>.fromCBOR(data: encoded)
+        #expect(throughCBOR.elementsOrdered == set.elementsOrdered)
+        #expect(try throughCBOR.toCBORData() == encoded)
+    }
+
+    /// A set holds its elements as themselves, so encoding one has to reach for
+    /// each element's CBOR. Reaching for its JSON instead put *field names* on
+    /// the wire: a set of inputs came out as a list of
+    /// `{"transactionId": …, "index": …}` maps, which nothing could read back.
+    @Test("A set's elements go on the wire in their own CBOR form")
+    func elementsKeepTheirCBORForm() throws {
+        let element = input(0xAA, index: 1)
+        let set = try OrderedSet([element])
+        let encoded = try set.toCBORData().toHex
+        #expect(encoded == "d9010281" + (try element.toCBORData().toHex))
     }
 
     @Test("asArray agrees with the subscript at every index")

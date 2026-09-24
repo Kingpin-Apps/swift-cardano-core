@@ -474,9 +474,11 @@ public indirect enum Primitive: CBORSerializable, Sendable {
         switch value {
         case let v as Primitive:
             return v
-        case let v as any Serializable:
-            return try v.toDict()
         case let v as any CBORSerializable:
+            // Its CBOR form, not its JSON one. `Serializable` is both, and
+            // reaching for `toDict()` here put a value's *field names* into
+            // CBOR: a tagged set of transaction inputs came out as a list of
+            // `{"transactionId": …, "index": …}` maps rather than as inputs.
             return try v.toPrimitive()
         case let v as OrderedDictionary<Primitive, Primitive>:
             return .orderedDict(v)
