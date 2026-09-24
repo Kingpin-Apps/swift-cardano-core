@@ -1,3 +1,14 @@
+## 0.7.0 (2026-09-24)
+
+### Feat
+
+- add SlotTimeline to map slots to wall-clock time
+
+### Fix
+
+- hash transactions and bodies consistently with equality
+- encode nested values in their CBOR form rather than their JSON one
+
 ## 0.6.0 (2026-09-23)
 
 ### Fix
