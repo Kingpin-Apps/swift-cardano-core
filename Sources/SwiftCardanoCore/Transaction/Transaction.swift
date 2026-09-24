@@ -224,5 +224,12 @@ public struct Transaction: Serializable, TextEnvelopable {
         lhs.valid == rhs.valid &&
         lhs.auxiliaryData == rhs.auxiliaryData
     }
+
+    /// Hashes what `==` compares — see ``TransactionBody/hash(into:)``, which the
+    /// inherited payload-based implementation contradicted in the same way.
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(transactionBody)
+        hasher.combine(valid)
+    }
     
 }

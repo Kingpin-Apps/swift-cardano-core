@@ -874,4 +874,18 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
             && lhs.currentTreasuryAmount == rhs.currentTreasuryAmount
             && lhs.treasuryDonation == rhs.treasuryDonation
     }
+
+    /// Hashes what `==` compares.
+    ///
+    /// The inherited implementation hashed the text-envelope payload, which `==`
+    /// does not look at: a body loaded from a file and the same body decoded from
+    /// CBOR compared equal and hashed differently, so one would go missing from a
+    /// `Set`. Only a few fields are hashed — that is allowed, as long as they are
+    /// all fields `==` compares.
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(inputs)
+        hasher.combine(outputs)
+        hasher.combine(fee)
+        hasher.combine(ttl)
+    }
 }
