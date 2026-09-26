@@ -13,10 +13,16 @@ public struct PositiveCoin: Serializable {
     // MARK: - CBORSerializable
     
     public init(from primitive: Primitive) throws {
-        guard case let .int(value) = primitive else {
+        // CBOR decodes a positive integer as `.uint`; `.int` comes from
+        // values built in code.
+        switch primitive {
+        case .uint(let value) where value > 0:
+            self.init(UInt(value))
+        case .int(let value) where value > 0:
+            self.init(UInt(value))
+        default:
             throw CardanoCoreError.valueError("Invalid PositiveCoin type")
         }
-        self.init(UInt(value))
     }
 
     public func toPrimitive() throws -> Primitive {
@@ -28,10 +34,10 @@ public struct PositiveCoin: Serializable {
     public static func fromDict(_ dict: Primitive) throws -> PositiveCoin {
         guard case let .orderedDict(dictValue) = dict,
               let valuePrimitive = dictValue[.string("value")],
-              case let .int(value) = valuePrimitive else {
+              let coin = try? PositiveCoin(from: valuePrimitive) else {
             throw CardanoCoreError.deserializeError("Invalid or missing value in PositiveCoin dict")
         }
-        return PositiveCoin(UInt(value))
+        return coin
     }
     
     public func toDict() throws -> Primitive {
