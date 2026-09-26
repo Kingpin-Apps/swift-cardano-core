@@ -1,3 +1,12 @@
+## 0.8.2 (2026-09-26)
+
+### Fix
+
+- **plutus**: unwrap only one level of CBOR embedded in bytes
+- **plutus**: stop retrying failed constructors as plain tags
+- **primitive**: convert each CBOR map entry once and allow colliding keys
+- **plutus**: keep deep datum decoding within a task stack
+
 ## 0.8.1 (2026-09-26)
 
 ### Fix
