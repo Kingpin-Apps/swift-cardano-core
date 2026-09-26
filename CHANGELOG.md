@@ -1,3 +1,9 @@
+## 0.8.1 (2026-09-26)
+
+### Fix
+
+- **transaction**: hash auxiliary data as written
+
 ## 0.8.0 (2026-09-26)
 
 ### Fix
