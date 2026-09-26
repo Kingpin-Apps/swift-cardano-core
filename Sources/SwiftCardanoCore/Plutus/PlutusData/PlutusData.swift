@@ -91,9 +91,13 @@ public enum PlutusData: Serializable, Sendable {
     private static func fromTagged(_ cborTag: CBORTag, _ primitive: Primitive) throws -> PlutusData {
         if cborTag.tag == 2 || cborTag.tag == 3 {
             return .bigInt(try BigInteger(from: primitive))
-        } else if let constr = try? Constr(from: primitive) {
-            // Valid constructor tags: 102, 121-127, 1280-1535
-            return .constructor(constr)
+        } else if cborTag.tag == 102 || (121..<128).contains(cborTag.tag)
+            || (1280..<1536).contains(cborTag.tag)
+        {
+            // A constructor tag must hold a valid Constr. Retrying a failed
+            // Constr as an untagged value re-decodes the subtree, which is
+            // exponential in the nesting depth.
+            return .constructor(try Constr(from: primitive))
         } else {
             // Unknown CBOR tag (e.g. tag 6 used for sets in Conway era) —
             // strip the tag and decode the wrapped value as PlutusData.

@@ -76,6 +76,16 @@ import Testing
         }
     }
 
+    @Test("Deep constructors with an invalid leaf throw in linear time")
+    func rejectsInvalidLeafUnderDeepConstrs() async {
+        // A failed Constr used to be retried as an untagged value, which
+        // re-decoded the subtree at every level: O(2^depth).
+        let data = Self.nestedConstrs(60, leaf: 0xf5)  // `true` is not PlutusData
+        await #expect(throws: (any Error).self) {
+            try await Task.detached { try PlutusData.fromCBOR(data: data) }.value
+        }
+    }
+
     @Test("Map keys that collapse to the same Primitive do not trap")
     func toleratesCollidingMapKeys() throws {
         // {h'00': 0, (_ h'00'): 1}: distinct CBOR keys, both Primitive.bytes.
