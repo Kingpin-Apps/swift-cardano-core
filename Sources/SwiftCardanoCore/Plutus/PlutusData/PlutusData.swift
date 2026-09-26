@@ -105,6 +105,21 @@ public enum PlutusData: Serializable, Sendable {
         }
     }
 
+    @TaskLocal private static var decodingEmbeddedCBOR = false
+
+    /// Depth cap for CBOR embedded in a byte string. The unwrapped value
+    /// sits under up to 128 outer levels, and re-encoding walks the combined
+    /// depth, so it gets a much smaller budget than a top-level decode.
+    static let embeddedCBORMaxDepth = 16
+
+    @inline(never)
+    private static func embeddedConstr(_ data: Data) throws -> Constr {
+        let decoder = CBORDecoder()
+        decoder.maxDepth = embeddedCBORMaxDepth
+        let cborTag = try decoder.decode(CBORTag.self, from: data)
+        return try Constr(from: .cborTag(cborTag))
+    }
+
     @inline(never)
     private static func fromScalar(_ primitive: Primitive) throws -> PlutusData {
         switch primitive {
@@ -116,8 +131,13 @@ public enum PlutusData: Serializable, Sendable {
             // The raw bytes may themselves be CBOR-encoded, containing a tagged
             // Constr. But only attempt this if the tag is a known constructor tag
             // (2, 3, 102, 121-127, 1280-1535) — otherwise treat as plain bytes.
-            if let cborTag = try? CBORTag.fromCBOR(data: data),
-                let constr = try? Constr(from: .cborTag(cborTag))
+            // Each embedded decode starts a fresh CBOR reader, so only one
+            // level is unwrapped: bytes nested in bytes would otherwise bypass
+            // the depth cap and exhaust the stack.
+            if !decodingEmbeddedCBOR,
+                let constr = try? $decodingEmbeddedCBOR.withValue(true, operation: {
+                    try embeddedConstr(data)
+                })
             {
                 return .constructor(constr)
             } else {

@@ -17,6 +17,16 @@ import Testing
         Data(Array(repeating: [UInt8(0xd8), 0x79, 0x81], count: depth).joined()) + Data([leaf])
     }
 
+    /// Wrap `payload` in a CBOR byte-string head.
+    private static func byteString(_ payload: Data) -> Data {
+        let n = payload.count
+        let head: [UInt8] =
+            n < 24 ? [0x40 | UInt8(n)]
+            : n < 256 ? [0x58, UInt8(n)]
+            : [0x59, UInt8(n >> 8), UInt8(n & 0xff)]
+        return Data(head) + payload
+    }
+
     private static func arrayDepth(_ data: PlutusData) -> Int {
         var depth = 0
         var current = data
@@ -98,4 +108,44 @@ import Testing
         #expect(map.count == 1)
     }
 
+    @Test("CBOR nested in byte strings cannot bypass the depth cap")
+    func boundsBytesNestedInBytes() async throws {
+        // bytes(Constr 0 [bytes(Constr 0 [...])]). Each embedded decode used
+        // to start a fresh reader, so the depth cap never applied.
+        var data = Data([0x00])
+        for _ in 0..<1000 {
+            data = Self.byteString(Data([0xd8, 0x79, 0x81]) + data)
+        }
+        let input = data
+        let decoded = try await Task.detached { try PlutusData.fromCBOR(data: input) }.value
+        guard case .constructor(let constr) = decoded, case .bytes = constr.fields.first else {
+            Issue.record("expected one unwrapped constructor holding bytes, got \(decoded)")
+            return
+        }
+    }
+
+    @Test("Max-depth embedded CBOR under max-depth nesting round-trips on a cooperative thread")
+    func roundTripsDeepEmbeddedConstr() async throws {
+        // 126 arrays, then bytes holding the deepest Constr chain the
+        // embedded decode accepts. Unwrapping it makes the re-encoded tree
+        // deeper than the input, so this is the worst case for encoding.
+        let constrs = (16 - 1) / 2
+        let data = Self.nestedArrays(126).dropLast() + Self.byteString(Self.nestedConstrs(constrs))
+        let depth = try await Task.detached {
+            let decoded = try PlutusData.fromCBOR(data: data)
+            _ = try decoded.hash()
+            _ = try decoded.toCBORData()
+            return Self.arrayDepth(decoded)
+        }.value
+        #expect(depth == 126)
+    }
+
+    @Test("A single level of CBOR embedded in bytes is still unwrapped")
+    func unwrapsEmbeddedConstr() throws {
+        let decoded = try PlutusData.fromCBOR(data: Self.byteString(Self.nestedConstrs(1)))
+        guard case .constructor(let constr) = decoded, case .bigInt = constr.fields.first else {
+            Issue.record("expected a constructor holding an integer, got \(decoded)")
+            return
+        }
+    }
 }
