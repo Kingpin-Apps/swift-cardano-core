@@ -49,48 +49,65 @@ public enum PlutusData: Serializable, Sendable {
     // MARK: - CBORSerializable
 
     public init(from primitive: Primitive) throws {
+        // Containers recurse once per nesting level, so their bodies live in
+        // out-of-line helpers. That keeps this frame small in unoptimized
+        // builds, where every case binding gets its own stack slot.
         switch primitive {
         case .cborTag(let cborTag):
-            if cborTag.tag == 2 || cborTag.tag == 3 {
-                let bigInt = try BigInteger(from: primitive)
-                self = .bigInt(bigInt)
-                return
-            } else if let constr = try? Constr(from: primitive) {
-                // Valid constructor tags: 102, 121-127, 1280-1535
-                self = .constructor(constr)
-            } else {
-                // Unknown CBOR tag (e.g. tag 6 used for sets in Conway era) —
-                // strip the tag and decode the wrapped value as PlutusData.
-                self = try PlutusData(from: cborTag.value)
-            }
+            self = try PlutusData.fromTagged(cborTag, primitive)
         case .dict(let dict):
-            var plutusDict = OrderedDictionary<PlutusData, PlutusData>()
-            for (key, value) in dict {
-                let keyPlutus = try PlutusData(from: key)
-                let valuePlutus = try PlutusData(from: value)
-                plutusDict[keyPlutus] = valuePlutus
-            }
-            self = .map(plutusDict)
+            self = .map(try PlutusData.fromEntries(dict))
         case .orderedDict(let dict):
-            var plutusDict = OrderedDictionary<PlutusData, PlutusData>()
-            for (key, value) in dict {
-                let keyPlutus = try PlutusData(from: key)
-                let valuePlutus = try PlutusData(from: value)
-                plutusDict[keyPlutus] = valuePlutus
-            }
-            self = .map(plutusDict)
+            self = .map(try PlutusData.fromEntries(dict.elements))
         case .list(let array):
-            let plutusArray = try array.map { try PlutusData(from: $0) }
-            self = .array(plutusArray)
+            self = .array(try PlutusData.fromList(array))
         case .indefiniteList(let array):
-            let plutusArray = IndefiniteList<PlutusData>(
-                try array.map { try PlutusData(from: $0) }
-            )
-            self = .indefiniteArray(plutusArray)
+            self = .indefiniteArray(IndefiniteList(try PlutusData.fromList(array.getAll())))
+        default:
+            self = try PlutusData.fromScalar(primitive)
+        }
+    }
+
+    @inline(never)
+    private static func fromList(_ array: [Primitive]) throws -> [PlutusData] {
+        try array.map { try PlutusData(from: $0) }
+    }
+
+    @inline(never)
+    private static func fromEntries<S: Sequence>(
+        _ entries: S
+    ) throws -> OrderedDictionary<PlutusData, PlutusData>
+    where S.Element == (key: Primitive, value: Primitive) {
+        var plutusDict = OrderedDictionary<PlutusData, PlutusData>()
+        for (key, value) in entries {
+            let keyPlutus = try PlutusData(from: key)
+            let valuePlutus = try PlutusData(from: value)
+            plutusDict[keyPlutus] = valuePlutus
+        }
+        return plutusDict
+    }
+
+    @inline(never)
+    private static func fromTagged(_ cborTag: CBORTag, _ primitive: Primitive) throws -> PlutusData {
+        if cborTag.tag == 2 || cborTag.tag == 3 {
+            return .bigInt(try BigInteger(from: primitive))
+        } else if let constr = try? Constr(from: primitive) {
+            // Valid constructor tags: 102, 121-127, 1280-1535
+            return .constructor(constr)
+        } else {
+            // Unknown CBOR tag (e.g. tag 6 used for sets in Conway era) —
+            // strip the tag and decode the wrapped value as PlutusData.
+            return try PlutusData(from: cborTag.value)
+        }
+    }
+
+    @inline(never)
+    private static func fromScalar(_ primitive: Primitive) throws -> PlutusData {
+        switch primitive {
         case .int(_), .uint(_):
-            self = .bigInt(try BigInteger(from: primitive))
+            return .bigInt(try BigInteger(from: primitive))
         case .string(_), .byteString(_):
-            self = .bytes(try Bytes(from: primitive))
+            return .bytes(try Bytes(from: primitive))
         case .bytes(let data):
             // The raw bytes may themselves be CBOR-encoded, containing a tagged
             // Constr. But only attempt this if the tag is a known constructor tag
@@ -98,9 +115,9 @@ public enum PlutusData: Serializable, Sendable {
             if let cborTag = try? CBORTag.fromCBOR(data: data),
                 let constr = try? Constr(from: .cborTag(cborTag))
             {
-                self = .constructor(constr)
+                return .constructor(constr)
             } else {
-                self = .bytes(try Bytes(from: primitive))
+                return .bytes(try Bytes(from: primitive))
             }
         default:
             throw CardanoCoreError.deserializeError("Invalid PlutusData type: \(primitive)")

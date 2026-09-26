@@ -159,61 +159,7 @@ public indirect enum Primitive: CBORSerializable, Sendable {
         case .simple(let simple):
             return .cborSimpleValue(.simple(simple))
         case .tagged(let tag, let value):
-            if tag == UInt64(UnitInterval.tag) {
-                // Handle both Int and UInt64 types for fraction components
-                let numerator: Int
-                let denominator: Int
-
-                if let numValue = value.arrayValue![0].unwrapped as? Int {
-                    numerator = numValue
-                } else if let numValue = value.arrayValue![0].unwrapped as? UInt64 {
-                    numerator = Int(numValue)
-                } else if let numValue = value.arrayValue![0].unwrapped as? Int64 {
-                    numerator = Int(numValue)
-                } else {
-                    throw CardanoCoreError.valueError(
-                        "Invalid fraction numerator type: \(type(of: value.arrayValue![0].unwrapped))"
-                    )
-                }
-
-                if let denValue = value.arrayValue![1].unwrapped as? Int {
-                    denominator = denValue
-                } else if let denValue = value.arrayValue![1].unwrapped as? UInt64 {
-                    denominator = Int(denValue)
-                } else if let denValue = value.arrayValue![1].unwrapped as? Int64 {
-                    denominator = Int(denValue)
-                } else {
-                    throw CardanoCoreError.valueError(
-                        "Invalid fraction denominator type: \(type(of: value.arrayValue![1].unwrapped))"
-                    )
-                }
-
-                let unitInterval = UnitInterval(
-                    numerator: UInt64(numerator),
-                    denominator: UInt64(denominator)
-                )
-                return .unitInterval(unitInterval)
-            } else if tag == UInt64.iso8601DateTime {
-                guard let date = value.unwrapped else {
-                    throw CardanoCoreError.valueError("Invalid date format")
-                }
-                return .datetime(
-                    Date(timeIntervalSince1970: date as! TimeInterval)
-                )
-            } else if tag == UInt64.epochDateTime {
-                guard let date = value.unwrapped else {
-                    throw CardanoCoreError.valueError("Invalid date format")
-                }
-                return .datetime(
-                    Date(timeIntervalSince1970: date as! TimeInterval)
-                )
-            }
-
-            let wrapped = CBORTag(
-                tag: tag,
-                value: try value.toPrimitive()
-            )
-            return .cborTag(wrapped)
+            return try fromTagged(tag, value)
         case .indefiniteByteString(let chunks):
             // CBORCodable preserves chunk boundaries; concat for Primitive's
             // single-Data .bytes case.
@@ -229,12 +175,73 @@ public indirect enum Primitive: CBORSerializable, Sendable {
         }
     }
 
+    // The helpers below are kept out of line so `from(cbor:)`, which recurses
+    // once per nesting level, keeps a small stack frame. Deeply nested
+    // PlutusData has to fit in a cooperative thread's ~512 KB stack.
+    @inline(never)
+    private static func fromTagged(_ tag: UInt64, _ value: CBOR) throws -> Primitive {
+        if tag == UInt64(UnitInterval.tag) {
+            return try unitInterval(from: value)
+        } else if tag == UInt64.iso8601DateTime || tag == UInt64.epochDateTime {
+            return try datetime(from: value)
+        }
+        return .cborTag(CBORTag(tag: tag, value: try value.toPrimitive()))
+    }
+
+    @inline(never)
+    private static func unitInterval(from value: CBOR) throws -> Primitive {
+        // Handle both Int and UInt64 types for fraction components
+        let numerator: Int
+        let denominator: Int
+
+        if let numValue = value.arrayValue![0].unwrapped as? Int {
+            numerator = numValue
+        } else if let numValue = value.arrayValue![0].unwrapped as? UInt64 {
+            numerator = Int(numValue)
+        } else if let numValue = value.arrayValue![0].unwrapped as? Int64 {
+            numerator = Int(numValue)
+        } else {
+            throw CardanoCoreError.valueError(
+                "Invalid fraction numerator type: \(type(of: value.arrayValue![0].unwrapped))"
+            )
+        }
+
+        if let denValue = value.arrayValue![1].unwrapped as? Int {
+            denominator = denValue
+        } else if let denValue = value.arrayValue![1].unwrapped as? UInt64 {
+            denominator = Int(denValue)
+        } else if let denValue = value.arrayValue![1].unwrapped as? Int64 {
+            denominator = Int(denValue)
+        } else {
+            throw CardanoCoreError.valueError(
+                "Invalid fraction denominator type: \(type(of: value.arrayValue![1].unwrapped))"
+            )
+        }
+
+        let unitInterval = UnitInterval(
+            numerator: UInt64(numerator),
+            denominator: UInt64(denominator)
+        )
+        return .unitInterval(unitInterval)
+    }
+
+    @inline(never)
+    private static func datetime(from value: CBOR) throws -> Primitive {
+        guard let date = value.unwrapped else {
+            throw CardanoCoreError.valueError("Invalid date format")
+        }
+        return .datetime(
+            Date(timeIntervalSince1970: date as! TimeInterval)
+        )
+    }
+
     public func toCBOR() throws -> CBOR {
+        // Containers recurse once per nesting level, so their bodies live in
+        // out-of-line helpers. That keeps this frame small in unoptimized
+        // builds, where every case binding gets its own stack slot.
         switch self {
         case .bytes(let data):
             return .byteString(data)
-        case .byteArray(let array):
-            return .byteString(Data(array))
         case .string(let string):
             return .textString(string)
         case .int(let value):
@@ -244,16 +251,55 @@ public indirect enum Primitive: CBORSerializable, Sendable {
             return .unsignedInt(value)
         case .float(let value):
             return .double(value)
-        case .decimal(let decimal):
-            return .textString(decimal.description)
         case .bool(let value):
             return .boolean(value)
+        case .list(let list), .frozenList(let list):
+            return .array(try Primitive.toCBOR(list))
+        case .indefiniteList(let list), .indefiniteFrozenList(let list):
+            return .indefiniteArray(try Primitive.toCBOR(list.getAll()))
+        case .orderedDict(let dict):
+            return .map(try Primitive.toCBOR(entries: dict.elements))
+        case .cborTag(let tag):
+            return try Primitive.toCBOR(tag: tag)
+        case .null:
+            return CBOR.null
+        default:
+            return try otherToCBOR()
+        }
+    }
+
+    @inline(never)
+    private static func toCBOR(_ list: [Primitive]) throws -> [CBOR] {
+        try list.map { try $0.toCBOR() }
+    }
+
+    @inline(never)
+    private static func toCBOR<S: Sequence>(
+        entries: S
+    ) throws -> OrderedDictionary<CBOR, CBOR> where S.Element == (key: Primitive, value: Primitive) {
+        OrderedDictionary(
+            uniqueKeysWithValues: try entries.map {
+                (try $0.key.toCBOR(), try $0.value.toCBOR())
+            })
+    }
+
+    @inline(never)
+    private static func toCBOR(tag: CBORTag) throws -> CBOR {
+        .tagged(
+            UInt64(tag.tag),
+            try CBOREncoder().encode(tag.value).toCBOR
+        )
+    }
+
+    @inline(never)
+    private func otherToCBOR() throws -> CBOR {
+        switch self {
+        case .byteArray(let array):
+            return .byteString(Data(array))
+        case .decimal(let decimal):
+            return .textString(decimal.description)
         case .tuple(let tup):
-            return .array(try tup.elements.map { try $0.toCBOR() })
-        case .list(let list):
-            return .array(try list.map { try $0.toCBOR() })
-        case .indefiniteList(let list):
-            return .indefiniteArray(try list.getAll().map { try $0.toCBOR() })
+            return .array(try Primitive.toCBOR(tup.elements))
         case .dict(let dict):
             // Swift's Dictionary is unordered, so emit pairs in bytewise
             // lexicographic order of their encoded keys (matches
@@ -272,31 +318,13 @@ public indirect enum Primitive: CBORSerializable, Sendable {
                 OrderedDictionary(uniqueKeysWithValues: sorted.map { ($0.0, $0.1) })
             )
         case .indefiniteDictionary(let dict):
-            return .indefiniteMap(
-                OrderedDictionary(
-                    uniqueKeysWithValues:
-                        try dict
-                        .map {
-                            (try $0.key.toCBOR(), try $0.value.toCBOR())
-                        })
-            )
-        case .orderedDict(let dict):
-            return .map(
-                OrderedDictionary(
-                    uniqueKeysWithValues: try dict.map {
-                        (try $0.key.toCBOR(), try $0.value.toCBOR())
-                    }))
+            return .indefiniteMap(try Primitive.toCBOR(entries: dict.elements))
         case .datetime(let date):
             return try CBOREncoder().encode(date).toCBOR
         case .regex(let regex):
             return .textString(regex.pattern)
         case .cborSimpleValue(let simple):
             return simple
-        case .cborTag(let tag):
-            return .tagged(
-                UInt64(tag.tag),
-                try CBOREncoder().encode(tag.value).toCBOR
-            )
         case .orderedSet(let set):
             return try set.toCBOR()
         case .nonEmptyOrderedSet(let set):
@@ -311,25 +339,18 @@ public indirect enum Primitive: CBORSerializable, Sendable {
         case .frozenSet(let set):
             return .array(try set.map { try $0.toCBOR() })
         case .frozenDict(let dict):
-            return .map(
-                OrderedDictionary(
-                    uniqueKeysWithValues: try dict.map {
-                        (try $0.key.toCBOR(), try $0.value.toCBOR())
-                    }))
-        case .frozenList(let list):
-            return .array(try list.map { try $0.toCBOR() })
-        case .indefiniteFrozenList(let list):
-            return .indefiniteArray(try list.getAll().map { try $0.toCBOR() })
+            return .map(try Primitive.toCBOR(entries: dict))
         case .byteString(let byteString):
             return .byteString(byteString.bytes)
         case .plutusData(let plutusData):
             return try plutusData.toCBORData().toCBOR
-        case .null:
-            return CBOR.null
         case .bigInt(let bigInt):
             return try CBOREncoder().encode(bigInt).toCBOR
         case .bigUInt(let bigUInt):
             return try CBOREncoder().encode(bigUInt).toCBOR
+        case .bytes, .string, .int, .uint, .float, .bool, .list, .frozenList,
+            .indefiniteList, .indefiniteFrozenList, .orderedDict, .cborTag, .null:
+            return try toCBOR()
         }
     }
 
