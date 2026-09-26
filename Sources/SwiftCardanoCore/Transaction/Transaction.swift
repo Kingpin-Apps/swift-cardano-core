@@ -1,6 +1,7 @@
 import Foundation
 import CBORCodable
 import OrderedCollections
+import SwiftNaCl
 
 public struct Transaction: Serializable, TextEnvelopable {
     public static var TYPE: String { "Unwitnessed Tx ConwayEra" }
@@ -32,8 +33,10 @@ public struct Transaction: Serializable, TextEnvelopable {
     /// hash is the id every witness signs — and the auxiliary data — whose hash
     /// the body commits to — stay as written.
     public internal(set) var originalCBOR: Data? = nil
-    var originalWitnessSetCBOR: Data? = nil
-    var originalAuxiliaryDataCBOR: Data? = nil
+    /// The bytes the witness set was decoded from, while it is unchanged.
+    public internal(set) var originalWitnessSetCBOR: Data? = nil
+    /// The bytes the auxiliary data was decoded from, while it is unchanged.
+    public internal(set) var originalAuxiliaryDataCBOR: Data? = nil
 
     /// Whether this was written in the Shelley to Mary shape,
     /// `[body, witnesses, auxiliary data]`, which has no validity flag.
@@ -129,6 +132,24 @@ public struct Transaction: Serializable, TextEnvelopable {
             data.append(0xF6)
         }
         return data
+    }
+
+    /// The hash of the auxiliary data as written, which is what the body's
+    /// `auxiliaryDataHash` must equal; `nil` when there is none.
+    ///
+    /// Re-encoding decoded metadata can change its bytes — map-key order,
+    /// integer widths, string chunking — and with them the hash, so the
+    /// written bytes are hashed while they are kept.
+    public func auxiliaryDataHash() throws -> AuxiliaryDataHash? {
+        guard let auxiliaryData else { return nil }
+        guard let originalAuxiliaryDataCBOR else { return try auxiliaryData.hash() }
+        return AuxiliaryDataHash(
+            payload: try Hash().blake2b(
+                data: originalAuxiliaryDataCBOR,
+                digestSize: AUXILIARY_DATA_HASH_SIZE,
+                encoder: RawEncoder.self
+            )
+        )
     }
 
     /// The text-envelope type cardano-cli gives a transaction of `era`:

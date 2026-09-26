@@ -111,6 +111,12 @@ struct TransactionCorpusTests {
         #expect(decoded.transactionWitnessSet.vkeyWitnesses?.count == 1)
     }
 
+    @Test("The auxiliary data hashes to what the body declares", arguments: corpus)
+    func auxiliaryDataHashMatchesBody(_ entry: Entry) throws {
+        let tx = try Transaction.fromCBOR(data: try entry.bytes())
+        #expect(try tx.auxiliaryDataHash() == tx.transactionBody.auxiliaryDataHash)
+    }
+
     @Test("Changing the body changes its id", arguments: corpus.prefix(3))
     func changingBodyChangesId(_ entry: Entry) throws {
         var tx = try Transaction.fromCBOR(data: try entry.bytes())
