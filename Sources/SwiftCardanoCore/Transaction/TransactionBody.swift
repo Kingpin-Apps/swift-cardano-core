@@ -16,27 +16,27 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
         self.debugDescription
     }
 
-    public var inputs: ListOrOrderedSet<TransactionInput>
-    public var outputs: [TransactionOutput]
-    public var fee: Coin
-    public var ttl: SlotNumber?
-    public var certificates: ListOrNonEmptyOrderedSet<Certificate>?
-    public var withdrawals: Withdrawals?
-    public var update: Update?
-    public var auxiliaryDataHash: AuxiliaryDataHash?
-    public var validityStart: SlotNumber?
-    public var mint: MultiAsset?
-    public var scriptDataHash: ScriptDataHash?
-    public var collateral: ListOrNonEmptyOrderedSet<TransactionInput>?
-    public var requiredSigners: ListOrNonEmptyOrderedSet<VerificationKeyHash>?
-    public var networkId: Int?
-    public var collateralReturn: TransactionOutput?
-    public var totalCollateral: Coin?
-    public var referenceInputs: ListOrNonEmptyOrderedSet<TransactionInput>?
-    public var votingProcedures: VotingProcedures?
-    public var proposalProcedures: ProposalProcedures?
-    public var currentTreasuryAmount: Coin?
-    public var treasuryDonation: PositiveCoin?
+    public var inputs: ListOrOrderedSet<TransactionInput> { didSet { originalCBOR = nil } }
+    public var outputs: [TransactionOutput] { didSet { originalCBOR = nil } }
+    public var fee: Coin { didSet { originalCBOR = nil } }
+    public var ttl: SlotNumber? { didSet { originalCBOR = nil } }
+    public var certificates: ListOrNonEmptyOrderedSet<Certificate>? { didSet { originalCBOR = nil } }
+    public var withdrawals: Withdrawals? { didSet { originalCBOR = nil } }
+    public var update: Update? { didSet { originalCBOR = nil } }
+    public var auxiliaryDataHash: AuxiliaryDataHash? { didSet { originalCBOR = nil } }
+    public var validityStart: SlotNumber? { didSet { originalCBOR = nil } }
+    public var mint: MultiAsset? { didSet { originalCBOR = nil } }
+    public var scriptDataHash: ScriptDataHash? { didSet { originalCBOR = nil } }
+    public var collateral: ListOrNonEmptyOrderedSet<TransactionInput>? { didSet { originalCBOR = nil } }
+    public var requiredSigners: ListOrNonEmptyOrderedSet<VerificationKeyHash>? { didSet { originalCBOR = nil } }
+    public var networkId: Int? { didSet { originalCBOR = nil } }
+    public var collateralReturn: TransactionOutput? { didSet { originalCBOR = nil } }
+    public var totalCollateral: Coin? { didSet { originalCBOR = nil } }
+    public var referenceInputs: ListOrNonEmptyOrderedSet<TransactionInput>? { didSet { originalCBOR = nil } }
+    public var votingProcedures: VotingProcedures? { didSet { originalCBOR = nil } }
+    public var proposalProcedures: ProposalProcedures? { didSet { originalCBOR = nil } }
+    public var currentTreasuryAmount: Coin? { didSet { originalCBOR = nil } }
+    public var treasuryDonation: PositiveCoin? { didSet { originalCBOR = nil } }
 
     /// The field numbers in the order this body was written in, when it was
     /// read off the wire.
@@ -51,7 +51,19 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
     ///
     /// It does not take part in equality; two bodies with the same contents are
     /// the same body however their fields happened to be laid out.
-    public var writtenFieldOrder: [Int] = []
+    public var writtenFieldOrder: [Int] = [] { didSet { originalCBOR = nil } }
+
+    /// The exact bytes this body was decoded from, for as long as it is
+    /// unchanged since.
+    ///
+    /// Field order alone does not make re-encoding faithful: integer header
+    /// widths, indefinite lengths and nested map-key order are lost in
+    /// decoding too. While this is set, ``toCBORData(deterministic:)`` returns
+    /// these bytes, so ``hash()`` — the transaction id — and any signature are
+    /// over what was actually written. Changing any field clears it.
+    ///
+    /// It does not take part in equality.
+    public internal(set) var originalCBOR: Data? = nil
 
     enum CodingKeys: Int, CodingKey {
         case inputs = 0
@@ -104,36 +116,33 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
     }
 
     public init(payload: Data, type: String?, description: String?) throws {
+        self = try Self.fromCBOR(data: payload)
         self._payload = payload
         self._description = description ?? Self.DESCRIPTION
         self._type = type ?? Self.TYPE
+    }
 
-        let cbor = try! CBORDecoder().decode(
-            TransactionBody.self,
-            from: payload
-        )
+    /// Decodes a body, keeping the bytes it was read from as ``originalCBOR``.
+    public static func fromCBOR(data: Data) throws -> TransactionBody {
+        let scanner = CBORItemScanner(data)
+        guard try scanner.end(ofItemAt: 0) == scanner.bytes.count else {
+            throw CardanoCoreError.deserializeError("Trailing bytes after TransactionBody")
+        }
+        var body = try CBORDecoder().decode(TransactionBody.self, from: data)
+        body.originalCBOR = scanner.bytes
+        return body
+    }
 
-        self.inputs = cbor.inputs
-        self.outputs = cbor.outputs
-        self.fee = cbor.fee
-        self.ttl = cbor.ttl
-        self.certificates = cbor.certificates
-        self.withdrawals = cbor.withdrawals
-        self.update = cbor.update
-        self.auxiliaryDataHash = cbor.auxiliaryDataHash
-        self.validityStart = cbor.validityStart
-        self.mint = cbor.mint
-        self.scriptDataHash = cbor.scriptDataHash
-        self.collateral = cbor.collateral
-        self.requiredSigners = cbor.requiredSigners
-        self.networkId = cbor.networkId
-        self.collateralReturn = cbor.collateralReturn
-        self.totalCollateral = cbor.totalCollateral
-        self.referenceInputs = cbor.referenceInputs
-        self.votingProcedures = cbor.votingProcedures
-        self.proposalProcedures = cbor.proposalProcedures
-        self.currentTreasuryAmount = cbor.currentTreasuryAmount
-        self.treasuryDonation = cbor.treasuryDonation
+    public init(from cbor: Data) throws {
+        self = try Self.fromCBOR(data: cbor)
+    }
+
+    /// The bytes this body was decoded from while it is unchanged, otherwise a
+    /// fresh encoding.
+    public func toCBORData(deterministic: Bool = false) throws -> Data {
+        if let originalCBOR { return originalCBOR }
+        _ = deterministic
+        return try CBOREncoder().encode(self)
     }
 
     public init(

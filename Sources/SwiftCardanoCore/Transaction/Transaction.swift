@@ -14,10 +14,32 @@ public struct Transaction: Serializable, TextEnvelopable {
         self.debugDescription
     }
     
-    public var transactionBody: TransactionBody
-    public var transactionWitnessSet: TransactionWitnessSet
-    public var valid: Bool = true
-    public var auxiliaryData: AuxiliaryData? = nil
+    public var transactionBody: TransactionBody { didSet { originalCBOR = nil } }
+    public var transactionWitnessSet: TransactionWitnessSet {
+        didSet { originalCBOR = nil; originalWitnessSetCBOR = nil }
+    }
+    public var valid: Bool = true { didSet { originalCBOR = nil } }
+    public var auxiliaryData: AuxiliaryData? = nil {
+        didSet { originalCBOR = nil; originalAuxiliaryDataCBOR = nil }
+    }
+
+    /// The exact bytes this transaction was decoded from, for as long as it is
+    /// unchanged since. Changing any part clears it.
+    ///
+    /// The body keeps its own bytes too (``TransactionBody/originalCBOR``), as
+    /// do the witness set and auxiliary data here, so adding a witness to a
+    /// decoded transaction re-encodes the witness set alone: the body — whose
+    /// hash is the id every witness signs — and the auxiliary data — whose hash
+    /// the body commits to — stay as written.
+    public internal(set) var originalCBOR: Data? = nil
+    var originalWitnessSetCBOR: Data? = nil
+    var originalAuxiliaryDataCBOR: Data? = nil
+
+    /// Whether this was written in the Shelley to Mary shape,
+    /// `[body, witnesses, auxiliary data]`, which has no validity flag.
+    public internal(set) var isPreAlonzo: Bool = false {
+        didSet { originalCBOR = nil }
+    }
     
     enum CodingKeys: String, CodingKey {
         case transactionBody
@@ -40,37 +62,87 @@ public struct Transaction: Serializable, TextEnvelopable {
         self.transactionWitnessSet = transactionWitnessSet
         self.valid = valid
         self.auxiliaryData = auxiliaryData
-        
-        self._payload =  try! CBORSerialization.data(from:
-                .array(
-                    [
-                        try! CBOREncoder().encode(transactionBody).toCBOR,
-                        try! CBOREncoder().encode(transactionWitnessSet).toCBOR,
-                        try! CBOREncoder().encode(valid).toCBOR,
-                        try! CBOREncoder().encode(auxiliaryData).toCBOR,
-                    ]
-                )
-        )
-        self._type = transactionWitnessSet
-            .isEmpty() ? Self.TYPE : Self.TYPE
-            .replacingOccurrences(of: "Unwitnessed ", with: "")
+        self._payload = Data()
+        self._type = Self.envelopeType(era: nil, witnessed: !transactionWitnessSet.isEmpty())
         self._description = Self.DESCRIPTION
+        self._payload = (try? self.toCBORData()) ?? Data()
     }
     
-    public init(payload: Data, type: String?, description: String?) {
+    public init(payload: Data, type: String?, description: String?) throws {
+        self = try Self.fromCBOR(data: payload)
         self._payload = payload
         self._description = description ?? Self.DESCRIPTION
-        
-        let cbor = try! CBORDecoder().decode(Transaction.self, from: payload)
-        
-        self.transactionBody = cbor.transactionBody
-        self.transactionWitnessSet = cbor.transactionWitnessSet
-        self.valid = cbor.valid
-        self.auxiliaryData = cbor.auxiliaryData
-        
-        self._type = self.transactionWitnessSet
-            .isEmpty() ? Self.TYPE : Self.TYPE
-            .replacingOccurrences(of: "Unwitnessed ", with: "")
+        self._type = type ?? Self.envelopeType(
+            era: nil, witnessed: !transactionWitnessSet.isEmpty()
+        )
+    }
+
+    /// Decodes a transaction, keeping the bytes of it and of its parts, so that
+    /// its id and its re-encoding are those of what was written.
+    public static func fromCBOR(data: Data) throws -> Transaction {
+        let scanner = CBORItemScanner(data)
+        guard try scanner.end(ofItemAt: 0) == scanner.bytes.count else {
+            throw CardanoCoreError.deserializeError("Trailing bytes after Transaction")
+        }
+        let spans = try scanner.elements(ofArrayAt: 0)
+        var tx = try CBORDecoder().decode(Transaction.self, from: data)
+        guard spans.count >= 3 else { return tx }
+
+        let bytes = scanner.bytes
+        tx.transactionBody.originalCBOR = bytes.subdata(in: spans[0])
+        tx.originalWitnessSetCBOR = bytes.subdata(in: spans[1])
+        let auxiliarySpan = tx.isPreAlonzo ? spans[2] : spans.count > 3 ? spans[3] : nil
+        tx.originalAuxiliaryDataCBOR = auxiliarySpan.map { bytes.subdata(in: $0) }
+        tx.originalCBOR = bytes
+        return tx
+    }
+
+    public init(from cbor: Data) throws {
+        self = try Self.fromCBOR(data: cbor)
+    }
+
+    /// The bytes this transaction was decoded from while it is unchanged;
+    /// otherwise a fresh encoding that keeps the written bytes of every part
+    /// that is unchanged.
+    public func toCBORData(deterministic: Bool = false) throws -> Data {
+        _ = deterministic
+        if let originalCBOR { return originalCBOR }
+        guard transactionBody.originalCBOR != nil
+            || originalWitnessSetCBOR != nil
+            || originalAuxiliaryDataCBOR != nil
+        else {
+            return try CBOREncoder().encode(self)
+        }
+
+        let encoder = CBOREncoder()
+        var data = Data([isPreAlonzo ? 0x83 : 0x84])
+        data.append(try transactionBody.toCBORData())
+        data.append(try originalWitnessSetCBOR ?? encoder.encode(transactionWitnessSet))
+        if !isPreAlonzo {
+            data.append(valid ? 0xF5 : 0xF4)
+        }
+        if let originalAuxiliaryDataCBOR {
+            data.append(originalAuxiliaryDataCBOR)
+        } else if let auxiliaryData {
+            data.append(try encoder.encode(auxiliaryData))
+        } else {
+            data.append(0xF6)
+        }
+        return data
+    }
+
+    /// The text-envelope type cardano-cli gives a transaction of `era`:
+    /// `Unwitnessed Tx <era>` before any witness is added, `Tx <era>` after.
+    static func envelopeType(era: String?, witnessed: Bool) -> String {
+        let era = era ?? "ConwayEra"
+        return witnessed ? "Tx \(era)" : "Unwitnessed Tx \(era)"
+    }
+
+    /// The era named by a text-envelope type such as `Tx BabbageEra`, if any.
+    static func era(ofEnvelopeType type: String) -> String? {
+        type.split(separator: " ").last.map(String.init).flatMap {
+            $0.hasSuffix("Era") && $0.count > 3 ? $0 : nil
+        }
     }
     
     // MARK: - CBORSerializable
@@ -97,19 +169,32 @@ public struct Transaction: Serializable, TextEnvelopable {
             transactionWitnessSet = try TransactionWitnessSet(from: elements[1])
         }
         
-        // valid (required)
-        guard case let .bool(valid) = elements[2] else {
+        // Shelley to Mary: [body, witnesses, auxiliary data / null], with no
+        // validity flag. Alonzo onwards: [body, witnesses, valid, auxiliary data / null].
+        let isPreAlonzo: Bool
+        let valid: Bool
+        let auxiliaryElement: Primitive?
+        switch elements[2] {
+        case .bool(let flag) where elements.count == 4:
+            isPreAlonzo = false
+            valid = flag
+            auxiliaryElement = elements[3]
+        case .bool(let flag) where elements.count == 3:
+            // An Alonzo-shaped transaction with its auxiliary data left out.
+            isPreAlonzo = false
+            valid = flag
+            auxiliaryElement = nil
+        case _ where elements.count == 3:
+            isPreAlonzo = true
+            valid = true
+            auxiliaryElement = elements[2]
+        default:
             throw CardanoCoreError.deserializeError("Invalid valid field in Transaction")
         }
-        
-        // auxiliaryData (optional)
+
         var auxiliaryData: AuxiliaryData? = nil
-        if elements.count > 3 {
-            if case .null = elements[3] {
-                auxiliaryData = nil
-            } else {
-                auxiliaryData = try AuxiliaryData(from: elements[3])
-            }
+        if let auxiliaryElement, auxiliaryElement != .null {
+            auxiliaryData = try AuxiliaryData(from: auxiliaryElement)
         }
         
         self.init(
@@ -118,10 +203,18 @@ public struct Transaction: Serializable, TextEnvelopable {
             valid: valid,
             auxiliaryData: auxiliaryData
         )
+        self.isPreAlonzo = isPreAlonzo
     }
     
     
     public func toPrimitive() throws -> Primitive {
+        if isPreAlonzo {
+            return .list([
+                try transactionBody.toPrimitive(),
+                try transactionWitnessSet.toPrimitive(),
+                try auxiliaryData?.toPrimitive() ?? .null
+            ])
+        }
         return .list([
             try transactionBody.toPrimitive(),
             try transactionWitnessSet.toPrimitive(),
@@ -202,9 +295,14 @@ public struct Transaction: Serializable, TextEnvelopable {
     ///
     /// The json output has three fields: "type", "description", and "cborHex".
     /// - Returns: JSON representation
+    ///
+    /// The type names the era this transaction was read with, when it came from
+    /// a text envelope, and whether it carries any witness yet.
     public func toTextEnvelope() throws -> String? {
-        let updatedType = transactionWitnessSet.isEmpty() ? Self.TYPE : Self.TYPE
-            .replacingOccurrences(of: "Unwitnessed ", with: "")
+        let updatedType = Self.envelopeType(
+            era: Self.era(ofEnvelopeType: _type),
+            witnessed: !transactionWitnessSet.isEmpty()
+        )
         
         let jsonString = """
         {
