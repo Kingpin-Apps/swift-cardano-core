@@ -65,4 +65,27 @@ import Testing
         }
     }
 
+    @Test("127 nested maps decode in linear time")
+    func decodesDeepMaps() async throws {
+        // {0: {0: ... 0}}. Converting each map twice made this O(2^depth).
+        let data = Data(Array(repeating: [UInt8(0xa1), 0x00], count: 127).joined()) + Data([0x00])
+        let decoded = try await Task.detached { try PlutusData.fromCBOR(data: data) }.value
+        guard case .map = decoded else {
+            Issue.record("expected a map, got \(decoded)")
+            return
+        }
+    }
+
+    @Test("Map keys that collapse to the same Primitive do not trap")
+    func toleratesCollidingMapKeys() throws {
+        // {h'00': 0, (_ h'00'): 1}: distinct CBOR keys, both Primitive.bytes.
+        let data = Data([0xa2, 0x41, 0x00, 0x00, 0x5f, 0x41, 0x00, 0xff, 0x01])
+        let decoded = try PlutusData.fromCBOR(data: data)
+        guard case .map(let map) = decoded else {
+            Issue.record("expected a map, got \(decoded)")
+            return
+        }
+        #expect(map.count == 1)
+    }
+
 }

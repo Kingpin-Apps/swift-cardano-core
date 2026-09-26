@@ -134,22 +134,7 @@ public indirect enum Primitive: CBORSerializable, Sendable {
             let primitives = try array.map { try Primitive.from(cbor: $0) }
             return .indefiniteList(IndefiniteList(primitives))
         case .map(let map):
-            var dict: [Primitive: Primitive] = [:]
-            for (key, value) in map {
-                dict[try Primitive.from(cbor: key)] = try Primitive.from(cbor: value)
-            }
-            //                return .dict(dict)
-            return .orderedDict(
-                OrderedDictionary<Primitive, Primitive>(
-                    uniqueKeysWithValues: try map.elements
-                        .map {
-                            (
-                                try Primitive.from(cbor: $0.key),
-                                try Primitive.from(cbor: $0.value)
-                            )
-                        }
-                )
-            )
+            return .orderedDict(try fromEntries(map.elements))
         case .indefiniteMap(let map):
             var dict: [Primitive: Primitive] = [:]
             for (key, value) in map {
@@ -178,6 +163,20 @@ public indirect enum Primitive: CBORSerializable, Sendable {
     // The helpers below are kept out of line so `from(cbor:)`, which recurses
     // once per nesting level, keeps a small stack frame. Deeply nested
     // PlutusData has to fit in a cooperative thread's ~512 KB stack.
+    @inline(never)
+    private static func fromEntries(
+        _ entries: OrderedDictionary<CBOR, CBOR>.Elements
+    ) throws -> OrderedDictionary<Primitive, Primitive> {
+        // Distinct CBOR keys can map to the same Primitive (null/undefined,
+        // half/float/double, definite/indefinite strings), so assign rather
+        // than use `uniqueKeysWithValues:`, which traps on duplicates.
+        var dict = OrderedDictionary<Primitive, Primitive>()
+        for (key, value) in entries {
+            dict[try Primitive.from(cbor: key)] = try Primitive.from(cbor: value)
+        }
+        return dict
+    }
+
     @inline(never)
     private static func fromTagged(_ tag: UInt64, _ value: CBOR) throws -> Primitive {
         if tag == UInt64(UnitInterval.tag) {
