@@ -1,3 +1,9 @@
+## 0.8.0 (2026-09-26)
+
+### Fix
+
+- **transaction**: keep original CBOR bytes for tx id and re-encoding
+
 ## 0.7.1 (2026-09-24)
 
 ### Fix
