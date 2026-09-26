@@ -1,3 +1,9 @@
+## 0.8.3 (2026-09-26)
+
+### Fix
+
+- decode PositiveCoin from CBOR unsigned integers
+
 ## 0.8.2 (2026-09-26)
 
 ### Fix
