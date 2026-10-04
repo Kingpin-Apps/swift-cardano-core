@@ -1,3 +1,9 @@
+## 0.8.4 (2026-10-04)
+
+### Fix
+
+- **plutus**: write byte strings over 64 bytes in 64-byte chunks
+
 ## 0.8.3 (2026-09-26)
 
 ### Fix
