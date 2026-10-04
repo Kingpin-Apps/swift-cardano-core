@@ -76,7 +76,15 @@ public enum Bytes: Serializable, CustomStringConvertible, Sendable {
             case .boundedBytes(let boundedBytes):
                 return try boundedBytes.toPrimitive()
             case .byteString(let byteString):
-                return try byteString.toPrimitive()
+                // Plutus data caps a byte string at 64 bytes; longer ones are
+                // written as an indefinite-length string of 64-byte chunks, as
+                // the ledger, cardano-cli and Aiken all write them.
+                guard byteString.bytes.count > 64 else { return try byteString.toPrimitive() }
+                let bytes = byteString.bytes
+                let chunks = stride(from: bytes.startIndex, to: bytes.endIndex, by: 64).map {
+                    Data(bytes[$0..<min($0 + 64, bytes.endIndex)])
+                }
+                return .cborSimpleValue(.indefiniteByteString(chunks))
         }
     }
     
