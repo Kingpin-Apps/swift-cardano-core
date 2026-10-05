@@ -1,3 +1,9 @@
+## 0.8.5 (2026-10-05)
+
+### Fix
+
+- **assets**: write multi-assets in canonical order
+
 ## 0.8.4 (2026-10-04)
 
 ### Fix
