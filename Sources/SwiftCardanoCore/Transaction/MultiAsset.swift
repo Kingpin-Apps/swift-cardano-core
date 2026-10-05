@@ -74,9 +74,11 @@ public struct MultiAsset: Serializable, Comparable {
     
     public func toPrimitive() -> Primitive {
         var primitives: OrderedDictionary<Primitive, Primitive> = [:]
-        
-        for (policyId, asset) in data {
-            primitives[.bytes(policyId.payload)] = asset.toPrimitive()
+        // Policies in canonical order (RFC 7049 §3.9, as CIP-21 asks of
+        // transactions hardware wallets sign): policy ids are all 28 bytes,
+        // so that is their byte order. The dictionary's own order is random.
+        for policyId in data.keys.sorted(by: { $0.payload.lexicographicallyPrecedes($1.payload) }) {
+            primitives[.bytes(policyId.payload)] = data[policyId]!.toPrimitive()
         }
         return .orderedDict(primitives)
     }

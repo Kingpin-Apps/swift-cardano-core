@@ -111,8 +111,13 @@ public struct Asset: Serializable, Comparable, AdditiveArithmetic {
 
     public func toPrimitive() -> Primitive {
         var result: OrderedDictionary<Primitive, Primitive> = [:]
-        for (key, value) in data {
-            result[key.toPrimitive()] = .int(value)
+        // Asset names in canonical order (RFC 7049 §3.9, as CIP-21 asks):
+        // shorter names first, then by their bytes.
+        let names = data.keys.sorted { a, b in
+            a.payload.count != b.payload.count ? a.payload.count < b.payload.count : a.payload.lexicographicallyPrecedes(b.payload)
+        }
+        for name in names {
+            result[name.toPrimitive()] = .int(data[name]!)
         }
         return .orderedDict(result)
     }
