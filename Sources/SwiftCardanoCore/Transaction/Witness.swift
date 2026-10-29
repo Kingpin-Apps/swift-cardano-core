@@ -266,6 +266,8 @@ public struct TransactionWitnessSet: Serializable, Equatable {
         var redeemers: Data?
         for (key, value) in try scanner.entries(ofMapAt: scanner.untagged(at: 0)) {
             switch try scanner.unsignedInteger(at: key.lowerBound) {
+                case UInt64(CodingKeys.nativeScripts.rawValue):
+                    try readNativeScripts(scanner, at: value.lowerBound)
                 case UInt64(CodingKeys.plutusData.rawValue):
                     try readDatums(scanner, at: value.lowerBound)
                     datums = scanner.bytes.subdata(in: value)
@@ -280,6 +282,20 @@ public struct TransactionWitnessSet: Serializable, Equatable {
         originalPlutusDataCBOR = datums
         originalRedeemersCBOR = redeemers
         originalCBOR = scanner.bytes
+    }
+
+    /// Reads the native scripts again from their bytes, which they keep: a
+    /// script's hash is taken over the bytes it was written as.
+    private mutating func readNativeScripts(_ scanner: CBORItemScanner, at offset: Int) throws {
+        let scripts = try NativeScript.read(scanner, arrayAt: offset)
+        switch nativeScripts {
+            case .list: nativeScripts = .list(scripts)
+            case .indefiniteList: nativeScripts = .indefiniteList(IndefiniteList(scripts))
+            case .nonEmptyOrderedSet where !scripts.isEmpty:
+                nativeScripts = .nonEmptyOrderedSet(NonEmptyOrderedSet(scripts))
+            case .indefiniteNonEmptyOrderedSet: nativeScripts = .indefiniteNonEmptyOrderedSet(IndefiniteList(scripts))
+            default: break
+        }
     }
 
     private mutating func readDatums(_ scanner: CBORItemScanner, at offset: Int) throws {

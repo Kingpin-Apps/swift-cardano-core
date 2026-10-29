@@ -8,6 +8,11 @@ public struct ScriptAny: NativeScriptable {
     /// The scripts, kept so that scripts nested however deep are freed
     /// without recursion.
     var scriptList: NestedList<NativeScript>
+
+    /// The bytes this script was decoded from, when it was decoded on its
+    /// own or as a whole script of a transaction; its encoding and hash are
+    /// taken over them, as the ledger takes them, while they are kept.
+    public internal(set) var originalCBOR: Data? = nil
     
     public init (scripts: [NativeScript]) {
         self.scriptList = NestedList(scripts)
@@ -16,7 +21,7 @@ public struct ScriptAny: NativeScriptable {
     // MARK: - CBORSerializable
     
     public init(from primitive: Primitive) throws {
-        guard case let .list(primitiveArray) = primitive else {
+        guard let primitiveArray = primitive.arrayElements else {
             throw CardanoCoreError.deserializeError("Invalid ScriptAny type")
         }
         
@@ -29,7 +34,7 @@ public struct ScriptAny: NativeScriptable {
             throw CardanoCoreError.deserializeError("Invalid ScriptAny type")
             }
         
-        guard case let .list(nativeScript) = primitiveArray[1] else {
+        guard let nativeScript = primitiveArray[1].arrayElements else {
             throw CardanoCoreError.deserializeError("Invalid ScriptAny type")
             }
         self.scriptList = NestedList(try nativeScript.map { try NativeScript(from: $0)})
@@ -81,3 +86,14 @@ public struct ScriptAny: NativeScriptable {
 
 }
 
+extension ScriptAny {
+    /// Equal when they are the same script, however each was written;
+    /// compared without recursing.
+    public static func == (lhs: ScriptAny, rhs: ScriptAny) -> Bool {
+        NativeScript.scriptAny(lhs) == NativeScript.scriptAny(rhs)
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        NativeScript.scriptAny(self).hash(into: &hasher)
+    }
+}

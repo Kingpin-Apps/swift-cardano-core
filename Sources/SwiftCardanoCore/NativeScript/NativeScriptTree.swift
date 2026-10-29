@@ -145,24 +145,43 @@ extension NativeScript: NestedTree {
 }
 
 /// Reads a native script from its bytes in a loop, so that any depth costs
-/// no stack. Leaves — key hashes and slots — are read as the scripts' own
-/// decoders read them.
+/// no stack, as the ledger reads one: each record and each list of scripts of
+/// definite or indefinite length (`decodeRecordSum`, `decodeStrictSeq`), any
+/// integer width. The script read keeps its bytes, as the ledger's memoised
+/// `Timelock` does, so that its hash is taken over them.
 enum NativeScriptReader {
     private struct Frame {
         let type: UInt64
         let required: Int
+        /// Whether the record `[type, …, [scripts]]` was written with an
+        /// indefinite length, so a break follows the list of scripts.
+        let indefiniteRecord: Bool
         var scripts: [NativeScript] = []
-        var remaining: UInt64
+        /// Scripts left to read, or `nil` until a break.
+        var remaining: UInt64?
     }
 
     static func read(_ bytes: Data) throws -> NativeScript {
         let scanner = CBORItemScanner(bytes)
         var stack: [Frame] = []
         var position = 0
+        func byte(at offset: Int) throws -> UInt8 {
+            guard let byte = bytes[safe: offset] else {
+                throw CardanoCoreError.deserializeError("Truncated native script at byte \(offset)")
+            }
+            return byte
+        }
         while true {
             var script: NativeScript
-            if let top = stack.last, top.remaining == 0 {
+            if let top = stack.last, try top.remaining.map({ $0 == 0 }) ?? (byte(at: position) == 0xFF) {
                 stack.removeLast()
+                if top.remaining == nil { position += 1 }
+                if top.indefiniteRecord {
+                    guard try byte(at: position) == 0xFF else {
+                        throw CardanoCoreError.deserializeError("Excess terms in a native script at byte \(position)")
+                    }
+                    position += 1
+                }
                 script = switch top.type {
                 case 1: .scriptAll(ScriptAll(scripts: top.scripts))
                 case 2: .scriptAny(ScriptAny(scripts: top.scripts))
@@ -170,7 +189,7 @@ enum NativeScriptReader {
                 }
             } else {
                 let record = try scanner.header(at: position)
-                guard record.major == 4, let count = record.argument else {
+                guard record.major == 4 else {
                     throw CardanoCoreError.decodingError("NativeScript expected a CBOR array at byte \(position)")
                 }
                 let typeHeader = try scanner.header(at: record.end)
@@ -178,43 +197,73 @@ enum NativeScriptReader {
                     throw CardanoCoreError.decodingError(
                         "NativeScript: expected first element to be unsigned int at byte \(record.end)")
                 }
+                let fields: UInt64 = type == 3 ? 3 : 2
+                if let count = record.argument, count != fields {
+                    throw CardanoCoreError.deserializeError(
+                        "A native script of type \(type) has \(fields) fields, got \(count), at byte \(position)")
+                }
+                var offset = typeHeader.end
                 switch type {
                 case 1, 2, 3:
-                    guard count == (type == 3 ? 3 : 2) else {
-                        throw CardanoCoreError.deserializeError("Invalid native script array length at byte \(position)")
-                    }
-                    var listOffset = typeHeader.end
                     var required = 0
                     if type == 3 {
                         // script_n_of_k = (3, n : int64, [* native_script])
-                        let end = try scanner.end(ofItemAt: listOffset)
-                        let value = try Primitive.from(
-                            cbor: CBORDecoder.ledger().decode(CBOR.self, from: bytes.subdata(in: listOffset..<end)))
-                        required = try value.integer("ScriptNofK required", as: Int.self)
-                        listOffset = end
+                        let end = try scanner.end(ofItemAt: offset)
+                        required = try Primitive.from(
+                            cbor: CBORDecoder.ledger().decode(CBOR.self, from: bytes.subdata(in: offset..<end))
+                        ).integer("ScriptNofK required", as: Int.self)
+                        offset = end
                     }
-                    let list = try scanner.header(at: listOffset)
-                    guard list.major == 4, let scripts = list.argument else {
-                        throw CardanoCoreError.deserializeError("Invalid native script list at byte \(listOffset)")
+                    let list = try scanner.header(at: offset)
+                    guard list.major == 4 else {
+                        throw CardanoCoreError.deserializeError("Invalid native script list at byte \(offset)")
                     }
-                    stack.append(Frame(type: type, required: required, remaining: scripts))
+                    if let count = list.argument, count > UInt64(bytes.count - list.end) {
+                        throw CardanoCoreError.deserializeError("Truncated native script list at byte \(offset)")
+                    }
+                    stack.append(Frame(
+                        type: type, required: required, indefiniteRecord: record.argument == nil,
+                        remaining: list.argument))
                     position = list.end
                     continue
-                default:
-                    let end = try scanner.end(ofItemAt: position)
-                    script = try NativeScript(from: Primitive.from(
-                        cbor: CBORDecoder.ledger().decode(CBOR.self, from: bytes.subdata(in: position..<end))))
+                case 0, 4, 5:
+                    // A key hash or a slot, read as the script's own decoder reads it.
+                    let end = try scanner.end(ofItemAt: offset)
+                    let field = try Primitive.from(
+                        cbor: CBORDecoder.ledger().decode(CBOR.self, from: bytes.subdata(in: offset..<end)))
+                    script = try NativeScript(from: .list([.uint(type), field.normalized()]))
                     position = end
+                    if record.argument == nil {
+                        guard try byte(at: position) == 0xFF else {
+                            throw CardanoCoreError.deserializeError("Excess terms in a native script at byte \(position)")
+                        }
+                        position += 1
+                    }
+                default:
+                    throw CardanoCoreError.decodingError("NativeScript: unknown script type \(type)")
                 }
             }
             guard !stack.isEmpty else {
                 guard position == bytes.count else {
                     throw CardanoCoreError.deserializeError("Trailing bytes after a native script")
                 }
+                script.originalCBOR = bytes
                 return script
             }
             stack[stack.count - 1].scripts.append(script)
-            stack[stack.count - 1].remaining -= 1
+            if let remaining = stack[stack.count - 1].remaining {
+                stack[stack.count - 1].remaining = remaining - 1
+            }
+        }
+    }
+}
+
+extension NativeScript {
+    /// The scripts of the list — tagged as a set or not — that starts at
+    /// `offset`, each read from its bytes and keeping them.
+    static func read(_ scanner: CBORItemScanner, arrayAt offset: Int) throws -> [NativeScript] {
+        try scanner.elements(ofArrayAt: scanner.untagged(at: offset)).map {
+            try NativeScriptReader.read(scanner.bytes.subdata(in: $0))
         }
     }
 }
@@ -235,6 +284,10 @@ enum NativeScriptWriter {
             case .bytes(let bytes):
                 data.append(bytes)
             case .script(let script):
+                if let originalCBOR = script.originalCBOR {
+                    data.append(originalCBOR)
+                    continue
+                }
                 let children = script.children
                 switch script {
                 case .scriptAll:

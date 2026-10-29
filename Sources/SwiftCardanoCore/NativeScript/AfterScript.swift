@@ -6,6 +6,11 @@ public struct AfterScript: NativeScriptable {
     public static let TYPE = NativeScriptType.invalidHereAfter
     public let slot: SlotNumber
 
+    /// The bytes this script was decoded from, when it was decoded on its
+    /// own or as a whole script of a transaction; its encoding and hash are
+    /// taken over them, as the ledger takes them, while they are kept.
+    public internal(set) var originalCBOR: Data? = nil
+
     public init (slot: SlotNumber) {
         self.slot = slot
     }
@@ -13,7 +18,7 @@ public struct AfterScript: NativeScriptable {
     // MARK: - CBORSerializable
 
     public init(from primitive: Primitive) throws {
-        guard case let .list(primitiveArray) = primitive, primitiveArray.count == 2 else {
+        guard let primitiveArray = primitive.arrayElements, primitiveArray.count == 2 else {
             throw CardanoCoreError.deserializeError("Invalid AfterScript type: \(primitive)")
         }
 
@@ -30,6 +35,7 @@ public struct AfterScript: NativeScriptable {
     }
 
     public func toPrimitive() throws -> Primitive {
+        if let originalCBOR { return .cborSimpleValue(.encoded(originalCBOR)) }
         return .list([
             .uint(UInt64(Self.TYPE.rawValue)),
             .uint(slot)
@@ -65,4 +71,15 @@ public struct AfterScript: NativeScriptable {
         return .orderedDict(dict)
     }
 
+}
+
+extension AfterScript {
+    /// Equal when they are the same script, however each was written.
+    public static func == (lhs: AfterScript, rhs: AfterScript) -> Bool {
+        lhs.slot == rhs.slot
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(slot)
+    }
 }

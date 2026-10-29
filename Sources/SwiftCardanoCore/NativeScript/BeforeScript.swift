@@ -6,6 +6,11 @@ public struct BeforeScript: NativeScriptable {
     public static let TYPE = NativeScriptType.invalidBefore
     public let slot: SlotNumber
 
+    /// The bytes this script was decoded from, when it was decoded on its
+    /// own or as a whole script of a transaction; its encoding and hash are
+    /// taken over them, as the ledger takes them, while they are kept.
+    public internal(set) var originalCBOR: Data? = nil
+
     public init (slot: SlotNumber) {
         self.slot = slot
     }
@@ -13,7 +18,7 @@ public struct BeforeScript: NativeScriptable {
     // MARK: - CBORSerializable
 
     public init(from primitive: Primitive) throws {
-        guard case let .list(primitive) = primitive,
+        guard let primitive = primitive.arrayElements,
                 primitive.count == 2,
                 case let .uint(code) = primitive[0],
                 code == Self.TYPE.rawValue,
@@ -24,6 +29,7 @@ public struct BeforeScript: NativeScriptable {
     }
 
     public func toPrimitive() throws -> Primitive {
+        if let originalCBOR { return .cborSimpleValue(.encoded(originalCBOR)) }
         return .list([.uint(UInt64(Self.TYPE.rawValue)), .uint(slot)])
     }
 
@@ -54,5 +60,16 @@ public struct BeforeScript: NativeScriptable {
         dict[.string("type")] = .string(Self.TYPE.description())
         dict[.string("slot")] = .uint(slot)
         return .orderedDict(dict)
+    }
+}
+
+extension BeforeScript {
+    /// Equal when they are the same script, however each was written.
+    public static func == (lhs: BeforeScript, rhs: BeforeScript) -> Bool {
+        lhs.slot == rhs.slot
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(slot)
     }
 }

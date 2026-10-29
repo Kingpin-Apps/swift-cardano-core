@@ -109,9 +109,9 @@ public struct ScriptRef: CBORTaggable, Serializable {
             throw CardanoCoreError.valueError("Invalid ScriptRef tag: \(tag)")
         }
         if case let .string(script) = value {
-            self.script = try CBORDecoder.ledger().decode(Script.self, from: script.toData)
+            self.script = try Self.script(from: script.toData)
         } else if case let .bytes(script) = value {
-            self.script = try CBORDecoder.ledger().decode(Script.self, from: script)
+            self.script = try Self.script(from: script)
         } else {
             throw CardanoCoreError
                 .valueError("Invalid ScriptRef value: \(value)")
@@ -119,6 +119,20 @@ public struct ScriptRef: CBORTaggable, Serializable {
         self.value = value
     }
     
+    /// The script `[type, script]` in `bytes`; a native script is read again
+    /// from its bytes, which it keeps, since its hash is taken over them.
+    private static func script(from bytes: Data) throws -> Script {
+        var script = try CBORDecoder.ledger().decode(Script.self, from: bytes)
+        if case .nativeScript = script.script {
+            let scanner = CBORItemScanner(bytes)
+            let spans = try scanner.elements(ofArrayAt: 0)
+            if spans.count == 2 {
+                script.script = .nativeScript(try NativeScriptReader.read(bytes.subdata(in: spans[1])))
+            }
+        }
+        return script
+    }
+
     public init(script: Script) throws {
         self.script = script
         self.value = .bytes(try CBOREncoder().encode(script))

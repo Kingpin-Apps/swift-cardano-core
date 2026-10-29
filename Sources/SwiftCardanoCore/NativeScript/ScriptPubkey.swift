@@ -4,6 +4,11 @@ import OrderedCollections
 public struct ScriptPubkey: NativeScriptable, Sendable {
     public static let TYPE = NativeScriptType.scriptPubkey
     public let keyHash: VerificationKeyHash
+
+    /// The bytes this script was decoded from, when it was decoded on its
+    /// own or as a whole script of a transaction; its encoding and hash are
+    /// taken over them, as the ledger takes them, while they are kept.
+    public internal(set) var originalCBOR: Data? = nil
     
     public init(keyHash: VerificationKeyHash) {
         self.keyHash = keyHash
@@ -12,7 +17,7 @@ public struct ScriptPubkey: NativeScriptable, Sendable {
     // MARK: - CBORSerializable
     
     public init(from primitive: Primitive) throws {
-        guard case let .list(primitive) = primitive,
+        guard let primitive = primitive.arrayElements,
               primitive.count == 2 else {
             throw CardanoCoreError.deserializeError("Invalid ScriptPubkey type")
         }
@@ -24,6 +29,7 @@ public struct ScriptPubkey: NativeScriptable, Sendable {
     }
 
     public func toPrimitive() throws -> Primitive {
+        if let originalCBOR { return .cborSimpleValue(.encoded(originalCBOR)) }
         return .list([
             .uint(UInt64(Self.TYPE.rawValue)),
             keyHash.toPrimitive()
@@ -60,4 +66,15 @@ public struct ScriptPubkey: NativeScriptable, Sendable {
         return .orderedDict(dict)
     }
 
+}
+
+extension ScriptPubkey {
+    /// Equal when they are the same script, however each was written.
+    public static func == (lhs: ScriptPubkey, rhs: ScriptPubkey) -> Bool {
+        lhs.keyHash == rhs.keyHash
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(keyHash)
+    }
 }

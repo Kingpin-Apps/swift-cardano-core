@@ -28,6 +28,41 @@ public enum NativeScript: Serializable {
         }
     }
     
+    /// The bytes this script was decoded from, while they are kept: its
+    /// encoding and hash are taken over them, as the ledger takes them.
+    public internal(set) var originalCBOR: Data? {
+        get {
+            switch self {
+            case .scriptPubkey(let script): return script.originalCBOR
+            case .scriptAll(let script): return script.originalCBOR
+            case .scriptAny(let script): return script.originalCBOR
+            case .scriptNofK(let script): return script.originalCBOR
+            case .invalidBefore(let script): return script.originalCBOR
+            case .invalidHereAfter(let script): return script.originalCBOR
+            }
+        }
+        set {
+            switch self {
+            case .scriptPubkey(var script): script.originalCBOR = newValue; self = .scriptPubkey(script)
+            case .scriptAll(var script): script.originalCBOR = newValue; self = .scriptAll(script)
+            case .scriptAny(var script): script.originalCBOR = newValue; self = .scriptAny(script)
+            case .scriptNofK(var script): script.originalCBOR = newValue; self = .scriptNofK(script)
+            case .invalidBefore(var script): script.originalCBOR = newValue; self = .invalidBefore(script)
+            case .invalidHereAfter(var script): script.originalCBOR = newValue; self = .invalidHereAfter(script)
+            }
+        }
+    }
+
+    /// Reads a script as the ledger does — its records and lists of definite
+    /// or indefinite length — keeping its bytes, over which its hash is taken.
+    public static func fromCBOR(data: Data) throws -> NativeScript {
+        try NativeScriptReader.read(data)
+    }
+
+    public init(from cbor: Data) throws {
+        self = try NativeScriptReader.read(cbor)
+    }
+
     // MARK: - CBORSerializable
     
     public init(from primitive: Primitive) throws {
@@ -39,10 +74,12 @@ public enum NativeScript: Serializable {
         }
         if primitive.containsEncoded {
             // A deep script, cut part-way down by the decoder: read it whole.
+            // The bytes it is read from are a re-encoding, not what was written.
             self = try NativeScriptReader.read(primitive.encodedBytes())
+            self.originalCBOR = nil
             return
         }
-        guard case let .list(elements) = primitive, let head = elements.first else {
+        guard let elements = primitive.arrayElements, let head = elements.first else {
             throw CardanoCoreError.decodingError("NativeScript expected CBOR array primitive: \(primitive)")
         }
         
@@ -71,6 +108,7 @@ public enum NativeScript: Serializable {
     /// The script as a primitive tree; one nested deeper than
     /// ``maxConversionDepth`` as its encoded bytes, which hold the same script.
     public func toPrimitive() throws -> Primitive {
+        if let originalCBOR { return .cborSimpleValue(.encoded(originalCBOR)) }
         if nests(deeperThan: Self.maxConversionDepth) {
             return .cborSimpleValue(.encoded(try NativeScriptWriter.encode(self)))
         }
@@ -78,6 +116,7 @@ public enum NativeScript: Serializable {
     }
 
     func primitive() throws -> Primitive {
+        if let originalCBOR { return .cborSimpleValue(.encoded(originalCBOR)) }
         switch self {
             case .scriptPubkey(let script):
                 return try script.toPrimitive()

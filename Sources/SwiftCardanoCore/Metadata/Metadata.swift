@@ -899,14 +899,35 @@ public struct AuxiliaryData: Serializable, Equatable {
         let reader = MetadatumReader(bytes)
         let header = try scanner.header(at: 0)
         var metadataOffset: Int?
+        // The native scripts, read again from their bytes, which they keep.
+        var nativeScripts: [NativeScript]?
         if header.major == 5 {
             metadataOffset = 0
         } else if header.major == 4 {
-            metadataOffset = try scanner.elements(ofArrayAt: 0).first?.lowerBound
+            let elements = try scanner.elements(ofArrayAt: 0)
+            metadataOffset = elements.first?.lowerBound
+            if elements.count > 1 {
+                nativeScripts = try NativeScript.read(scanner, arrayAt: elements[1].lowerBound)
+            }
         } else if header.major == 6 {
-            for (key, value) in try scanner.entries(ofMapAt: scanner.untagged(at: 0))
-            where try scanner.unsignedInteger(at: key.lowerBound) == 0 {
-                metadataOffset = value.lowerBound
+            for (key, value) in try scanner.entries(ofMapAt: scanner.untagged(at: 0)) {
+                switch try scanner.unsignedInteger(at: key.lowerBound) {
+                case 0: metadataOffset = value.lowerBound
+                case 1: nativeScripts = try NativeScript.read(scanner, arrayAt: value.lowerBound)
+                default: break
+                }
+            }
+        }
+        if let nativeScripts {
+            switch data {
+            case .shelleyMaryMetadata(var shelleyMary) where shelleyMary.nativeScripts != nil:
+                shelleyMary.nativeScripts = nativeScripts
+                data = .shelleyMaryMetadata(shelleyMary)
+            case .alonzoMetadata(var alonzo) where alonzo.nativeScripts != nil:
+                alonzo.nativeScripts = nativeScripts
+                data = .alonzoMetadata(alonzo)
+            default:
+                break
             }
         }
         if let metadataOffset {
