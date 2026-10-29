@@ -257,127 +257,94 @@ public struct GovActionID: Serializable, Sendable {
     }
 }
 
+/// The thresholds stake pools vote with, in the CDDL's order:
+///
+/// ```
+/// pool_voting_thresholds =
+///   [ motion no confidence, committee normal, committee no confidence
+///   , hard fork initiation, security relevant parameter voting threshold ]
+/// ```
 public struct PoolVotingThresholds: CBORSerializable, Sendable {
-    public var committeeNoConfidence: UnitInterval?
-    public var committeeNormal: UnitInterval?
-    public var hardForkInitiation: UnitInterval?
-    public var motionNoConfidence: UnitInterval?
-    public var ppSecurityGroup: UnitInterval?
-    
-    enum CodingKeys: String, CodingKey {
-        case committeeNoConfidence = "committee_no_confidence"
-        case committeeNormal = "committee_normal"
-        case hardForkInitiation = "hard_fork_initiation"
-        case motionNoConfidence = "motion_no_confidence"
-        case ppSecurityGroup = "pp_security_group"
+    public var motionNoConfidence: UnitInterval
+    public var committeeNormal: UnitInterval
+    public var committeeNoConfidence: UnitInterval
+    public var hardForkInitiation: UnitInterval
+    public var ppSecurityGroup: UnitInterval
+
+    /// The thresholds in the CDDL's order.
+    public var thresholds: [UnitInterval] {
+        [motionNoConfidence, committeeNormal, committeeNoConfidence, hardForkInitiation, ppSecurityGroup]
     }
-    
-    public var thresholds: [UnitInterval]
-    
-    public init(committeeNoConfidence: UnitInterval, committeeNormal: UnitInterval, hardForkInitiation: UnitInterval, motionNoConfidence: UnitInterval, ppSecurityGroup: UnitInterval) {
-        self.committeeNoConfidence = committeeNoConfidence
-        self.committeeNormal = committeeNormal
-        self.hardForkInitiation = hardForkInitiation
+
+    public init(
+        motionNoConfidence: UnitInterval,
+        committeeNormal: UnitInterval,
+        committeeNoConfidence: UnitInterval,
+        hardForkInitiation: UnitInterval,
+        ppSecurityGroup: UnitInterval
+    ) {
         self.motionNoConfidence = motionNoConfidence
+        self.committeeNormal = committeeNormal
+        self.committeeNoConfidence = committeeNoConfidence
+        self.hardForkInitiation = hardForkInitiation
         self.ppSecurityGroup = ppSecurityGroup
-        
-        self.thresholds = [
-            committeeNoConfidence,
-            committeeNormal,
-            hardForkInitiation,
-            motionNoConfidence,
-            ppSecurityGroup
-        ]
     }
-    
-    
-    public init(from thresholds: [UnitInterval]) {
-        precondition(thresholds.count == 5, "There must be exactly 5 unit intervals")
-        self.thresholds = thresholds
+
+    /// The thresholds from a list in the CDDL's order.
+    ///
+    /// - Throws: Unless there are exactly 5.
+    public init(from thresholds: [UnitInterval]) throws {
+        guard thresholds.count == 5 else {
+            throw CardanoCoreError.deserializeError(
+                "PoolVotingThresholds must contain exactly 5 unit intervals, got \(thresholds.count)")
+        }
+        self.init(
+            motionNoConfidence: thresholds[0],
+            committeeNormal: thresholds[1],
+            committeeNoConfidence: thresholds[2],
+            hardForkInitiation: thresholds[3],
+            ppSecurityGroup: thresholds[4])
     }
-    
+
     public init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        // pool_voting_thresholds = [5 * unit_interval]: every entry is required.
-        guard let committeeNoConfidence = try container.decodeIfPresent(UnitInterval.self),
-              let committeeNormal = try container.decodeIfPresent(UnitInterval.self),
-              let hardForkInitiation = try container.decodeIfPresent(UnitInterval.self),
-              let motionNoConfidence = try container.decodeIfPresent(UnitInterval.self),
-              let ppSecurityGroup = try container.decodeIfPresent(UnitInterval.self) else {
-            throw CardanoCoreError.deserializeError("PoolVotingThresholds must contain exactly 5 unit intervals")
-        }
-        guard container.isAtEnd else {
-            throw CardanoCoreError.deserializeError("PoolVotingThresholds must contain exactly 5 unit intervals")
-        }
-        self.init(
-            committeeNoConfidence: committeeNoConfidence,
-            committeeNormal: committeeNormal,
-            hardForkInitiation: hardForkInitiation,
-            motionNoConfidence: motionNoConfidence,
-            ppSecurityGroup: ppSecurityGroup
-        )
+        let primitive = try Primitive.decode(from: decoder, preservingEncoding: false)
+        try self.init(from: primitive)
     }
-    
+
     public init(from primitive: Primitive) throws {
-        guard case let .list(primitive) = primitive,
-              primitive.count == 5 else {
-            throw CardanoCoreError.deserializeError("Invalid PoolVotingThresholds type")
+        let elements: [Primitive]
+        switch primitive {
+        case .list(let list): elements = list
+        case .indefiniteList(let list): elements = list.getAll()
+        default: throw CardanoCoreError.deserializeError("Invalid PoolVotingThresholds type")
         }
-        self.init(
-            committeeNoConfidence: try UnitInterval(from: primitive[0]),
-            committeeNormal: try UnitInterval(from: primitive[1]),
-            hardForkInitiation: try UnitInterval(from: primitive[2]),
-            motionNoConfidence: try UnitInterval(from: primitive[3]),
-            ppSecurityGroup: try UnitInterval(from: primitive[4])
-        )
+        try self.init(from: try elements.map { try UnitInterval(from: $0) })
     }
-    
+
     public func encode(to encoder: Encoder) throws {
-        var container = encoder.unkeyedContainer()
-        try container.encode(committeeNoConfidence)
-        try container.encode(committeeNormal)
-        try container.encode(hardForkInitiation)
-        try container.encode(motionNoConfidence)
-        try container.encode(ppSecurityGroup)
+        var container = encoder.singleValueContainer()
+        try container.encode(try toPrimitive())
     }
-    
+
     public func toPrimitive() throws -> Primitive {
-        var list: [Primitive] = []
-        if let committeeNoConfidence = committeeNoConfidence {
-            list.append(try committeeNoConfidence.toPrimitive())
-        } else {
-            list.append(.null)
-        }
-        if let committeeNormal = committeeNormal {
-            list.append(try committeeNormal.toPrimitive())
-        } else {
-            list.append(.null)
-        }
-        if let hardForkInitiation = hardForkInitiation {
-            list.append(try hardForkInitiation.toPrimitive())
-        } else {
-            list.append(.null)
-        }
-        if let motionNoConfidence = motionNoConfidence {
-            list.append(try motionNoConfidence.toPrimitive())
-        } else {
-            list.append(.null)
-        }
-        if let ppSecurityGroup = ppSecurityGroup {
-            list.append(try ppSecurityGroup.toPrimitive())
-        } else {
-            list.append(.null)
-        }
-        return .list(list)
+        .list(try thresholds.map { try $0.toPrimitive() })
     }
-    
 }
 
 public struct DrepVotingThresholds: CBORSerializable, Sendable  {
     public var thresholds: [UnitInterval]
     
-    public init(thresholds: [UnitInterval]) {
-        precondition(thresholds.count == 10, "There must be exactly 10 unit intervals")
+    /// Thresholds known to be the ten in the CDDL's order.
+    init(ledgerOrder thresholds: [UnitInterval]) {
+        self.thresholds = thresholds
+    }
+
+    /// - Throws: Unless there are exactly 10, in the CDDL's order.
+    public init(thresholds: [UnitInterval]) throws {
+        guard thresholds.count == 10 else {
+            throw CardanoCoreError.deserializeError(
+                "DrepVotingThresholds must contain exactly 10 unit intervals, got \(thresholds.count)")
+        }
         self.thresholds = thresholds
     }
     
@@ -392,11 +359,13 @@ public struct DrepVotingThresholds: CBORSerializable, Sendable  {
     }
     
     public init(from primitive: Primitive) throws {
-        guard case let .list(primitive) = primitive,
-              primitive.count == 10 else {
-            throw CardanoCoreError.deserializeError("Invalid DrepVotingThresholds type")
+        let elements: [Primitive]
+        switch primitive {
+        case .list(let list): elements = list
+        case .indefiniteList(let list): elements = list.getAll()
+        default: throw CardanoCoreError.deserializeError("Invalid DrepVotingThresholds type")
         }
-        self.thresholds = try primitive.map { try UnitInterval(from: $0) }
+        try self.init(thresholds: try elements.map { try UnitInterval(from: $0) })
     }
     
     public func encode(to encoder: Encoder) throws {

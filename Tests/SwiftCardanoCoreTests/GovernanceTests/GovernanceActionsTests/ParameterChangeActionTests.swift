@@ -42,13 +42,13 @@ import CBORCodable
         
         maxCollateralInputs: 0,
         poolVotingThresholds: PoolVotingThresholds(
-            committeeNoConfidence: UnitInterval(numerator: 1, denominator: 2),
-            committeeNormal: UnitInterval(numerator: 1, denominator: 2),
-            hardForkInitiation: UnitInterval(numerator: 1, denominator: 2),
             motionNoConfidence: UnitInterval(numerator: 1, denominator: 2),
+            committeeNormal: UnitInterval(numerator: 1, denominator: 2),
+            committeeNoConfidence: UnitInterval(numerator: 1, denominator: 2),
+            hardForkInitiation: UnitInterval(numerator: 1, denominator: 2),
             ppSecurityGroup: UnitInterval(numerator: 1, denominator: 2)
         ),
-        drepVotingThresholds: DrepVotingThresholds(
+        drepVotingThresholds: try! DrepVotingThresholds(
             thresholds: [
                 UnitInterval(numerator: 1, denominator: 2),
                 UnitInterval(numerator: 1, denominator: 2),

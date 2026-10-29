@@ -681,23 +681,15 @@ extension ProtocolParamUpdate {
         collateralPercentage = p.collateralPercentage
         maxCollateralInputs = p.maxCollateralInputs
 
-        // `PoolVotingThresholds` writes its fields in declaration order, so
-        // they are filled by position: pool_voting_thresholds is [motion no
-        // confidence, committee normal, committee no confidence, hard fork
-        // initiation, security group] in the CDDL.
-        let pvt = p.poolVotingThresholds.ledgerOrder.map(unit)
+        let pool = p.poolVotingThresholds.ledgerOrder.map(unit)
         poolVotingThresholds = PoolVotingThresholds(
-            committeeNoConfidence: pvt[0],
-            committeeNormal: pvt[1],
-            hardForkInitiation: pvt[2],
-            motionNoConfidence: pvt[3],
-            ppSecurityGroup: pvt[4]
-        )
-
-        // drep_voting_thresholds CDDL order:
-        // [motionNoConfidence, committeeNormal, committeeNoConfidence, updateToConstitution,
-        //  hardForkInitiation, ppNetworkGroup, ppEconomicGroup, ppTechnicalGroup, ppGovGroup, treasuryWithdrawal]
-        drepVotingThresholds = DrepVotingThresholds(thresholds: p.dRepVotingThresholds.ledgerOrder.map(unit))
+            motionNoConfidence: pool[0],
+            committeeNormal: pool[1],
+            committeeNoConfidence: pool[2],
+            hardForkInitiation: pool[3],
+            ppSecurityGroup: pool[4])
+        // ledgerOrder always holds the ten DRep thresholds.
+        drepVotingThresholds = DrepVotingThresholds(ledgerOrder: p.dRepVotingThresholds.ledgerOrder.map(unit))
 
         minCommitteeSize = p.committeeMinSize
         committeeTermLimit = p.committeeMaxTermLength

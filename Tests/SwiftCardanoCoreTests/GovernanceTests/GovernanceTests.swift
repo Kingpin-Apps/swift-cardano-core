@@ -94,7 +94,7 @@ import CBORCodable
             UnitInterval(numerator: 1, denominator: 2),
         ]
 
-        let poolThresholds = PoolVotingThresholds(from: thresholds)
+        let poolThresholds = try PoolVotingThresholds(from: thresholds)
 
         #expect(poolThresholds.thresholds.count == 5)
         #expect(poolThresholds.thresholds.allSatisfy { $0.numerator == 1 })
@@ -115,7 +115,7 @@ import CBORCodable
             UnitInterval(numerator: 1, denominator: 2),
             UnitInterval(numerator: 1, denominator: 2),
         ]
-        let drepThresholds = DrepVotingThresholds(thresholds: thresholds)
+        let drepThresholds = try DrepVotingThresholds(thresholds: thresholds)
 
         #expect(drepThresholds.thresholds.count == 10)
         #expect(drepThresholds.thresholds.allSatisfy { $0.numerator == 1 })
