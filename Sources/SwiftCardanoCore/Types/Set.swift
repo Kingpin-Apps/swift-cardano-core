@@ -107,7 +107,7 @@ extension SetTaggable {
             self.elementsOrdered = ordered
         } else if case let .array(arrayData) = cborData {
             let decodedElements = try arrayData.map {
-                try CBORDecoder().decode(Element.self, from: $0.unwrapped as! Data)
+                try CBORDecoder().decode(Element.self, from: CBORSerialization.data(from: $0))
             }
             let ordered = Self.deduplicated(decodedElements)
             try self.init(
@@ -339,20 +339,20 @@ public struct NonEmptyOrderedSet<T: CBORSerializable & Hashable & Sendable>: Set
     public var elementsOrdered: [Element] = []
 
     public init(tag: UInt64 = Self.TAG, value: Primitive) throws {
-        guard case let .list(list) = value else {
-            fatalError("NonEmptySet must contain an array")
+        let list: [Primitive]
+        switch value {
+        case .list(let elements): list = elements
+        case .indefiniteList(let elements): list = elements.getAll()
+        default: throw CardanoCoreError.valueError("NonEmptyOrderedSet must contain an array")
         }
-        precondition(
-            list.isEmpty == false,
-            "NonEmptySet must contain at least one element"
-        )
+        guard !list.isEmpty else {
+            throw CardanoCoreError.valueError("NonEmptyOrderedSet must contain at least one element")
+        }
         guard tag == Self.TAG else {
-            fatalError("Invalid CBOR tag: expected \(Self.TAG) but found \(tag)")
+            throw CardanoCoreError.valueError("Invalid CBOR tag: expected \(Self.TAG) but found \(tag)")
         }
         self.value = value
-        let ordered = Self.deduplicated(
-            try value.listValue!.map { try T.init(from: $0.toPrimitive()) }
-        )
+        let ordered = Self.deduplicated(try list.map { try T.init(from: $0) })
         self.elements = Set(ordered)
         self.elementsOrdered = ordered
     }
@@ -365,45 +365,36 @@ public struct NonEmptyOrderedSet<T: CBORSerializable & Hashable & Sendable>: Set
         self.elementsOrdered = ordered
     }
 
+    /// Keeps the order the elements are given in, dropping later duplicates.
+    ///
+    /// - Throws: When `elements` is empty.
+    public init(nonEmpty elements: [Element]) throws {
+        guard !elements.isEmpty else {
+            throw CardanoCoreError.valueError("NonEmptyOrderedSet must contain at least one element")
+        }
+        self.init(elements)
+    }
+
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
-        let cborData = try container.decode(CBOR.self)
-
-        if case let .tagged(tag, value) = cborData {
+        var cbor = try container.decode(CBOR.self)
+        if case let .tagged(tag, value) = cbor {
             guard tag == Self.TAG else {
                 throw CardanoCoreError.valueError(
                     "Invalid CBOR tag: expected \(Self.TAG) but found \(tag)")
             }
-
-            guard case let .array(arrayData) = value, !arrayData.isEmpty else {
-                throw CardanoCoreError.valueError(
-                    "NonEmptyOrderedSet must contain at least one element")
-            }
-
-            let decodedElements = arrayData.map {
-                $0.unwrapped
-            }
-
-            try self.init(
-                tag: Self.TAG,
-                value:
-                        .list(
-                            decodedElements
-                                .map { try! Primitive.fromAny($0 as Any) }
-                        )
-            )
-        } else if case let .array(arrayData) = cborData, !arrayData.isEmpty {
-            let decodedElements = arrayData.map {
-                $0.unwrapped as! Element
-            }
-            let elements = Array(Set(decodedElements))
-            try self.init(
-                tag: Self.TAG,
-                value: .list(elements.map { try! Primitive.fromAny($0) })
-            )
-        } else {
-            throw CardanoCoreError.valueError("Invalid CBOR format for NonEmptyOrderedSet")
+            cbor = value
         }
+        let items: [CBOR]
+        switch cbor {
+        case .array(let elements), .indefiniteArray(let elements): items = elements
+        default: throw CardanoCoreError.valueError("Invalid CBOR format for NonEmptyOrderedSet")
+        }
+        let elements = try items.map {
+            try CBORDecoder().decode(Element.self, from: CBORSerialization.data(from: $0))
+        }
+        try self.init(nonEmpty: elements)
+        self.value = .list(try elementsOrdered.map { try $0.toPrimitive() })
     }
     
     // MARK: - Convenience Methods

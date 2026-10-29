@@ -20,8 +20,8 @@ struct MultiAssetTests {
     
     @Test("Initialize MultiAsset from primitive dictionary")
     func testInitFromPrimitive() async throws {
-        let scriptHash1 = ScriptHash(payload: "policy1".toData)
-        let scriptHash2 = ScriptHash(payload: "policy2".toData)
+        let scriptHash1 = ScriptHash(payload: Data(repeating: 0xa1, count: 28))
+        let scriptHash2 = ScriptHash(payload: Data(repeating: 0xb2, count: 28))
         
         let policy1 = try ScriptHash(from: .string(scriptHash1.payload.toHex))
         let policy2 = try ScriptHash(from: .string(scriptHash2.payload.toHex))
@@ -39,14 +39,14 @@ struct MultiAssetTests {
     
     @Test("Test addition of MultiAssets")
     func testAddition() async throws {
-        let primitive1: Primitive = .dict([.string("policy1"): .dict([.string("asset1"): .uint(100), .string("asset2"): .uint(200)])])
-        let primitive2: Primitive = .dict([.string("policy1"): .dict([.string("asset1"): .uint(50), .string("asset3"): .uint(300)])])
+        let primitive1: Primitive = .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.string("asset1"): .uint(100), .string("asset2"): .uint(200)])])
+        let primitive2: Primitive = .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.string("asset1"): .uint(50), .string("asset3"): .uint(300)])])
         
         let multiAsset1 = try MultiAsset(from: primitive1)
         let multiAsset2 = try MultiAsset(from: primitive2)
         
         let result = multiAsset1 + multiAsset2
-        let policy1 = try ScriptHash(from: .string("policy1"))
+        let policy1 = try ScriptHash(from: .string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"))
         
         let asset1 = AssetName(from: "asset1")
         let asset2 = AssetName(from: "asset2")
@@ -60,15 +60,15 @@ struct MultiAssetTests {
     @Test("Test subtraction of MultiAssets")
     func testSubtraction() async throws {
         let primitive1: Primitive = .dict([
-            .string("policy1"): .dict([.string("asset1"): .uint(100), .string("asset2"): .uint(200)])
+            .string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.string("asset1"): .uint(100), .string("asset2"): .uint(200)])
         ])
-        let primitive2: Primitive = .dict([.string("policy1"): .dict([.string("asset1"): .uint(50), .string("asset2"): .uint(50)])])
+        let primitive2: Primitive = .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.string("asset1"): .uint(50), .string("asset2"): .uint(50)])])
         
         let multiAsset1 = try MultiAsset(from: primitive1)
         let multiAsset2 = try MultiAsset(from: primitive2)
         
         let result = multiAsset1 - multiAsset2
-        let policy1 = try ScriptHash(from: .string("policy1"))
+        let policy1 = try ScriptHash(from: .string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"))
         
         let asset1 = AssetName(from: "asset1")
         let asset2 = AssetName(from: "asset2")
@@ -80,9 +80,9 @@ struct MultiAssetTests {
     @Test("Test comparison operators")
     func testComparison() async throws {
         let primitive1: Primitive = .dict([
-            .string("policy1"): .dict([.string("asset1"): .uint(100), .string("asset2"): .uint(200)])
+            .string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.string("asset1"): .uint(100), .string("asset2"): .uint(200)])
         ])
-        let primitive2: Primitive = .dict([.string("policy1"): .dict([.string("asset1"): .uint(50), .string("asset2"): .uint(50)])])
+        let primitive2: Primitive = .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.string("asset1"): .uint(50), .string("asset2"): .uint(50)])])
         
         let multiAsset1 = try MultiAsset(from: primitive1)
         let multiAsset2 = try MultiAsset(from: primitive2)
@@ -92,8 +92,8 @@ struct MultiAssetTests {
     
     @Test("Test filtering MultiAsset")
     func testFilter() async throws {
-        let scriptHash1 = ScriptHash(payload: "policy1".toData)
-        let scriptHash2 = ScriptHash(payload: "policy2".toData)
+        let scriptHash1 = ScriptHash(payload: Data(repeating: 0xa1, count: 28))
+        let scriptHash2 = ScriptHash(payload: Data(repeating: 0xb2, count: 28))
         
         let policy1 = try ScriptHash(from: .string(scriptHash1.payload.toHex))
         let policy2 = try ScriptHash(from: .string(scriptHash2.payload.toHex))
@@ -121,8 +121,8 @@ struct MultiAssetTests {
     
     @Test("Test counting MultiAsset elements")
     func testCount() async throws {
-        let scriptHash1 = ScriptHash(payload: "policy1".toData)
-        let scriptHash2 = ScriptHash(payload: "policy2".toData)
+        let scriptHash1 = ScriptHash(payload: Data(repeating: 0xa1, count: 28))
+        let scriptHash2 = ScriptHash(payload: Data(repeating: 0xb2, count: 28))
         
         let primitive: Primitive = .dict([
             .string(scriptHash1.payload.toHex): .dict([.string("asset1"): .uint(100), .string("asset2"): .uint(200)]),
@@ -142,8 +142,8 @@ struct MultiAssetTests {
     @Test("Test Codable conformance")
     func testCodable() throws {
         let primitive: Primitive = .dict([
-            .string("policy1"): .dict([.string("asset1"): .uint(100), .string("asset2"): .uint(200)]),
-            .string("policy2"): .dict([.string("asset3"): .uint(300)])
+            .string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.string("asset1"): .uint(100), .string("asset2"): .uint(200)]),
+            .string("b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"): .dict([.string("asset3"): .uint(300)])
         ])
         
         

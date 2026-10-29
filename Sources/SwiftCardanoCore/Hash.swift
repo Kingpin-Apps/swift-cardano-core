@@ -33,18 +33,17 @@ public protocol ConstrainedBytes: Serializable {
 }
 
 extension ConstrainedBytes {
-    public var payload: Data {
-        get { return self.payload }
-        set {
-            guard newValue.count <= Self.maxSize, newValue.count >= Self.minSize else {
-                fatalError(
-                        "Invalid byte size:  \(newValue.count) for class \(Self.self). Expected size between \(Self.minSize) and \(Self.maxSize), but got \(payload.count)."
-                    )
-            }
-            payload = newValue
+    /// `payload` as this type, when its size is within ``minSize`` and
+    /// ``maxSize``: a hash of the wrong length is not that hash, and the ledger
+    /// rejects it.
+    static func checked(_ payload: Data) throws -> Self {
+        guard payload.count >= minSize, payload.count <= maxSize else {
+            throw CardanoCoreError.deserializeError(
+                "\(Self.self) must be \(minSize == maxSize ? "\(maxSize)" : "\(minSize) to \(maxSize)") bytes, got \(payload.count)")
         }
+        return try Self(payload: payload)
     }
-    
+
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         try container.encode(payload)
@@ -53,14 +52,14 @@ extension ConstrainedBytes {
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let payload = try container.decode(Data.self)
-        try self.init(payload: payload)
+        self = try Self.checked(payload)
     }
     
     public init(from primitive: Primitive) throws {
         if case let .bytes(primitive) = primitive {
-            try self.init(payload: primitive)
+            self = try Self.checked(primitive)
         } else if case let .string(primitive) = primitive {
-            try self.init(payload: primitive.hexStringToData)
+            self = try Self.checked(primitive.hexStringToData)
         } else {
             throw CardanoCoreError.deserializeError("Invalid \(Self.self) type: \(primitive)")
         }
@@ -72,7 +71,7 @@ extension ConstrainedBytes {
     
     public static func fromDict(_ primitive: Primitive) throws -> Self {
         if case let .bytes(primitive) = primitive {
-            return try Self.init(payload: primitive)
+            return try Self.checked(primitive)
         } else if case let .string(primitive) = primitive {
             let hexData = primitive.hexStringToData
             if hexData.count == Self.maxSize {

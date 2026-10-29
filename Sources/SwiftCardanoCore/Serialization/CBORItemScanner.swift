@@ -48,35 +48,50 @@ struct CBORItemScanner {
         }
     }
 
+    /// The deepest nesting the scanner follows. Deeper input is rejected
+    /// rather than allowed to exhaust the stack.
+    static let maxDepth = 256
+
     /// The offset just past the item that starts at `offset`.
     func end(ofItemAt offset: Int) throws -> Int {
+        try end(ofItemAt: offset, depth: 0)
+    }
+
+    private func end(ofItemAt offset: Int, depth: Int) throws -> Int {
+        guard depth <= Self.maxDepth else {
+            throw CardanoCoreError.deserializeError(
+                "CBOR nested deeper than \(Self.maxDepth) at byte \(offset)")
+        }
         let header = try header(at: offset)
         switch (header.major, header.argument) {
         case (0, _), (1, _), (7, .some):
             return header.end
         case (2, let length?), (3, let length?):
-            let end = header.end + Int(clamping: length)
-            guard end <= bytes.count else { throw truncated(at: offset) }
-            return end
+            // Compared before adding, so a huge length cannot overflow.
+            guard length <= UInt64(bytes.count - header.end) else { throw truncated(at: offset) }
+            return header.end + Int(length)
         case (2, nil), (3, nil):
             // Indefinite string: definite chunks up to a break.
             var position = header.end
             while try byte(at: position) != 0xFF {
-                position = try end(ofItemAt: position)
+                position = try end(ofItemAt: position, depth: depth + 1)
             }
             return position + 1
         case (4, let count?):
-            return try skip(Int(clamping: count), itemsFrom: header.end)
+            return try skip(count, itemsFrom: header.end, depth: depth)
         case (5, let count?):
-            return try skip(Int(clamping: count) * 2, itemsFrom: header.end)
+            // Every item takes at least a byte, so a count beyond the bytes
+            // left is truncated; checking first keeps the doubling in range.
+            guard count <= UInt64(bytes.count) else { throw truncated(at: offset) }
+            return try skip(count * 2, itemsFrom: header.end, depth: depth)
         case (4, nil), (5, nil):
             var position = header.end
             while try byte(at: position) != 0xFF {
-                position = try end(ofItemAt: position)
+                position = try end(ofItemAt: position, depth: depth + 1)
             }
             return position + 1
         case (6, _):
-            return try end(ofItemAt: header.end)
+            return try end(ofItemAt: header.end, depth: depth + 1)
         default:
             throw CardanoCoreError.deserializeError("Malformed CBOR at byte \(offset)")
         }
@@ -159,10 +174,12 @@ struct CBORItemScanner {
         }
     }
 
-    private func skip(_ count: Int, itemsFrom offset: Int) throws -> Int {
+    private func skip(_ count: UInt64, itemsFrom offset: Int, depth: Int) throws -> Int {
         var position = offset
-        for _ in 0..<count {
-            position = try end(ofItemAt: position)
+        var remaining = count
+        while remaining > 0 {
+            position = try end(ofItemAt: position, depth: depth + 1)
+            remaining -= 1
         }
         return position
     }

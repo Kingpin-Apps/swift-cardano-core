@@ -14,7 +14,7 @@ import CBORCodable
             anchorUrl: try! Url("https://example.com/constitution"),
             anchorDataHash: AnchorDataHash(payload: Data(repeating: 0, count: 32))
         ),
-        scriptHash: ScriptHash(payload: Data(repeating: 0, count: 32))
+        scriptHash: ScriptHash(payload: Data(repeating: 0, count: 28))
     )
     
     @Test func testInitialization() async throws {

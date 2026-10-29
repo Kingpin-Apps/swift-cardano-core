@@ -20,7 +20,7 @@ import CBORCodable
         credential:
                 .drepKeyhash(
                     VerificationKeyHash(
-                        payload: Data(repeating: 0x03, count: 32)
+                        payload: Data(repeating: 0x03, count: 28)
                     )
                 )
     )
@@ -100,9 +100,9 @@ import CBORCodable
 
     @Test("Test Voter Initialization")
     func testVoterInitialization() async throws {
-        let voter = Voter(credential: .stakePoolKeyhash(VerificationKeyHash(payload: Data(repeating: 0x04, count: 32))))
+        let voter = Voter(credential: .stakePoolKeyhash(VerificationKeyHash(payload: Data(repeating: 0x04, count: 28))))
 
-        #expect(voter.credential == .stakePoolKeyhash(VerificationKeyHash(payload: Data(repeating: 0x04, count: 32))))
+        #expect(voter.credential == .stakePoolKeyhash(VerificationKeyHash(payload: Data(repeating: 0x04, count: 28))))
     }
 
     @Test("Test Voter Code Computation")
@@ -144,9 +144,9 @@ import CBORCodable
 
     @Test("Test Voter Equality")
     func testVoterEquality() async throws {
-        let voter1 = Voter(credential: .drepKeyhash(VerificationKeyHash(payload: Data(repeating: 0x06, count: 32))))
-        let voter2 = Voter(credential: .drepKeyhash(VerificationKeyHash(payload: Data(repeating: 0x06, count: 32))))
-        let voter3 = Voter(credential: .stakePoolKeyhash(VerificationKeyHash(payload: Data(repeating: 0x07, count: 32))))
+        let voter1 = Voter(credential: .drepKeyhash(VerificationKeyHash(payload: Data(repeating: 0x06, count: 28))))
+        let voter2 = Voter(credential: .drepKeyhash(VerificationKeyHash(payload: Data(repeating: 0x06, count: 28))))
+        let voter3 = Voter(credential: .stakePoolKeyhash(VerificationKeyHash(payload: Data(repeating: 0x07, count: 28))))
 
         #expect(voter1 == voter2)
         #expect(voter1 != voter3)

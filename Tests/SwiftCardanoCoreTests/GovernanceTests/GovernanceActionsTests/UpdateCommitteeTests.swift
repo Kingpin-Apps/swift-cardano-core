@@ -12,7 +12,7 @@ import CBORCodable
     let coldCredentials = Set<CommitteeColdCredential>()
     let credentialEpochs = [
         CommitteeColdCredential(credential:
-                .verificationKeyHash(VerificationKeyHash(payload: Data(repeating: 0, count: 32)))): UInt64(0)
+                .verificationKeyHash(VerificationKeyHash(payload: Data(repeating: 0, count: 28)))): UInt64(0)
     ]
     let interval = UnitInterval(numerator: 1, denominator: 2)
     

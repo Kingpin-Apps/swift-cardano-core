@@ -86,12 +86,22 @@ public struct UnitInterval: Serializable {
         self.denominator = denominator
     }
 
+    /// An interval read from input: the ledger rejects a zero denominator and
+    /// a value above one.
+    init(checkedNumerator numerator: UInt64, denominator: UInt64) throws {
+        guard denominator > 0, numerator <= denominator else {
+            throw CardanoCoreError.valueError(
+                "A unit interval needs 0 <= \(numerator)/\(denominator) <= 1")
+        }
+        self.init(numerator: numerator, denominator: denominator)
+    }
+
     public init(from decoder: Decoder) throws {
         if String(describing: type(of: decoder)).contains("JSONDecoder") {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             let num = try container.decode(UInt64.self, forKey: .numerator)
             let den = try container.decode(UInt64.self, forKey: .denominator)
-            self.init(numerator: num, denominator: den)
+            try self.init(checkedNumerator: num, denominator: den)
         } else {
             let primitive = try Primitive.decode(from: decoder, preservingEncoding: false)
             try self.init(from: primitive)
@@ -123,16 +133,12 @@ public struct UnitInterval: Serializable {
                     throw CardanoCoreError.valueError(
                         "UnitInterval must contain exactly 2 elements")
                 }
-                guard let numerator = arrayData[0].uint64Value,
-                      let denominator = arrayData[1].uint64Value else {
-                    throw CardanoCoreError.valueError("UnitInterval elements must be integers")
-                }
-                self.init(
-                    numerator: numerator,
-                    denominator: denominator
+                try self.init(
+                    checkedNumerator: try arrayData[0].integer("UnitInterval numerator"),
+                    denominator: try arrayData[1].integer("UnitInterval denominator")
                 )
             case let .unitInterval(interval):
-                self = interval
+                try self.init(checkedNumerator: interval.numerator, denominator: interval.denominator)
             default:
                 throw CardanoCoreError.valueError("UnitInterval must be tagged")
         }

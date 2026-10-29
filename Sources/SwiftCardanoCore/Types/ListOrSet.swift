@@ -242,11 +242,11 @@ public enum ListOrNonEmptyOrderedSet<T: Serializable>: Serializable {
     public func asNonEmptyOrderedSet() throws -> NonEmptyOrderedSet<Element> {
         switch self {
             case .list(let array):
-                return NonEmptyOrderedSet(array)
+                return try NonEmptyOrderedSet(nonEmpty: array)
             case .nonEmptyOrderedSet(let set):
                 return set
             case .indefiniteList(let indefiniteList), .indefiniteNonEmptyOrderedSet(let indefiniteList):
-                return NonEmptyOrderedSet(indefiniteList.map { $0 })
+                return try NonEmptyOrderedSet(nonEmpty: indefiniteList.map { $0 })
         }
     }
 
@@ -268,8 +268,8 @@ public enum ListOrNonEmptyOrderedSet<T: Serializable>: Serializable {
             case .indefiniteList(let elements):
                 self = .indefiniteList(IndefiniteList(try elements.map { try T.init(from: $0) }))
             case .nonEmptyOrderedSet(let elements):
-                self = .nonEmptyOrderedSet(NonEmptyOrderedSet(
-                    try elements.elementsOrdered.map { try T.init(from: $0) }
+                self = .nonEmptyOrderedSet(try NonEmptyOrderedSet(
+                    nonEmpty: try elements.elementsOrdered.map { try T.init(from: $0) }
                 ))
             case .cborTag(let tag):
                 guard tag.tag == 258 else {
@@ -277,8 +277,9 @@ public enum ListOrNonEmptyOrderedSet<T: Serializable>: Serializable {
                 }
                 switch tag.value {
                     case .list(let elements):
+                        // nonempty_set: the ledger rejects an empty one.
                         self = .nonEmptyOrderedSet(
-                            NonEmptyOrderedSet(try elements.map { try T.init(from: $0) })
+                            try NonEmptyOrderedSet(nonEmpty: try elements.map { try T.init(from: $0) })
                         )
                     case .indefiniteList(let elements):
                         self = .indefiniteNonEmptyOrderedSet(

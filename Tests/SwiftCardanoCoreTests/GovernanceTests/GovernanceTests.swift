@@ -130,7 +130,7 @@ import CBORCodable
                 payload: Data(repeating: 0x02, count: 32)
             )
         )
-        let scriptHash = ScriptHash(payload: Data(repeating: 0x03, count: 32))
+        let scriptHash = ScriptHash(payload: Data(repeating: 0x03, count: 28))
 
         let constitution = Constitution(anchor: anchor, scriptHash: scriptHash)
 
@@ -146,7 +146,7 @@ import CBORCodable
                 payload: Data(repeating: 0x02, count: 32)
             )
         )
-        let scriptHash = ScriptHash(payload: Data(repeating: 0x03, count: 32))
+        let scriptHash = ScriptHash(payload: Data(repeating: 0x03, count: 28))
 
         let constitution = Constitution(anchor: anchor, scriptHash: scriptHash)
 

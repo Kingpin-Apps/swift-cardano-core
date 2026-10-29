@@ -64,15 +64,12 @@ extension CBORTaggable {
     
     public static func fromDict(_ dict: Primitive) throws -> Self {
         guard case let .orderedDict(dictValue) = dict,
-              case let .int(tag) = dictValue[.string("tag")],
-              case let valuePrimitive = dictValue[.string("value")] else {
+              let tag = dictValue[.string("tag")],
+              let valuePrimitive = dictValue[.string("value")] else {
             throw CardanoCoreError.valueError("Invalid CBORTag dictionary: \(dict)")
         }
-        
-        return try Self(
-            tag: UInt64(tag),
-            value: valuePrimitive!
-        )
+
+        return try Self(tag: try tag.integer("CBOR tag"), value: valuePrimitive)
     }
     
     public func toDict() throws -> Primitive {

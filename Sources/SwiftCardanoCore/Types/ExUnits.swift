@@ -67,25 +67,18 @@ public struct ExUnits: CBORSerializable, Sendable {
     }
 
     public init(from primitive: Primitive) throws {
-        guard case .list(let elements) = primitive else {
-            throw CardanoCoreError.valueError("Invalid ExUnits type")
+        let elements: [Primitive]
+        switch primitive {
+        case .list(let list): elements = list
+        case .indefiniteList(let list): elements = list.getAll()
+        default: throw CardanoCoreError.valueError("Invalid ExUnits type")
         }
         guard elements.count == 2 else {
             throw CardanoCoreError.valueError("ExUnits must contain exactly 2 elements")
         }
-        let mem: UInt64
-        switch elements[0] {
-        case .uint(let v): mem = v
-        case .int(let v): mem = UInt64(v)
-        default: throw CardanoCoreError.valueError("Invalid ExUnits element types")
-        }
-        let steps: UInt64
-        switch elements[1] {
-        case .uint(let v): steps = v
-        case .int(let v): steps = UInt64(v)
-        default: throw CardanoCoreError.valueError("Invalid ExUnits element types")
-        }
-        self.init(mem: mem, steps: steps)
+        self.init(
+            mem: try elements[0].integer("ExUnits mem"),
+            steps: try elements[1].integer("ExUnits steps"))
     }
 
     public func toPrimitive() throws -> Primitive {

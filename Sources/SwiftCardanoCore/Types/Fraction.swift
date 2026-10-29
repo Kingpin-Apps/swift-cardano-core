@@ -34,12 +34,10 @@ public struct Fraction: CBORSerializable, Sendable {
                     throw CardanoCoreError.valueError(
                         "UnitInterval must contain exactly 2 elements")
                 }
-                let num: Int64 = arrayData[0].int64Value!
-                let den: Int64 = arrayData[1].int64Value!
-                self.init(
-                    numerator: num,
-                    denominator: den
-                )
+                try self.init(
+                    from: .cborTag(CBORTag(tag: UInt64(UnitInterval.tag), value: .list([
+                        try Primitive.from(cbor: arrayData[0]), try Primitive.from(cbor: arrayData[1]),
+                    ]))))
             default:
                 throw CardanoCoreError.valueError("UnitInterval must be an array")
             }
@@ -53,10 +51,7 @@ public struct Fraction: CBORSerializable, Sendable {
 
         let cborData: CBOR = .tagged(
             UInt64(UInt64(UnitInterval.tag)),
-            [
-                .unsignedInt(UInt64(numerator)),
-                .unsignedInt(UInt64(denominator)),
-            ]
+            [try Primitive.integer(numerator).toCBOR(), try Primitive.integer(denominator).toCBOR()]
         )
 
         try container.encode(cborData)
@@ -78,19 +73,18 @@ public struct Fraction: CBORSerializable, Sendable {
                 "UnitInterval must contain exactly 2 elements")
         }
 
-        self.init(
-            numerator: arrayData[0].int64Value!,
-            denominator: arrayData[1].int64Value!
-        )
+        let numerator: Int64 = try arrayData[0].integer("Fraction numerator")
+        let denominator: Int64 = try arrayData[1].integer("Fraction denominator")
+        guard denominator != 0 else {
+            throw CardanoCoreError.valueError("A fraction's denominator must not be zero")
+        }
+        self.init(numerator: numerator, denominator: denominator)
     }
 
     public func toPrimitive() throws -> Primitive {
         let cborTag = CBORTag(
             tag: UInt64(UnitInterval.tag),
-            value: .list([
-                .uint(UInt64(numerator)),
-                .uint(UInt64(denominator))
-            ])
+            value: .list([.integer(numerator), .integer(denominator)])
         )
         return .cborTag(cborTag)
     }

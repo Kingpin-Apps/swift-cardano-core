@@ -111,7 +111,9 @@ public indirect enum Primitive: CBORSerializable, Sendable {
                String(cString: tagNum.objCType) != "d",
                let valueAny = dict["value"]
             {
-                let tagRaw = UInt64(tagNum.int64Value)
+                guard let tagRaw = UInt64(exactly: tagNum.int64Value), tagNum.int64Value >= 0 else {
+                    throw CardanoCoreError.valueError("Invalid CBOR tag in JSON: \(tagNum)")
+                }
                 let valuePrimitive = try from(json: valueAny)
                 return .cborTag(CBORTag(tag: tagRaw, value: valuePrimitive))
             }
@@ -215,9 +217,10 @@ public indirect enum Primitive: CBORSerializable, Sendable {
     ) throws -> Primitive {
         if tag == UInt64(UnitInterval.tag) {
             return try unitInterval(from: value)
-        } else if tag == UInt64.iso8601DateTime || tag == UInt64.epochDateTime {
-            return try datetime(from: value)
         }
+        // Date tags (0 and 1) stay tags: no Cardano structure uses them, and a
+        // tag-1 integer or float read into a `Date` could not be written back
+        // as it was.
         return .cborTag(
             CBORTag(tag: tag, value: try value.toPrimitive(preservingEncoding: preservingEncoding)))
     }
@@ -240,16 +243,6 @@ public indirect enum Primitive: CBORSerializable, Sendable {
                 "A #6.30 interval must be [numerator, denominator > 0]: \(value)")
         }
         return .unitInterval(UnitInterval(numerator: numerator, denominator: denominator))
-    }
-
-    @inline(never)
-    private static func datetime(from value: CBOR) throws -> Primitive {
-        guard let date = value.unwrapped else {
-            throw CardanoCoreError.valueError("Invalid date format")
-        }
-        return .datetime(
-            Date(timeIntervalSince1970: date as! TimeInterval)
-        )
     }
 
     public func toCBOR() throws -> CBOR {
@@ -629,25 +622,22 @@ public indirect enum Primitive: CBORSerializable, Sendable {
             return .indefiniteArray(list.map { $0.toAnyValue() })
         case .dict(let dict):
             return .dictionary(
-                OrderedDictionary(
-                    uniqueKeysWithValues: dict.map { ($0.key.toAnyValue(), $0.value.toAnyValue()) })
+                dict.reduce(into: OrderedDictionary<AnyValue, AnyValue>()) { $0[$1.key.toAnyValue()] = $1.value.toAnyValue() }
             )
         case .orderedDict(let dict):
             return .dictionary(
-                OrderedDictionary(
-                    uniqueKeysWithValues: dict.map { ($0.key.toAnyValue(), $0.value.toAnyValue()) })
+                dict.reduce(into: OrderedDictionary<AnyValue, AnyValue>()) { $0[$1.key.toAnyValue()] = $1.value.toAnyValue() }
             )
         case .indefiniteDictionary(let dict):
             return .indefiniteDictionary(
-                OrderedDictionary(
-                    uniqueKeysWithValues: dict.map { ($0.key.toAnyValue(), $0.value.toAnyValue()) })
+                dict.reduce(into: OrderedDictionary<AnyValue, AnyValue>()) { $0[$1.key.toAnyValue()] = $1.value.toAnyValue() }
             )
         case .regex(let regex):
             return .string(regex.pattern)
         case .cborSimpleValue(let cbor):
-            return try! AnyValue.wrapped(cbor)
+            return (try? AnyValue.wrapped(cbor.unwrapped)) ?? .nil
         case .cborTag(let tag):
-            return .array([.int(Int(tag.tag)), tag.value.toAnyValue()])
+            return .array([.uint64(tag.tag), tag.value.toAnyValue()])
         case .orderedSet(let set):
             return .array(set.elementsOrdered.map { $0.toAnyValue() })
         case .nonEmptyOrderedSet(let set):
@@ -655,16 +645,15 @@ public indirect enum Primitive: CBORSerializable, Sendable {
         case .unitInterval(let unitInterval):
             return .array(
                 [
-                    .int(Int(unitInterval.numerator)),
-                    .int(Int(unitInterval.denominator)),
+                    .uint64(unitInterval.numerator),
+                    .uint64(unitInterval.denominator),
                 ]
             )
         case .frozenSet(let set):
             return .array(set.map { $0.toAnyValue() })
         case .frozenDict(let dict):
             return .dictionary(
-                OrderedDictionary(
-                    uniqueKeysWithValues: dict.map { ($0.key.toAnyValue(), $0.value.toAnyValue()) })
+                dict.reduce(into: OrderedDictionary<AnyValue, AnyValue>()) { $0[$1.key.toAnyValue()] = $1.value.toAnyValue() }
             )
         case .frozenList(let list):
             return .array(list.map { $0.toAnyValue() })
@@ -673,7 +662,7 @@ public indirect enum Primitive: CBORSerializable, Sendable {
         case .byteString(let byteString):
             return .data(byteString.bytes)
         case .plutusData(let plutus):
-            return try! AnyValue.wrapped(plutus)
+            return (try? plutus.toPrimitive().toAnyValue()) ?? .nil
         case .bigInt(let bigInt):
             return .integer(bigInt)
         case .bigUInt(let bigUInt):
