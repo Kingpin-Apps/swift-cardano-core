@@ -5,16 +5,16 @@ import CBORCodable
 
 @Suite struct GenesisParametersTests {
     let activeSlotsCoefficient = 1000
-    let maxLovelaceSupply = 45_000_000_000
+    let maxLovelaceSupply: UInt64 = 45_000_000_000
     let networkId = "mainnet"
-    let networkMagic = 42
-    let epochLength = 21600
+    let networkMagic: UInt32 = 42
+    let epochLength: UInt64 = 21600
     let systemStart = ISO8601DateFormatter().date(from: "2017-09-23T21:44:51Z")!
-    let slotsPerKesPeriod = 1_200
-    let slotLength = 1
-    let maxKESEvolutions = 90
-    let securityParam = 2160
-    let updateQuorum = 5
+    let slotsPerKesPeriod: UInt64 = 1_200
+    let slotLength: Decimal = 1
+    let maxKESEvolutions: UInt64 = 90
+    let securityParam: UInt64 = 2160
+    let updateQuorum: UInt64 = 5
     let maxLovelaceSupplyStr = "4500000000000000"
     
     @Test func testInitialization() async throws {

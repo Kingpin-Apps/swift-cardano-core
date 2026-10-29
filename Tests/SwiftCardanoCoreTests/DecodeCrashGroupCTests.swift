@@ -15,6 +15,7 @@ private func hex(_ string: String) -> Data {
 
 private let maxU64: Primitive = .uint(UInt64.max)
 private let twoTo32: Primitive = .uint(1 << 32)
+private let twoTo64: Primitive = .bigUInt(BigUInt(1) << 64)
 
 private func rational(_ n: UInt64, _ d: UInt64) -> Primitive {
     .cborTag(CBORTag(tag: 30, value: .list([.uint(n), .uint(d)])))
@@ -255,7 +256,9 @@ private func replacingKey(_ primitive: Primitive, _ key: String, with value: Pri
         #expect(throws: CardanoCoreError.self) { try ProtocolParameters(from: map(setting: 4, to: .uint(70000))) }
         #expect(throws: CardanoCoreError.self) { try ProtocolParameters(from: map(setting: 20, to: .list([maxU64, .uint(0)]))) }
         #expect(throws: CardanoCoreError.self) { try ProtocolParameters(from: map(setting: 21, to: .list([.uint(0), maxU64]))) }
-        #expect(throws: CardanoCoreError.self) { try ProtocolParameters(from: map(setting: 33, to: rational(UInt64.max, 1))) }
+        #expect(throws: CardanoCoreError.self) {
+            try ProtocolParameters(from: map(setting: 33, to: .cborTag(CBORTag(tag: 30, value: .list([twoTo64, .uint(1)])))))
+        }
     }
 
     /// A 31-element node-to-client parameter array, with `index` set to `value`.
@@ -281,7 +284,7 @@ private func replacingKey(_ primitive: Primitive, _ key: String, with value: Pri
         #expect(params.costModels.PlutusV1 == [1, -2])
         #expect(params.minFeeRefScriptCostPerByte == 15)
 
-        #expect(throws: CardanoCoreError.self) { try ProtocolParameters(from: n2c(setting: 0, to: maxU64)) }
+        #expect(throws: CardanoCoreError.self) { try ProtocolParameters(from: n2c(setting: 0, to: twoTo64)) }
         #expect(throws: CardanoCoreError.self) { try ProtocolParameters(from: n2c(setting: 0, to: .int(-1))) }
         #expect(throws: CardanoCoreError.self) { try ProtocolParameters(from: n2c(setting: 2, to: twoTo32)) }
         #expect(throws: CardanoCoreError.self) { try ProtocolParameters(from: n2c(setting: 12, to: .list([maxU64, .uint(0)]))) }
@@ -289,14 +292,17 @@ private func replacingKey(_ primitive: Primitive, _ key: String, with value: Pri
         #expect(throws: CardanoCoreError.self) { try ProtocolParameters(from: n2c(setting: 15, to: .dict([maxU64: .list([])]))) }
         #expect(throws: CardanoCoreError.self) { try ProtocolParameters(from: n2c(setting: 17, to: .list([maxU64, .uint(0)]))) }
         #expect(throws: CardanoCoreError.self) { try ProtocolParameters(from: n2c(setting: 18, to: .list([.uint(0), maxU64]))) }
-        #expect(throws: CardanoCoreError.self) { try ProtocolParameters(from: n2c(setting: 30, to: rational(UInt64.max, 1))) }
+        #expect(throws: CardanoCoreError.self) {
+            try ProtocolParameters(from: n2c(setting: 30, to: .cborTag(CBORTag(tag: 30, value: .list([twoTo64, .uint(1)])))))
+        }
     }
 
-    @Test("JSON numbers beyond Int64 throw")
+    @Test("JSON numbers beyond a coin's UInt64 throw")
     func fromDict() throws {
         let json = try loadParams().toDict()
+        #expect(try ProtocolParameters.fromDict(replacingKey(json, "txFeeFixed", with: maxU64)).txFeeFixed == .max)
         #expect(throws: (any Error).self) {
-            try ProtocolParameters.fromDict(replacingKey(json, "txFeeFixed", with: maxU64))
+            try ProtocolParameters.fromDict(replacingKey(json, "txFeeFixed", with: twoTo64))
         }
     }
 
@@ -323,14 +329,14 @@ private func replacingKey(_ primitive: Primitive, _ key: String, with value: Pri
         }
         _ = try with().toPrimitive()
         #expect(throws: CardanoCoreError.self) {
-            try with(prices: ExecutionUnitPrices(priceMemory: 2e10, priceSteps: 0)).toPrimitive()
+            try with(prices: ExecutionUnitPrices(priceMemory: 2e20, priceSteps: 0)).toPrimitive()
         }
         #expect(throws: CardanoCoreError.self) {
             try with(prices: ExecutionUnitPrices(priceMemory: .infinity, priceSteps: 0)).toPrimitive()
         }
         #expect(throws: CardanoCoreError.self) { try with(pledge: .nan).toPrimitive() }
         #expect(throws: CardanoCoreError.self) {
-            try with(tx: ProtocolParametersExecutionUnits(memory: -1, steps: 0)).toPrimitive()
+            try with(tx: ProtocolParametersExecutionUnits(memory: UInt64(Int64.max) + 1, steps: 0)).toPrimitive()
         }
     }
 }
@@ -367,7 +373,7 @@ private func replacingKey(_ primitive: Primitive, _ key: String, with value: Pri
         #expect(throws: CardanoCoreError.self) { try ConwayGenesis(from: conway(setting: 2, to: .uint(70000))) }
         #expect(throws: CardanoCoreError.self) { try ConwayGenesis(from: conway(setting: 3, to: twoTo32)) }
         #expect(throws: CardanoCoreError.self) { try ConwayGenesis(from: conway(setting: 7, to: .int(-1))) }
-        #expect(throws: CardanoCoreError.self) { try ConwayGenesis(from: conway(setting: 8, to: maxU64)) }
+        #expect(throws: CardanoCoreError.self) { try ConwayGenesis(from: conway(setting: 8, to: twoTo64)) }
         #expect(throws: CardanoCoreError.self) { try ConwayGenesis(from: conway(setting: 8, to: rational(1, 0))) }
         #expect(throws: CardanoCoreError.self) { try ConwayGenesis(from: conway(setting: 9, to: .list([maxU64]))) }
         #expect(throws: CardanoCoreError.self) {
@@ -377,7 +383,7 @@ private func replacingKey(_ primitive: Primitive, _ key: String, with value: Pri
             try ConwayGenesis(from: conway(setting: 1, to: .list(Array(repeating: rational(3, 2), count: 10))))
         }
         #expect(throws: CardanoCoreError.self) {
-            try ConwayGenesis(from: conway(setting: 11, to: .list([.dict([.string("aa"): maxU64]), rational(2, 3)])))
+            try ConwayGenesis(from: conway(setting: 11, to: .list([.dict([.string("aa"): twoTo64]), rational(2, 3)])))
         }
         #expect(throws: CardanoCoreError.self) {
             try ConwayGenesis(from: conway(setting: 11, to: .list([.dict([:]), rational(UInt64.max, UInt64.max - 1)])))
@@ -435,14 +441,14 @@ private func replacingKey(_ primitive: Primitive, _ key: String, with value: Pri
         #expect(throws: CardanoCoreError.self) { try ShelleyGenesis(from: shelley(setting: 3, to: rational(1, 0))) }
         #expect(throws: CardanoCoreError.self) { try ShelleyGenesis(from: shelley(setting: 3, to: rational(0, 1))) }
         #expect(throws: CardanoCoreError.self) { try ShelleyGenesis(from: shelley(setting: 3, to: rational(3, 2))) }
-        #expect(throws: CardanoCoreError.self) { try ShelleyGenesis(from: shelley(setting: 4, to: twoTo32)) }
+        #expect(throws: CardanoCoreError.self) { try ShelleyGenesis(from: shelley(setting: 4, to: twoTo64)) }
         #expect(throws: CardanoCoreError.self) {
             try ShelleyGenesis(from: shelley(setting: 8, to: rational(UInt64.max, 1)))
         }
-        #expect(throws: CardanoCoreError.self) { try ShelleyGenesis(from: shelley(setting: 8, to: twoTo32)) }
-        #expect(throws: CardanoCoreError.self) { try ShelleyGenesis(from: shelley(setting: 9, to: maxU64)) }
+        #expect(throws: CardanoCoreError.self) { try ShelleyGenesis(from: shelley(setting: 8, to: .string("1"))) }
+        #expect(throws: CardanoCoreError.self) { try ShelleyGenesis(from: shelley(setting: 9, to: twoTo64)) }
         #expect(throws: CardanoCoreError.self) {
-            try ShelleyGenesis(from: shelley(setting: 13, to: .list([.list([.string("a"), maxU64])])))
+            try ShelleyGenesis(from: shelley(setting: 13, to: .list([.list([.string("a"), twoTo64])])))
         }
         #expect(throws: CardanoCoreError.self) {
             try ShelleyGenesis(from: shelley(setting: 13, to: .list([.list([.string("a"), .int(-1)])])))
@@ -459,7 +465,7 @@ private func replacingKey(_ primitive: Primitive, _ key: String, with value: Pri
     @Test("Shelley protocol params throw on out-of-range values")
     func shelleyProtocolParams() throws {
         _ = try ProtocolParams(from: shelleyParams())
-        #expect(throws: CardanoCoreError.self) { try ProtocolParams(from: shelleyParams(setting: 0, to: twoTo32)) }
+        #expect(throws: CardanoCoreError.self) { try ProtocolParams(from: shelleyParams(setting: 0, to: twoTo64)) }
         #expect(throws: CardanoCoreError.self) { try ProtocolParams(from: shelleyParams(setting: 4, to: .uint(70000))) }
         #expect(throws: CardanoCoreError.self) { try ProtocolParams(from: shelleyParams(setting: 7, to: maxU64)) }
         #expect(throws: CardanoCoreError.self) { try ProtocolParams(from: shelleyParams(setting: 8, to: .uint(70000))) }
@@ -479,13 +485,13 @@ private func replacingKey(_ primitive: Primitive, _ key: String, with value: Pri
             maxBlockBodySize: params.maxBlockBodySize, maxBlockHeaderSize: params.maxBlockHeaderSize,
             minFeeA: params.minFeeA, minFeeB: params.minFeeB, minUTxOValue: params.minUTxOValue,
             poolDeposit: params.poolDeposit, minPoolCost: params.minPoolCost, keyDeposit: params.keyDeposit,
-            nOpt: -1, rho: params.rho, tau: params.tau, a0: .infinity)
+            nOpt: params.nOpt, rho: params.rho, tau: params.tau, a0: .infinity)
         #expect(throws: CardanoCoreError.self) { try bad.toPrimitive() }
 
         let genesis = try ShelleyGenesis(from: shelley())
         let infinite = ShelleyGenesis(
             activeSlotsCoeff: .infinity, protocolParams: genesis.protocolParams, genDelegs: [:],
-            updateQuorum: -1, networkId: "Mainnet", initialFunds: ["a": -5],
+            updateQuorum: 1, networkId: "Mainnet", initialFunds: ["a": 5],
             maxLovelaceSupply: 1, networkMagic: 1, epochLength: 1, systemStart: "x",
             slotsPerKESPeriod: 1, slotLength: 1, maxKESEvolutions: 1, securityParam: 1)
         #expect(throws: CardanoCoreError.self) { try infinite.toPrimitive() }
@@ -523,7 +529,9 @@ private func replacingKey(_ primitive: Primitive, _ key: String, with value: Pri
             try AlonzoGenesis(from: alonzo(setting: 2, to: .list([rational(1, 0), rational(1, 1)])))
         }
         #expect(throws: CardanoCoreError.self) {
-            try AlonzoGenesis(from: alonzo(setting: 2, to: .list([rational(UInt64.max, 1), rational(1, 1)])))
+            try AlonzoGenesis(from: alonzo(setting: 2, to: .list([
+                .cborTag(CBORTag(tag: 30, value: .list([twoTo64, .uint(1)]))), rational(1, 1),
+            ])))
         }
         #expect(throws: CardanoCoreError.self) {
             try AlonzoGenesis(from: alonzo(setting: 3, to: .list([maxU64, .uint(0)])))

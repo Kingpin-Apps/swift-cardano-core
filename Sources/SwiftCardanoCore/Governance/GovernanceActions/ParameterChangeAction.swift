@@ -636,24 +636,24 @@ extension ProtocolParamUpdate {
     /// 10⁹ precision; fields that have no clean on-chain representation are set
     /// to `nil` and must be supplied manually if needed.
     public init(from p: ProtocolParameters) {
-        minFeeA = Coin(p.txFeePerByte)
-        minFeeB = Coin(p.txFeeFixed)
-        maxBlockBodySize = UInt32(p.maxBlockBodySize)
-        maxTransactionSize = UInt32(p.maxTxSize)
-        maxBlockHeaderSize = UInt16(p.maxBlockHeaderSize)
-        keyDeposit = Coin(p.stakeAddressDeposit)
-        poolDeposit = Coin(p.stakePoolDeposit)
-        maximumEpoch = EpochInterval(p.poolRetireMaxEpoch)
-        nOpt = UInt16(p.stakePoolTargetNum)
+        minFeeA = p.txFeePerByte
+        minFeeB = p.txFeeFixed
+        maxBlockBodySize = p.maxBlockBodySize
+        maxTransactionSize = p.maxTxSize
+        maxBlockHeaderSize = p.maxBlockHeaderSize
+        keyDeposit = p.stakeAddressDeposit
+        poolDeposit = p.stakePoolDeposit
+        maximumEpoch = p.poolRetireMaxEpoch
+        nOpt = p.stakePoolTargetNum
         poolPledgeInfluence = doubleToNonNegativeInterval(p.poolPledgeInfluence)
         expansionRate = doubleToUnitInterval(p.monetaryExpansion)
         treasuryGrowthRate = doubleToUnitInterval(p.treasuryCut)
         decentralizationConstant = nil
         extraEntropy = nil
         protocolVersion = ProtocolVersion(
-            major: p.protocolVersion.major, minor: p.protocolVersion.minor)
-        minPoolCost = Coin(p.minPoolCost)
-        adaPerUtxoByte = Coin(p.utxoCostPerByte)
+            major: Int(p.protocolVersion.major), minor: Int(p.protocolVersion.minor))
+        minPoolCost = p.minPoolCost
+        adaPerUtxoByte = p.utxoCostPerByte
 
         costModels = try? CostModels([
             0: p.costModels.PlutusV1,
@@ -670,12 +670,12 @@ extension ProtocolParamUpdate {
         }
 
         maxTxExUnits = ExUnits(
-            mem: UInt64(p.maxTxExecutionUnits.memory), steps: UInt64(p.maxTxExecutionUnits.steps))
+            mem: p.maxTxExecutionUnits.memory, steps: p.maxTxExecutionUnits.steps)
         maxBlockExUnits = ExUnits(
-            mem: UInt64(p.maxBlockExecutionUnits.memory), steps: UInt64(p.maxBlockExecutionUnits.steps))
-        maxValueSize = UInt32(p.maxValueSize)
-        collateralPercentage = UInt16(p.collateralPercentage)
-        maxCollateralInputs = UInt16(p.maxCollateralInputs)
+            mem: p.maxBlockExecutionUnits.memory, steps: p.maxBlockExecutionUnits.steps)
+        maxValueSize = p.maxValueSize
+        collateralPercentage = p.collateralPercentage
+        maxCollateralInputs = p.maxCollateralInputs
 
         let pvt = p.poolVotingThresholds
         if let cnc = doubleToUnitInterval(pvt.committeeNoConfidence),
@@ -709,14 +709,12 @@ extension ProtocolParamUpdate {
             dvtIntervals.count == 10
             ? DrepVotingThresholds(thresholds: dvtIntervals) : nil
 
-        minCommitteeSize = UInt16(p.committeeMinSize)
-        committeeTermLimit = EpochInterval(p.committeeMaxTermLength)
-        governanceActionValidityPeriod = EpochInterval(p.govActionLifetime)
-        governanceActionDeposit = Coin(p.govActionDeposit)
-        drepDeposit = Coin(p.dRepDeposit)
-        drepInactivityPeriod = EpochInterval(p.dRepActivity)
-        // minFeeRefScriptCoinsPerByte is a NonNegativeInterval on-chain; the Int API
-        // value cannot be cleanly represented without knowing the scaling factor.
-        minFeeRefScriptCoinsPerByte = nil
+        minCommitteeSize = p.committeeMinSize
+        committeeTermLimit = p.committeeMaxTermLength
+        governanceActionValidityPeriod = p.govActionLifetime
+        governanceActionDeposit = p.govActionDeposit
+        drepDeposit = p.dRepDeposit
+        drepInactivityPeriod = p.dRepActivity
+        minFeeRefScriptCoinsPerByte = p.minFeeRefScriptCostPerByte.flatMap { doubleToNonNegativeInterval($0) }
     }
 }
