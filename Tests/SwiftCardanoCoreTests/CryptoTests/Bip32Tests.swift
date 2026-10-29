@@ -170,3 +170,30 @@ struct HDWalletTests {
         #expect(walletFromPhrase.chainCode == walletFromEntropy.chainCode)
     }
 }
+
+@Suite("A mnemonic that fits two wordlists")
+struct SharedWordlistMnemonicTests {
+    /// A simplified-Chinese phrase whose every word is also in the
+    /// traditional list, found by walking entropies in order.
+    static func sharedPhrase() throws -> (words: [String], entropy: Data) {
+        let traditional = Set(try Language.chinese_traditional.words())
+        for counter in 0..<UInt32.max {
+            var seed = Data(count: 16)
+            withUnsafeBytes(of: counter.bigEndian) { seed.replaceSubrange(12..<16, with: $0) }
+            let words = try Mnemonic(language: .chinese_simplified, entropy: seed).phrase
+            if words.allSatisfy(traditional.contains) {
+                return (words, seed)
+            }
+        }
+        throw CardanoCoreError.valueError("no shared phrase found")
+    }
+
+    @Test("A phrase valid in both Chinese wordlists loads, with its entropy")
+    func sharedChinese() throws {
+        let (words, entropy) = try Self.sharedPhrase()
+        #expect(throws: (any Error).self) { try Mnemonic(from: words) }
+        #expect(try HDWallet.entropy(of: words) == entropy)
+        let wallet = try HDWallet.fromMnemonic(mnemonic: words.joined(separator: " "))
+        #expect(wallet.entropy == entropy.hexEncodedString())
+    }
+}

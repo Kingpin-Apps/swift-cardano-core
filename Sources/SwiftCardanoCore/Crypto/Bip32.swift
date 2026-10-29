@@ -217,28 +217,50 @@ public class HDWallet {
     /// (``Swift/String/decomposedStringWithCompatibilityMapping``) collapses that to ASCII
     /// space, so the downstream split-and-decode pipeline doesn't need language-specific
     /// handling.
+    /// The entropy a BIP-39 phrase encodes, in whichever language's wordlist
+    /// it was written.
+    ///
+    /// Two wordlists can share words — simplified and traditional Chinese
+    /// share many characters — so a phrase can fit more than one, and word
+    /// matching alone cannot tell which. Cardano keys come from the entropy,
+    /// so every wordlist that holds the phrase and passes its checksum is
+    /// tried, and the phrase is read when they agree on the entropy.
+    static func entropy(of words: [String]) throws -> Data {
+        if let mnemonic = try? Mnemonic(from: words) {
+            return mnemonic.entropy
+        }
+        var readings = Set<Data>()
+        for language in Language.allCases where language != .unsupported {
+            guard let wordlist = try? language.words(),
+                  let entropy = try? Mnemonic.toEntropy(words, wordlist: wordlist)
+            else { continue }
+            readings.insert(entropy)
+        }
+        guard let entropy = readings.first else {
+            throw CardanoCoreError.invalidDataError(
+                "Invalid mnemonic words: no BIP-39 wordlist holds the phrase with a valid checksum")
+        }
+        guard readings.count == 1 else {
+            throw CardanoCoreError.invalidDataError(
+                "Ambiguous mnemonic: the phrase is valid in more than one wordlist with different entropy")
+        }
+        return entropy
+    }
+
     public static func fromMnemonic(mnemonic: String, passphrase: String = "") throws -> HDWallet {
         let normalizedMnemonic = mnemonic.decomposedStringWithCompatibilityMapping
         let words = normalizedMnemonic
             .components(separatedBy: " ")
             .filter { !$0.isEmpty }
 
-        // `Mnemonic(from:)` auto-detects the wordlist language and validates the
-        // BIP-39 checksum — no separate `isMnemonic` pre-check needed, and the old
-        // pre-check was hardcoded to English which silently rejected valid Japanese /
-        // Spanish / etc. phrases.
-        let _mnemonic: Mnemonic
-        do {
-            _mnemonic = try Mnemonic(from: words)
-        } catch {
-            throw CardanoCoreError.invalidDataError("Invalid mnemonic words: \(error)")
-        }
+        // Any BIP-39 language, the checksum validated; see `entropy(of:)`.
+        let entropy = try Self.entropy(of: words)
 
-        let seed = HDWallet.generateSeed(passphrase: passphrase, entropy: _mnemonic.entropy)
+        let seed = HDWallet.generateSeed(passphrase: passphrase, entropy: entropy)
 
         return try HDWallet.fromSeed(
             seed: seed.hexEncodedString(),
-            entropy: _mnemonic.entropy.hexEncodedString(),
+            entropy: entropy.hexEncodedString(),
             passphrase: passphrase,
             mnemonic: normalizedMnemonic
         )
