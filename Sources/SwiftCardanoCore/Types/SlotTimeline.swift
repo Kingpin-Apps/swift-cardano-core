@@ -204,9 +204,9 @@ extension Primitive {
 extension SlotTimeline {
     /// The known network magics.
     private enum NetworkMagic {
-        static let mainnet = 764_824_073
-        static let preprod = 1
-        static let preview = 2
+        static let mainnet: UInt32 = 764_824_073
+        static let preprod: UInt32 = 1
+        static let preview: UInt32 = 2
     }
 
     /// The timeline for whichever chain these genesis parameters describe, or
@@ -230,7 +230,14 @@ extension SlotTimeline {
         guard let systemStart = genesis.systemStart, let slotLength = genesis.slotLength else {
             return nil
         }
-        let milliseconds = Int64(slotLength) * 1000
+        // A slot length that is not a whole number of milliseconds, or does
+        // not fit, has no timeline here.
+        var exact = slotLength * 1000
+        var whole = Decimal()
+        NSDecimalRound(&whole, &exact, 0, .plain)
+        guard whole == exact, let milliseconds = Int64(whole.description) else {
+            return nil
+        }
         // A chain with a Byron era whose slots were a different length needs its
         // fork slot, which is not in genesis.
         if let byron = genesis.byronGenesis,

@@ -1,24 +1,31 @@
 import Foundation
 
 // MARK: - AlonzoGenesis
+/// The ledger's `AlonzoGenesis` (`UpgradeAlonzoPParams`, cardano-ledger
+/// `Cardano.Ledger.Alonzo.Genesis`). Each integer field has the width of its
+/// ledger type.
 public struct AlonzoGenesis: JSONLoadable {
-    public let lovelacePerUTxOWord: Int64
+    /// `CoinPerWord`, a `Coin`.
+    public let lovelacePerUTxOWord: Coin
     public let executionPrices: ExecutionPrices
     public let maxTxExUnits: AlonzoGenesisExUnits
     public let maxBlockExUnits: AlonzoGenesisExUnits
-    public let maxValueSize: Int
-    public let collateralPercentage: Int
-    public let maxCollateralInputs: Int
+    /// `Word32`.
+    public let maxValueSize: UInt32
+    /// `Word16`.
+    public let collateralPercentage: UInt16
+    /// `Word16`.
+    public let maxCollateralInputs: UInt16
     public let costModels: AlonzoCostModels
 
     public init(
-        lovelacePerUTxOWord: Int64,
+        lovelacePerUTxOWord: Coin,
         executionPrices: ExecutionPrices,
         maxTxExUnits: AlonzoGenesisExUnits,
         maxBlockExUnits: AlonzoGenesisExUnits,
-        maxValueSize: Int,
-        collateralPercentage: Int,
-        maxCollateralInputs: Int,
+        maxValueSize: UInt32,
+        collateralPercentage: UInt16,
+        maxCollateralInputs: UInt16,
         costModels: AlonzoCostModels
     ) {
         self.lovelacePerUTxOWord = lovelacePerUTxOWord
@@ -39,15 +46,47 @@ public struct ExecutionPrices: Codable, Equatable, Hashable {
 }
 
 // MARK: - PriceRatio
+/// A `NonNegativeInterval`: a `Word64` numerator over a `Word64` denominator
+/// above zero.
 public struct PriceRatio: Codable, Equatable, Hashable {
-    public let numerator: Int
-    public let denominator: Int
+    public let numerator: UInt64
+    public let denominator: UInt64
+
+    public init(numerator: UInt64, denominator: UInt64) throws {
+        guard denominator > 0 else {
+            throw CardanoCoreError.valueError("PriceRatio: denominator is zero")
+        }
+        self.numerator = numerator
+        self.denominator = denominator
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case numerator, denominator
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let denominator = try c.decode(UInt64.self, forKey: .denominator)
+        guard denominator > 0 else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .denominator, in: c, debugDescription: "PriceRatio: denominator is zero")
+        }
+        self.numerator = try c.decode(UInt64.self, forKey: .numerator)
+        self.denominator = denominator
+    }
 }
 
 // MARK: - ExUnits
+/// `ExUnits`: `Natural` counts. The ledger's JSON reader accepts the full
+/// `Word64` range; its CBOR reader nothing above `Int64.max`.
 public struct AlonzoGenesisExUnits: Codable, Equatable, Hashable {
-    public let exUnitsMem: Int
-    public let exUnitsSteps: Int
+    public let exUnitsMem: UInt64
+    public let exUnitsSteps: UInt64
+
+    public init(exUnitsMem: UInt64, exUnitsSteps: UInt64) {
+        self.exUnitsMem = exUnitsMem
+        self.exUnitsSteps = exUnitsSteps
+    }
 }
 
 // MARK: - CostModels
@@ -57,19 +96,6 @@ public struct AlonzoCostModels: Codable, Equatable, Hashable {
     enum CodingKeys: String, CodingKey {
         case plutusV1 = "PlutusV1"
     }
-}
-
-// MARK: - Range-checked reads
-
-/// A non-negative integer read as the ledger's `T`, held as `Int`.
-fileprivate func alonzoNatural<T: FixedWidthInteger & UnsignedInteger>(
-    _ p: Primitive, _ label: String, as type: T.Type = UInt64.self
-) throws -> Int {
-    let value = try p.integer(label, as: T.self)
-    guard let narrowed = Int(exactly: value) else {
-        throw CardanoCoreError.deserializeError("\(label): \(value) is out of range for Int")
-    }
-    return narrowed
 }
 
 // MARK: - CBOR (Haskell ToCBOR field order)
@@ -92,13 +118,13 @@ extension AlonzoGenesis: CBORSerializable {
         if String(describing: type(of: decoder)).contains("JSONDecoder") {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             self.init(
-                lovelacePerUTxOWord:  try c.decode(Int64.self, forKey: .lovelacePerUTxOWord),
+                lovelacePerUTxOWord:  try c.decode(Coin.self, forKey: .lovelacePerUTxOWord),
                 executionPrices:      try c.decode(ExecutionPrices.self, forKey: .executionPrices),
                 maxTxExUnits:         try c.decode(AlonzoGenesisExUnits.self, forKey: .maxTxExUnits),
                 maxBlockExUnits:      try c.decode(AlonzoGenesisExUnits.self, forKey: .maxBlockExUnits),
-                maxValueSize:         try c.decode(Int.self, forKey: .maxValueSize),
-                collateralPercentage: try c.decode(Int.self, forKey: .collateralPercentage),
-                maxCollateralInputs:  try c.decode(Int.self, forKey: .maxCollateralInputs),
+                maxValueSize:         try c.decode(UInt32.self, forKey: .maxValueSize),
+                collateralPercentage: try c.decode(UInt16.self, forKey: .collateralPercentage),
+                maxCollateralInputs:  try c.decode(UInt16.self, forKey: .maxCollateralInputs),
                 costModels:           try c.decode(AlonzoCostModels.self, forKey: .costModels)
             )
         } else {
@@ -129,27 +155,27 @@ extension AlonzoGenesis: CBORSerializable {
             throw CardanoCoreError.deserializeError(
                 "AlonzoGenesis: expected list of 8+ elements, got \(primitive)")
         }
-        lovelacePerUTxOWord   = Int64(try alonzoNatural(f[0], "AlonzoGenesis lovelacePerUTxOWord"))
+        lovelacePerUTxOWord   = try f[0].integer("AlonzoGenesis lovelacePerUTxOWord", as: Coin.self)
         costModels            = try AlonzoCostModels(from: f[1])
         executionPrices       = try ExecutionPrices(from: f[2])
         maxTxExUnits          = try AlonzoGenesisExUnits(from: f[3])
         maxBlockExUnits       = try AlonzoGenesisExUnits(from: f[4])
         // Word32, Word16 and Word16 in the ledger's Alonzo parameters.
-        maxValueSize          = try alonzoNatural(f[5], "AlonzoGenesis maxValueSize", as: UInt32.self)
-        collateralPercentage  = try alonzoNatural(f[6], "AlonzoGenesis collateralPercentage", as: UInt16.self)
-        maxCollateralInputs   = try alonzoNatural(f[7], "AlonzoGenesis maxCollateralInputs", as: UInt16.self)
+        maxValueSize          = try f[5].integer("AlonzoGenesis maxValueSize", as: UInt32.self)
+        collateralPercentage  = try f[6].integer("AlonzoGenesis collateralPercentage", as: UInt16.self)
+        maxCollateralInputs   = try f[7].integer("AlonzoGenesis maxCollateralInputs", as: UInt16.self)
     }
 
     public func toPrimitive() throws -> Primitive {
         .list([
-            .int(lovelacePerUTxOWord),
+            .integer(lovelacePerUTxOWord),
             try costModels.toPrimitive(),
             try executionPrices.toPrimitive(),
             try maxTxExUnits.toPrimitive(),
             try maxBlockExUnits.toPrimitive(),
-            .int(Int64(maxValueSize)),
-            .int(Int64(collateralPercentage)),
-            .int(Int64(maxCollateralInputs))
+            .integer(maxValueSize),
+            .integer(collateralPercentage),
+            .integer(maxCollateralInputs)
         ])
     }
 }
@@ -179,11 +205,11 @@ extension PriceRatio {
             guard case .list(let arr) = t.value, arr.count == 2 else {
                 throw CardanoCoreError.deserializeError("PriceRatio: malformed tag-30")
             }
-            numerator   = try Self.readInt(arr[0], label: "numerator")
-            denominator = try Self.readInt(arr[1], label: "denominator")
+            numerator   = try arr[0].integer("PriceRatio numerator", as: UInt64.self)
+            denominator = try arr[1].integer("PriceRatio denominator", as: UInt64.self)
         case .list(let arr) where arr.count == 2:
-            numerator   = try Self.readInt(arr[0], label: "numerator")
-            denominator = try Self.readInt(arr[1], label: "denominator")
+            numerator   = try arr[0].integer("PriceRatio numerator", as: UInt64.self)
+            denominator = try arr[1].integer("PriceRatio denominator", as: UInt64.self)
         default:
             throw CardanoCoreError.deserializeError("PriceRatio: expected tag-30 or [num, den], got \(primitive)")
         }
@@ -194,12 +220,8 @@ extension PriceRatio {
     }
 
     public func toPrimitive() throws -> Primitive {
-        let tag = CBORTag(tag: 30, value: .list([.int(Int64(numerator)), .int(Int64(denominator))]))
+        let tag = CBORTag(tag: 30, value: .list([.integer(numerator), .integer(denominator)]))
         return .cborTag(tag)
-    }
-
-    private static func readInt(_ p: Primitive, label: String) throws -> Int {
-        try alonzoNatural(p, "PriceRatio \(label)")
     }
 }
 
@@ -210,16 +232,18 @@ extension AlonzoGenesisExUnits {
         guard case .list(let f) = primitive, f.count >= 2 else {
             throw CardanoCoreError.deserializeError("AlonzoGenesisExUnits: expected list of 2 elements")
         }
-        exUnitsMem   = try Self.readInt(f[0], label: "exUnitsMem")
-        exUnitsSteps = try Self.readInt(f[1], label: "exUnitsSteps")
+        exUnitsMem   = try exUnitsParameter(f[0], "AlonzoGenesisExUnits exUnitsMem")
+        exUnitsSteps = try exUnitsParameter(f[1], "AlonzoGenesisExUnits exUnitsSteps")
     }
 
+    /// - Throws: When a count is above `Int64.max`, which the ledger's CBOR
+    ///   reader refuses.
     public func toPrimitive() throws -> Primitive {
-        .list([.int(Int64(exUnitsMem)), .int(Int64(exUnitsSteps))])
-    }
-
-    private static func readInt(_ p: Primitive, label: String) throws -> Int {
-        try alonzoNatural(p, "AlonzoGenesisExUnits \(label)")
+        for (value, what) in [(exUnitsMem, "exUnitsMem"), (exUnitsSteps, "exUnitsSteps")]
+        where value > UInt64(Int64.max) {
+            throw CardanoCoreError.valueError("AlonzoGenesisExUnits \(what): \(value) is above Int64.max")
+        }
+        return .list([.integer(exUnitsMem), .integer(exUnitsSteps)])
     }
 }
 

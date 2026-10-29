@@ -7,16 +7,18 @@ public struct GenesisParameters: JSONLoadable {
     public let shelleyGenesis: ShelleyGenesis?
     public let era: Era?
     public let activeSlotsCoefficient: Double?
-    public let epochLength: Int?
-    public let maxKesEvolutions: Int?
-    public let maxLovelaceSupply: Int?
+    // Widths as in the ledger's ShelleyGenesis.
+    public let epochLength: UInt64?
+    public let maxKesEvolutions: UInt64?
+    public let maxLovelaceSupply: UInt64?
     public let networkId: String?
-    public let networkMagic: Int?
-    public let securityParam: Int?
-    public let slotLength: Int?
-    public let slotsPerKesPeriod: Int?
+    public let networkMagic: UInt32?
+    public let securityParam: UInt64?
+    /// Seconds, to the microsecond.
+    public let slotLength: Decimal?
+    public let slotsPerKesPeriod: UInt64?
     public let systemStart: Date?
-    public let updateQuorum: Int?
+    public let updateQuorum: UInt64?
 
     enum CodingKeys: String, CodingKey {
         case alonzoGenesis
@@ -83,29 +85,29 @@ public struct GenesisParameters: JSONLoadable {
         
         self.era = era
         self.activeSlotsCoefficient = shelleyGenesis.activeSlotsCoeff
-        self.epochLength = Int(shelleyGenesis.epochLength)
-        self.maxKesEvolutions = Int(shelleyGenesis.maxKESEvolutions)
-        self.maxLovelaceSupply = Int(shelleyGenesis.maxLovelaceSupply)
+        self.epochLength = shelleyGenesis.epochLength
+        self.maxKesEvolutions = shelleyGenesis.maxKESEvolutions
+        self.maxLovelaceSupply = shelleyGenesis.maxLovelaceSupply
         self.networkId = shelleyGenesis.networkId
-        self.networkMagic = Int(shelleyGenesis.networkMagic)
-        self.securityParam = Int(shelleyGenesis.securityParam)
-        self.slotLength = Int(shelleyGenesis.slotLength)
-        self.slotsPerKesPeriod = Int(shelleyGenesis.slotsPerKESPeriod)
+        self.networkMagic = shelleyGenesis.networkMagic
+        self.securityParam = shelleyGenesis.securityParam
+        self.slotLength = shelleyGenesis.slotLength
+        self.slotsPerKesPeriod = shelleyGenesis.slotsPerKESPeriod
         self.systemStart = ISO8601DateFormatter().date(from: shelleyGenesis.systemStart)
         self.updateQuorum = shelleyGenesis.updateQuorum
     }
     
     public init(activeSlotsCoefficient: Double,
-         epochLength: Int,
-         maxKesEvolutions: Int,
-         maxLovelaceSupply: Int,
+         epochLength: UInt64,
+         maxKesEvolutions: UInt64,
+         maxLovelaceSupply: UInt64,
          networkId: String,
-         networkMagic: Int,
-         securityParam: Int,
-         slotLength: Int,
-         slotsPerKesPeriod: Int,
+         networkMagic: UInt32,
+         securityParam: UInt64,
+         slotLength: Decimal,
+         slotsPerKesPeriod: UInt64,
          systemStart: Date,
-         updateQuorum: Int, era: Era = .conway) {
+         updateQuorum: UInt64, era: Era = .conway) {
         self.alonzoGenesis = nil
         self.byronGenesis = nil
         self.conwayGenesis = nil

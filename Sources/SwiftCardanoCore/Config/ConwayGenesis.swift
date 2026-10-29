@@ -1,15 +1,25 @@
 import Foundation
 
+/// The ledger's `ConwayGenesis` (its `UpgradeConwayPParams`, constitution and
+/// committee; cardano-ledger `Cardano.Ledger.Conway.Genesis`). Each integer
+/// field has the width of its ledger type.
 public struct ConwayGenesis: JSONLoadable {
     public let poolVotingThresholds: ConwayGenesisPoolVotingThresholds
     public let dRepVotingThresholds: ConwayGenesisDRepVotingThresholds
-    public let committeeMinSize: Int
-    public let committeeMaxTermLength: Int
-    public let govActionLifetime: Int
-    public let govActionDeposit: UInt64
-    public let dRepDeposit: UInt64
-    public let dRepActivity: Int
-    public let minFeeRefScriptCostPerByte: Int64
+    /// `Word16`.
+    public let committeeMinSize: UInt16
+    /// `EpochInterval`, a `Word32`.
+    public let committeeMaxTermLength: EpochInterval
+    /// `EpochInterval`, a `Word32`.
+    public let govActionLifetime: EpochInterval
+    /// `Coin`.
+    public let govActionDeposit: Coin
+    /// `Coin`.
+    public let dRepDeposit: Coin
+    /// `EpochInterval`, a `Word32`.
+    public let dRepActivity: EpochInterval
+    /// A `NonNegativeInterval`, which need not be a whole number.
+    public let minFeeRefScriptCostPerByte: Double
     public let plutusV3CostModel: [Int]
     public let constitution: ConwayGenesisConstitution
     public let committee: Committee
@@ -17,13 +27,13 @@ public struct ConwayGenesis: JSONLoadable {
     public init(
         poolVotingThresholds: ConwayGenesisPoolVotingThresholds,
         dRepVotingThresholds: ConwayGenesisDRepVotingThresholds,
-        committeeMinSize: Int,
-        committeeMaxTermLength: Int,
-        govActionLifetime: Int,
-        govActionDeposit: UInt64,
-        dRepDeposit: UInt64,
-        dRepActivity: Int,
-        minFeeRefScriptCostPerByte: Int64,
+        committeeMinSize: UInt16,
+        committeeMaxTermLength: EpochInterval,
+        govActionLifetime: EpochInterval,
+        govActionDeposit: Coin,
+        dRepDeposit: Coin,
+        dRepActivity: EpochInterval,
+        minFeeRefScriptCostPerByte: Double,
         plutusV3CostModel: [Int],
         constitution: ConwayGenesisConstitution,
         committee: Committee
@@ -75,18 +85,6 @@ public struct ConwayGenesisAnchor: Codable, Equatable, Hashable {
 }
 
 // MARK: - Range-checked reads and writes
-
-/// A non-negative integer read as the ledger's `T`, held as the `Int` the
-/// genesis stores.
-fileprivate func genesisNatural<T: FixedWidthInteger & UnsignedInteger>(
-    _ p: Primitive, _ label: String, as type: T.Type
-) throws -> Int {
-    let value = try p.integer(label, as: T.self)
-    guard let narrowed = Int(exactly: value) else {
-        throw CardanoCoreError.deserializeError("\(label): \(value) is out of range for Int")
-    }
-    return narrowed
-}
 
 /// The numerator and denominator of a `#6.30([uint, uint])` rational, or of
 /// the bare `[uint, uint]`, with a denominator above zero.
@@ -165,16 +163,28 @@ extension ConwayGenesis: CBORSerializable {
     public init(from decoder: Decoder) throws {
         if String(describing: type(of: decoder)).contains("JSONDecoder") {
             let c = try decoder.container(keyedBy: CodingKeys.self)
+            let poolVotingThresholds = try c.decode(ConwayGenesisPoolVotingThresholds.self, forKey: .poolVotingThresholds)
+            let dRepVotingThresholds = try c.decode(ConwayGenesisDRepVotingThresholds.self, forKey: .dRepVotingThresholds)
+            // UnitIntervals in the ledger.
+            let p = poolVotingThresholds, d = dRepVotingThresholds
+            for value in [p.committeeNormal, p.committeeNoConfidence, p.hardForkInitiation, p.motionNoConfidence,
+                          p.ppSecurityGroup, d.motionNoConfidence, d.committeeNormal, d.committeeNoConfidence,
+                          d.updateToConstitution, d.hardForkInitiation, d.ppNetworkGroup, d.ppEconomicGroup,
+                          d.ppTechnicalGroup, d.ppGovGroup, d.treasuryWithdrawal]
+            where !value.isFinite || value < 0 || value > 1 {
+                throw CardanoCoreError.deserializeError("ConwayGenesis voting threshold: \(value) is not in 0 ... 1")
+            }
             self.init(
-                poolVotingThresholds:       try c.decode(ConwayGenesisPoolVotingThresholds.self, forKey: .poolVotingThresholds),
-                dRepVotingThresholds:       try c.decode(ConwayGenesisDRepVotingThresholds.self, forKey: .dRepVotingThresholds),
-                committeeMinSize:           try c.decode(Int.self, forKey: .committeeMinSize),
-                committeeMaxTermLength:     try c.decode(Int.self, forKey: .committeeMaxTermLength),
-                govActionLifetime:          try c.decode(Int.self, forKey: .govActionLifetime),
-                govActionDeposit:           try c.decode(UInt64.self, forKey: .govActionDeposit),
-                dRepDeposit:                try c.decode(UInt64.self, forKey: .dRepDeposit),
-                dRepActivity:               try c.decode(Int.self, forKey: .dRepActivity),
-                minFeeRefScriptCostPerByte: try c.decode(Int64.self, forKey: .minFeeRefScriptCostPerByte),
+                poolVotingThresholds:       poolVotingThresholds,
+                dRepVotingThresholds:       dRepVotingThresholds,
+                committeeMinSize:           try c.decode(UInt16.self, forKey: .committeeMinSize),
+                committeeMaxTermLength:     try c.decode(EpochInterval.self, forKey: .committeeMaxTermLength),
+                govActionLifetime:          try c.decode(EpochInterval.self, forKey: .govActionLifetime),
+                govActionDeposit:           try c.decode(Coin.self, forKey: .govActionDeposit),
+                dRepDeposit:                try c.decode(Coin.self, forKey: .dRepDeposit),
+                dRepActivity:               try c.decode(EpochInterval.self, forKey: .dRepActivity),
+                minFeeRefScriptCostPerByte: try Self.nonNegative(
+                    try c.decode(Double.self, forKey: .minFeeRefScriptCostPerByte)),
                 plutusV3CostModel:          try c.decode([Int].self, forKey: .plutusV3CostModel),
                 constitution:               try c.decode(ConwayGenesisConstitution.self, forKey: .constitution),
                 committee:                  try c.decode(Committee.self, forKey: .committee)
@@ -216,18 +226,13 @@ extension ConwayGenesis: CBORSerializable {
         // Ranges as the ledger's ConwayGenesis holds them: Word16 for the
         // committee size, EpochInterval (Word32) for the periods, Coin for
         // the deposits.
-        committeeMinSize         = try genesisNatural(f[2], "ConwayGenesis committeeMinSize", as: UInt16.self)
-        committeeMaxTermLength   = try genesisNatural(f[3], "ConwayGenesis committeeMaxTermLength", as: UInt32.self)
-        govActionLifetime        = try genesisNatural(f[4], "ConwayGenesis govActionLifetime", as: UInt32.self)
-        govActionDeposit         = try f[5].integer("ConwayGenesis govActionDeposit", as: UInt64.self)
-        dRepDeposit              = try f[6].integer("ConwayGenesis dRepDeposit", as: UInt64.self)
-        dRepActivity             = try genesisNatural(f[7], "ConwayGenesis dRepActivity", as: UInt32.self)
-        let minFee = try Self.readUIntOrFraction(f[8], label: "minFeeRefScriptCostPerByte")
-        guard let minFeeRefScriptCostPerByte = Int64(exactly: minFee) else {
-            throw CardanoCoreError.deserializeError(
-                "ConwayGenesis minFeeRefScriptCostPerByte: \(minFee) is out of range for Int64")
-        }
-        self.minFeeRefScriptCostPerByte = minFeeRefScriptCostPerByte
+        committeeMinSize         = try f[2].integer("ConwayGenesis committeeMinSize", as: UInt16.self)
+        committeeMaxTermLength   = try f[3].integer("ConwayGenesis committeeMaxTermLength", as: EpochInterval.self)
+        govActionLifetime        = try f[4].integer("ConwayGenesis govActionLifetime", as: EpochInterval.self)
+        govActionDeposit         = try f[5].integer("ConwayGenesis govActionDeposit", as: Coin.self)
+        dRepDeposit              = try f[6].integer("ConwayGenesis dRepDeposit", as: Coin.self)
+        dRepActivity             = try f[7].integer("ConwayGenesis dRepActivity", as: EpochInterval.self)
+        minFeeRefScriptCostPerByte = try Self.readUIntOrFraction(f[8], label: "minFeeRefScriptCostPerByte")
         plutusV3CostModel        = try Self.readIntList(f[9])
         constitution             = try ConwayGenesisConstitution(from: f[10])
         committee                = try Committee(from: f[11])
@@ -243,23 +248,45 @@ extension ConwayGenesis: CBORSerializable {
             .uint(govActionDeposit),
             .uint(dRepDeposit),
             .integer(dRepActivity),
-            .integer(minFeeRefScriptCostPerByte),
+            try Self.minFeeRefScriptPrimitive(minFeeRefScriptCostPerByte),
             .list(plutusV3CostModel.map { .integer($0) }),
             try constitution.toPrimitive(),
             try committee.toPrimitive()
         ])
     }
 
-    // minFeeRefScriptCostPerByte may be a tag-30 rational in the ledger spec
-    // (a `nonnegative_interval`); a rational is read as its whole part.
-    private static func readUIntOrFraction(_ p: Primitive, label: String) throws -> UInt64 {
+    // minFeeRefScriptCostPerByte is a `nonnegative_interval` in the ledger:
+    // a tag-30 rational, read whole. A bare integer is read as itself.
+    private static func readUIntOrFraction(_ p: Primitive, label: String) throws -> Double {
         switch p {
         case .uint, .int, .bigInt, .bigUInt:
-            return try p.integer("ConwayGenesis \(label)", as: UInt64.self)
+            return Double(try p.integer("ConwayGenesis \(label)", as: UInt64.self))
         default:
             let (n, d) = try genesisRational(p, "ConwayGenesis \(label)")
-            return n / d
+            return Double(n) / Double(d)
         }
+    }
+
+    /// A non-negative, finite value; what a `NonNegativeInterval` holds.
+    private static func nonNegative(_ value: Double) throws -> Double {
+        guard value.isFinite, value >= 0 else {
+            throw CardanoCoreError.deserializeError(
+                "ConwayGenesis minFeeRefScriptCostPerByte: \(value) is not a non-negative number")
+        }
+        return value
+    }
+
+    /// `value` as the tag-30 rational the ledger writes.
+    ///
+    /// - Throws: When `value` cannot be written as a `NonNegativeInterval`.
+    private static func minFeeRefScriptPrimitive(_ value: Double) throws -> Primitive {
+        guard let interval = doubleToNonNegativeInterval(value) else {
+            throw CardanoCoreError.valueError(
+                "ConwayGenesis minFeeRefScriptCostPerByte: \(value) is not a non-negative interval")
+        }
+        return .cborTag(CBORTag(tag: 30, value: .list([
+            .integer(interval.lowerBound), .integer(interval.upperBound)
+        ])))
     }
 
     private static func readIntList(_ p: Primitive) throws -> [Int] {
@@ -421,12 +448,12 @@ extension Committee {
         // members map: { cold_cred → expiry_epoch }
         let pairs: [(Primitive, Primitive)]
         switch f[0] {
-        case .dict(let d): pairs = Array(d)
+        case .dict(let d), .frozenDict(let d): pairs = Array(d)
         case .orderedDict(let d): pairs = d.map { ($0.key, $0.value) }
         default:
             throw CardanoCoreError.deserializeError("Committee: expected map for members")
         }
-        var membersResult: [String: Int] = [:]
+        var membersResult: [String: EpochNumber] = [:]
         for (k, v) in pairs {
             let keyStr: String
             switch k {
@@ -437,7 +464,7 @@ extension Committee {
             switch v {
             case .int, .uint, .bigInt, .bigUInt:
                 // An expiry epoch: EpochNo, a Word64.
-                membersResult[keyStr] = try genesisNatural(v, "Committee member epoch", as: UInt64.self)
+                membersResult[keyStr] = try v.integer("Committee member epoch", as: EpochNumber.self)
             default: break
             }
         }
@@ -464,10 +491,7 @@ extension Committee {
         guard num <= den else {
             throw CardanoCoreError.deserializeError("Committee threshold: \(num)/\(den) is above one")
         }
-        guard let numerator = Int(exactly: num), let denominator = Int(exactly: den) else {
-            throw CardanoCoreError.deserializeError("Committee threshold: \(num)/\(den) is out of range for Int")
-        }
-        return Threshold(numerator: numerator, denominator: denominator)
+        return try Threshold(numerator: num, denominator: den)
     }
 }
 

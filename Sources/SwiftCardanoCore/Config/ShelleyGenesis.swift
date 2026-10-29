@@ -1,36 +1,50 @@
 import Foundation
+@preconcurrency import BigInt
 
+/// The ledger's `ShelleyGenesis` (cardano-ledger, `Cardano.Ledger.Shelley.Genesis`).
+/// Each integer field has the width of its ledger type.
 public struct ShelleyGenesis: JSONLoadable {
     public let activeSlotsCoeff: Double
     public let protocolParams: ProtocolParams
     public let genDelegs: [String: GenDelegation]
-    public let updateQuorum: Int
+    /// `Word64`.
+    public let updateQuorum: UInt64
     public let networkId: String
-    public let initialFunds: [String: Int]
+    /// `ListMap Addr Coin`: each balance a `Coin` (`Word64`).
+    public let initialFunds: [String: Coin]
+    /// `Word64`.
     public let maxLovelaceSupply: UInt64
+    /// `Word32`.
     public let networkMagic: UInt32
-    public let epochLength: UInt32
+    /// `EpochSize`, a `Word64`.
+    public let epochLength: UInt64
     public let systemStart: String
-    public let slotsPerKESPeriod: UInt32
-    public let slotLength: UInt32
-    public let maxKESEvolutions: UInt32
-    public let securityParam: UInt32
+    /// `Word64`.
+    public let slotsPerKESPeriod: UInt64
+    /// Seconds, as the ledger's `NominalDiffTimeMicro`: a fixed-point number
+    /// with microsecond precision, written in JSON as seconds (`1`, `0.2`) and
+    /// in CBOR as a whole number of microseconds.
+    public let slotLength: Decimal
+    /// `Word64`.
+    public let maxKESEvolutions: UInt64
+    /// `NonZero Word64`: never zero.
+    public let securityParam: UInt64
 
     public init(
         activeSlotsCoeff: Double,
         protocolParams: ProtocolParams,
         genDelegs: [String: GenDelegation],
-        updateQuorum: Int,
+        updateQuorum: UInt64,
         networkId: String,
-        initialFunds: [String: Int],
+        initialFunds: [String: Coin],
         maxLovelaceSupply: UInt64,
         networkMagic: UInt32,
-        epochLength: UInt32,
+        epochLength: UInt64,
         systemStart: String,
-        slotsPerKESPeriod: UInt32,
-        slotLength: UInt32,
-        maxKESEvolutions: UInt32,
-        securityParam: UInt32
+        slotsPerKESPeriod: UInt64,
+        slotLength: Decimal,
+        maxKESEvolutions: UInt64,
+        securityParam: UInt64
     ) {
         self.activeSlotsCoeff = activeSlotsCoeff
         self.protocolParams = protocolParams
@@ -49,10 +63,18 @@ public struct ShelleyGenesis: JSONLoadable {
     }
 }
 
+/// The ledger's `ShelleyPParams`, as Shelley genesis holds them. Each integer
+/// field has the width of its ledger type.
 public struct ProtocolParams: Codable, Equatable, Hashable {
+    /// `ProtVer`: a `Version` (a `Word32`) and a `Word32` minor.
     public struct ProtocolVersion: Codable, Equatable, Hashable {
-        public let minor: Int
-        public let major: Int
+        public let minor: UInt32
+        public let major: UInt32
+
+        public init(minor: UInt32, major: UInt32) {
+            self.minor = minor
+            self.major = major
+        }
     }
 
     public struct ExtraEntropy: Codable, Equatable, Hashable {
@@ -61,18 +83,25 @@ public struct ProtocolParams: Codable, Equatable, Hashable {
 
     public let protocolVersion: ProtocolVersion
     public let decentralisationParam: Double
-    public let eMax: Int
+    /// `EpochInterval`, a `Word32`.
+    public let eMax: EpochInterval
     public let extraEntropy: ExtraEntropy
+    /// `Word32`.
     public let maxTxSize: UInt32
+    /// `Word32`.
     public let maxBlockBodySize: UInt32
-    public let maxBlockHeaderSize: UInt32
-    public let minFeeA: UInt32
-    public let minFeeB: UInt32
-    public let minUTxOValue: UInt64
-    public let poolDeposit: UInt64
-    public let minPoolCost: UInt64
-    public let keyDeposit: UInt64
-    public let nOpt: Int
+    /// `Word16`.
+    public let maxBlockHeaderSize: UInt16
+    /// `CoinPerByte`, a `Coin`.
+    public let minFeeA: Coin
+    /// `Coin`.
+    public let minFeeB: Coin
+    public let minUTxOValue: Coin
+    public let poolDeposit: Coin
+    public let minPoolCost: Coin
+    public let keyDeposit: Coin
+    /// `Word16`.
+    public let nOpt: UInt16
     public let rho: Double
     public let tau: Double
     public let a0: Double
@@ -103,21 +132,33 @@ extension ShelleyGenesis: CBORSerializable {
     public init(from decoder: Decoder) throws {
         if String(describing: type(of: decoder)).contains("JSONDecoder") {
             let c = try decoder.container(keyedBy: CodingKeys.self)
+            let securityParam = try c.decode(UInt64.self, forKey: .securityParam)
+            guard securityParam > 0 else {
+                throw CardanoCoreError.deserializeError("ShelleyGenesis securityParam: must not be zero")
+            }
+            // A PositiveUnitInterval in the ledger.
+            let activeSlotsCoeff = try c.decode(Double.self, forKey: .activeSlotsCoeff)
+            guard activeSlotsCoeff > 0, activeSlotsCoeff <= 1 else {
+                throw CardanoCoreError.deserializeError(
+                    "ShelleyGenesis activeSlotsCoeff: \(activeSlotsCoeff) is not in (0, 1]")
+            }
+            let protocolParams = try c.decode(ProtocolParams.self, forKey: .protocolParams)
+            try protocolParams.checkRationalRanges()
             self.init(
-                activeSlotsCoeff:  try c.decode(Double.self, forKey: .activeSlotsCoeff),
-                protocolParams:    try c.decode(ProtocolParams.self, forKey: .protocolParams),
+                activeSlotsCoeff:  activeSlotsCoeff,
+                protocolParams:    protocolParams,
                 genDelegs:         try c.decode([String: GenDelegation].self, forKey: .genDelegs),
-                updateQuorum:      try c.decode(Int.self, forKey: .updateQuorum),
+                updateQuorum:      try c.decode(UInt64.self, forKey: .updateQuorum),
                 networkId:         try c.decode(String.self, forKey: .networkId),
-                initialFunds:      try c.decode([String: Int].self, forKey: .initialFunds),
+                initialFunds:      try c.decode([String: Coin].self, forKey: .initialFunds),
                 maxLovelaceSupply: try c.decode(UInt64.self, forKey: .maxLovelaceSupply),
                 networkMagic:      try c.decode(UInt32.self, forKey: .networkMagic),
-                epochLength:       try c.decode(UInt32.self, forKey: .epochLength),
+                epochLength:       try c.decode(UInt64.self, forKey: .epochLength),
                 systemStart:       try c.decode(String.self, forKey: .systemStart),
-                slotsPerKESPeriod: try c.decode(UInt32.self, forKey: .slotsPerKESPeriod),
-                slotLength:        try c.decode(UInt32.self, forKey: .slotLength),
-                maxKESEvolutions:  try c.decode(UInt32.self, forKey: .maxKESEvolutions),
-                securityParam:     try c.decode(UInt32.self, forKey: .securityParam)
+                slotsPerKESPeriod: try c.decode(UInt64.self, forKey: .slotsPerKESPeriod),
+                slotLength:        Self.truncatedToMicroseconds(try c.decode(Decimal.self, forKey: .slotLength)),
+                maxKESEvolutions:  try c.decode(UInt64.self, forKey: .maxKESEvolutions),
+                securityParam:     securityParam
             )
         } else {
             let primitive = try Primitive.decode(from: decoder, preservingEncoding: false)
@@ -161,12 +202,15 @@ extension ShelleyGenesis: CBORSerializable {
         guard activeSlotsCoeff > 0 else {
             throw CardanoCoreError.deserializeError("ShelleyGenesis: activeSlotsCoeff must be above zero")
         }
-        securityParam = try f[4].integer("ShelleyGenesis securityParam", as: UInt32.self)
-        epochLength   = try f[5].integer("ShelleyGenesis epochLength", as: UInt32.self)
-        slotsPerKESPeriod = try f[6].integer("ShelleyGenesis slotsPerKESPeriod", as: UInt32.self)
-        maxKESEvolutions  = try f[7].integer("ShelleyGenesis maxKESEvolutions", as: UInt32.self)
+        securityParam = try f[4].integer("ShelleyGenesis securityParam", as: UInt64.self)
+        guard securityParam > 0 else {
+            throw CardanoCoreError.deserializeError("ShelleyGenesis securityParam: must not be zero")
+        }
+        epochLength   = try f[5].integer("ShelleyGenesis epochLength", as: UInt64.self)
+        slotsPerKESPeriod = try f[6].integer("ShelleyGenesis slotsPerKESPeriod", as: UInt64.self)
+        maxKESEvolutions  = try f[7].integer("ShelleyGenesis maxKESEvolutions", as: UInt64.self)
         slotLength    = try Self.readSlotLength(f[8])
-        updateQuorum  = try Self.natural(f[9], label: "updateQuorum")
+        updateQuorum  = try f[9].integer("ShelleyGenesis updateQuorum", as: UInt64.self)
         maxLovelaceSupply = try Self.readUInt(f[10], label: "maxLovelaceSupply")
         protocolParams = try ProtocolParams(from: f[11])
         genDelegs     = try Self.readGenDelegs(f[12])
@@ -183,14 +227,14 @@ extension ShelleyGenesis: CBORSerializable {
         })
         var elements: [Primitive] = []
         elements.append(.string(systemStart))
-        elements.append(.uint(UInt64(networkMagic)))
+        elements.append(.integer(networkMagic))
         elements.append(networkIdPrim)
         elements.append(try Self.fractionPrimitive(activeSlotsCoeff, label: "activeSlotsCoeff"))
-        elements.append(.uint(UInt64(securityParam)))
-        elements.append(.uint(UInt64(epochLength)))
-        elements.append(.uint(UInt64(slotsPerKESPeriod)))
-        elements.append(.uint(UInt64(maxKESEvolutions)))
-        elements.append(.uint(UInt64(slotLength)))
+        elements.append(.integer(securityParam))
+        elements.append(.integer(epochLength))
+        elements.append(.integer(slotsPerKESPeriod))
+        elements.append(.integer(maxKESEvolutions))
+        elements.append(try Self.slotLengthPrimitive(slotLength))
         elements.append(.integer(updateQuorum))
         elements.append(.uint(maxLovelaceSupply))
         elements.append(try protocolParams.toPrimitive())
@@ -244,35 +288,51 @@ extension ShelleyGenesis: CBORSerializable {
         try p.integer("ShelleyGenesis \(label)", as: UInt64.self)
     }
 
-    /// A non-negative integer held as `Int`.
-    static func natural(_ p: Primitive, label: String) throws -> Int {
-        let value = try readUInt2(p, label: label)
-        guard let narrowed = Int(exactly: value) else {
-            throw CardanoCoreError.deserializeError("ShelleyGenesis \(label): \(value) is out of range for Int")
-        }
-        return narrowed
-    }
-
     /// A unit interval: the active slot coefficient.
     private static func readFraction(_ p: Primitive, label: String) throws -> Double {
         try readFraction2(p, label: label, atMostOne: true)
     }
 
-    // NominalDiffTime from Haskell encodes as tag-30 rational in seconds; fall back to uint.
-    private static func readSlotLength(_ p: Primitive) throws -> UInt32 {
-        switch p {
-        case .uint, .int, .bigInt, .bigUInt:
-            return try p.integer("ShelleyGenesis slotLength", as: UInt32.self)
-        case .cborTag(let t) where t.tag == 30:
-            guard case .list(let arr) = t.value, arr.count == 2 else { return 1 }
-            let v = try fractionPairToDouble(arr[0], arr[1], label: "slotLength")
-            guard let seconds = UInt32(exactly: v.rounded(.towardZero)) else {
-                throw CardanoCoreError.deserializeError("ShelleyGenesis: slotLength \(v) is out of range for UInt32")
-            }
-            return seconds
-        default:
-            throw CardanoCoreError.deserializeError("ShelleyGenesis: cannot decode slotLength")
+    // MARK: slotLength (NominalDiffTimeMicro)
+
+    /// The most significant digits a `Decimal` holds exactly.
+    private static let decimalDigits = 38
+
+    /// `seconds` cut down to whole microseconds, as the ledger's JSON reader
+    /// does (`realToFrac` into `Micro` floors).
+    static func truncatedToMicroseconds(_ seconds: Decimal) -> Decimal {
+        var micro = seconds * 1_000_000
+        var whole = Decimal()
+        NSDecimalRound(&whole, &micro, 0, .down)
+        return whole / 1_000_000
+    }
+
+    /// The ledger writes `NominalDiffTimeMicro` in CBOR as its `Micro`: a
+    /// whole number of microseconds, of any size.
+    private static func readSlotLength(_ p: Primitive) throws -> Decimal {
+        guard let micro = p.integerValue else {
+            throw CardanoCoreError.deserializeError("ShelleyGenesis slotLength: expected an integer, got \(p)")
         }
+        let digits = micro.magnitude.description
+        guard digits.count <= decimalDigits, let decimal = Decimal(string: micro.description) else {
+            throw CardanoCoreError.deserializeError(
+                "ShelleyGenesis slotLength: \(micro) microseconds is too large to hold")
+        }
+        return decimal / 1_000_000
+    }
+
+    /// `seconds` as the whole number of microseconds the ledger writes.
+    ///
+    /// - Throws: When `seconds` is not a whole number of microseconds.
+    static func slotLengthPrimitive(_ seconds: Decimal) throws -> Primitive {
+        var micro = seconds * 1_000_000
+        var whole = Decimal()
+        NSDecimalRound(&whole, &micro, 0, .plain)
+        guard whole == micro, !micro.isNaN, let value = BigInt(whole.description) else {
+            throw CardanoCoreError.valueError(
+                "ShelleyGenesis slotLength: \(seconds) is not a whole number of microseconds")
+        }
+        return .integer(value)
     }
 
     private static func decodeNetworkId(_ p: Primitive) -> String {
@@ -318,15 +378,15 @@ extension ShelleyGenesis: CBORSerializable {
         return result
     }
 
-    private static func readInitialFunds(_ p: Primitive) throws -> [String: Int] {
-        var result: [String: Int] = [:]
+    private static func readInitialFunds(_ p: Primitive) throws -> [String: Coin] {
+        var result: [String: Coin] = [:]
         switch p {
         case .list(let pairs):
             for pair in pairs {
                 guard case .list(let kv) = pair, kv.count >= 2 else { continue }
                 let key = try readHexOrString(kv[0])
                 switch kv[1] {
-                case .uint, .int, .bigInt, .bigUInt: result[key] = try natural(kv[1], label: "initialFunds")
+                case .uint, .int, .bigInt, .bigUInt: result[key] = try readUInt(kv[1], label: "initialFunds")
                 default: break
                 }
             }
@@ -334,7 +394,7 @@ extension ShelleyGenesis: CBORSerializable {
             for (k, v) in d {
                 let key = try readHexOrString(k)
                 switch v {
-                case .uint, .int, .bigInt, .bigUInt: result[key] = try natural(v, label: "initialFunds")
+                case .uint, .int, .bigInt, .bigUInt: result[key] = try readUInt(v, label: "initialFunds")
                 default: break
                 }
             }
@@ -372,18 +432,18 @@ extension ProtocolParams {
             throw CardanoCoreError.deserializeError(
                 "ProtocolParams: expected list of 17+ elements, got \(primitive)")
         }
-        // Ranges as the ledger's ShelleyPParams hold them (the fees as this
-        // type holds them): Word32 sizes, a Word16 header size and nOpt, an
+        // Ranges as the ledger's ShelleyPParams hold them: Coin (Word64) fees
+        // and deposits, Word32 sizes, a Word16 header size and nOpt, an
         // EpochInterval (Word32) eMax.
-        minFeeA            = try f[0].integer("ProtocolParams minFeeA", as: UInt32.self)
-        minFeeB            = try f[1].integer("ProtocolParams minFeeB", as: UInt32.self)
+        minFeeA            = try f[0].integer("ProtocolParams minFeeA", as: Coin.self)
+        minFeeB            = try f[1].integer("ProtocolParams minFeeB", as: Coin.self)
         maxBlockBodySize   = try f[2].integer("ProtocolParams maxBlockBodySize", as: UInt32.self)
         maxTxSize          = try f[3].integer("ProtocolParams maxTxSize", as: UInt32.self)
-        maxBlockHeaderSize = UInt32(try f[4].integer("ProtocolParams maxBlockHeaderSize", as: UInt16.self))
+        maxBlockHeaderSize = try f[4].integer("ProtocolParams maxBlockHeaderSize", as: UInt16.self)
         keyDeposit         = try ShelleyGenesis.readUInt2(f[5], label: "keyDeposit")
         poolDeposit        = try ShelleyGenesis.readUInt2(f[6], label: "poolDeposit")
-        eMax               = Int(try f[7].integer("ProtocolParams eMax", as: UInt32.self))
-        nOpt               = Int(try f[8].integer("ProtocolParams nOpt", as: UInt16.self))
+        eMax               = try f[7].integer("ProtocolParams eMax", as: EpochInterval.self)
+        nOpt               = try f[8].integer("ProtocolParams nOpt", as: UInt16.self)
         // a0 is a NonNegativeInterval; rho, tau and d are UnitIntervals.
         a0                 = try ShelleyGenesis.readFraction2(f[9], label: "a0")
         rho                = try ShelleyGenesis.readFraction2(f[10], label: "rho", atMostOne: true)
@@ -403,8 +463,8 @@ extension ProtocolParams {
                 throw CardanoCoreError.deserializeError(
                     "ProtocolParams: flat protocolVersion layout requires 18+ elements, got \(f.count)")
             }
-            let major = try ShelleyGenesis.natural(f[14], label: "protocolVersion.major")
-            let minor = try ShelleyGenesis.natural(f[15], label: "protocolVersion.minor")
+            let major = try f[14].integer("ProtocolParams protocolVersion.major", as: UInt32.self)
+            let minor = try f[15].integer("ProtocolParams protocolVersion.minor", as: UInt32.self)
             protocolVersion = ProtocolVersion(minor: minor, major: major)
             trailingOffset = 16
         }
@@ -421,13 +481,13 @@ extension ProtocolParams {
             .integer(protocolVersion.minor)
         ])
         var elements: [Primitive] = []
-        elements.append(.uint(UInt64(minFeeA)))
-        elements.append(.uint(UInt64(minFeeB)))
-        elements.append(.uint(UInt64(maxBlockBodySize)))
-        elements.append(.uint(UInt64(maxTxSize)))
-        elements.append(.uint(UInt64(maxBlockHeaderSize)))
-        elements.append(.uint(keyDeposit))
-        elements.append(.uint(poolDeposit))
+        elements.append(.integer(minFeeA))
+        elements.append(.integer(minFeeB))
+        elements.append(.integer(maxBlockBodySize))
+        elements.append(.integer(maxTxSize))
+        elements.append(.integer(maxBlockHeaderSize))
+        elements.append(.integer(keyDeposit))
+        elements.append(.integer(poolDeposit))
         elements.append(.integer(eMax))
         elements.append(.integer(nOpt))
         elements.append(try ShelleyGenesis.fractionPrimitive2(a0, label: "a0"))
@@ -441,6 +501,16 @@ extension ProtocolParams {
         return .list(elements)
     }
 
+    /// Throws when a rational is outside its ledger type's range: `a0` a
+    /// `NonNegativeInterval`; `rho`, `tau` and `d` `UnitInterval`s.
+    func checkRationalRanges() throws {
+        for (value, what, atMostOne) in [(a0, "a0", false), (rho, "rho", true), (tau, "tau", true),
+                                          (decentralisationParam, "decentralisationParam", true)]
+        where !value.isFinite || value < 0 || (atMostOne && value > 1) {
+            throw CardanoCoreError.deserializeError("ProtocolParams \(what): \(value) is out of range")
+        }
+    }
+
     private static func readExtraEntropy(_ p: Primitive) -> ExtraEntropy {
         if case .list(let items) = p, items.first == .uint(0) {
             return ExtraEntropy(tag: "NeutralNonce")
@@ -452,8 +522,8 @@ extension ProtocolParams {
         guard case .list(let items) = p, items.count >= 2 else {
             throw CardanoCoreError.deserializeError("ProtocolParams: expected [major, minor] for protocolVersion")
         }
-        let major = try ShelleyGenesis.natural(items[0], label: "protocolVersion.major")
-        let minor = try ShelleyGenesis.natural(items[1], label: "protocolVersion.minor")
+        let major = try items[0].integer("ProtocolParams protocolVersion.major", as: UInt32.self)
+        let minor = try items[1].integer("ProtocolParams protocolVersion.minor", as: UInt32.self)
         return ProtocolVersion(minor: minor, major: major)
     }
 }
