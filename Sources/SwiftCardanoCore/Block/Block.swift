@@ -29,6 +29,11 @@ public struct Block: Serializable {
     /// Indices of invalid transactions within this block
     public var invalidTransactions: [TransactionIndex] { didSet { originalCBOR = nil } }
 
+    /// Whether this was written in the Shelley to Mary shape, `[header,
+    /// bodies, witness sets, auxiliary data]`, which has no invalid
+    /// transactions.
+    public internal(set) var isPreAlonzo = false { didSet { originalCBOR = nil } }
+
     /// The exact bytes this block was decoded from, while it is unchanged.
     ///
     /// Its header, transaction bodies, witness sets and auxiliary data keep
@@ -59,31 +64,47 @@ public struct Block: Serializable {
         self.invalidTransactions = invalidTransactions
     }
 
-    /// Decodes a block, keeping the bytes of it and of its parts.
+    /// Decodes a block as the current era's ledger reads it, keeping the bytes
+    /// of it and of its parts.
     public static func fromCBOR(data: Data) throws -> Block {
+        try fromCBOR(data: data, era: .conway)
+    }
+
+    /// Decodes a block of `era` as that era's ledger reads it, keeping the
+    /// bytes of it and of its parts.
+    public static func fromCBOR(data: Data, era: Era) throws -> Block {
         let scanner = CBORItemScanner(data)
         guard try scanner.end(ofItemAt: 0) == scanner.bytes.count else {
             throw CardanoCoreError.deserializeError("Trailing bytes after Block")
         }
-        var block = try Transaction.decoder().decode(Block.self, from: data)
         let bytes = scanner.bytes
         let spans = try scanner.elements(ofArrayAt: 0)
+        guard spans.count == 4 || spans.count == 5 else {
+            throw CardanoCoreError.deserializeError("Block requires 4 or 5 elements, got \(spans.count)")
+        }
+        let rules = LedgerDuplicateRules(bytes, era: era)
+        let bodySpans = try scanner.elements(ofArrayAt: spans[1].lowerBound)
+        let witnessSpans = try scanner.elements(ofArrayAt: spans[2].lowerBound)
+        let auxiliaryEntries = try scanner.entries(ofMapAt: spans[3].lowerBound)
+        for span in bodySpans { try rules.checkBody(at: span.lowerBound) }
+        for span in witnessSpans { try rules.checkWitnessSet(at: span.lowerBound) }
+        try rules.checkAuxiliaryDataSet(at: spans[3].lowerBound)
+
+        var block = try Transaction.decoder().decode(Block.self, from: data)
 
         block.header.originalCBOR = bytes.subdata(in: spans[0])
-        for (index, span) in try scanner.elements(ofArrayAt: spans[1].lowerBound).enumerated()
-        where index < block.transactionBodies.count {
-            block.transactionBodies[index].originalCBOR = bytes.subdata(in: span)
+        for (index, span) in bodySpans.enumerated() where index < block.transactionBodies.count {
+            try block.transactionBodies[index].keepBytes(bytes.subdata(in: span))
         }
-        for (index, span) in try scanner.elements(ofArrayAt: spans[2].lowerBound).enumerated()
-        where index < block.transactionWitnessSets.count {
+        for (index, span) in witnessSpans.enumerated() where index < block.transactionWitnessSets.count {
             try block.transactionWitnessSets[index].keepBytes(bytes.subdata(in: span))
         }
-        for (key, value) in try scanner.entries(ofMapAt: spans[3].lowerBound) {
+        for (key, value) in auxiliaryEntries {
             guard let index = try scanner.unsignedInteger(at: key.lowerBound),
                 let transactionIndex = TransactionIndex(exactly: index),
                 block.auxiliaryDataSet[transactionIndex] != nil
             else { continue }
-            block.auxiliaryDataSet[transactionIndex]?.originalCBOR = bytes.subdata(in: value)
+            try block.auxiliaryDataSet[transactionIndex]?.keepBytes(bytes.subdata(in: value))
         }
         block.originalCBOR = bytes
         return block
@@ -99,24 +120,58 @@ public struct Block: Serializable {
     public func toCBORData(deterministic: Bool = false) throws -> Data {
         _ = deterministic
         if let originalCBOR { return originalCBOR }
-        var data = CBORItemScanner.definiteHeader(major: 4, count: 5)
-        data.append(try header.toCBORData())
-        data.append(CBORItemScanner.definiteHeader(major: 4, count: transactionBodies.count))
+        let parts = try encodedParts()
+        return CBORItemScanner.definiteHeader(major: 4, count: parts.count + 1)
+            + (try header.toCBORData()) + parts.reduce(Data(), +)
+    }
+
+    /// The block's hash: the hash of its header as written, which the next
+    /// block names as its predecessor.
+    public func hash() -> Data {
+        header.hash()
+    }
+
+    /// The hash of the block body, which the header commits to as its
+    /// `block_body_hash`: Blake2b-256 over the Blake2b-256 hashes of the
+    /// transaction bodies, the witness sets, the auxiliary data and — from
+    /// Alonzo — the invalid transactions, each taken over its bytes as written.
+    public func bodyHash() throws -> BlockBodyHash {
+        let hashes = try encodedParts().map { try Self.blake2b256($0) }
+        return BlockBodyHash(payload: try Self.blake2b256(hashes.reduce(Data(), +)))
+    }
+
+    private static func blake2b256(_ data: Data) throws -> Data {
+        try Hash().blake2b(data: data, digestSize: BLOCK_BODY_HASH_SIZE, encoder: RawEncoder.self)
+    }
+
+    /// The bytes of every element after the header: as written while this
+    /// block is unchanged, otherwise freshly encoded from parts that keep
+    /// their own bytes.
+    private func encodedParts() throws -> [Data] {
+        if let originalCBOR {
+            let scanner = CBORItemScanner(originalCBOR)
+            return try scanner.elements(ofArrayAt: 0).dropFirst().map { originalCBOR.subdata(in: $0) }
+        }
+        guard !isPreAlonzo || invalidTransactions.isEmpty else {
+            throw CardanoCoreError.valueError("A Shelley to Mary block has no invalid transactions")
+        }
+        var bodies = CBORItemScanner.definiteHeader(major: 4, count: transactionBodies.count)
         for body in transactionBodies {
-            data.append(try body.toCBORData())
+            bodies.append(try body.toCBORData())
         }
-        data.append(CBORItemScanner.definiteHeader(major: 4, count: transactionWitnessSets.count))
+        var witnessSets = CBORItemScanner.definiteHeader(major: 4, count: transactionWitnessSets.count)
         for witnessSet in transactionWitnessSets {
-            data.append(try witnessSet.toCBORData())
+            witnessSets.append(try witnessSet.toCBORData())
         }
-        data.append(CBORItemScanner.definiteHeader(major: 5, count: auxiliaryDataSet.count))
+        var auxiliaryData = CBORItemScanner.definiteHeader(major: 5, count: auxiliaryDataSet.count)
         let encoder = CBOREncoder()
-        for (index, auxiliaryData) in auxiliaryDataSet {
-            data.append(try encoder.encode(Primitive.uint(UInt64(index))))
-            data.append(try auxiliaryData.toCBORData())
+        for (index, entry) in auxiliaryDataSet {
+            auxiliaryData.append(try encoder.encode(Primitive.uint(UInt64(index))))
+            auxiliaryData.append(try entry.toCBORData())
         }
-        data.append(try encoder.encode(Primitive.list(invalidTransactions.map { .uint(UInt64($0)) })))
-        return data
+        guard !isPreAlonzo else { return [bodies, witnessSets, auxiliaryData] }
+        let invalid = try encoder.encode(Primitive.list(invalidTransactions.map { .uint(UInt64($0)) }))
+        return [bodies, witnessSets, auxiliaryData, invalid]
     }
 
     // MARK: - CBORSerializable
@@ -134,11 +189,12 @@ public struct Block: Serializable {
             throw CardanoCoreError.deserializeError("Invalid Block primitive: expected list")
         }
 
-        guard elements.count == 5 else {
+        guard elements.count == 4 || elements.count == 5 else {
             throw CardanoCoreError.deserializeError(
-                "Block requires exactly 5 elements, got \(elements.count)"
+                "Block requires 4 or 5 elements, got \(elements.count)"
             )
         }
+        self.isPreAlonzo = elements.count == 4
 
         // 0: header
         self.header = try Header(from: elements[0].normalized())
@@ -177,8 +233,8 @@ public struct Block: Serializable {
             for (key, value) in dict {
                 let index: TransactionIndex
                 switch key {
-                case .uint(let val): index = TransactionIndex(val)
-                case .int(let val): index = TransactionIndex(val)
+                case .uint(let val) where TransactionIndex(exactly: val) != nil: index = TransactionIndex(val)
+                case .int(let val) where TransactionIndex(exactly: val) != nil: index = TransactionIndex(val)
                 default:
                     throw CardanoCoreError.deserializeError(
                         "Invalid auxiliary_data_set key type"
@@ -190,8 +246,8 @@ public struct Block: Serializable {
             for (key, value) in dict {
                 let index: TransactionIndex
                 switch key {
-                case .uint(let val): index = TransactionIndex(val)
-                case .int(let val): index = TransactionIndex(val)
+                case .uint(let val) where TransactionIndex(exactly: val) != nil: index = TransactionIndex(val)
+                case .int(let val) where TransactionIndex(exactly: val) != nil: index = TransactionIndex(val)
                 default:
                     throw CardanoCoreError.deserializeError(
                         "Invalid auxiliary_data_set key type"
@@ -205,9 +261,9 @@ public struct Block: Serializable {
             )
         }
 
-        // 4: invalid_transactions : [* transaction_index]
+        // 4: invalid_transactions : [* transaction_index], from Alonzo
         let invalidTxPrimitives: [Primitive]
-        switch elements[4] {
+        switch isPreAlonzo ? .list([]) : elements[4] {
         case .list(let l): invalidTxPrimitives = l
         case .indefiniteList(let l): invalidTxPrimitives = Array(l)
         default:
@@ -216,8 +272,8 @@ public struct Block: Serializable {
         }
         self.invalidTransactions = try invalidTxPrimitives.map { element in
             switch element {
-            case .uint(let val): return TransactionIndex(val)
-            case .int(let val): return TransactionIndex(val)
+            case .uint(let val) where TransactionIndex(exactly: val) != nil: return TransactionIndex(val)
+            case .int(let val) where TransactionIndex(exactly: val) != nil: return TransactionIndex(val)
             default:
                 throw CardanoCoreError.deserializeError(
                     "Invalid transaction_index type in invalid_transactions"
@@ -242,13 +298,15 @@ public struct Block: Serializable {
         // invalid_transactions
         let invalidTxs: [Primitive] = invalidTransactions.map { .uint(UInt64($0)) }
 
+        guard !isPreAlonzo || invalidTxs.isEmpty else {
+            throw CardanoCoreError.valueError("A Shelley to Mary block has no invalid transactions")
+        }
         return .list([
             try header.toPrimitive(),
             .list(txBodies),
             .list(txWitnesses),
             .orderedDict(auxDataDict),
-            .list(invalidTxs),
-        ])
+        ] + (isPreAlonzo ? [] : [.list(invalidTxs)]))
     }
 
     // MARK: - JSONSerializable
@@ -293,8 +351,8 @@ public struct Block: Serializable {
             for (key, value) in auxDict {
                 let index: TransactionIndex
                 switch key {
-                case .uint(let val): index = TransactionIndex(val)
-                case .int(let val): index = TransactionIndex(val)
+                case .uint(let val) where TransactionIndex(exactly: val) != nil: index = TransactionIndex(val)
+                case .int(let val) where TransactionIndex(exactly: val) != nil: index = TransactionIndex(val)
                 case .string(let str):
                     guard let val = UInt16(str) else {
                         throw CardanoCoreError.deserializeError(
@@ -375,13 +433,5 @@ public struct Block: Serializable {
     public func hash(into hasher: inout Hasher) {
         hasher.combine(header)
         hasher.combine(transactionBodies)
-    }
-
-    public func hash() -> Data {
-        return try! Hash().blake2b(
-            data: try self.toCBORData(),
-            digestSize: BLOCK_BODY_HASH_SIZE,
-            encoder: RawEncoder.self
-        )
     }
 }

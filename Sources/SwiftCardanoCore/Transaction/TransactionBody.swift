@@ -122,15 +122,45 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
         self._type = type ?? Self.TYPE
     }
 
-    /// Decodes a body, keeping the bytes it was read from as ``originalCBOR``.
+    /// Decodes a body as the current era's ledger reads it, keeping the bytes
+    /// it was read from as ``originalCBOR``.
     public static func fromCBOR(data: Data) throws -> TransactionBody {
+        try fromCBOR(data: data, era: .conway)
+    }
+
+    /// Decodes a body as the ledger of `era` reads it — which repeated map
+    /// keys and set elements it rejects depends on the era — keeping the bytes
+    /// it was read from, and those of each output.
+    public static func fromCBOR(data: Data, era: Era) throws -> TransactionBody {
         let scanner = CBORItemScanner(data)
         guard try scanner.end(ofItemAt: 0) == scanner.bytes.count else {
             throw CardanoCoreError.deserializeError("Trailing bytes after TransactionBody")
         }
-        var body = try CBORDecoder().decode(TransactionBody.self, from: data)
-        body.originalCBOR = scanner.bytes
+        try LedgerDuplicateRules(scanner.bytes, era: era).checkBody(at: 0)
+        var body = try Transaction.decoder().decode(TransactionBody.self, from: data)
+        try body.keepBytes(scanner.bytes)
         return body
+    }
+
+    /// Records `bytes` as what this body was decoded from, and the bytes of
+    /// each output.
+    mutating func keepBytes(_ bytes: Data) throws {
+        let scanner = CBORItemScanner(bytes)
+        for (key, value) in try scanner.entries(ofMapAt: 0) {
+            switch try scanner.unsignedInteger(at: key.lowerBound) {
+            case UInt64(CodingKeys.outputs.rawValue):
+                let spans = try scanner.elements(ofArrayAt: value.lowerBound)
+                guard spans.count == outputs.count else { continue }
+                for (index, span) in spans.enumerated() {
+                    try outputs[index].keepBytes(scanner.bytes.subdata(in: span))
+                }
+            case UInt64(CodingKeys.collateralReturn.rawValue):
+                try collateralReturn?.keepBytes(scanner.bytes.subdata(in: value))
+            default:
+                break
+            }
+        }
+        originalCBOR = scanner.bytes
     }
 
     public init(from cbor: Data) throws {

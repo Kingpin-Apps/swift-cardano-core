@@ -82,8 +82,8 @@ public struct MyTest: PlutusDataProtocol {
                             try c.map { try PlutusData(from: $0.toPrimitive())
                         }
                     )),
-                    .map(OrderedDictionary(
-                        uniqueKeysWithValues: try d.map {
+                    .map(MapPairs(
+                        try d.map {
                         (try PlutusData(from: $0.key.toPrimitive()), try PlutusData(from: $0.value.toPrimitive()))
                         }
                     ))
@@ -205,7 +205,7 @@ public struct DictTest: PlutusDataProtocol {
             Constr(
                 tag: DictTest.CONSTR_ID,
                 fields: [
-                    .map(newMap)
+                    .map(MapPairs(newMap))
                 ]
             )
         )

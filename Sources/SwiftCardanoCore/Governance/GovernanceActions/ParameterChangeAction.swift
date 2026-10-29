@@ -1,4 +1,5 @@
 import Foundation
+import OrderedCollections
 
 public struct ParameterChangeAction: GovernanceAction {
     public static var code: GovActionCode { .parameterChangeAction }
@@ -43,8 +44,8 @@ public struct ParameterChangeAction: GovernanceAction {
         }
         let code: Int
         switch elements[0] {
-        case .int(let v): code = Int(v)
-        case .uint(let v): code = Int(v)
+        case .int(let v) where Int(exactly: v) != nil: code = Int(v)
+        case .uint(let v) where Int(exactly: v) != nil: code = Int(v)
         default: throw CardanoCoreError.deserializeError("Invalid ParameterChangeAction type")
         }
         guard code == Self.code.rawValue else {
@@ -363,65 +364,47 @@ public struct ProtocolParamUpdate: CBORSerializable, Sendable {
         var dict = [Int: Primitive]()
         for (key, value) in pairs {
             switch key {
-            case .int(let keyValue):
+            case .int(let keyValue) where Int(exactly: keyValue) != nil:
                 dict[Int(keyValue)] = value
-            case .uint(let keyValue):
+            case .uint(let keyValue) where Int(exactly: keyValue) != nil:
                 dict[Int(keyValue)] = value
             default:
                 throw CardanoCoreError.deserializeError("Invalid ProtocolParamUpdate type")
             }
         }
 
-        func intValue(_ key: CodingKeys) -> Int? {
-            switch dict[key.rawValue] {
-            case .int(let v): return Int(v)
-            case .uint(let v): return Int(v)
-            default: return nil
+        /// The unsigned integer under `key`, or `nil` when there is none. A
+        /// value outside the field's range fails to decode, as in the ledger.
+        func number<T: FixedWidthInteger & UnsignedInteger>(_ key: CodingKeys) throws -> T? {
+            guard let primitive = dict[key.rawValue] else { return nil }
+            let value: T?
+            switch primitive {
+            case .uint(let v): value = T(exactly: v)
+            case .int(let v): value = T(exactly: v)
+            default: value = nil
             }
-        }
-        func uintValue(_ key: CodingKeys) -> UInt? {
-            switch dict[key.rawValue] {
-            case .int(let v): return UInt(v)
-            case .uint(let v): return UInt(v)
-            default: return nil
+            guard let value else {
+                throw CardanoCoreError.deserializeError(
+                    "Protocol parameter \(key) out of range for \(T.self): \(primitive)")
             }
+            return value
         }
 
-        minFeeA = intValue(.minFeeA).map { Coin($0) }
-        minFeeB = intValue(.minFeeB).map { Coin($0) }
+        minFeeA = try number(.minFeeA)
+        minFeeB = try number(.minFeeB)
 
-        if let v = intValue(.maxBlockBodySize) {
-            maxBlockBodySize = UInt32(v)
-        } else {
-            maxBlockBodySize = nil
-        }
+        maxBlockBodySize = try number(.maxBlockBodySize)
 
-        if let v = intValue(.maxTransactionSize) {
-            maxTransactionSize = UInt32(v)
-        } else {
-            maxTransactionSize = nil
-        }
+        maxTransactionSize = try number(.maxTransactionSize)
 
-        if let v = intValue(.maxBlockHeaderSize) {
-            maxBlockHeaderSize = UInt16(v)
-        } else {
-            maxBlockHeaderSize = nil
-        }
+        maxBlockHeaderSize = try number(.maxBlockHeaderSize)
 
-        keyDeposit = intValue(.keyDeposit).map { Coin($0) }
-        poolDeposit = intValue(.poolDeposit).map { Coin($0) }
+        keyDeposit = try number(.keyDeposit)
+        poolDeposit = try number(.poolDeposit)
 
-        if let v = intValue(.maximumEpoch) {
-            maximumEpoch = EpochInterval(v)
-        } else {
-            maximumEpoch = nil
-        }
+        maximumEpoch = try number(.maximumEpoch)
 
-        if let v = intValue(.nOpt) {
-            nOpt = UInt16(v)
-        } else {
-            nOpt = nil
-        }
+        nOpt = try number(.nOpt)
 
         if let poolPledgeInfluencePrimitive = dict[CodingKeys.poolPledgeInfluence.rawValue] {
             poolPledgeInfluence = try NonNegativeInterval(from: poolPledgeInfluencePrimitive)
@@ -449,11 +432,7 @@ public struct ProtocolParamUpdate: CBORSerializable, Sendable {
             decentralizationConstant = nil
         }
 
-        if let v = intValue(.extraEntropy) {
-            extraEntropy = UInt32(v)
-        } else {
-            extraEntropy = nil
-        }
+        extraEntropy = try number(.extraEntropy)
 
         if let protocolVersionPrimitive = dict[CodingKeys.protocolVersion.rawValue] {
             protocolVersion = try ProtocolVersion(from: protocolVersionPrimitive)
@@ -461,8 +440,8 @@ public struct ProtocolParamUpdate: CBORSerializable, Sendable {
             protocolVersion = nil
         }
 
-        minPoolCost = intValue(.minPoolCost).map { Coin($0) }
-        adaPerUtxoByte = intValue(.adaPerUtxoByte).map { Coin($0) }
+        minPoolCost = try number(.minPoolCost)
+        adaPerUtxoByte = try number(.adaPerUtxoByte)
 
         if let costModelsPrimitive = dict[CodingKeys.costModels.rawValue] {
             costModels = try CostModels(from: costModelsPrimitive)
@@ -488,17 +467,9 @@ public struct ProtocolParamUpdate: CBORSerializable, Sendable {
             maxBlockExUnits = nil
         }
 
-        if let v = intValue(.maxValueSize) { maxValueSize = UInt32(v) } else { maxValueSize = nil }
-        if let v = intValue(.collateralPercentage) {
-            collateralPercentage = UInt16(v)
-        } else {
-            collateralPercentage = nil
-        }
-        if let v = intValue(.maxCollateralInputs) {
-            maxCollateralInputs = UInt16(v)
-        } else {
-            maxCollateralInputs = nil
-        }
+        maxValueSize = try number(.maxValueSize)
+        collateralPercentage = try number(.collateralPercentage)
+        maxCollateralInputs = try number(.maxCollateralInputs)
 
         if let poolVotingThresholdsPrimitive = dict[CodingKeys.poolVotingThresholds.rawValue] {
             poolVotingThresholds = try PoolVotingThresholds(from: poolVotingThresholdsPrimitive)
@@ -512,30 +483,14 @@ public struct ProtocolParamUpdate: CBORSerializable, Sendable {
             drepVotingThresholds = nil
         }
 
-        if let v = intValue(.minCommitteeSize) {
-            minCommitteeSize = UInt16(v)
-        } else {
-            minCommitteeSize = nil
-        }
-        if let v = intValue(.committeeTermLimit) {
-            committeeTermLimit = EpochInterval(v)
-        } else {
-            committeeTermLimit = nil
-        }
-        if let v = intValue(.governanceActionValidityPeriod) {
-            governanceActionValidityPeriod = EpochInterval(v)
-        } else {
-            governanceActionValidityPeriod = nil
-        }
+        minCommitteeSize = try number(.minCommitteeSize)
+        committeeTermLimit = try number(.committeeTermLimit)
+        governanceActionValidityPeriod = try number(.governanceActionValidityPeriod)
 
-        governanceActionDeposit = intValue(.governanceActionDeposit).map { Coin($0) }
-        drepDeposit = intValue(.drepDeposit).map { Coin($0) }
+        governanceActionDeposit = try number(.governanceActionDeposit)
+        drepDeposit = try number(.drepDeposit)
 
-        if let v = intValue(.drepInactivityPeriod) {
-            drepInactivityPeriod = EpochInterval(v)
-        } else {
-            drepInactivityPeriod = nil
-        }
+        drepInactivityPeriod = try number(.drepInactivityPeriod)
 
         if let minFeeRefScriptCoinsPerBytePrimitive = dict[
             CodingKeys.minFeeRefScriptCoinsPerByte.rawValue]
@@ -548,122 +503,127 @@ public struct ProtocolParamUpdate: CBORSerializable, Sendable {
     }
 
     public func toPrimitive() throws -> Primitive {
-        var dict: [Primitive: Primitive] = [:]
+        var dict = OrderedDictionary<Primitive, Primitive>()
 
         if let minFeeA = minFeeA {
-            dict[.int(Int64(CodingKeys.minFeeA.rawValue))] = .int(Int64(minFeeA))
+            dict[.uint(UInt64(CodingKeys.minFeeA.rawValue))] = .uint(UInt64(minFeeA))
         }
         if let minFeeB = minFeeB {
-            dict[.int(Int64(CodingKeys.minFeeB.rawValue))] = .int(Int64(minFeeB))
+            dict[.uint(UInt64(CodingKeys.minFeeB.rawValue))] = .uint(UInt64(minFeeB))
         }
         if let maxBlockBodySize = maxBlockBodySize {
-            dict[.int(Int64(CodingKeys.maxBlockBodySize.rawValue))] = .int(Int64(maxBlockBodySize))
+            dict[.uint(UInt64(CodingKeys.maxBlockBodySize.rawValue))] = .uint(UInt64(maxBlockBodySize))
         }
         if let maxTransactionSize = maxTransactionSize {
-            dict[.int(Int64(CodingKeys.maxTransactionSize.rawValue))] = .int(Int64(maxTransactionSize))
+            dict[.uint(UInt64(CodingKeys.maxTransactionSize.rawValue))] = .uint(UInt64(maxTransactionSize))
         }
         if let maxBlockHeaderSize = maxBlockHeaderSize {
-            dict[.int(Int64(CodingKeys.maxBlockHeaderSize.rawValue))] = .int(Int64(maxBlockHeaderSize))
+            dict[.uint(UInt64(CodingKeys.maxBlockHeaderSize.rawValue))] = .uint(UInt64(maxBlockHeaderSize))
         }
 
         if let keyDeposit = keyDeposit {
-            dict[.int(Int64(CodingKeys.keyDeposit.rawValue))] = .int(Int64(keyDeposit))
+            dict[.uint(UInt64(CodingKeys.keyDeposit.rawValue))] = .uint(UInt64(keyDeposit))
         }
         if let poolDeposit = poolDeposit {
-            dict[.int(Int64(CodingKeys.poolDeposit.rawValue))] = .int(Int64(poolDeposit))
+            dict[.uint(UInt64(CodingKeys.poolDeposit.rawValue))] = .uint(UInt64(poolDeposit))
         }
         if let maximumEpoch = maximumEpoch {
-            dict[.int(Int64(CodingKeys.maximumEpoch.rawValue))] = .int(Int64(maximumEpoch))
+            dict[.uint(UInt64(CodingKeys.maximumEpoch.rawValue))] = .uint(UInt64(maximumEpoch))
         }
         if let nOpt = nOpt {
-            dict[.int(Int64(CodingKeys.nOpt.rawValue))] = .int(Int64(nOpt))
+            dict[.uint(UInt64(CodingKeys.nOpt.rawValue))] = .uint(UInt64(nOpt))
         }
         if let poolPledgeInfluence = poolPledgeInfluence {
-            dict[.int(Int64(CodingKeys.poolPledgeInfluence.rawValue))] =
+            dict[.uint(UInt64(CodingKeys.poolPledgeInfluence.rawValue))] =
                 try poolPledgeInfluence.toPrimitive()
         }
 
         if let expansionRate = expansionRate {
-            dict[.int(Int64(CodingKeys.expansionRate.rawValue))] = try expansionRate.toPrimitive()
+            dict[.uint(UInt64(CodingKeys.expansionRate.rawValue))] = try expansionRate.toPrimitive()
         }
         if let treasuryGrowthRate = treasuryGrowthRate {
-            dict[.int(Int64(CodingKeys.treasuryGrowthRate.rawValue))] =
+            dict[.uint(UInt64(CodingKeys.treasuryGrowthRate.rawValue))] =
                 try treasuryGrowthRate.toPrimitive()
         }
         if let decentralizationConstant = decentralizationConstant {
-            dict[.int(Int64(CodingKeys.decentralizationConstant.rawValue))] =
+            dict[.uint(UInt64(CodingKeys.decentralizationConstant.rawValue))] =
                 try decentralizationConstant.toPrimitive()
         }
         if let extraEntropy = extraEntropy {
-            dict[.int(Int64(CodingKeys.extraEntropy.rawValue))] = .int(Int64(extraEntropy))
+            dict[.uint(UInt64(CodingKeys.extraEntropy.rawValue))] = .uint(UInt64(extraEntropy))
         }
         if let protocolVersion = protocolVersion {
-            dict[.int(Int64(CodingKeys.protocolVersion.rawValue))] = try protocolVersion.toPrimitive()
+            dict[.uint(UInt64(CodingKeys.protocolVersion.rawValue))] = try protocolVersion.toPrimitive()
         }
 
         if let minPoolCost = minPoolCost {
-            dict[.int(Int64(CodingKeys.minPoolCost.rawValue))] = .int(Int64(minPoolCost))
+            dict[.uint(UInt64(CodingKeys.minPoolCost.rawValue))] = .uint(UInt64(minPoolCost))
         }
         if let adaPerUtxoByte = adaPerUtxoByte {
-            dict[.int(Int64(CodingKeys.adaPerUtxoByte.rawValue))] = .int(Int64(adaPerUtxoByte))
+            dict[.uint(UInt64(CodingKeys.adaPerUtxoByte.rawValue))] = .uint(UInt64(adaPerUtxoByte))
         }
         if let costModels = costModels {
-            dict[.int(Int64(CodingKeys.costModels.rawValue))] = try costModels.toPrimitive()
+            dict[.uint(UInt64(CodingKeys.costModels.rawValue))] = try costModels.toPrimitive()
         }
         if let executionCosts = executionCosts {
-            dict[.int(Int64(CodingKeys.executionCosts.rawValue))] = try executionCosts.toPrimitive()
+            dict[.uint(UInt64(CodingKeys.executionCosts.rawValue))] = try executionCosts.toPrimitive()
         }
         if let maxTxExUnits = maxTxExUnits {
-            dict[.int(Int64(CodingKeys.maxTxExUnits.rawValue))] = try maxTxExUnits.toPrimitive()
+            dict[.uint(UInt64(CodingKeys.maxTxExUnits.rawValue))] = try maxTxExUnits.toPrimitive()
         }
         if let maxBlockExUnits = maxBlockExUnits {
-            dict[.int(Int64(CodingKeys.maxBlockExUnits.rawValue))] = try maxBlockExUnits.toPrimitive()
+            dict[.uint(UInt64(CodingKeys.maxBlockExUnits.rawValue))] = try maxBlockExUnits.toPrimitive()
         }
         if let maxValueSize = maxValueSize {
-            dict[.int(Int64(CodingKeys.maxValueSize.rawValue))] = .int(Int64(maxValueSize))
+            dict[.uint(UInt64(CodingKeys.maxValueSize.rawValue))] = .uint(UInt64(maxValueSize))
         }
         if let collateralPercentage = collateralPercentage {
-            dict[.int(Int64(CodingKeys.collateralPercentage.rawValue))] = .int(Int64(collateralPercentage))
+            dict[.uint(UInt64(CodingKeys.collateralPercentage.rawValue))] = .uint(UInt64(collateralPercentage))
         }
 
         if let maxCollateralInputs = maxCollateralInputs {
-            dict[.int(Int64(CodingKeys.maxCollateralInputs.rawValue))] = .int(Int64(maxCollateralInputs))
+            dict[.uint(UInt64(CodingKeys.maxCollateralInputs.rawValue))] = .uint(UInt64(maxCollateralInputs))
         }
         if let poolVotingThresholds = poolVotingThresholds {
-            dict[.int(Int64(CodingKeys.poolVotingThresholds.rawValue))] =
+            dict[.uint(UInt64(CodingKeys.poolVotingThresholds.rawValue))] =
                 try poolVotingThresholds.toPrimitive()
         }
         if let drepVotingThresholds = drepVotingThresholds {
-            dict[.int(Int64(CodingKeys.drepVotingThresholds.rawValue))] =
+            dict[.uint(UInt64(CodingKeys.drepVotingThresholds.rawValue))] =
                 try drepVotingThresholds.toPrimitive()
         }
         if let minCommitteeSize = minCommitteeSize {
-            dict[.int(Int64(CodingKeys.minCommitteeSize.rawValue))] = .int(Int64(minCommitteeSize))
+            dict[.uint(UInt64(CodingKeys.minCommitteeSize.rawValue))] = .uint(UInt64(minCommitteeSize))
         }
         if let committeeTermLimit = committeeTermLimit {
-            dict[.int(Int64(CodingKeys.committeeTermLimit.rawValue))] = .int(Int64(committeeTermLimit))
+            dict[.uint(UInt64(CodingKeys.committeeTermLimit.rawValue))] = .uint(UInt64(committeeTermLimit))
         }
 
         if let governanceActionValidityPeriod = governanceActionValidityPeriod {
-            dict[.int(Int64(CodingKeys.governanceActionValidityPeriod.rawValue))] = .int(
+            dict[.uint(UInt64(CodingKeys.governanceActionValidityPeriod.rawValue))] = .int(
                 Int64(governanceActionValidityPeriod))
         }
         if let governanceActionDeposit = governanceActionDeposit {
-            dict[.int(Int64(CodingKeys.governanceActionDeposit.rawValue))] = .int(
+            dict[.uint(UInt64(CodingKeys.governanceActionDeposit.rawValue))] = .int(
                 Int64(governanceActionDeposit))
         }
         if let drepDeposit = drepDeposit {
-            dict[.int(Int64(CodingKeys.drepDeposit.rawValue))] = .int(Int64(drepDeposit))
+            dict[.uint(UInt64(CodingKeys.drepDeposit.rawValue))] = .uint(UInt64(drepDeposit))
         }
         if let drepInactivityPeriod = drepInactivityPeriod {
-            dict[.int(Int64(CodingKeys.drepInactivityPeriod.rawValue))] = .int(Int64(drepInactivityPeriod))
+            dict[.uint(UInt64(CodingKeys.drepInactivityPeriod.rawValue))] = .uint(UInt64(drepInactivityPeriod))
         }
         if let minFeeRefScriptCoinsPerByte = minFeeRefScriptCoinsPerByte {
-            dict[.int(Int64(CodingKeys.minFeeRefScriptCoinsPerByte.rawValue))] =
+            dict[.uint(UInt64(CodingKeys.minFeeRefScriptCoinsPerByte.rawValue))] =
                 try minFeeRefScriptCoinsPerByte.toPrimitive()
         }
 
-        return .dict(dict)
+        // In ascending field order, so an update always encodes the same way.
+        dict.sort { lhs, rhs in
+            guard case .uint(let l) = lhs.key, case .uint(let r) = rhs.key else { return false }
+            return l < r
+        }
+        return .orderedDict(dict)
     }
 }
 

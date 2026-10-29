@@ -81,6 +81,8 @@ extension CBOR {
             return try Primitive.from(cbor: self, preservingEncoding: true)
         }
         switch self {
+            case .encoded:
+                return .cborSimpleValue(self)
             case .null:
                 return .null
             case .boolean(let bool):
@@ -162,8 +164,10 @@ extension Data {
         ?? String(data: self, encoding: .unicode) ?? ""
     }
     
+    /// These bytes as a CBOR item: decoded when the generic reader can read
+    /// them, otherwise — a map that repeats a key, say — carried as they are.
     public var toCBOR: CBOR {
-        return try! CBORSerialization.cbor(from: self)
+        return (try? CBORSerialization.cbor(from: self)) ?? .encoded(self)
     }
     
     public static func randomBytes(count: Int) -> Data {

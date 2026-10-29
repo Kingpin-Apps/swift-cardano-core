@@ -77,13 +77,25 @@ public struct Transaction: Serializable, TextEnvelopable {
         )
     }
 
-    /// Decodes a transaction, keeping the bytes of it and of its parts, so that
-    /// its id and its re-encoding are those of what was written.
+    /// Decodes a transaction as the current era's ledger reads it, keeping
+    /// the bytes of it and of its parts, so that its id and its re-encoding are
+    /// those of what was written.
     public static func fromCBOR(data: Data) throws -> Transaction {
+        try fromCBOR(data: data, era: .conway)
+    }
+
+    /// Decodes a transaction as the ledger of `era` reads it, keeping the bytes
+    /// of it and of its parts.
+    ///
+    /// Which repeated map keys and set elements the ledger rejects depends on
+    /// the era — see ``LedgerDuplicateRules`` — so a transaction from an
+    /// earlier era should be read with that era.
+    public static func fromCBOR(data: Data, era: Era) throws -> Transaction {
         let scanner = CBORItemScanner(data)
         guard try scanner.end(ofItemAt: 0) == scanner.bytes.count else {
             throw CardanoCoreError.deserializeError("Trailing bytes after Transaction")
         }
+        try LedgerDuplicateRules(scanner.bytes, era: era).checkTransaction()
         let spans = try scanner.elements(ofArrayAt: 0)
         var tx = try decoder().decode(Transaction.self, from: data)
         guard spans.count >= 3 else { return tx }
@@ -91,12 +103,13 @@ public struct Transaction: Serializable, TextEnvelopable {
         return tx
     }
 
-    /// A decoder for whole transactions and blocks.
+    /// A decoder for the parts of transactions and blocks.
     ///
-    /// The ledger reads a Plutus or metadata map as a list of pairs, so a key
-    /// may repeat in one that is on chain. Such a map is read with its later
-    /// value — the typed value cannot hold both — but the bytes are kept, so the
-    /// transaction still encodes, and hashes, as written.
+    /// It reads a repeated map key with its later value, as the ledger does
+    /// before Conway. Where the ledger rejects one, ``LedgerDuplicateRules``
+    /// has already done so; Plutus data and metadata, whose maps may repeat a
+    /// key, are read again from their bytes by ``PlutusDataReader`` and
+    /// ``MetadatumReader``, keeping every pair.
     static func decoder() -> CBORDecoder {
         let decoder = CBORDecoder()
         decoder.allowDuplicateMapKeys = true
@@ -106,11 +119,11 @@ public struct Transaction: Serializable, TextEnvelopable {
     /// Records `bytes`, whose top-level elements span `spans`, as what this
     /// transaction was decoded from.
     mutating func keepBytes(_ bytes: Data, spans: [Range<Int>]) throws {
-        transactionBody.originalCBOR = bytes.subdata(in: spans[0])
+        try transactionBody.keepBytes(bytes.subdata(in: spans[0]))
         try transactionWitnessSet.keepBytes(bytes.subdata(in: spans[1]))
         let auxiliarySpan = isPreAlonzo ? spans[2] : spans.count > 3 ? spans[3] : nil
         if let auxiliarySpan, auxiliaryData != nil {
-            auxiliaryData?.originalCBOR = bytes.subdata(in: auxiliarySpan)
+            try auxiliaryData?.keepBytes(bytes.subdata(in: auxiliarySpan))
         }
         originalCBOR = bytes
     }

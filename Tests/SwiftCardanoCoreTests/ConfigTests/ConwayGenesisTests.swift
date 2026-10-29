@@ -17,7 +17,7 @@ struct ConwayGenesisTests {
     
     @Test func testSaveLoad() async throws {
         let tempDirURL = FileManager.default.temporaryDirectory
-        let tempFileURL = tempDirURL.appendingPathComponent("conwayGenesis.json")
+        let tempFileURL = tempDirURL.appendingPathComponent(UUID().uuidString + "-conwayGenesis.json")
         
         defer {
             try? FileManager.default.removeItem(at: tempFileURL)

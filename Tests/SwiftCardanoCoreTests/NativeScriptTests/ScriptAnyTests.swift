@@ -50,7 +50,7 @@ import CBORCodable
     
     @Test func testSaveLoad() async throws {
         let tempDirURL = FileManager.default.temporaryDirectory
-        let tempFileURL = tempDirURL.appendingPathComponent("any.json")
+        let tempFileURL = tempDirURL.appendingPathComponent(UUID().uuidString + "-any.json")
         try? FileManager.default.removeItem(at: tempFileURL)
         defer {
             try? FileManager.default.removeItem(at: tempFileURL)

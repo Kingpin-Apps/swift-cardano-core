@@ -152,7 +152,9 @@ string is held as `.boundedBytes` or `.byteString` depending on its length and
 remembers the chunks it was read in, an integer as `.int`, `.bigUInt` or `.bigNInt`
 depending on its magnitude, a list as `.array` or `.indefiniteArray` and a map as
 `.map` or `.indefiniteMap` depending on how they were written, and a ``Constr``
-remembers whether its fields were written with an indefinite-length array.
+remembers whether its fields were written with an indefinite-length array and
+whether it was written in the general `#6.102` form. A map's pairs, their order
+and any repeated key are part of its value, so `==` compares those.
 
 `==` ignores all of it and compares structure and content, which is what the
 ledger compares. It has to: a datum read off the chain and the same value rebuilt

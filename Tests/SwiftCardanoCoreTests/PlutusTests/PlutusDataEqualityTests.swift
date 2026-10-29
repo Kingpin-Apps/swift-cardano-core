@@ -149,17 +149,17 @@ struct PlutusDataEqualityTests {
 
     @Test("A map keeps its order, because a Plutus map is a list of pairs")
     func mapOrder() {
-        let pairs = PlutusData.map(OrderedDictionary(uniqueKeysWithValues: [
+        let pairs = PlutusData.map(MapPairs( [
             (PlutusData.bigInt(.int(1)), PlutusData.bigInt(.int(10))),
             (PlutusData.bigInt(.int(2)), PlutusData.bigInt(.int(20))),
         ]))
-        let sameHeldDifferently = PlutusData.map(OrderedDictionary(uniqueKeysWithValues: [
+        let sameHeldDifferently = PlutusData.map(MapPairs( [
             (PlutusData.bigInt(.bigUInt(BigUInt(1))), PlutusData.bigInt(.int(10))),
             (PlutusData.bigInt(.int(2)), PlutusData.bigInt(.bigUInt(BigUInt(20)))),
         ]))
         expectSameValue(pairs, sameHeldDifferently, "the same pairs in the same order")
 
-        let reordered = PlutusData.map(OrderedDictionary(uniqueKeysWithValues: [
+        let reordered = PlutusData.map(MapPairs( [
             (PlutusData.bigInt(.int(2)), PlutusData.bigInt(.int(20))),
             (PlutusData.bigInt(.int(1)), PlutusData.bigInt(.int(10))),
         ]))
@@ -172,7 +172,7 @@ struct PlutusDataEqualityTests {
         let integer = PlutusData.bigInt(.int(0))
         let list = PlutusData.array([integer])
         let constructor = PlutusData.constructor(Constr(tag: 0, fields: [integer]))
-        let map = PlutusData.map(OrderedDictionary(uniqueKeysWithValues: [(integer, integer)]))
+        let map = PlutusData.map(MapPairs( [(integer, integer)]))
         #expect(bytes != integer)
         #expect(list != constructor)
         #expect(list != integer)
@@ -186,7 +186,7 @@ struct PlutusDataEqualityTests {
                 .bigInt(.int(-42)),
                 .bytes(try Bytes(from: Data(repeating: 0x7F, count: 70))),
                 .array([]),
-                .map(OrderedDictionary(uniqueKeysWithValues: [
+                .map(MapPairs( [
                     (PlutusData.bytes(try Bytes(from: Data([0x01]))), PlutusData.bigInt(.int(1)))
                 ])),
             ])

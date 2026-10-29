@@ -110,17 +110,17 @@ public enum EraBlock: Sendable {
         case 0:
             return .byron(try parseByronBlock(data: data))
         case 1:
-            return .shelley(try Block.fromCBOR(data: data))
+            return .shelley(try Block.fromCBOR(data: data, era: .shelley))
         case 2:
-            return .allegra(try Block.fromCBOR(data: data))
+            return .allegra(try Block.fromCBOR(data: data, era: .allegra))
         case 3:
-            return .mary(try Block.fromCBOR(data: data))
+            return .mary(try Block.fromCBOR(data: data, era: .mary))
         case 4:
-            return .alonzo(try Block.fromCBOR(data: data))
+            return .alonzo(try Block.fromCBOR(data: data, era: .alonzo))
         case 5:
-            return .babbage(try Block.fromCBOR(data: data))
+            return .babbage(try Block.fromCBOR(data: data, era: .babbage))
         case 6:
-            return .conway(try Block.fromCBOR(data: data))
+            return .conway(try Block.fromCBOR(data: data, era: .conway))
         default:
             throw CardanoCoreError.deserializeError("EraBlock: unknown era id \(era)")
         }

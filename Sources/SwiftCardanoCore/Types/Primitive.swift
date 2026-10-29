@@ -126,6 +126,9 @@ public indirect enum Primitive: CBORSerializable, Sendable {
     /// ``decode(from:preservingEncoding:)`` for `preservingEncoding`.
     public static func from(cbor: CBOR, preservingEncoding: Bool = false) throws -> Primitive {
         switch cbor {
+        case .encoded:
+            // Already encoded, and kept so: it is written back as it is.
+            return .cborSimpleValue(cbor)
         case .byteString(let data):
             return .bytes(data)
         case .textString(let string):
@@ -219,41 +222,24 @@ public indirect enum Primitive: CBORSerializable, Sendable {
             CBORTag(tag: tag, value: try value.toPrimitive(preservingEncoding: preservingEncoding)))
     }
 
+    /// `#6.30([numerator, denominator])`, both unsigned, the denominator
+    /// above zero.
     @inline(never)
     private static func unitInterval(from value: CBOR) throws -> Primitive {
-        // Handle both Int and UInt64 types for fraction components
-        let numerator: Int
-        let denominator: Int
-
-        if let numValue = value.arrayValue![0].unwrapped as? Int {
-            numerator = numValue
-        } else if let numValue = value.arrayValue![0].unwrapped as? UInt64 {
-            numerator = Int(numValue)
-        } else if let numValue = value.arrayValue![0].unwrapped as? Int64 {
-            numerator = Int(numValue)
-        } else {
-            throw CardanoCoreError.valueError(
-                "Invalid fraction numerator type: \(type(of: value.arrayValue![0].unwrapped))"
-            )
+        let elements: [CBOR]
+        switch value {
+        case .array(let items), .indefiniteArray(let items): elements = items
+        default: throw CardanoCoreError.valueError("A #6.30 interval must be an array: \(value)")
         }
-
-        if let denValue = value.arrayValue![1].unwrapped as? Int {
-            denominator = denValue
-        } else if let denValue = value.arrayValue![1].unwrapped as? UInt64 {
-            denominator = Int(denValue)
-        } else if let denValue = value.arrayValue![1].unwrapped as? Int64 {
-            denominator = Int(denValue)
-        } else {
+        guard elements.count == 2,
+            case .unsignedInt(let numerator) = elements[0],
+            case .unsignedInt(let denominator) = elements[1],
+            denominator > 0
+        else {
             throw CardanoCoreError.valueError(
-                "Invalid fraction denominator type: \(type(of: value.arrayValue![1].unwrapped))"
-            )
+                "A #6.30 interval must be [numerator, denominator > 0]: \(value)")
         }
-
-        let unitInterval = UnitInterval(
-            numerator: UInt64(numerator),
-            denominator: UInt64(denominator)
-        )
-        return .unitInterval(unitInterval)
+        return .unitInterval(UnitInterval(numerator: numerator, denominator: denominator))
     }
 
     @inline(never)
@@ -316,10 +302,7 @@ public indirect enum Primitive: CBORSerializable, Sendable {
 
     @inline(never)
     private static func toCBOR(tag: CBORTag) throws -> CBOR {
-        .tagged(
-            UInt64(tag.tag),
-            try CBOREncoder().encode(tag.value).toCBOR
-        )
+        .tagged(UInt64(tag.tag), try tag.value.toCBOR())
     }
 
     @inline(never)
@@ -374,7 +357,7 @@ public indirect enum Primitive: CBORSerializable, Sendable {
         case .byteString(let byteString):
             return byteString.toCBOR()
         case .plutusData(let plutusData):
-            return try plutusData.toCBORData().toCBOR
+            return .encoded(try plutusData.toCBORData())
         case .bigInt(let bigInt):
             return Primitive.integerCBOR(bigInt)
         case .bigUInt(let bigUInt):

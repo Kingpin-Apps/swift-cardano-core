@@ -109,7 +109,7 @@ struct AddressTests {
     @Test func testSave() async throws {
         let test_addr: Address = try! Address(from: .string("addr1q89gvt69g9hv3ushfzw64jr06qgml8rdeanuz2e3hn9xrytk99uy7hwe828zf7vzm5k37wuyzjrgmqnqakm2qmyy0f5suhvr47"))
         let tempDirectory = FileManager.default.temporaryDirectory
-        let tempFileURL = tempDirectory.appendingPathComponent("test.addr")
+        let tempFileURL = tempDirectory.appendingPathComponent(UUID().uuidString + "-test.addr")
         
         if FileManager.default.fileExists(atPath: tempFileURL.path) {
             try FileManager.default.removeItem(at: tempFileURL)

@@ -83,7 +83,7 @@ let stakePoolVKey = [
     @Test func testSaveLoad() async throws {
         // Get the temporary directory
         let tempDirURL = FileManager.default.temporaryDirectory
-        let tempFileURL = tempDirURL.appendingPathComponent("stakePoolSigningKey.skey")
+        let tempFileURL = tempDirURL.appendingPathComponent(UUID().uuidString + "-stakePoolSigningKey.skey")
         
         // Remove file if it exists from previous test run
         try? FileManager.default.removeItem(atPath: tempFileURL.path)

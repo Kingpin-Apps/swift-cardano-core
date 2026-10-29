@@ -17,7 +17,7 @@ struct ShelleyGenesisTests {
     
     @Test func testSaveLoad() async throws {
         let tempDirURL = FileManager.default.temporaryDirectory
-        let tempFileURL = tempDirURL.appendingPathComponent("shelleyGenesis.json")
+        let tempFileURL = tempDirURL.appendingPathComponent(UUID().uuidString + "-shelleyGenesis.json")
         
         defer {
             try? FileManager.default.removeItem(at: tempFileURL)

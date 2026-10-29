@@ -23,7 +23,7 @@ struct ProtocolParametersTests {
 
     @Test func testSaveLoad() async throws {
         let tempDirURL = FileManager.default.temporaryDirectory
-        let tempFileURL = tempDirURL.appendingPathComponent("protocolParameters.json")
+        let tempFileURL = tempDirURL.appendingPathComponent(UUID().uuidString + "-protocolParameters.json")
 
         defer { try? FileManager.default.removeItem(at: tempFileURL) }
 

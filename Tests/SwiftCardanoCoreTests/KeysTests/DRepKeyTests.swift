@@ -90,7 +90,7 @@ import CBORCodable
     
     @Test func testSaveLoadSigningKey() async throws {
         let tempDirURL = FileManager.default.temporaryDirectory
-        let tempFileURL = tempDirURL.appendingPathComponent("drep.skey")
+        let tempFileURL = tempDirURL.appendingPathComponent(UUID().uuidString + "-drep.skey")
         
         // Remove file if it exists from previous test run
         try? FileManager.default.removeItem(atPath: tempFileURL.path)

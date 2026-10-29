@@ -162,7 +162,7 @@ import CBORCodable
     
     @Test func testSaveLoadColdSigningKey() async throws {
         let tempDirURL = FileManager.default.temporaryDirectory
-        let tempFileURL = tempDirURL.appendingPathComponent("committeeColdSigningKey.skey")
+        let tempFileURL = tempDirURL.appendingPathComponent(UUID().uuidString + "-committeeColdSigningKey.skey")
         
         // Remove file if it exists from previous test run
         try? FileManager.default.removeItem(atPath: tempFileURL.path)

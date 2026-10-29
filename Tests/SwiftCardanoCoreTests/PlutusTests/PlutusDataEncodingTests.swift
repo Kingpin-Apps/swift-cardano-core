@@ -253,11 +253,21 @@ struct PlutusDataEncodingTests {
 
     // MARK: - Malformed input
 
-    @Test("A map that repeats a key is rejected rather than re-encoded wrongly")
-    func duplicateKeys() {
-        // {1: [2], 1: [_ 2]}
-        #expect(throws: (any Error).self) { try PlutusData.fromCBORHex("a2018102019f02ff") }
-        #expect(throws: (any Error).self) { try RawPlutusData.fromCBORHex("a2018102019f02ff") }
+    @Test("A map that repeats a key keeps every pair", arguments: [
+        "a2018102019f02ff",  // {1: [2], 1: [_ 2]}
+        "bf01020103ff",  // {_ 1: 2, 1: 3}
+        "d87981a201020103",  // inside a constructor
+    ])
+    func duplicateKeys(hex: String) throws {
+        try expectRoundTrip(hex)
+        guard case .map(let pairs) = try PlutusData.fromCBORHex("a201020103") else {
+            Issue.record("not a map")
+            return
+        }
+        #expect(pairs.count == 2)
+        #expect(pairs.values(forKey: .bigInt(.int(1))) == [.bigInt(.int(2)), .bigInt(.int(3))])
+        #expect(pairs[.bigInt(.int(1))] == .bigInt(.int(2)))
+        #expect(pairs.hasDuplicateKeys)
     }
 
     @Test("Bytes after the datum are rejected")

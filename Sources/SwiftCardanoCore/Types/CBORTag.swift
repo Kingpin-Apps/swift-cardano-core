@@ -11,7 +11,7 @@ public protocol CBORTaggable: Serializable, Sendable {
 
 extension CBORTaggable {
     public func taggedCBOR() -> CBOR {
-        let cborData = try! CBOREncoder().encode(value).toCBOR
+        let cborData = try! value.toCBOR()
         return .tagged(
             UInt64(tag),
             cborData

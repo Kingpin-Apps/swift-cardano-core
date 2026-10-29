@@ -5,8 +5,57 @@ import CBORCodable
 public struct RawPlutusData: PlutusDataProtocol {
     public let data: RawDatum
 
+    /// The exact bytes this was decoded from.
+    ///
+    /// Decoding cannot keep every detail of how a datum was written — the
+    /// width of an integer's or a length's header, for one — and a datum's
+    /// hash is taken over its bytes. A ``RawPlutusData`` decoded from CBOR
+    /// keeps them: it encodes, and hashes, exactly as it was read.
+    public private(set) var originalCBOR: Data? = nil
+
     public init(data: RawDatum) {
         self.data = data
+    }
+
+    /// Decodes Plutus data, keeping the bytes it was read from.
+    public static func fromCBOR(data: Data) throws -> RawPlutusData {
+        let value = try PlutusDataReader.read(data)
+        let raw: RawDatum
+        switch value {
+            case .bigInt(.int(let int)) where Int(exactly: int) != nil: raw = .int(Int(int))
+            case .bytes(let bytes): raw = .bytes(bytes.data)
+            default: raw = .plutusData(value)
+        }
+        return RawPlutusData(data: raw, originalCBOR: Data(data))
+    }
+
+    public init(from cbor: Data) throws {
+        self = try Self.fromCBOR(data: cbor)
+    }
+
+    private init(data: RawDatum, originalCBOR: Data) {
+        self.data = data
+        self.originalCBOR = originalCBOR
+    }
+
+    public func toCBORData(deterministic: Bool = false) throws -> Data {
+        _ = deterministic
+        return try originalCBOR ?? CBOREncoder().encode(self)
+    }
+
+    /// Equal when they hold the same Plutus data, however each holds it.
+    public static func == (lhs: RawPlutusData, rhs: RawPlutusData) -> Bool {
+        if lhs.data == rhs.data { return true }
+        guard let lhs = try? lhs.toPlutusData(), let rhs = try? rhs.toPlutusData() else { return false }
+        return lhs == rhs
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        if let value = try? toPlutusData() {
+            hasher.combine(value)
+        } else {
+            hasher.combine(data)
+        }
     }
 
     public enum CodingKeys: String, CodingKey {
@@ -54,7 +103,7 @@ public struct RawPlutusData: PlutusDataProtocol {
                     let valuePlutusData = try PlutusData(from: value.toPrimitive())
                     resultDict[keyPlutusData] = valuePlutusData
                 }
-                return .map(OrderedDictionary(uniqueKeysWithValues: resultDict))
+                return .map(MapPairs(resultDict))
             case let .int(intValue):
                 return .bigInt(.int(Int64(intValue)))
             case let .bytes(data):
@@ -150,6 +199,9 @@ public struct RawPlutusData: PlutusDataProtocol {
 
     // Convert to primitive CBOR format
     public func toPrimitive() throws -> Primitive {
+        if let originalCBOR {
+            return .cborSimpleValue(.encoded(originalCBOR))
+        }
         return try self.data.toPrimitive()
     }
     

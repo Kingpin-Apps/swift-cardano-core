@@ -17,7 +17,7 @@ struct AlonzoGenesisTests {
     
     @Test func testSaveLoad() async throws {
         let tempDirURL = FileManager.default.temporaryDirectory
-        let tempFileURL = tempDirURL.appendingPathComponent("alonzoGenesis.json")
+        let tempFileURL = tempDirURL.appendingPathComponent(UUID().uuidString + "-alonzoGenesis.json")
         
         defer {
             try? FileManager.default.removeItem(at: tempFileURL)

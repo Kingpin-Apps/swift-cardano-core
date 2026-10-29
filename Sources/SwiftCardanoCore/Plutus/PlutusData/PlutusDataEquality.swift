@@ -63,7 +63,7 @@ extension PlutusData {
 
     /// The pairs of a map, whichever of the two cases holds it, or `nil`
     /// when this is not a map.
-    public var mapEntries: OrderedDictionary<PlutusData, PlutusData>? {
+    public var mapEntries: MapPairs<PlutusData, PlutusData>? {
         switch self {
             case .map(let pairs), .indefiniteMap(let pairs): return pairs
             default: return nil
@@ -78,10 +78,10 @@ extension PlutusData {
             case (.map(let lhs), .map(let rhs)), (.map(let lhs), .indefiniteMap(let rhs)),
                 (.indefiniteMap(let lhs), .map(let rhs)),
                 (.indefiniteMap(let lhs), .indefiniteMap(let rhs)):
-                // A Plutus map is a list of pairs on chain, so its order is
-                // part of its value. The pairs are walked here rather than
-                // deferring to `OrderedDictionary`'s own `==` so that each
-                // key and value is compared through this operator.
+                // A Plutus map is a list of pairs on chain, so its order —
+                // and any repeated key — is part of its value. The pairs are
+                // walked here rather than deferring to `MapPairs`'s own `==`
+                // so that each key and value is compared through this operator.
                 guard lhs.count == rhs.count else { return false }
                 return zip(lhs, rhs).allSatisfy { $0.key == $1.key && $0.value == $1.value }
 

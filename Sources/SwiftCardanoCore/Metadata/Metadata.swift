@@ -12,7 +12,7 @@ public typealias TransactionMetadatumLabel = UInt64
 /// integer CBOR can carry, and the rest are held as ``bigInt(_:)``. The two
 /// compare and hash alike when they hold the same value.
 public enum TransactionMetadatum: Serializable, Hashable, Equatable {
-    case map(OrderedDictionary<TransactionMetadatum, TransactionMetadatum>)
+    case map(MapPairs<TransactionMetadatum, TransactionMetadatum>)
     case list([TransactionMetadatum])
     case int(Int)
     case bigInt(BigInt)
@@ -104,9 +104,9 @@ public enum TransactionMetadatum: Serializable, Hashable, Equatable {
         case .indefiniteList(let array):
             self = .list(try array.map { try TransactionMetadatum(from: $0) })
         case .dict, .orderedDict, .indefiniteDictionary:
-            var map = OrderedDictionary<TransactionMetadatum, TransactionMetadatum>()
+            var map = MapPairs<TransactionMetadatum, TransactionMetadatum>()
             for (key, value) in try Metadata.entries(of: primitive) {
-                map[try TransactionMetadatum(from: key)] = try TransactionMetadatum(from: value)
+                map.append(key: try TransactionMetadatum(from: key), value: try TransactionMetadatum(from: value))
             }
             self = .map(map)
         default:
@@ -129,14 +129,9 @@ public enum TransactionMetadatum: Serializable, Hashable, Equatable {
         case .list(let array):
             let list = try array.map { try $0.toPrimitive() }
             return .list(list)
-        case .map(let dict):
-            var map = OrderedDictionary<Primitive, Primitive>()
-            for (key, value) in dict {
-                let keyPrim = try key.toPrimitive()
-                let valuePrim = try value.toPrimitive()
-                map[keyPrim] = valuePrim
-            }
-            return .orderedDict(map)
+        case .map(let map):
+            return try map.primitive(
+                indefinite: false, key: { try $0.toPrimitive() }, value: { try $0.toPrimitive() })
         }
     }
 
@@ -145,17 +140,9 @@ public enum TransactionMetadatum: Serializable, Hashable, Equatable {
     public static func fromDict(_ primitive: Primitive) throws -> TransactionMetadatum {
         switch primitive {
         case .uint(let value):
-            if value >= Int.min && value <= Int.max {
-                return .int(Int(value))
-            } else {
-                throw CardanoCoreError.deserializeError("Integer value out of bounds for Int type")
-            }
+            return .integer(BigInt(value))
         case .int(let value):
-            if value >= Int64(Int.min) && value <= Int64(Int.max) {
-                return .int(Int(value))
-            } else {
-                throw CardanoCoreError.deserializeError("Integer value out of bounds for Int type")
-            }
+            return .integer(BigInt(value))
         case .bytes(let data):
             return .bytes(data)
         case .string(let string):
@@ -177,19 +164,15 @@ public enum TransactionMetadatum: Serializable, Hashable, Equatable {
                 // Sort primitives by their string representation for deterministic ordering
                 String(describing: lhs) < String(describing: rhs)
             }
-            var map = OrderedDictionary<TransactionMetadatum, TransactionMetadatum>()
+            var map = MapPairs<TransactionMetadatum, TransactionMetadatum>()
             for key in sortedKeys {
-                let keyMeta = try TransactionMetadatum.fromDict(key)
-                let valueMeta = try TransactionMetadatum.fromDict(dict[key]!)
-                map[keyMeta] = valueMeta
+                map.append(key: try TransactionMetadatum.fromDict(key), value: try TransactionMetadatum.fromDict(dict[key]!))
             }
             return .map(map)
         case .orderedDict(let dict):
-            var map = OrderedDictionary<TransactionMetadatum, TransactionMetadatum>()
+            var map = MapPairs<TransactionMetadatum, TransactionMetadatum>()
             for (key, value) in dict {
-                let keyMeta = try TransactionMetadatum.fromDict(key)
-                let valueMeta = try TransactionMetadatum.fromDict(value)
-                map[keyMeta] = valueMeta
+                map.append(key: try TransactionMetadatum.fromDict(key), value: try TransactionMetadatum.fromDict(value))
             }
             return .map(map)
         default:
@@ -420,6 +403,11 @@ public struct Metadata: Serializable, Equatable {
         for value in entries.values {
             try Self.validate(value)
         }
+        self.data = entries
+    }
+
+    /// Metadata as decoded, not checked against ``MAX_ITEM_SIZE``.
+    init(decoded entries: OrderedDictionary<KEY_TYPE, VALUE_TYPE>) {
         self.data = entries
     }
 
@@ -872,15 +860,56 @@ public struct AuxiliaryData: Serializable, Equatable {
         )
     }
 
-    /// Decodes auxiliary data, keeping the bytes it was read from.
+    /// Decodes auxiliary data as the current era's ledger reads it, keeping
+    /// the bytes it was read from.
     public static func fromCBOR(data: Data) throws -> AuxiliaryData {
+        try fromCBOR(data: data, era: .conway)
+    }
+
+    /// Decodes auxiliary data as the ledger of `era` reads it, keeping the
+    /// bytes it was read from.
+    public static func fromCBOR(data: Data, era: Era) throws -> AuxiliaryData {
         let scanner = CBORItemScanner(data)
         guard try scanner.end(ofItemAt: 0) == scanner.bytes.count else {
             throw CardanoCoreError.deserializeError("Trailing bytes after AuxiliaryData")
         }
-        var auxiliaryData = try CBORDecoder().decode(AuxiliaryData.self, from: data)
-        auxiliaryData.originalCBOR = scanner.bytes
+        try LedgerDuplicateRules(scanner.bytes, era: era).checkAuxiliaryData(at: 0)
+        var auxiliaryData = try Transaction.decoder().decode(AuxiliaryData.self, from: data)
+        try auxiliaryData.keepBytes(scanner.bytes)
         return auxiliaryData
+    }
+
+    /// Records `bytes` as what this was decoded from, and reads its metadata
+    /// again from them, so that a map that repeats a key keeps every pair.
+    mutating func keepBytes(_ bytes: Data) throws {
+        let scanner = CBORItemScanner(bytes)
+        let reader = MetadatumReader(bytes)
+        let header = try scanner.header(at: 0)
+        var metadataOffset: Int?
+        if header.major == 5 {
+            metadataOffset = 0
+        } else if header.major == 4 {
+            metadataOffset = try scanner.elements(ofArrayAt: 0).first?.lowerBound
+        } else if header.major == 6 {
+            for (key, value) in try scanner.entries(ofMapAt: scanner.untagged(at: 0))
+            where try scanner.unsignedInteger(at: key.lowerBound) == 0 {
+                metadataOffset = value.lowerBound
+            }
+        }
+        if let metadataOffset {
+            let metadata = Metadata(decoded: try reader.metadata(at: metadataOffset).0)
+            switch data {
+            case .metadata: data = .metadata(metadata)
+            case .shelleyMaryMetadata(var shelleyMary):
+                shelleyMary.metadata = metadata
+                data = .shelleyMaryMetadata(shelleyMary)
+            case .alonzoMetadata(var alonzo):
+                alonzo.metadata = metadata
+                data = .alonzoMetadata(alonzo)
+            }
+        }
+        // Set after the metadata above, whose setter clears it.
+        originalCBOR = scanner.bytes
     }
 
     public init(from cbor: Data) throws {

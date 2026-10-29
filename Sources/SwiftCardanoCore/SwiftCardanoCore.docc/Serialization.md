@@ -96,26 +96,37 @@ Four things make this hold:
   numeric order.
 - **Redeemer maps** keep the order they were decoded in. This is what
   `script_data_hash` is computed over, and it is taken over the exact bytes.
-- **Plutus maps** keep their order too, because a Plutus map is an ordered list of
-  pairs rather than a dictionary: sorting one changes the value, and with it the
-  datum's hash and whatever `serialiseData` returns to a script.
-- **Plutus data and redeemers** are written back as they were read: an
-  indefinite-length map keeps its header, and a byte string read in chunks keeps
-  those chunks, since the ledger allows any chunk up to 64 bytes. Byte strings
-  over 64 bytes built in code are written in 64-byte chunks, as the ledger
-  requires. Adding a witness re-encodes the witness set, and `script_data_hash`
-  is taken over these bytes.
+- **Plutus and metadata maps are lists of pairs.** The ledger reads them that way,
+  so their order is part of the value and a key may repeat. ``PlutusData`` and
+  ``TransactionMetadatum`` hold their maps as ``MapPairs``, which keeps every
+  pair in order; looking a key up gives its first pair's value, as Plutus's
+  `lookup` does.
+- **Plutus data is read from its bytes** by its own reader, which keeps how each
+  list, map, byte string and constructor was written — an indefinite-length
+  header, a byte string's chunks, a constructor's general `#6.102` form — and
+  rejects what the ledger does not read as Plutus data: text strings, floats,
+  simple values and other tags. A byte string stays a byte string, even when its
+  content happens to be valid CBOR. Byte strings over 64 bytes built in code are
+  written in 64-byte chunks, as the ledger requires.
+- **Everything a hash covers keeps the bytes it was read from.** Decoding cannot
+  hold every detail of an encoding — the width of an integer's or a length's
+  header, for one — so a decoded ``Block``, ``Header``, ``Transaction``,
+  ``TransactionBody``, ``TransactionOutput``, ``DatumOption``,
+  ``TransactionWitnessSet``, ``AuxiliaryData`` and ``RawPlutusData`` each keep
+  their bytes while unchanged, as the witness set does for its datums and
+  redeemers. A part that keeps its bytes writes them inside whatever encodes it,
+  so changing one part re-encodes that part alone. To compute
+  `script_data_hash` from a decoded witness set, take
+  ``TransactionWitnessSet/redeemersCBOR()`` and
+  ``TransactionWitnessSet/plutusDataCBOR()``; an inline datum's hash is
+  ``DatumOption/inlineDatumHash()``; a block's body hash is ``Block/bodyHash()``.
+- **A ``PlutusData`` value is exact in what it models, not in header widths.**
+  Decoded on its own and re-encoded, it keeps its pairs, chunks and forms, but an
+  integer or length written wider than it needs comes back in its shortest form.
+  Read a ``RawPlutusData`` to keep those bytes too.
 - **A decoded ``Primitive``** keeps indefinite-length byte strings, text strings
   and maps as such. A type that does not care how its value was written reads it
   through ``Primitive/normalized()``.
-- **Everything a hash covers keeps the bytes it was read from.** Decoding cannot
-  hold every detail of an encoding — the width of an integer's header, for one —
-  so a decoded ``Transaction``, ``Block``, ``Header``, ``TransactionBody``,
-  ``AuxiliaryData`` and ``TransactionWitnessSet`` each keep their bytes while
-  unchanged, as the witness set does for its datums and redeemers. Changing one
-  part re-encodes that part alone. To compute `script_data_hash` from a decoded
-  witness set, take ``TransactionWitnessSet/redeemersCBOR()`` and
-  ``TransactionWitnessSet/plutusDataCBOR()``, which give those bytes.
 - **Integers** cover the whole range CBOR carries, down to -2^64, and are
   written as a bignum only beyond it, with a magnitude over 64 bytes in 64-byte
   chunks.
@@ -123,11 +134,19 @@ Four things make this hold:
   in label order, and a byte or text string over 64 bytes is rejected when it is
   built; decoded metadata is not checked, since the ledger did not always
   enforce the limit.
-- **A map that repeats a key** fails to decode on its own, because the repeated
-  entry would be lost and the map would no longer re-encode to its bytes. The
-  ledger reads Plutus and metadata maps as lists of pairs, so a transaction or
-  block on chain may hold one: decoded whole, it keeps the later value in its
-  typed form and its bytes as written.
+- **Repeated keys and set elements follow the ledger of the era.** Pass the era
+  to `fromCBOR(data:era:)` on a ``Transaction``, ``Block`` or one of their parts;
+  without one, Conway's rules apply. A sparse record — a body, witness set,
+  output, Alonzo auxiliary data or parameter update — may never repeat a field.
+  Before Conway an ordinary map keeps a repeated key's later value and a set keeps
+  a repeated element once; from Conway both are rejected, except the key
+  witnesses, bootstrap witnesses, native scripts and datums of a witness set and
+  the keys of its redeemer map, which the ledger still accepts until protocol
+  version 12. Plutus data and metadata maps may repeat a key in every era. On
+  their own, the generic CBOR decoder rejects any repeated map key.
+- **A value outside its field's range fails to decode**, as in the ledger — a
+  protocol parameter that is a 16-bit number, say — rather than wrapping or
+  crashing.
 
 > Note: `toCBORData(deterministic:)` accepts a flag that is currently ignored.
 > Cardano's notion of deterministic encoding (CIP-21) is not RFC 8949 §4.2 — it

@@ -96,16 +96,18 @@ import Testing
         }
     }
 
-    @Test("Map keys that collapse to the same Primitive do not trap")
-    func toleratesCollidingMapKeys() throws {
-        // {h'00': 0, (_ h'00'): 1}: distinct CBOR keys, both Primitive.bytes.
+    @Test("Map keys that hold the same value are both kept")
+    func keepsCollidingMapKeys() throws {
+        // {h'00': 0, (_ h'00'): 1}: two keys holding the same bytes. The
+        // ledger reads a Plutus map as a list of pairs, so both stay.
         let data = Data([0xa2, 0x41, 0x00, 0x00, 0x5f, 0x41, 0x00, 0xff, 0x01])
         let decoded = try PlutusData.fromCBOR(data: data)
         guard case .map(let map) = decoded else {
             Issue.record("expected a map, got \(decoded)")
             return
         }
-        #expect(map.count == 1)
+        #expect(map.count == 2)
+        #expect(try decoded.toCBORData() == data)
     }
 
     @Test("CBOR nested in byte strings cannot bypass the depth cap")
@@ -118,10 +120,11 @@ import Testing
         }
         let input = data
         let decoded = try await Task.detached { try PlutusData.fromCBOR(data: input) }.value
-        guard case .constructor(let constr) = decoded, case .bytes = constr.fields.first else {
-            Issue.record("expected one unwrapped constructor holding bytes, got \(decoded)")
+        guard case .bytes(let bytes) = decoded else {
+            Issue.record("expected bytes, got \(decoded)")
             return
         }
+        #expect(bytes.count == input.count - 3)
     }
 
     @Test("Max-depth embedded CBOR under max-depth nesting round-trips on a cooperative thread")
@@ -140,12 +143,15 @@ import Testing
         #expect(depth == 126)
     }
 
-    @Test("A single level of CBOR embedded in bytes is still unwrapped")
-    func unwrapsEmbeddedConstr() throws {
-        let decoded = try PlutusData.fromCBOR(data: Self.byteString(Self.nestedConstrs(1)))
-        guard case .constructor(let constr) = decoded, case .bigInt = constr.fields.first else {
-            Issue.record("expected a constructor holding an integer, got \(decoded)")
+    @Test("Bytes whose content is CBOR stay bytes")
+    func keepsBytesThatLookLikeCBOR() throws {
+        // h'd87980' is a byte string, not the constructor its content encodes.
+        let data = Self.byteString(Self.nestedConstrs(1))
+        let decoded = try PlutusData.fromCBOR(data: data)
+        guard case .bytes = decoded else {
+            Issue.record("expected bytes, got \(decoded)")
             return
         }
+        #expect(try decoded.toCBORData() == data)
     }
 }

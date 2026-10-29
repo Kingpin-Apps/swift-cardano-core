@@ -1,4 +1,5 @@
 import Foundation
+import SwiftNaCl
 import OrderedCollections
 import CBORCodable
 
@@ -20,10 +21,7 @@ public enum DatumType: Serializable {
             // any repeated map key, so one is not rejected here (see
             // ``Transaction/decoder()``).
             if case .bytes(let cborData) = cborTag.value {
-                let plutusData = try Transaction.decoder().decode(
-                    PlutusData.self,
-                    from: cborData
-                )
+                let plutusData = try PlutusDataReader.read(cborData)
                 self = .data(plutusData)
             } else {
                 throw CardanoCoreError.deserializeError("Invalid DatumType type")
@@ -120,8 +118,67 @@ public enum DatumType: Serializable {
 }
 
 public struct DatumOption: Serializable {
-    public var type: Int
-    public var datum: DatumType
+    public var type: Int { didSet { originalCBOR = nil; datumCBOR = nil } }
+    public var datum: DatumType { didSet { originalCBOR = nil; datumCBOR = nil } }
+
+    /// The exact bytes this was decoded from, while it is unchanged.
+    public internal(set) var originalCBOR: Data? = nil
+    /// The inline datum as written — the bytes its hash is taken over — while
+    /// it is unchanged; `nil` for a datum hash or a datum built in code.
+    public internal(set) var datumCBOR: Data? = nil
+
+    /// The hash of the inline datum, taken over its bytes as written while
+    /// they are kept; `nil` for a datum hash.
+    public func inlineDatumHash() throws -> DatumHash? {
+        guard case .data(let data) = datum else { return nil }
+        guard let datumCBOR else { return try data.hash() }
+        return DatumHash(
+            payload: try Hash().blake2b(data: datumCBOR, digestSize: DATUM_HASH_SIZE, encoder: RawEncoder.self))
+    }
+
+    public static func == (lhs: DatumOption, rhs: DatumOption) -> Bool {
+        lhs.type == rhs.type && lhs.datum == rhs.datum
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(type)
+        hasher.combine(datum)
+    }
+
+    /// Decodes a datum option, keeping the bytes of it and of its inline datum.
+    public static func fromCBOR(data: Data) throws -> DatumOption {
+        let scanner = CBORItemScanner(data)
+        guard try scanner.end(ofItemAt: 0) == scanner.bytes.count else {
+            throw CardanoCoreError.deserializeError("Trailing bytes after DatumOption")
+        }
+        var option = try CBORDecoder().decode(DatumOption.self, from: data)
+        try option.keepBytes(scanner.bytes)
+        return option
+    }
+
+    public init(from cbor: Data) throws {
+        self = try Self.fromCBOR(data: cbor)
+    }
+
+    /// Records `bytes` as what this datum option was decoded from.
+    mutating func keepBytes(_ bytes: Data) throws {
+        let scanner = CBORItemScanner(bytes)
+        let spans = try scanner.elements(ofArrayAt: 0)
+        if spans.count == 2, case .data = datum {
+            // [1, #6.24(bytes .cbor plutus_data)]
+            let tag = try scanner.header(at: spans[1].lowerBound)
+            let content = try scanner.header(at: tag.end)
+            if tag.major == 6, tag.argument == 24, content.major == 2, content.argument != nil {
+                datumCBOR = scanner.bytes.subdata(in: content.end..<spans[1].upperBound)
+            }
+        }
+        originalCBOR = scanner.bytes
+    }
+
+    public func toCBORData(deterministic: Bool = false) throws -> Data {
+        _ = deterministic
+        return try originalCBOR ?? CBOREncoder().encode(self)
+    }
 
     public init(datum: DatumType) {
         self.datum = datum
@@ -166,6 +223,9 @@ public struct DatumOption: Serializable {
     }
 
     public func toPrimitive() throws -> Primitive {
+        if let originalCBOR {
+            return .cborSimpleValue(.encoded(originalCBOR))
+        }
         switch datum {
         case .datumHash(_):
             return .list([.int(0), try datum.toPrimitive()])
@@ -247,7 +307,7 @@ public enum RawDatum: PlutusDataProtocol {
                 let valuePlutusData = try PlutusData(from: value.toPrimitive())
                 resultDict[keyPlutusData] = valuePlutusData
             }
-            return .map(OrderedDictionary(uniqueKeysWithValues: resultDict))
+            return .map(MapPairs(resultDict))
         case .int(let int):
             return .bigInt(.int(Int64(int)))
         case .bytes(let bytes):
@@ -295,7 +355,7 @@ public enum RawDatum: PlutusDataProtocol {
         }
     }
 
-    public func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Swift.Encoder) throws {
         var container = encoder.singleValueContainer()
         switch self {
         case .plutusData(let plutusData):
@@ -426,7 +486,7 @@ public enum Datum: PlutusDataProtocol {
                 let valuePlutusData = try PlutusData(from: value.toPrimitive())
                 resultDict[keyPlutusData] = valuePlutusData
             }
-            return .map(OrderedDictionary(uniqueKeysWithValues: resultDict))
+            return .map(MapPairs(resultDict))
         case .int(let int):
             return .bigInt(.int(Int64(int)))
         case .bytes(let bytes):

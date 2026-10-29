@@ -69,7 +69,7 @@ struct NodeConfigTests {
 
     @Test func testSaveLoad() async throws {
         let tempDirURL = FileManager.default.temporaryDirectory
-        let tempFileURL = tempDirURL.appendingPathComponent("nodeConfig.json")
+        let tempFileURL = tempDirURL.appendingPathComponent(UUID().uuidString + "-nodeConfig.json")
         
         defer {
             try? FileManager.default.removeItem(at: tempFileURL)

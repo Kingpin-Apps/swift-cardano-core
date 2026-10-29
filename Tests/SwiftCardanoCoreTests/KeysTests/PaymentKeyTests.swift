@@ -95,7 +95,7 @@ let extendedPaymentVKey = [
     @Test func testSaveLoad() async throws {
         // Get the temporary directory
         let tempDirURL = FileManager.default.temporaryDirectory
-        let tempFileURL = tempDirURL.appendingPathComponent("paymentSigningKey.skey")
+        let tempFileURL = tempDirURL.appendingPathComponent(UUID().uuidString + "-paymentSigningKey.skey")
         
         // Remove file if it exists from previous test run
         try? FileManager.default.removeItem(atPath: tempFileURL.path)

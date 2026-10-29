@@ -1,13 +1,59 @@
 import Foundation
+import CBORCodable
 import OrderedCollections
 
 public struct TransactionOutput: Serializable {
-    public var address: Address
-    public var amount: Value
-    public var datumHash: DatumHash?
-    public var datumOption: DatumOption?
-    public var script: ScriptType?
-    public var postAlonzo: Bool = false
+    public var address: Address { didSet { originalCBOR = nil } }
+    public var amount: Value { didSet { originalCBOR = nil } }
+    public var datumHash: DatumHash? { didSet { originalCBOR = nil } }
+    public var datumOption: DatumOption? { didSet { originalCBOR = nil } }
+    public var script: ScriptType? { didSet { originalCBOR = nil } }
+    public var postAlonzo: Bool = false { didSet { originalCBOR = nil } }
+
+    /// The exact bytes this output was decoded from, while it is unchanged.
+    ///
+    /// The minimum ADA an output must hold is worked out from its size as
+    /// written, and its inline datum is hashed as written, so while this is
+    /// set the output encodes to these bytes, on its own or inside a body.
+    public internal(set) var originalCBOR: Data? = nil
+
+    /// Decodes an output, keeping the bytes it was read from.
+    public static func fromCBOR(data: Data) throws -> TransactionOutput {
+        let scanner = CBORItemScanner(data)
+        guard try scanner.end(ofItemAt: 0) == scanner.bytes.count else {
+            throw CardanoCoreError.deserializeError("Trailing bytes after TransactionOutput")
+        }
+        var output = try Transaction.decoder().decode(TransactionOutput.self, from: data)
+        try output.keepBytes(scanner.bytes)
+        return output
+    }
+
+    public init(from cbor: Data) throws {
+        self = try Self.fromCBOR(data: cbor)
+    }
+
+    /// Records `bytes` as what this output was decoded from.
+    mutating func keepBytes(_ bytes: Data) throws {
+        let scanner = CBORItemScanner(bytes)
+        if try scanner.header(at: 0).major == 5, datumOption != nil {
+            for (key, value) in try scanner.entries(ofMapAt: 0)
+            where try scanner.unsignedInteger(at: key.lowerBound) == 2 {
+                try datumOption?.keepBytes(scanner.bytes.subdata(in: value))
+            }
+        }
+        originalCBOR = scanner.bytes
+    }
+
+    public func toCBORData(deterministic: Bool = false) throws -> Data {
+        _ = deterministic
+        return try originalCBOR ?? CBOREncoder().encode(self)
+    }
+
+    /// Hashes what `==` compares, leaving out the bytes it was read from.
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(address)
+        hasher.combine(amount)
+    }
 
     public var lovelace: Int64 {
         return amount.coin
@@ -88,6 +134,9 @@ public struct TransactionOutput: Serializable {
     }
     
     public func toPrimitive() throws -> Primitive {
+        if let originalCBOR {
+            return .cborSimpleValue(.encoded(originalCBOR))
+        }
         if self.datumOption != nil || self.script != nil || self.postAlonzo {
             let datumOption: DatumOption?
             let scriptRef: ScriptRef?

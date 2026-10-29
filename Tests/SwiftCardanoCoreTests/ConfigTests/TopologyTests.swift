@@ -17,7 +17,7 @@ struct TopologyTests {
     
     @Test func testSaveLoad() async throws {
         let tempDirURL = FileManager.default.temporaryDirectory
-        let tempFileURL = tempDirURL.appendingPathComponent("topology.json")
+        let tempFileURL = tempDirURL.appendingPathComponent(UUID().uuidString + "-topology.json")
         
         defer {
             try? FileManager.default.removeItem(at: tempFileURL)

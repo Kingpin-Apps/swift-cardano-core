@@ -23,11 +23,11 @@ import CBORCodable
 /// - bytes: bounded bytestring (0..64) matching `bounded_bytes`
 public enum PlutusData: Serializable, Sendable {
     case constructor(Constr)
-    case map(OrderedDictionary<PlutusData, PlutusData>)
+    case map(MapPairs<PlutusData, PlutusData>)
     /// A map written with an indefinite-length header. It holds the same
     /// value as ``map(_:)`` and compares equal to it; only the encoding, and
     /// with it any hash taken over it, differs.
-    case indefiniteMap(OrderedDictionary<PlutusData, PlutusData>)
+    case indefiniteMap(MapPairs<PlutusData, PlutusData>)
     case array([PlutusData])
     case indefiniteArray(IndefiniteList<PlutusData>)
     case bigInt(BigInteger)
@@ -54,6 +54,17 @@ public enum PlutusData: Serializable, Sendable {
     // MARK: - CBORSerializable
 
     public static var preservesEncoding: Bool { true }
+
+    /// Reads Plutus data from its bytes, keeping every pair of a map that
+    /// repeats a key and how each part was written. To keep the bytes
+    /// themselves — every header width included — read a ``RawPlutusData``.
+    public static func fromCBOR(data: Data) throws -> PlutusData {
+        try PlutusDataReader.read(data)
+    }
+
+    public init(from cbor: Data) throws {
+        self = try PlutusDataReader.read(cbor)
+    }
 
     public init(from primitive: Primitive) throws {
         // Containers recurse once per nesting level, so their bodies live in
@@ -85,15 +96,13 @@ public enum PlutusData: Serializable, Sendable {
     @inline(never)
     private static func fromEntries<S: Sequence>(
         _ entries: S
-    ) throws -> OrderedDictionary<PlutusData, PlutusData>
+    ) throws -> MapPairs<PlutusData, PlutusData>
     where S.Element == (key: Primitive, value: Primitive) {
-        var plutusDict = OrderedDictionary<PlutusData, PlutusData>()
+        var pairs = MapPairs<PlutusData, PlutusData>()
         for (key, value) in entries {
-            let keyPlutus = try PlutusData(from: key)
-            let valuePlutus = try PlutusData(from: value)
-            plutusDict[keyPlutus] = valuePlutus
+            pairs.append(key: try PlutusData(from: key), value: try PlutusData(from: value))
         }
-        return plutusDict
+        return pairs
     }
 
     @inline(never)
@@ -108,25 +117,10 @@ public enum PlutusData: Serializable, Sendable {
             // exponential in the nesting depth.
             return .constructor(try Constr(from: primitive))
         } else {
-            // Unknown CBOR tag (e.g. tag 6 used for sets in Conway era) —
-            // strip the tag and decode the wrapped value as PlutusData.
-            return try PlutusData(from: cborTag.value)
+            // The ledger reads no other tag as Plutus data; dropping it would
+            // change the value.
+            throw CardanoCoreError.deserializeError("Not Plutus data: CBOR tag \(cborTag.tag)")
         }
-    }
-
-    @TaskLocal private static var decodingEmbeddedCBOR = false
-
-    /// Depth cap for CBOR embedded in a byte string. The unwrapped value
-    /// sits under up to 128 outer levels, and re-encoding walks the combined
-    /// depth, so it gets a much smaller budget than a top-level decode.
-    static let embeddedCBORMaxDepth = 16
-
-    @inline(never)
-    private static func embeddedConstr(_ data: Data) throws -> Constr {
-        let decoder = CBORDecoder()
-        decoder.maxDepth = embeddedCBORMaxDepth
-        let cborTag = try decoder.decode(CBORTag.self, from: data)
-        return try Constr(from: .cborTag(cborTag))
     }
 
     @inline(never)
@@ -136,22 +130,10 @@ public enum PlutusData: Serializable, Sendable {
             return .bigInt(try BigInteger(from: primitive))
         case .string(_), .byteString(_):
             return .bytes(try Bytes(from: primitive))
-        case .bytes(let data):
-            // The raw bytes may themselves be CBOR-encoded, containing a tagged
-            // Constr. But only attempt this if the tag is a known constructor tag
-            // (2, 3, 102, 121-127, 1280-1535) — otherwise treat as plain bytes.
-            // Each embedded decode starts a fresh CBOR reader, so only one
-            // level is unwrapped: bytes nested in bytes would otherwise bypass
-            // the depth cap and exhaust the stack.
-            if !decodingEmbeddedCBOR,
-                let constr = try? $decodingEmbeddedCBOR.withValue(true, operation: {
-                    try embeddedConstr(data)
-                })
-            {
-                return .constructor(constr)
-            } else {
-                return .bytes(try Bytes(from: primitive))
-            }
+        case .bytes:
+            // A byte string is a byte string, even when its content happens
+            // to be valid CBOR.
+            return .bytes(try Bytes(from: primitive))
         default:
             throw CardanoCoreError.deserializeError("Invalid PlutusData type: \(primitive)")
         }
@@ -182,10 +164,10 @@ public enum PlutusData: Serializable, Sendable {
             // `serialiseData` returns to a script. The ledger writes its own
             // maps in list order, and the script context's redeemer map is one
             // that is genuinely not sorted.
-            return .orderedDict(try PlutusData.toEntries(dict))
+            return try PlutusData.mapPrimitive(dict, indefinite: false)
 
         case .indefiniteMap(let dict):
-            return .indefiniteDictionary(try PlutusData.toEntries(dict))
+            return try PlutusData.mapPrimitive(dict, indefinite: true)
 
         case .bigInt(let bigInt):
             return try bigInt.toPrimitive()
@@ -196,14 +178,13 @@ public enum PlutusData: Serializable, Sendable {
     }
 
     @inline(never)
-    private static func toEntries(
-        _ dict: OrderedDictionary<PlutusData, PlutusData>
-    ) throws -> OrderedDictionary<Primitive, Primitive> {
-        var primitiveDict = OrderedDictionary<Primitive, Primitive>()
-        for (key, value) in dict {
-            primitiveDict[try key.toPrimitive(isRoot: false)] = try value.toPrimitive(isRoot: false)
-        }
-        return primitiveDict
+    private static func mapPrimitive(
+        _ pairs: MapPairs<PlutusData, PlutusData>, indefinite: Bool
+    ) throws -> Primitive {
+        try pairs.primitive(
+            indefinite: indefinite,
+            key: { try $0.toPrimitive(isRoot: false) },
+            value: { try $0.toPrimitive(isRoot: false) })
     }
 
     // MARK: - JSONSerializable
@@ -270,7 +251,7 @@ public enum PlutusData: Serializable, Sendable {
         } else if orderedDict[.string("int")] != nil {
             return .bigInt(try BigInteger.fromDict(.orderedDict(orderedDict)))
         } else if case .list(let mapArray) = orderedDict[.string("map")] {
-            var plutusDict = OrderedDictionary<PlutusData, PlutusData>()
+            var plutusDict = MapPairs<PlutusData, PlutusData>()
             for item in mapArray {
                 guard case .orderedDict(let pairDict) = item else {
                     throw CardanoCoreError.deserializeError("Invalid PlutusData map item")
@@ -282,7 +263,7 @@ public enum PlutusData: Serializable, Sendable {
                 }
                 let keyPlutus = try PlutusData.fromDict(.orderedDict(keyDict))
                 let valuePlutus = try PlutusData.fromDict(.orderedDict(valueDict))
-                plutusDict[keyPlutus] = valuePlutus
+                plutusDict.append(key: keyPlutus, value: valuePlutus)
             }
             return .map(plutusDict)
         } else if case .list(let listArray) = orderedDict[.string("list")] {

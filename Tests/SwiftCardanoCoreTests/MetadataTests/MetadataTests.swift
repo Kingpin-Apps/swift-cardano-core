@@ -10,7 +10,7 @@ let validMetadata: [TransactionMetadatumLabel: TransactionMetadatum] = [
     2: .text("Hello, Cardano!"),
     3: .bytes(Data(repeating: 0xAB, count: 10)),
     4: .list([.int(1), .text("nested")]),
-    5: .map(OrderedDictionary(uniqueKeysWithValues: [(.int(1), .int(123))]))
+    5: .map(MapPairs( [(.int(1), .int(123))]))
 ]
 
 @Suite struct MetadataTests {
@@ -52,7 +52,7 @@ let validMetadata: [TransactionMetadatumLabel: TransactionMetadatum] = [
     @Test("Test Complex Nested Metadata")
     func testComplexNestedMetadata() async throws {
         let complexMetadata: [TransactionMetadatumLabel: TransactionMetadatum] = [
-            1: .map(OrderedDictionary(uniqueKeysWithValues: [
+            1: .map(MapPairs( [
                 (.text("nestedKey"), .list([.int(99), .text("nestedValue")]))
             ]))
         ]

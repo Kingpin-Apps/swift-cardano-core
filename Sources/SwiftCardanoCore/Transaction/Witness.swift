@@ -211,14 +211,21 @@ public struct TransactionWitnessSet: Serializable, Equatable {
         hasher.combine(redeemers)
     }
 
-    /// Decodes a witness set, keeping the bytes of it and of its datums and
-    /// redeemers.
+    /// Decodes a witness set as the current era's ledger reads it, keeping the
+    /// bytes of it and of its datums and redeemers.
     public static func fromCBOR(data: Data) throws -> TransactionWitnessSet {
+        try fromCBOR(data: data, era: .conway)
+    }
+
+    /// Decodes a witness set as the ledger of `era` reads it, keeping the bytes
+    /// of it and of its datums and redeemers.
+    public static func fromCBOR(data: Data, era: Era) throws -> TransactionWitnessSet {
         let scanner = CBORItemScanner(data)
         guard try scanner.end(ofItemAt: 0) == scanner.bytes.count else {
             throw CardanoCoreError.deserializeError("Trailing bytes after TransactionWitnessSet")
         }
-        var witnessSet = try CBORDecoder().decode(TransactionWitnessSet.self, from: data)
+        try LedgerDuplicateRules(scanner.bytes, era: era).checkWitnessSet(at: 0)
+        var witnessSet = try Transaction.decoder().decode(TransactionWitnessSet.self, from: data)
         try witnessSet.keepBytes(scanner.bytes)
         return witnessSet
     }
@@ -227,20 +234,72 @@ public struct TransactionWitnessSet: Serializable, Equatable {
         self = try Self.fromCBOR(data: cbor)
     }
 
-    /// Records `bytes` as what this witness set was decoded from.
+    /// Records `bytes` as what this witness set was decoded from, and reads
+    /// its datums and redeemer data again from them, so that a map that
+    /// repeats a key keeps every pair.
     mutating func keepBytes(_ bytes: Data) throws {
         let scanner = CBORItemScanner(bytes)
+        var datums: Data?
+        var redeemers: Data?
         for (key, value) in try scanner.entries(ofMapAt: scanner.untagged(at: 0)) {
             switch try scanner.unsignedInteger(at: key.lowerBound) {
                 case UInt64(CodingKeys.plutusData.rawValue):
-                    originalPlutusDataCBOR = scanner.bytes.subdata(in: value)
+                    try readDatums(scanner, at: value.lowerBound)
+                    datums = scanner.bytes.subdata(in: value)
                 case UInt64(CodingKeys.redeemers.rawValue):
-                    originalRedeemersCBOR = scanner.bytes.subdata(in: value)
+                    try readRedeemerData(scanner, at: value.lowerBound)
+                    redeemers = scanner.bytes.subdata(in: value)
                 default:
                     break
             }
         }
+        // Set after the values above, whose setters clear them.
+        originalPlutusDataCBOR = datums
+        originalRedeemersCBOR = redeemers
         originalCBOR = scanner.bytes
+    }
+
+    private mutating func readDatums(_ scanner: CBORItemScanner, at offset: Int) throws {
+        let reader = PlutusDataReader(scanner.bytes)
+        let datums = try scanner.elements(ofArrayAt: scanner.untagged(at: offset)).map {
+            try reader.read(at: $0.lowerBound, depth: 0).0
+        }
+        switch plutusData {
+            case .list: plutusData = .list(datums)
+            case .indefiniteList: plutusData = .indefiniteList(IndefiniteList(datums))
+            case .nonEmptyOrderedSet where !datums.isEmpty:
+                plutusData = .nonEmptyOrderedSet(NonEmptyOrderedSet(datums))
+            case .indefiniteNonEmptyOrderedSet: plutusData = .indefiniteNonEmptyOrderedSet(IndefiniteList(datums))
+            default: break
+        }
+    }
+
+    private mutating func readRedeemerData(_ scanner: CBORItemScanner, at offset: Int) throws {
+        let reader = PlutusDataReader(scanner.bytes)
+        switch redeemers {
+            case .list(var list):
+                let spans = try scanner.elements(ofArrayAt: offset)
+                guard spans.count == list.count else { return }
+                for (index, span) in spans.enumerated() {
+                    let parts = try scanner.elements(ofArrayAt: span.lowerBound)
+                    guard parts.count == 4 else { continue }
+                    list[index].data = try reader.read(at: parts[2].lowerBound, depth: 0).0
+                }
+                redeemers = .list(list)
+            case .map(var map):
+                // In order, so a repeated key ends with its later value, as
+                // the typed map was decoded.
+                for (key, value) in try scanner.entries(ofMapAt: offset) {
+                    let redeemerKey = try Transaction.decoder().decode(
+                        RedeemerKey.self, from: scanner.bytes.subdata(in: key))
+                    let parts = try scanner.elements(ofArrayAt: value.lowerBound)
+                    guard let data = parts.first else { continue }
+                    map[redeemerKey]?.data = try reader.read(at: data.lowerBound, depth: 0).0
+                }
+                redeemers = .map(map)
+            case nil:
+                break
+        }
     }
 
     /// The bytes this witness set was decoded from while it is unchanged;
