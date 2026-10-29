@@ -74,6 +74,76 @@ public struct ConwayGenesisAnchor: Codable, Equatable, Hashable {
     public let url: String
 }
 
+// MARK: - Range-checked reads and writes
+
+/// A non-negative integer read as the ledger's `T`, held as the `Int` the
+/// genesis stores.
+fileprivate func genesisNatural<T: FixedWidthInteger & UnsignedInteger>(
+    _ p: Primitive, _ label: String, as type: T.Type
+) throws -> Int {
+    let value = try p.integer(label, as: T.self)
+    guard let narrowed = Int(exactly: value) else {
+        throw CardanoCoreError.deserializeError("\(label): \(value) is out of range for Int")
+    }
+    return narrowed
+}
+
+/// The numerator and denominator of a `#6.30([uint, uint])` rational, or of
+/// the bare `[uint, uint]`, with a denominator above zero.
+fileprivate func genesisRational(_ p: Primitive, _ label: String) throws -> (UInt64, UInt64) {
+    let arr: [Primitive]
+    switch p {
+    case .cborTag(let t) where t.tag == 30:
+        guard case .list(let a) = t.value else {
+            throw CardanoCoreError.deserializeError("\(label): malformed tag-30 rational")
+        }
+        arr = a
+    case .list(let a):
+        arr = a
+    default:
+        throw CardanoCoreError.deserializeError("\(label): expected a tag-30 rational, got \(p)")
+    }
+    guard arr.count == 2 else {
+        throw CardanoCoreError.deserializeError("\(label): a rational has 2 elements, got \(arr.count)")
+    }
+    let numerator = try arr[0].integer("\(label) numerator", as: UInt64.self)
+    let denominator = try arr[1].integer("\(label) denominator", as: UInt64.self)
+    guard denominator > 0 else {
+        throw CardanoCoreError.deserializeError("\(label): denominator is zero")
+    }
+    return (numerator, denominator)
+}
+
+/// A voting threshold: a `unit_interval`, or a float in `0 ... 1`.
+fileprivate func genesisThreshold(_ p: Primitive, _ label: String) throws -> Double {
+    if case .float(let f) = p {
+        guard f.isFinite, (0 ... 1).contains(f) else {
+            throw CardanoCoreError.deserializeError("\(label): \(f) is not in 0 ... 1")
+        }
+        return f
+    }
+    let (n, d) = try genesisRational(p, label)
+    guard n <= d else {
+        throw CardanoCoreError.deserializeError("\(label): \(n)/\(d) is above one")
+    }
+    return Double(n) / Double(d)
+}
+
+/// A voting threshold written as a tag-30 rational over 10^7.
+///
+/// - Throws: When `d` is not finite or not in `0 ... 1`.
+fileprivate func genesisThresholdFraction(_ d: Double, _ label: String) throws -> Primitive {
+    let precision = 10_000_000
+    guard d.isFinite, (0 ... 1).contains(d),
+        let numerator = Int(exactly: (d * Double(precision)).rounded(.towardZero))
+    else {
+        throw CardanoCoreError.valueError("\(label): \(d) is not in 0 ... 1")
+    }
+    func gcd(_ a: Int, _ b: Int) -> Int { b == 0 ? a : gcd(b, a % b) }
+    let g = gcd(numerator, precision)
+    return .cborTag(CBORTag(tag: 30, value: .list([.integer(numerator / g), .integer(precision / g)])))
+}
+
 // MARK: - CBOR (Haskell ToCBOR field order)
 //
 // ConwayGenesis encodes as a list of 12 fields (cardano-ledger conway):
@@ -143,13 +213,21 @@ extension ConwayGenesis: CBORSerializable {
         }
         poolVotingThresholds     = try ConwayGenesisPoolVotingThresholds(from: f[0])
         dRepVotingThresholds     = try ConwayGenesisDRepVotingThresholds(from: f[1])
-        committeeMinSize         = Int(try Self.readUInt(f[2], label: "committeeMinSize"))
-        committeeMaxTermLength   = Int(try Self.readUInt(f[3], label: "committeeMaxTermLength"))
-        govActionLifetime        = Int(try Self.readUInt(f[4], label: "govActionLifetime"))
-        govActionDeposit         = try Self.readUInt(f[5], label: "govActionDeposit")
-        dRepDeposit              = try Self.readUInt(f[6], label: "dRepDeposit")
-        dRepActivity             = Int(try Self.readUInt(f[7], label: "dRepActivity"))
-        minFeeRefScriptCostPerByte = Int64(try Self.readUIntOrFraction(f[8], label: "minFeeRefScriptCostPerByte"))
+        // Ranges as the ledger's ConwayGenesis holds them: Word16 for the
+        // committee size, EpochInterval (Word32) for the periods, Coin for
+        // the deposits.
+        committeeMinSize         = try genesisNatural(f[2], "ConwayGenesis committeeMinSize", as: UInt16.self)
+        committeeMaxTermLength   = try genesisNatural(f[3], "ConwayGenesis committeeMaxTermLength", as: UInt32.self)
+        govActionLifetime        = try genesisNatural(f[4], "ConwayGenesis govActionLifetime", as: UInt32.self)
+        govActionDeposit         = try f[5].integer("ConwayGenesis govActionDeposit", as: UInt64.self)
+        dRepDeposit              = try f[6].integer("ConwayGenesis dRepDeposit", as: UInt64.self)
+        dRepActivity             = try genesisNatural(f[7], "ConwayGenesis dRepActivity", as: UInt32.self)
+        let minFee = try Self.readUIntOrFraction(f[8], label: "minFeeRefScriptCostPerByte")
+        guard let minFeeRefScriptCostPerByte = Int64(exactly: minFee) else {
+            throw CardanoCoreError.deserializeError(
+                "ConwayGenesis minFeeRefScriptCostPerByte: \(minFee) is out of range for Int64")
+        }
+        self.minFeeRefScriptCostPerByte = minFeeRefScriptCostPerByte
         plutusV3CostModel        = try Self.readIntList(f[9])
         constitution             = try ConwayGenesisConstitution(from: f[10])
         committee                = try Committee(from: f[11])
@@ -159,52 +237,28 @@ extension ConwayGenesis: CBORSerializable {
         .list([
             try poolVotingThresholds.toPrimitive(),
             try dRepVotingThresholds.toPrimitive(),
-            .uint(UInt64(committeeMinSize)),
-            .uint(UInt64(committeeMaxTermLength)),
-            .uint(UInt64(govActionLifetime)),
+            .integer(committeeMinSize),
+            .integer(committeeMaxTermLength),
+            .integer(govActionLifetime),
             .uint(govActionDeposit),
             .uint(dRepDeposit),
-            .uint(UInt64(dRepActivity)),
-            .uint(UInt64(minFeeRefScriptCostPerByte)),
-            .list(plutusV3CostModel.map { .int(Int64($0)) }),
+            .integer(dRepActivity),
+            .integer(minFeeRefScriptCostPerByte),
+            .list(plutusV3CostModel.map { .integer($0) }),
             try constitution.toPrimitive(),
             try committee.toPrimitive()
         ])
     }
 
-    private static func readUInt(_ p: Primitive, label: String) throws -> UInt64 {
-        switch p {
-        case .uint(let u): return UInt64(u)
-        case .int(let i) where i >= 0: return UInt64(i)
-        default:
-            throw CardanoCoreError.deserializeError("ConwayGenesis: expected uint for \(label)")
-        }
-    }
-
     // minFeeRefScriptCostPerByte may be a tag-30 rational in the ledger spec
+    // (a `nonnegative_interval`); a rational is read as its whole part.
     private static func readUIntOrFraction(_ p: Primitive, label: String) throws -> UInt64 {
         switch p {
-        case .uint(let u): return UInt64(u)
-        case .int(let i) where i >= 0: return UInt64(i)
-        case .cborTag(let t) where t.tag == 30:
-            guard case .list(let arr) = t.value, arr.count == 2 else {
-                throw CardanoCoreError.deserializeError("ConwayGenesis: malformed tag-30 for \(label)")
-            }
-            let n: Double
-            let d: Double
-            switch arr[0] {
-            case .int(let i): n = Double(i)
-            case .uint(let u): n = Double(u)
-            default: throw CardanoCoreError.deserializeError("ConwayGenesis: non-numeric numerator for \(label)")
-            }
-            switch arr[1] {
-            case .int(let i): d = Double(i)
-            case .uint(let u): d = Double(u)
-            default: throw CardanoCoreError.deserializeError("ConwayGenesis: non-numeric denominator for \(label)")
-            }
-            return UInt64(n / d)
+        case .uint, .int, .bigInt, .bigUInt:
+            return try p.integer("ConwayGenesis \(label)", as: UInt64.self)
         default:
-            throw CardanoCoreError.deserializeError("ConwayGenesis: expected uint or tag-30 for \(label)")
+            let (n, d) = try genesisRational(p, "ConwayGenesis \(label)")
+            return n / d
         }
     }
 
@@ -212,13 +266,8 @@ extension ConwayGenesis: CBORSerializable {
         guard case .list(let items) = p else {
             throw CardanoCoreError.deserializeError("ConwayGenesis: expected list for plutusV3CostModel")
         }
-        return items.compactMap { item -> Int? in
-            switch item {
-            case .int(let i): return Int(i)
-            case .uint(let u): return Int(u)
-            default: return nil
-            }
-        }
+        // Cost model parameters are `int64` in the CDDL.
+        return try items.map { try Int($0.integer("ConwayGenesis plutusV3CostModel", as: Int64.self)) }
     }
 }
 
@@ -242,43 +291,18 @@ extension ConwayGenesisPoolVotingThresholds {
 
     public func toPrimitive() throws -> Primitive {
         .list([
-            fraction(committeeNormal), fraction(committeeNoConfidence),
-            fraction(hardForkInitiation), fraction(motionNoConfidence),
-            fraction(ppSecurityGroup)
+            try fraction(committeeNormal), try fraction(committeeNoConfidence),
+            try fraction(hardForkInitiation), try fraction(motionNoConfidence),
+            try fraction(ppSecurityGroup)
         ])
     }
 
     private static func readFraction(_ p: Primitive, label: String) throws -> Double {
-        switch p {
-        case .cborTag(let t) where t.tag == 30:
-            guard case .list(let arr) = t.value, arr.count == 2 else {
-                throw CardanoCoreError.deserializeError("ConwayGenesisPoolVotingThresholds: malformed tag-30 for \(label)")
-            }
-            let n: Double
-            let d: Double
-            switch arr[0] {
-            case .int(let i): n = Double(i)
-            case .uint(let u): n = Double(u)
-            default: throw CardanoCoreError.deserializeError("non-numeric numerator for \(label)")
-            }
-            switch arr[1] {
-            case .int(let i): d = Double(i)
-            case .uint(let u): d = Double(u)
-            default: throw CardanoCoreError.deserializeError("non-numeric denominator for \(label)")
-            }
-            return n / d
-        case .float(let f): return f
-        default:
-            throw CardanoCoreError.deserializeError("ConwayGenesisPoolVotingThresholds: expected tag-30 for \(label)")
-        }
+        try genesisThreshold(p, "ConwayGenesisPoolVotingThresholds \(label)")
     }
 
-    private func fraction(_ d: Double) -> Primitive {
-        let precision = 10_000_000
-        let numerator = Int(d * Double(precision))
-        func gcd(_ a: Int, _ b: Int) -> Int { b == 0 ? a : gcd(b, a % b) }
-        let g = gcd(abs(numerator), precision)
-        return .cborTag(CBORTag(tag: 30, value: .list([.int(Int64(numerator / g)), .int(Int64(precision / g))])))
+    private func fraction(_ d: Double) throws -> Primitive {
+        try genesisThresholdFraction(d, "ConwayGenesisPoolVotingThresholds")
     }
 }
 
@@ -304,44 +328,19 @@ extension ConwayGenesisDRepVotingThresholds {
     }
 
     public func toPrimitive() throws -> Primitive {
-        func fraction(_ d: Double) -> Primitive {
-            let precision = 10_000_000
-            let numerator = Int(d * Double(precision))
-            func gcd(_ a: Int, _ b: Int) -> Int { b == 0 ? a : gcd(b, a % b) }
-            let g = gcd(abs(numerator), precision)
-            return .cborTag(CBORTag(tag: 30, value: .list([.int(Int64(numerator / g)), .int(Int64(precision / g))])))
+        func fraction(_ d: Double) throws -> Primitive {
+            try genesisThresholdFraction(d, "ConwayGenesisDRepVotingThresholds")
         }
         return .list([
-            fraction(motionNoConfidence), fraction(committeeNormal), fraction(committeeNoConfidence),
-            fraction(updateToConstitution), fraction(hardForkInitiation), fraction(ppNetworkGroup),
-            fraction(ppEconomicGroup), fraction(ppTechnicalGroup), fraction(ppGovGroup),
-            fraction(treasuryWithdrawal)
+            try fraction(motionNoConfidence), try fraction(committeeNormal), try fraction(committeeNoConfidence),
+            try fraction(updateToConstitution), try fraction(hardForkInitiation), try fraction(ppNetworkGroup),
+            try fraction(ppEconomicGroup), try fraction(ppTechnicalGroup), try fraction(ppGovGroup),
+            try fraction(treasuryWithdrawal)
         ])
     }
 
     private static func readFraction(_ p: Primitive, label: String) throws -> Double {
-        switch p {
-        case .cborTag(let t) where t.tag == 30:
-            guard case .list(let arr) = t.value, arr.count == 2 else {
-                throw CardanoCoreError.deserializeError("DRepVotingThresholds: malformed tag-30 for \(label)")
-            }
-            let n: Double
-            let d: Double
-            switch arr[0] {
-            case .int(let i): n = Double(i)
-            case .uint(let u): n = Double(u)
-            default: throw CardanoCoreError.deserializeError("non-numeric numerator for \(label)")
-            }
-            switch arr[1] {
-            case .int(let i): d = Double(i)
-            case .uint(let u): d = Double(u)
-            default: throw CardanoCoreError.deserializeError("non-numeric denominator for \(label)")
-            }
-            return n / d
-        case .float(let f): return f
-        default:
-            throw CardanoCoreError.deserializeError("DRepVotingThresholds: expected tag-30 for \(label)")
-        }
+        try genesisThreshold(p, "DRepVotingThresholds \(label)")
     }
 }
 
@@ -436,8 +435,9 @@ extension Committee {
             default: continue
             }
             switch v {
-            case .int(let i): membersResult[keyStr] = Int(i)
-            case .uint(let u): membersResult[keyStr] = Int(u)
+            case .int, .uint, .bigInt, .bigUInt:
+                // An expiry epoch: EpochNo, a Word64.
+                membersResult[keyStr] = try genesisNatural(v, "Committee member epoch", as: UInt64.self)
             default: break
             }
         }
@@ -450,50 +450,24 @@ extension Committee {
     public func toPrimitive() throws -> Primitive {
         var memberPairs: [(Primitive, Primitive)] = []
         for (k, v) in members {
-            memberPairs.append((.string(k), .int(Int64(v))))
+            memberPairs.append((.string(k), .integer(v)))
         }
         let thresholdPrim = Primitive.cborTag(
-            CBORTag(tag: 30, value: .list([.int(Int64(threshold.numerator)), .int(Int64(threshold.denominator))]))
+            CBORTag(tag: 30, value: .list([.integer(threshold.numerator), .integer(threshold.denominator)]))
         )
         return .list([.frozenDict(Dictionary(uniqueKeysWithValues: memberPairs)), thresholdPrim])
     }
 
     private static func readThreshold(_ p: Primitive) throws -> Threshold {
-        switch p {
-        case .cborTag(let t) where t.tag == 30:
-            guard case .list(let arr) = t.value, arr.count == 2 else {
-                throw CardanoCoreError.deserializeError("Committee: malformed tag-30 threshold")
-            }
-            let num: Int
-            let den: Int
-            switch arr[0] {
-            case .int(let i): num = Int(i)
-            case .uint(let u): num = Int(u)
-            default: throw CardanoCoreError.deserializeError("Committee: non-numeric numerator for threshold")
-            }
-            switch arr[1] {
-            case .int(let i): den = Int(i)
-            case .uint(let u): den = Int(u)
-            default: throw CardanoCoreError.deserializeError("Committee: non-numeric denominator for threshold")
-            }
-            return Threshold(numerator: num, denominator: den)
-        case .list(let arr) where arr.count == 2:
-            let num: Int
-            let den: Int
-            switch arr[0] {
-            case .int(let i): num = Int(i)
-            case .uint(let u): num = Int(u)
-            default: throw CardanoCoreError.deserializeError("Committee: non-numeric numerator for threshold")
-            }
-            switch arr[1] {
-            case .int(let i): den = Int(i)
-            case .uint(let u): den = Int(u)
-            default: throw CardanoCoreError.deserializeError("Committee: non-numeric denominator for threshold")
-            }
-            return Threshold(numerator: num, denominator: den)
-        default:
-            throw CardanoCoreError.deserializeError("Committee: expected tag-30 threshold, got \(p)")
+        // A unit_interval: Word64 numerator and denominator.
+        let (num, den) = try genesisRational(p, "Committee threshold")
+        guard num <= den else {
+            throw CardanoCoreError.deserializeError("Committee threshold: \(num)/\(den) is above one")
         }
+        guard let numerator = Int(exactly: num), let denominator = Int(exactly: den) else {
+            throw CardanoCoreError.deserializeError("Committee threshold: \(num)/\(den) is out of range for Int")
+        }
+        return Threshold(numerator: numerator, denominator: denominator)
     }
 }
 

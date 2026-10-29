@@ -59,6 +59,19 @@ public struct AlonzoCostModels: Codable, Equatable, Hashable {
     }
 }
 
+// MARK: - Range-checked reads
+
+/// A non-negative integer read as the ledger's `T`, held as `Int`.
+fileprivate func alonzoNatural<T: FixedWidthInteger & UnsignedInteger>(
+    _ p: Primitive, _ label: String, as type: T.Type = UInt64.self
+) throws -> Int {
+    let value = try p.integer(label, as: T.self)
+    guard let narrowed = Int(exactly: value) else {
+        throw CardanoCoreError.deserializeError("\(label): \(value) is out of range for Int")
+    }
+    return narrowed
+}
+
 // MARK: - CBOR (Haskell ToCBOR field order)
 //
 // AlonzoGenesis encodes as a list of 8 fields (cardano-ledger):
@@ -116,14 +129,15 @@ extension AlonzoGenesis: CBORSerializable {
             throw CardanoCoreError.deserializeError(
                 "AlonzoGenesis: expected list of 8+ elements, got \(primitive)")
         }
-        lovelacePerUTxOWord   = Int64(try Self.readUInt(f[0], label: "lovelacePerUTxOWord"))
+        lovelacePerUTxOWord   = Int64(try alonzoNatural(f[0], "AlonzoGenesis lovelacePerUTxOWord"))
         costModels            = try AlonzoCostModels(from: f[1])
         executionPrices       = try ExecutionPrices(from: f[2])
         maxTxExUnits          = try AlonzoGenesisExUnits(from: f[3])
         maxBlockExUnits       = try AlonzoGenesisExUnits(from: f[4])
-        maxValueSize          = Int(try Self.readUInt(f[5], label: "maxValueSize"))
-        collateralPercentage  = Int(try Self.readUInt(f[6], label: "collateralPercentage"))
-        maxCollateralInputs   = Int(try Self.readUInt(f[7], label: "maxCollateralInputs"))
+        // Word32, Word16 and Word16 in the ledger's Alonzo parameters.
+        maxValueSize          = try alonzoNatural(f[5], "AlonzoGenesis maxValueSize", as: UInt32.self)
+        collateralPercentage  = try alonzoNatural(f[6], "AlonzoGenesis collateralPercentage", as: UInt16.self)
+        maxCollateralInputs   = try alonzoNatural(f[7], "AlonzoGenesis maxCollateralInputs", as: UInt16.self)
     }
 
     public func toPrimitive() throws -> Primitive {
@@ -137,15 +151,6 @@ extension AlonzoGenesis: CBORSerializable {
             .int(Int64(collateralPercentage)),
             .int(Int64(maxCollateralInputs))
         ])
-    }
-
-    private static func readUInt(_ p: Primitive, label: String) throws -> UInt64 {
-        switch p {
-        case .uint(let u): return UInt64(u)
-        case .int(let i) where i >= 0: return UInt64(i)
-        default:
-            throw CardanoCoreError.deserializeError("AlonzoGenesis: expected uint for \(label)")
-        }
     }
 }
 
@@ -182,6 +187,10 @@ extension PriceRatio {
         default:
             throw CardanoCoreError.deserializeError("PriceRatio: expected tag-30 or [num, den], got \(primitive)")
         }
+        // A NonNegativeInterval: its denominator is positive.
+        guard denominator > 0 else {
+            throw CardanoCoreError.deserializeError("PriceRatio: denominator is zero")
+        }
     }
 
     public func toPrimitive() throws -> Primitive {
@@ -190,12 +199,7 @@ extension PriceRatio {
     }
 
     private static func readInt(_ p: Primitive, label: String) throws -> Int {
-        switch p {
-        case .int(let i): return Int(i)
-        case .uint(let u): return Int(u)
-        default:
-            throw CardanoCoreError.deserializeError("PriceRatio: expected int for \(label)")
-        }
+        try alonzoNatural(p, "PriceRatio \(label)")
     }
 }
 
@@ -215,12 +219,7 @@ extension AlonzoGenesisExUnits {
     }
 
     private static func readInt(_ p: Primitive, label: String) throws -> Int {
-        switch p {
-        case .int(let i): return Int(i)
-        case .uint(let u): return Int(u)
-        default:
-            throw CardanoCoreError.deserializeError("AlonzoGenesisExUnits: expected int for \(label)")
-        }
+        try alonzoNatural(p, "AlonzoGenesisExUnits \(label)")
     }
 }
 
@@ -247,17 +246,12 @@ extension AlonzoCostModels {
         var v1: [String: Int] = [:]
         for (k, v) in pairs {
             // Language 0 = PlutusV1
-            let langId: Int
-            switch k {
-            case .uint(let u): langId = Int(u)
-            case .int(let i): langId = Int(i)
-            default: continue
-            }
-            guard langId == 0, case .list(let costs) = v else { continue }
+            guard k.integerValue == 0, case .list(let costs) = v else { continue }
             for (i, cost) in costs.enumerated() {
                 switch cost {
-                case .int(let c): v1["\(i)"] = Int(c)
-                case .uint(let u): v1["\(i)"] = Int(u)
+                case .int, .uint, .bigInt, .bigUInt:
+                    // Cost model parameters are `int64` in the CDDL.
+                    v1["\(i)"] = Int(try cost.integer("AlonzoCostModels PlutusV1", as: Int64.self))
                 default: break
                 }
             }

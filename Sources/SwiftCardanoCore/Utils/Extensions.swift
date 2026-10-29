@@ -13,7 +13,7 @@ import BigInt
 extension CBOR {
     public static func fromAnyCardano(_ value: Any) -> CBOR {
         if let anyValue = value as? AnyValue {
-            let unwrapped = anyValue.unwrapped!
+            guard let unwrapped = anyValue.unwrapped else { return .null }
             return CBOR.fromAnyCardano(unwrapped)
         } else if let stringValue = value as? String {
             return .textString(stringValue)
@@ -38,7 +38,8 @@ extension CBOR {
         } else if let intValue = value as? UInt8 {
             return .simple(intValue)
         } else if let intValue = value as? Int8 {
-            return .simple(UInt8(intValue))
+            return intValue >= 0
+                ? .simple(UInt8(intValue)) : .negativeInt(UInt64(-1 - Int64(intValue)))
         }
         // Handle floating point values
         else if let floatValue = value as? Float {
@@ -66,7 +67,10 @@ extension CBOR {
         } else if let dictValue = value as? OrderedDictionary<AnyHashable, AnyHashable> {
             return .map(dictValue.mapKeysToCbor)
         } else if let codable = value as? any Codable {
-            return .byteString(try! CBOREncoder().encode(codable))
+            // Like any other value it cannot write, one that fails to encode
+            // is written as null.
+            guard let encoded = try? CBOREncoder().encode(codable) else { return .null }
+            return .byteString(encoded)
         } else if let hashable = value as? AnyHashable {
             return CBOR.fromAnyCardano(hashable.base)
         } else {
@@ -337,12 +341,10 @@ extension AnyValue: CBORSerializable {
                 self = .array(anyValueArray)
             case .unitInterval(let unitInterval):
                 // Represent fraction as a 2-element array [numerator, denominator]
-                self = .array(
-                    [
-                        .int(Int(unitInterval.numerator)),
-                        .int(Int(unitInterval.denominator))
-                    ]
-                )
+                func part(_ value: UInt64) -> AnyValue {
+                    Int(exactly: value).map { .int($0) } ?? .uint64(value)
+                }
+                self = .array([part(unitInterval.numerator), part(unitInterval.denominator)])
             case .frozenSet(let set):
                 let anyValueArray = try set.map { try AnyValue(from: $0) }
                 self = .array(anyValueArray)
@@ -446,12 +448,14 @@ extension AnyValue: CBORSerializable {
                 return .int(Int64(value))
             case .uint32(let value):
                 return .int(Int64(value))
+            // Beyond Int64 an integer is written as `Primitive.integer`
+            // writes it: a `.uint`, or a big integer.
             case .uint64(let value):
-                return .int(Int64(value))
+                return Int64(exactly: value).map { .int($0) } ?? .integer(value)
             case .integer(let value):
-                return .int(Int64(value))
+                return Int64(exactly: value).map { .int($0) } ?? .integer(value)
             case .unsignedInteger(let value):
-                return .int(Int64(value))
+                return Int64(exactly: value).map { .int($0) } ?? .integer(value)
             case .float16(let value):
                 return .float(Double(value))
             case .float(let value):

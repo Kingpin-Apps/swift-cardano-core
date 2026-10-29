@@ -110,7 +110,9 @@ public struct Constr: Serializable, CustomStringConvertible, Sendable {
     }
 
     public func toPrimitive() throws -> Primitive {
-        let calculatedTag = getTag(constrID: Int(self.tag!))
+        // A tag beyond the compact ranges, or no tag at all, takes the
+        // general form; `#6.102` carries any `UInt64`.
+        let calculatedTag = self.tag.flatMap { Int(exactly: $0) }.flatMap { getTag(constrID: $0) }
 
         let primitives = try fields.map {
             try $0.toPrimitive(isRoot: false)
@@ -139,16 +141,11 @@ public struct Constr: Serializable, CustomStringConvertible, Sendable {
         guard case .orderedDict(let orderedDict) = data else {
             throw CardanoCoreError.deserializeError("Invalid Constr dict format")
         }
-        // Handle both .int and .uint for constructor field
-        let tagValue: UInt64
-        if case .uint(let tag) = orderedDict[.string("constructor")] {
-            tagValue = UInt64(tag)
-        } else if case .int(let tag) = orderedDict[.string("constructor")] {
-            tagValue = UInt64(tag)
-        } else {
+        guard let constructor = orderedDict[.string("constructor")] else {
             throw CardanoCoreError.deserializeError(
                 "Invalid Constr dict: missing or invalid constructor field")
         }
+        let tagValue = try constructor.integer("Constr constructor", as: UInt64.self)
 
         guard case .list(let fieldsArray) = orderedDict[.string("fields")] else {
             throw CardanoCoreError.deserializeError(

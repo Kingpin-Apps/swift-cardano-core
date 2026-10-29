@@ -84,13 +84,7 @@ public enum EraBlock: Sendable {
             )
         }
 
-        let eraId: UInt64
-        switch elements[0] {
-        case .uint(let val): eraId = UInt64(val)
-        case .int(let val): eraId = UInt64(val)
-        default:
-            throw CardanoCoreError.deserializeError("EraBlock: era_id must be uint")
-        }
+        let eraId = try elements[0].integer("EraBlock era_id", as: UInt64.self)
 
         let blockBytes = try unwrapTag24(elements[1])
         return try fromBlockCBOR(data: blockBytes, era: eraId)
@@ -181,13 +175,7 @@ extension EraBlock: Serializable {
                 "EraBlock: expected [era_id, #6.24(block)] 2-element array"
             )
         }
-        let eraId: UInt64
-        switch elements[0] {
-        case .uint(let v): eraId = UInt64(v)
-        case .int(let v): eraId = UInt64(v)
-        default:
-            throw CardanoCoreError.deserializeError("EraBlock: era_id must be uint")
-        }
+        let eraId = try elements[0].integer("EraBlock era_id", as: UInt64.self)
         let blockBytes = try Self.unwrapTag24(elements[1])
         self = try Self.fromBlockCBOR(data: blockBytes, era: eraId)
     }
@@ -220,13 +208,7 @@ extension EraBlock: Serializable {
         guard let eraP = dict[.string("era")] else {
             throw CardanoCoreError.deserializeError("EraBlock.fromDict: missing 'era' field")
         }
-        let eraId: UInt64
-        switch eraP {
-        case .uint(let v): eraId = UInt64(v)
-        case .int(let v): eraId = UInt64(v)
-        default:
-            throw CardanoCoreError.deserializeError("EraBlock.fromDict: 'era' must be uint")
-        }
+        let eraId = try eraP.integer("EraBlock era_id", as: UInt64.self)
         guard let blockP = dict[.string("block")] else {
             throw CardanoCoreError.deserializeError("EraBlock.fromDict: missing 'block' field")
         }
