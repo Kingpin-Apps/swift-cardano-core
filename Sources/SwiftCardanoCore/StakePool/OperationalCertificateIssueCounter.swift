@@ -71,17 +71,8 @@ public struct OperationalCertificateIssueCounter: TextEnvelopable, JSONSerializa
             )
         }
         
-        let counter: UInt
-        switch elements[0] {
-        case .uint(let value):
-            counter = UInt(value)
-        case .int(let value) where value >= 0:
-            counter = UInt(value)
-        default:
-            throw CardanoCoreError.deserializeError(
-                "Invalid counter value: expected uint, got \(elements[0])"
-            )
-        }
+        // Read through the range-checked helper: `UInt` is 32 bits on watchOS.
+        let counter: UInt = try elements[0].integer("Invalid counter value")
 
         guard case let .bytes(vkey) = elements[1] else {
             throw CardanoCoreError.deserializeError(
@@ -142,17 +133,8 @@ public struct OperationalCertificateIssueCounter: TextEnvelopable, JSONSerializa
             )
         }
 
-        let counter: UInt
-        switch elements[0] {
-        case .uint(let value):
-            counter = UInt(value)
-        case .int(let value) where value >= 0:
-            counter = UInt(value)
-        default:
-            throw CardanoCoreError.deserializeError(
-                "Invalid counter value: expected uint, got \(elements[0])"
-            )
-        }
+        // Read through the range-checked helper: `UInt` is 32 bits on watchOS.
+        let counter: UInt = try elements[0].integer("Invalid counter value")
 
         guard case let .bytes(vkey) = elements[1] else {
             throw CardanoCoreError.deserializeError(
@@ -181,14 +163,10 @@ public struct OperationalCertificateIssueCounter: TextEnvelopable, JSONSerializa
             throw CardanoCoreError.deserializeError("Invalid OperationalCertificateIssueCounter dict")
         }
         
-        let counter: UInt
-        if case let .uint(value)? = dictValue[.string("counter")] {
-            counter = UInt(value)
-        } else if case let .int(value)? = dictValue[.string("counter")], value >= 0 {
-            counter = UInt(value)
-        } else {
+        guard let counterPrimitive = dictValue[.string("counter")] else {
             throw CardanoCoreError.deserializeError("Missing or invalid counter value")
         }
+        let counter: UInt = try counterPrimitive.integer("Missing or invalid counter value")
         
         let vkey: StakePoolVerificationKey
         if case let .bytes(vkeyData)? = dictValue[.string("coldVerificationKey")] {

@@ -14,6 +14,41 @@ public struct PoolMetadata: Serializable {
     
     public let url: Url?
     public let poolMetadataHash: PoolMetadataHash?
+
+    /// The file this was read from, byte for byte. A pool's metadata hash
+    /// (CIP-6) is taken over the file as published, so ``hash()`` hashes
+    /// these bytes when it has them; reformatting the JSON would change it.
+    public private(set) var originalJSON: Data? = nil
+
+    public static func == (lhs: PoolMetadata, rhs: PoolMetadata) -> Bool {
+        lhs.name == rhs.name && lhs.desc == rhs.desc && lhs.ticker == rhs.ticker
+            && lhs.homepage == rhs.homepage && lhs.url == rhs.url
+            && lhs.poolMetadataHash == rhs.poolMetadataHash
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(name)
+        hasher.combine(ticker)
+        hasher.combine(poolMetadataHash)
+    }
+
+    /// Reads metadata from the bytes of its file, keeping them for ``hash()``.
+    public static func fromJSON(data: Data) throws -> PoolMetadata {
+        guard String(data: data, encoding: .utf8) != nil else {
+            throw CardanoCoreError.deserializeError("Pool metadata is not valid UTF-8.")
+        }
+        let parsed = try PoolMetadata.fromDict(try Primitive.from(json: JSONSerialization.jsonObject(with: data)))
+        var metadata = try PoolMetadata(
+            name: parsed.name, description: parsed.desc, ticker: parsed.ticker,
+            homepage: parsed.homepage, url: parsed.url, poolMetadataHash: parsed.poolMetadataHash)
+        metadata.originalJSON = data
+        return metadata
+    }
+
+    /// Reads metadata from its file's text, keeping it for ``hash()``.
+    public static func fromJSON(_ json: String) throws -> PoolMetadata {
+        try fromJSON(data: Data(json.utf8))
+    }
     
     public init(
         name: String? = nil,
@@ -50,10 +85,13 @@ public struct PoolMetadata: Serializable {
         self.poolMetadataHash = poolMetadataHash
     }
     
+    /// The metadata hash: Blake2b-256 of the file as read, or of
+    /// ``toJSON()`` for metadata built in code.
     public func hash() throws -> String {
-        let json = try toJSON()!
-        let jsonData = json.data(using: .utf8)!
-        
+        guard let jsonData = try originalJSON ?? toJSON().map({ Data($0.utf8) }) else {
+            throw CardanoCoreError.serializeError("Pool metadata could not be written as JSON.")
+        }
+
         guard jsonData.count <= 512 else {
             throw CardanoCoreError.valueError("Metadata must be less than or equal to 512 bytes.")
         }
@@ -68,16 +106,22 @@ public struct PoolMetadata: Serializable {
     }
     
     public func toJSON() throws -> String? {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        // Each value written as a JSON string, so quotes and control
+        // characters in it are escaped.
+        func quoted(_ value: String?) throws -> String {
+            String(decoding: try encoder.encode(value ?? ""), as: UTF8.self)
+        }
         let jsonString = """
         {
-            "name": "\(name ?? "")",
-            "description": "\(desc ?? "")",
-            "ticker": "\(ticker ?? "")",
-            "homepage": "\(homepage?.absoluteString ?? "")"
+            "name": \(try quoted(name)),
+            "description": \(try quoted(desc)),
+            "ticker": \(try quoted(ticker)),
+            "homepage": \(try quoted(homepage?.absoluteString))
         }
-        
+
         """
-        
         return jsonString
     }
     
@@ -198,27 +242,16 @@ public struct PoolMetadata: Serializable {
             throw CardanoCoreError.valueError("Pool metadata URL is not one Foundation can fetch: \(url.text)")
         }
 
-        do {
-            (data, _) = try await session.data(from: location)
-        } catch {
-            return try PoolMetadata(
-                url: url,
-                poolMetadataHash: poolMetadataHash
-            )
-        }
-        
+        (data, _) = try await session.data(from: location)
+
         if let poolMetadataHash = poolMetadataHash {
             guard try matches(data: data, hash: poolMetadataHash) else {
                 throw CardanoCoreError.valueError("Downloaded pool metadata does not match the expected hash.")
             }
         }
         
-        guard let jsonString = String(data: data, encoding: .utf8) else {
-            throw CardanoCoreError.deserializeError("Downloaded pool metadata is not valid UTF-8.")
-        }
-        
-        let parsed = try PoolMetadata.fromJSON(jsonString)
-        return try PoolMetadata(
+        let parsed = try PoolMetadata.fromJSON(data: data)
+        var metadata = try PoolMetadata(
             name: parsed.name,
             description: parsed.desc,
             ticker: parsed.ticker,
@@ -226,6 +259,8 @@ public struct PoolMetadata: Serializable {
             url: url,
             poolMetadataHash: poolMetadataHash
         )
+        metadata.originalJSON = data
+        return metadata
     }
     #endif
 

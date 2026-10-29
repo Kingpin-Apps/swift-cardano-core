@@ -1,3 +1,4 @@
+import SwiftNaCl
 import Testing
 import Foundation
 import CBORCodable
@@ -253,5 +254,27 @@ struct PoolMetadataTests {
                 session: MockURLProtocol.makeSession()
             )
         }
+    }
+}
+
+@Suite("Pool metadata hashes the file as published")
+struct PoolMetadataFileTests {
+    @Test("Metadata read from a file hashes its bytes, however it is formatted")
+    func hashesFileBytes() throws {
+        let file = Data(#"{"name":"P","description":"d","ticker":"ABC","homepage":"https://p.io"}"#.utf8)
+        let metadata = try PoolMetadata.fromJSON(data: file)
+        let expected = try SwiftNaCl.Hash().blake2b(
+            data: file, digestSize: POOL_METADATA_HASH_SIZE, encoder: RawEncoder.self)
+        #expect(try metadata.hash() == expected.toHex)
+        #expect(metadata.name == "P")
+    }
+
+    @Test("Values with quotes are escaped, so the JSON reads back")
+    func escapes() throws {
+        let metadata = try PoolMetadata(name: #"A "quoted" pool"#, description: "line\nbreak", ticker: "ABC")
+        let json = try #require(try metadata.toJSON())
+        let read = try PoolMetadata.fromJSON(json)
+        #expect(read.name == #"A "quoted" pool"#)
+        #expect(read.desc == "line\nbreak")
     }
 }
