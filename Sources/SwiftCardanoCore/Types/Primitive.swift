@@ -206,7 +206,8 @@ public indirect enum Primitive: CBORSerializable, Sendable {
     ) throws -> Primitive {
         let entries = try fromEntries(map.elements, preservingEncoding)
         guard preservingEncoding else {
-            return .dict(Dictionary(uniqueKeysWithValues: entries.map { ($0.key, $0.value) }))
+            // In the order written: a map's order can be part of its value.
+            return .orderedDict(entries)
         }
         return .indefiniteDictionary(entries)
     }
@@ -700,11 +701,12 @@ public indirect enum Primitive: CBORSerializable, Sendable {
         case .cborSimpleValue(.indefiniteTextString(let chunks)):
             return .string(chunks.joined())
         case .indefiniteDictionary(let dict):
-            var result: [Primitive: Primitive] = [:]
+            // In the order written: a map's order can be part of its value.
+            var result = OrderedDictionary<Primitive, Primitive>()
             for (key, value) in dict {
                 result[try key.normalized()] = try value.normalized()
             }
-            return .dict(result)
+            return .orderedDict(result)
         case .list(let list):
             return .list(try list.map { try $0.normalized() })
         case .indefiniteList(let list):

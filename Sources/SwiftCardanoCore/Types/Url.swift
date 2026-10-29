@@ -1,32 +1,43 @@
 import Foundation
 
+/// A URL as the ledger holds one: `url = tstr .size (0 .. 128)`.
+///
+/// The ledger keeps the text as written — anchor and pool-metadata hashes are
+/// checked against the documents it names — so this does too. Parsing it into
+/// a Foundation `URL` would change it: escaping a space or a stray `%`, or
+/// refusing the empty string the CDDL allows.
 public struct Url: CBORSerializable, Sendable {
-    public let value: URL
+    /// The URL's text, exactly as written.
+    public let text: String
 
-    public var absoluteString: String {
-        return value.absoluteString
+    /// The text as a Foundation `URL`, or `nil` when Foundation cannot read
+    /// it. The ledger does not require that it can.
+    public var value: URL? { URL(string: text) }
+
+    public var absoluteString: String { text }
+
+    /// - Throws: When `text` is longer than 128 bytes of UTF-8, which the
+    ///   ledger rejects.
+    public init(_ text: String) throws {
+        guard text.utf8.count <= 128 else {
+            throw CardanoCoreError.valueError(
+                "A URL may be at most 128 bytes, got \(text.utf8.count): \(text)")
+        }
+        self.text = text
     }
 
-    public init(_ value: String) throws {
-        guard value.count <= 128 else {
-            throw CardanoCoreError.valueError("URL exceeds the maximum length of 128 characters.")
-        }
-
-        guard let url = URL(string: value) else {
-            throw CardanoCoreError.valueError("Invalid URL format: \(value)")
-        }
-
-        self.value = url
-    }
-    
     public init(from primitive: Primitive) throws {
-        guard case let .string(urlString) = primitive else {
+        switch primitive {
+        case .string(let text):
+            try self.init(text)
+        case .cborSimpleValue(.indefiniteTextString(let chunks)):
+            try self.init(chunks.joined())
+        default:
             throw CardanoCoreError.valueError("Invalid Url type")
         }
-        try self.init(urlString)
     }
 
     public func toPrimitive() throws -> Primitive {
-        return .string(value.absoluteString)
+        .string(text)
     }
 }

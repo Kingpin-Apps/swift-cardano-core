@@ -211,7 +211,7 @@ public struct Block: Serializable {
             throw CardanoCoreError.deserializeError(
                 "Invalid Block transaction_bodies: expected list")
         }
-        self.transactionBodies = try txBodyPrimitives.map { try TransactionBody(from: $0.normalized()) }
+        self.transactionBodies = try txBodyPrimitives.map { try TransactionBody(from: $0) }
 
         // 2: transaction_witness_sets : [* transaction_witness_set]
         let txWitnessPrimitives: [Primitive]

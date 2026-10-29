@@ -196,7 +196,7 @@ public struct Transaction: Serializable, TextEnvelopable {
         }
         
         // transactionBody (required)
-        let transactionBody = try TransactionBody(from: elements[0].normalized())
+        let transactionBody = try TransactionBody(from: elements[0])
         
         // transactionWitnessSet (required) - may be wrapped in a CBOR tag
         let transactionWitnessSet: TransactionWitnessSet

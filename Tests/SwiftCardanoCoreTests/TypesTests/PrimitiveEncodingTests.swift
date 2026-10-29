@@ -60,15 +60,26 @@ struct PrimitiveEncodingTests {
     func normalized() throws {
         #expect(try decode("5f41014102ff").normalized() == .bytes(Data([0x01, 0x02])))
         #expect(try decode("7f6161ff").normalized() == .string("a"))
-        #expect(try decode("bf0102ff").normalized() == .dict([.uint(1): .uint(2)]))
+        #expect(try decode("bf0102ff").normalized() == .orderedDict([.uint(1): .uint(2)]))
         #expect(try decode("81bf5f4101ff02ff").normalized()
-            == .list([.dict([.bytes(Data([0x01])): .uint(2)])]))
+            == .list([.orderedDict([.bytes(Data([0x01])): .uint(2)])]))
+        // A map keeps the order it was written in.
+        guard case .orderedDict(let map) = try decode("bf02010102ff").normalized() else {
+            Issue.record("expected an ordered map")
+            return
+        }
+        #expect(Array(map.keys) == [.uint(2), .uint(1)])
     }
 
-    @Test("Converting without preserving the encoding is unchanged")
+    @Test("Converting without preserving the encoding joins strings and keeps map order")
     func legacyConversion() throws {
-        let cbor = try CBORDecoder().decode(CBOR.self, from: "bf5f4101ff7f6161ffff".hexStringToData)
-        #expect(try Primitive.from(cbor: cbor) == .dict([.bytes(Data([0x01])): .string("a")]))
+        let cbor = try CBORDecoder().decode(CBOR.self, from: "bf5f4101ff7f6161ff0201ff".hexStringToData)
+        guard case .orderedDict(let map) = try Primitive.from(cbor: cbor) else {
+            Issue.record("expected an ordered map")
+            return
+        }
+        #expect(Array(map.keys) == [.bytes(Data([0x01])), .uint(2)])
+        #expect(map[.bytes(Data([0x01]))] == .string("a"))
     }
 
     @Test("A map used as a metadata map key decodes")

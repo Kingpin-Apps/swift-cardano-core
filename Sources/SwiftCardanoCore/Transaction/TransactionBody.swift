@@ -317,16 +317,27 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
 
     // MARK: - CBORSerializable
 
+    /// Certificates are read as written — a MIR certificate keeps an
+    /// indefinite-length map as such — and every other field in the usual
+    /// form.
+    public static var preservesEncoding: Bool { true }
+
     public init(from primitive: Primitive) throws {
-        var primitiveDict: OrderedDictionary<Primitive, Primitive> = [:]
+        var written: OrderedDictionary<Primitive, Primitive> = [:]
 
         switch primitive {
         case .dict(let dict):
-            primitiveDict.merge(dict) { (_, new) in new }
-        case .orderedDict(let orderedDict):
-            primitiveDict = orderedDict
+            written.merge(dict) { (_, new) in new }
+        case .orderedDict(let orderedDict), .indefiniteDictionary(let orderedDict):
+            written = orderedDict
         default:
             throw CardanoCoreError.deserializeError("Invalid TransactionBody type: \(primitive)")
+        }
+        var primitiveDict = OrderedDictionary<Primitive, Primitive>()
+        for (key, value) in written {
+            let field = try key.normalized()
+            primitiveDict[field] = field == .uint(UInt64(CodingKeys.certificates.rawValue))
+                ? value : try value.normalized()
         }
 
         func key(_ key: CodingKeys) -> Primitive { .uint(UInt64(key.rawValue)) }

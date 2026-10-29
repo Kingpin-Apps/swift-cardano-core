@@ -135,13 +135,12 @@ extension CBOR {
                 let primitiveArray = try array.map { try $0.toPrimitive() }
                 return .indefiniteList(IndefiniteList(primitiveArray))
             case .indefiniteMap(let map):
-                var resultDict: [Primitive: Primitive] = [:]
+                // In the order written: a map's order can be part of its value.
+                var resultDict = OrderedDictionary<Primitive, Primitive>()
                 for (key, value) in map {
-                    let keyPrimitive = try key.toPrimitive()
-                    let valuePrimitive = try value.toPrimitive()
-                    resultDict[keyPrimitive] = valuePrimitive
+                    resultDict[try key.toPrimitive()] = try value.toPrimitive()
                 }
-                return .dict(resultDict)
+                return .orderedDict(resultDict)
             case .undefined:
                 return .null
             case .half(let halfValue):

@@ -194,9 +194,12 @@ public struct PoolMetadata: Serializable {
         session: URLSession = .shared
     ) async throws -> PoolMetadata {
         let data: Data
-        
+        guard let location = url.value else {
+            throw CardanoCoreError.valueError("Pool metadata URL is not one Foundation can fetch: \(url.text)")
+        }
+
         do {
-            (data, _) = try await session.data(from: url.value)
+            (data, _) = try await session.data(from: location)
         } catch {
             return try PoolMetadata(
                 url: url,

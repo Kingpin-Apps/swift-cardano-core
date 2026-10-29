@@ -73,7 +73,12 @@ public enum Certificate: Serializable {
     
     // MARK: - CBORSerializable
     
-    public init(from primitive: Primitive) throws {
+    /// A MIR certificate is read as written, so that an indefinite-length
+    /// map stays one; every other certificate in the usual form.
+    public static var preservesEncoding: Bool { true }
+
+    public init(from written: Primitive) throws {
+        let primitive = try written.normalized()
         let first: Primitive?
         switch primitive {
         case .list(let elements): first = elements.first
@@ -103,7 +108,7 @@ public enum Certificate: Serializable {
                 let genKeyDel = try GenesisKeyDelegation(from: primitive)
                 self = .genesisKeyDelegation(genKeyDel)
             case .moveInstantaneousRewards:
-                let mir = try MoveInstantaneousRewards(from: primitive)
+                let mir = try MoveInstantaneousRewards(from: written)
                 self = .moveInstantaneousRewards(mir)
             case .register:
                 let reg = try Register(from: primitive)
