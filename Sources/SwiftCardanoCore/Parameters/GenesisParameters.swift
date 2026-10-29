@@ -6,7 +6,8 @@ public struct GenesisParameters: JSONLoadable {
     public let conwayGenesis: ConwayGenesis?
     public let shelleyGenesis: ShelleyGenesis?
     public let era: Era?
-    public let activeSlotsCoefficient: Double?
+    /// The ledger's `PositiveUnitInterval`, held exactly.
+    public let activeSlotsCoefficient: UnitInterval?
     // Widths as in the ledger's ShelleyGenesis.
     public let epochLength: UInt64?
     public let maxKesEvolutions: UInt64?
@@ -93,11 +94,11 @@ public struct GenesisParameters: JSONLoadable {
         self.securityParam = shelleyGenesis.securityParam
         self.slotLength = shelleyGenesis.slotLength
         self.slotsPerKesPeriod = shelleyGenesis.slotsPerKESPeriod
-        self.systemStart = ISO8601DateFormatter().date(from: shelleyGenesis.systemStart)
+        self.systemStart = shelleyGenesis.systemStartDate
         self.updateQuorum = shelleyGenesis.updateQuorum
     }
     
-    public init(activeSlotsCoefficient: Double,
+    public init(activeSlotsCoefficient: UnitInterval,
          epochLength: UInt64,
          maxKesEvolutions: UInt64,
          maxLovelaceSupply: UInt64,

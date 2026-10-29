@@ -45,8 +45,25 @@ private func value(in object: Any, at path: [String]) -> Any? {
     path.reduce(Optional(object)) { ($0 as? [String: Any])?[$1] }
 }
 
+/// `value` with each floating-point number replaced by its shortest decimal.
+/// JSONSerialization reads `7.21e-5` into a Double and writes that back with
+/// 17 digits (`7.2100000000000004e-05`), which an exact reader takes at its
+/// word; the shortest form is the number the file holds.
+private func shortestDecimals(_ value: Any) -> Any {
+    switch value {
+    case let n as NSNumber where !(n is NSDecimalNumber) && String(cString: n.objCType) == "d":
+        return NSDecimalNumber(string: "\(n.doubleValue)")
+    case let array as [Any]:
+        return array.map(shortestDecimals)
+    case let dict as [String: Any]:
+        return dict.mapValues(shortestDecimals)
+    default:
+        return value
+    }
+}
+
 private func decode<T: Decodable>(_ type: T.Type, _ object: [String: Any]) throws -> T {
-    try JSONDecoder().decode(T.self, from: JSONSerialization.data(withJSONObject: object))
+    try JSONDecoder().decode(T.self, from: JSONSerialization.data(withJSONObject: shortestDecimals(object)))
 }
 
 /// `item` written as JSON, then read back as a plain object.
@@ -183,12 +200,14 @@ struct WidthCase: Sendable, CustomTestStringConvertible {
     @Test("minFeeRefScriptCostPerByte is a NonNegativeInterval, not a whole number")
     func minFeeRefScriptCostPerByte() throws {
         let fractional = try decode(ProtocolParameters.self, setting(params(), ["minFeeRefScriptCostPerByte"], to: 15.5))
-        #expect(fractional.minFeeRefScriptCostPerByte == 15.5)
-        #expect(try ProtocolParameters(from: fractional.toPrimitive()).minFeeRefScriptCostPerByte == 15.5)
+        let fifteenAndAHalf = NonNegativeInterval(numerator: 31, denominator: 2)
+        #expect(fractional.minFeeRefScriptCostPerByte == fifteenAndAHalf)
+        #expect(try ProtocolParameters(from: fractional.toPrimitive()).minFeeRefScriptCostPerByte == fifteenAndAHalf)
 
         // A whole number up to Word64 is written exactly, over one.
-        let whole = Double(UInt64(1) << 63)
-        let large = try decode(ProtocolParameters.self, setting(params(), ["minFeeRefScriptCostPerByte"], to: whole))
+        let whole = NonNegativeInterval(numerator: UInt64(1) << 63, denominator: 1)
+        let large = try decode(ProtocolParameters.self, setting(params(), ["minFeeRefScriptCostPerByte"], to: UInt64(1) << 63))
+        #expect(large.minFeeRefScriptCostPerByte == whole)
         #expect(try ProtocolParameters(from: large.toPrimitive()).minFeeRefScriptCostPerByte == whole)
 
         // A ratio of Word64s, at the top of their range, decodes.
@@ -197,7 +216,9 @@ struct WidthCase: Sendable, CustomTestStringConvertible {
             return
         }
         map[.int(33)] = .cborTag(CBORTag(tag: 30, value: .list([.uint(.max), .uint(.max)])))
-        #expect(try ProtocolParameters(from: .dict(map)).minFeeRefScriptCostPerByte == 1)
+        // The ledger reduces it to 1/1.
+        #expect(try ProtocolParameters(from: .dict(map)).minFeeRefScriptCostPerByte
+                == NonNegativeInterval(numerator: 1, denominator: 1))
         map[.int(33)] = .cborTag(CBORTag(tag: 30, value: .list([.bigUInt(BigUInt(u64Beyond)!), .uint(1)])))
         #expect(throws: CardanoCoreError.self) { try ProtocolParameters(from: .dict(map)) }
 
@@ -244,7 +265,8 @@ struct WidthCase: Sendable, CustomTestStringConvertible {
         WidthCase("updateQuorum", u64Max, u64Beyond),
         WidthCase("maxLovelaceSupply", u64Max, u64Beyond),
         WidthCase("networkMagic", u32Max, u32Beyond),
-        WidthCase("initialFunds.addr_test1", u64Max, u64Beyond),
+        // A hex address key, as the ledger's `parseAddr` requires.
+        WidthCase("initialFunds.61" + String(repeating: "ab", count: 28), u64Max, u64Beyond),
         WidthCase("protocolParams.minFeeA", u64Max, u64Beyond),
         WidthCase("protocolParams.minFeeB", u64Max, u64Beyond),
         WidthCase("protocolParams.keyDeposit", u64Max, u64Beyond),
@@ -342,20 +364,39 @@ struct WidthCase: Sendable, CustomTestStringConvertible {
 @Suite struct AlonzoGenesisWidthTests {
     func genesis() throws -> [String: Any] { try jsonObject(alonzoGenesisJSONFilePath) }
 
+    @Test("Execution prices hold a Word64 over a Word64, once reduced")
+    func prices() throws {
+        func prices(_ numerator: String, _ denominator: String) throws -> ExecutionUnitPrices {
+            let fraction: [String: Any] = ["numerator": number(numerator), "denominator": number(denominator)]
+            return try decode(AlonzoGenesis.self, setting(genesis(), ["executionPrices", "prSteps"], to: fraction))
+                .executionPrices
+        }
+        let top = try prices(u64Max, "1")
+        #expect(top.priceSteps == NonNegativeInterval(numerator: .max, denominator: 1))
+        #expect(try AlonzoGenesis(from: decode(AlonzoGenesis.self, genesis()).toPrimitive())
+            .executionPrices.priceSteps == NonNegativeInterval(numerator: 721, denominator: 10_000_000))
+        #expect(try prices("1", u64Max).priceSteps == NonNegativeInterval(numerator: 1, denominator: .max))
+        // 2^64 / 2 reduces to 2^63, which fits.
+        #expect(try prices(u64Beyond, "2").priceSteps == NonNegativeInterval(numerator: 1 << 63, denominator: 1))
+        #expect(throws: (any Error).self) { try prices(u64Beyond, "1") }
+        #expect(throws: (any Error).self) { try prices("1", u64Beyond) }
+        #expect(throws: (any Error).self) { try prices("1", "0") }
+        #expect(throws: (any Error).self) { try prices("-1", "2") }
+    }
+
     static let cases: [WidthCase] = [
         WidthCase("lovelacePerUTxOWord", u64Max, u64Beyond),
         WidthCase("maxValueSize", u32Max, u32Beyond),
         WidthCase("collateralPercentage", u16Max, u16Beyond),
         WidthCase("maxCollateralInputs", u16Max, u16Beyond),
-        WidthCase("executionPrices.prSteps.numerator", u64Max, u64Beyond),
-        WidthCase("executionPrices.prSteps.denominator", u64Max, u64Beyond),
-        WidthCase("executionPrices.prMem.numerator", u64Max, u64Beyond),
-        WidthCase("executionPrices.prMem.denominator", u64Max, u64Beyond),
-        // ExUnits: Word64 in JSON; at most Int64.max in CBOR, checked below.
-        WidthCase("maxTxExUnits.exUnitsMem", u64Max, u64Beyond, inCBOR: false),
-        WidthCase("maxTxExUnits.exUnitsSteps", u64Max, u64Beyond, inCBOR: false),
-        WidthCase("maxBlockExUnits.exUnitsMem", u64Max, u64Beyond, inCBOR: false),
-        WidthCase("maxBlockExUnits.exUnitsSteps", u64Max, u64Beyond, inCBOR: false),
+        // The prices are rationals, reduced as the ledger holds them, so
+        // their parts are checked on their own below.
+        // ExUnits: Word64 in JSON, written as the ledger's `memory`/`steps`;
+        // at most Int64.max in CBOR, checked below.
+        WidthCase("maxTxExUnits.memory", u64Max, u64Beyond, inCBOR: false),
+        WidthCase("maxTxExUnits.steps", u64Max, u64Beyond, inCBOR: false),
+        WidthCase("maxBlockExUnits.memory", u64Max, u64Beyond, inCBOR: false),
+        WidthCase("maxBlockExUnits.steps", u64Max, u64Beyond, inCBOR: false),
     ]
 
     @Test("The top of the ledger's range decodes and round-trips", arguments: cases)
@@ -413,8 +454,6 @@ struct WidthCase: Sendable, CustomTestStringConvertible {
         // EpochNo: Word64.
         WidthCase("committee.members.keyHash-00000000000000000000000000000000000000000000000000000000",
                   u64Max, u64Beyond),
-        // The quorum, a UnitInterval of Word64s.
-        WidthCase("committee.threshold.denominator", u64Max, u64Beyond),
     ]
 
     @Test("The top of the ledger's range decodes and round-trips", arguments: cases)
@@ -438,9 +477,24 @@ struct WidthCase: Sendable, CustomTestStringConvertible {
     @Test("The committee quorum is a UnitInterval, written as a fraction or a decimal")
     func threshold() throws {
         let full = try decode(ConwayGenesis.self, setting(
-            genesis(), ["committee", "threshold"], to: ["numerator": number(u64Max), "denominator": number(u64Max)]))
-        #expect(full.committee.threshold.numerator == .max)
+            genesis(), ["committee", "threshold"],
+            to: ["numerator": number("18446744073709551614"), "denominator": number(u64Max)]))
+        #expect(full.committee.threshold.numerator == UInt64.max - 1)
+        #expect(full.committee.threshold.denominator == UInt64.max)
         #expect(try ConwayGenesis(from: full.toPrimitive()).committee.threshold == full.committee.threshold)
+        // The ledger holds the reduced ratio: n/n is 1/1.
+        let one = try decode(ConwayGenesis.self, setting(
+            genesis(), ["committee", "threshold"], to: ["numerator": number(u64Max), "denominator": number(u64Max)]))
+        #expect(one.committee.threshold == UnitInterval(numerator: 1, denominator: 1))
+        // Word64 parts once reduced, as the ledger's boundRational checks:
+        // 2/2^64 is 1/2^63, but 3/2^64 does not fit.
+        let halved = try decode(ConwayGenesis.self, setting(
+            genesis(), ["committee", "threshold"], to: ["numerator": 2, "denominator": number(u64Beyond)]))
+        #expect(halved.committee.threshold == UnitInterval(numerator: 1, denominator: 1 << 63))
+        #expect(throws: (any Error).self) {
+            try decode(ConwayGenesis.self, setting(
+                genesis(), ["committee", "threshold"], to: ["numerator": 3, "denominator": number(u64Beyond)]))
+        }
 
         let decimal = try decode(ConwayGenesis.self, setting(genesis(), ["committee", "threshold"], to: number("0.67")))
         #expect(decimal.committee.threshold.numerator == 67)
@@ -459,8 +513,9 @@ struct WidthCase: Sendable, CustomTestStringConvertible {
     @Test("minFeeRefScriptCostPerByte is a NonNegativeInterval, not a whole number")
     func minFeeRefScriptCostPerByte() throws {
         let fractional = try decode(ConwayGenesis.self, setting(genesis(), ["minFeeRefScriptCostPerByte"], to: 15.5))
-        #expect(fractional.minFeeRefScriptCostPerByte == 15.5)
-        #expect(try ConwayGenesis(from: fractional.toPrimitive()).minFeeRefScriptCostPerByte == 15.5)
+        #expect(fractional.minFeeRefScriptCostPerByte == NonNegativeInterval(numerator: 31, denominator: 2))
+        #expect(try ConwayGenesis(from: fractional.toPrimitive()).minFeeRefScriptCostPerByte
+                == NonNegativeInterval(numerator: 31, denominator: 2))
         #expect(throws: CardanoCoreError.self) {
             try decode(ConwayGenesis.self, setting(genesis(), ["minFeeRefScriptCostPerByte"], to: -1))
         }
@@ -483,7 +538,7 @@ struct WidthCase: Sendable, CustomTestStringConvertible {
         let alonzo = try AlonzoGenesis.load(from: path("alonzo-genesis"))
         _ = try AlonzoGenesis(from: alonzo.toPrimitive())
         let conway = try ConwayGenesis.load(from: path("conway-genesis"))
-        #expect(conway.minFeeRefScriptCostPerByte == 15)
+        #expect(conway.minFeeRefScriptCostPerByte == NonNegativeInterval(numerator: 15, denominator: 1))
         _ = try ConwayGenesis(from: conway.toPrimitive())
         _ = try GenesisParameters(nodeConfigFilePath: path("config"))
 

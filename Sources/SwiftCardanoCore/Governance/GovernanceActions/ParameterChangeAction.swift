@@ -632,10 +632,18 @@ extension ProtocolParamUpdate {
     ///
     /// Useful as a starting point for a `ParameterChangeAction`: populate all
     /// fields from the current params and then nil-out the fields you do NOT
-    /// want to change.  Double-valued rates are approximated as rationals with
-    /// 10⁹ precision; fields that have no clean on-chain representation are set
-    /// to `nil` and must be supplied manually if needed.
+    /// want to change. Rates are copied exactly, reduced as the ledger holds
+    /// them; fields that have no clean on-chain representation are set to
+    /// `nil` and must be supplied manually if needed.
     public init(from p: ProtocolParameters) {
+        func unit(_ value: UnitInterval) -> UnitInterval {
+            let (n, d) = LedgerRational.reduced(value.numerator, value.denominator)
+            return UnitInterval(numerator: n, denominator: d)
+        }
+        func nonNegative(_ value: NonNegativeInterval) -> NonNegativeInterval {
+            let (n, d) = LedgerRational.reduced(value.numerator, value.denominator)
+            return NonNegativeInterval(numerator: n, denominator: d)
+        }
         minFeeA = p.txFeePerByte
         minFeeB = p.txFeeFixed
         maxBlockBodySize = p.maxBlockBodySize
@@ -645,9 +653,9 @@ extension ProtocolParamUpdate {
         poolDeposit = p.stakePoolDeposit
         maximumEpoch = p.poolRetireMaxEpoch
         nOpt = p.stakePoolTargetNum
-        poolPledgeInfluence = doubleToNonNegativeInterval(p.poolPledgeInfluence)
-        expansionRate = doubleToUnitInterval(p.monetaryExpansion)
-        treasuryGrowthRate = doubleToUnitInterval(p.treasuryCut)
+        poolPledgeInfluence = nonNegative(p.poolPledgeInfluence)
+        expansionRate = unit(p.monetaryExpansion)
+        treasuryGrowthRate = unit(p.treasuryCut)
         decentralizationConstant = nil
         extraEntropy = nil
         protocolVersion = ProtocolVersion(
@@ -661,13 +669,9 @@ extension ProtocolParamUpdate {
             2: p.costModels.PlutusV3,
         ])
 
-        if let mem = doubleToNonNegativeInterval(p.executionUnitPrices.priceMemory),
-            let step = doubleToNonNegativeInterval(p.executionUnitPrices.priceSteps)
-        {
-            executionCosts = ExUnitPrices(memPrice: mem, stepPrice: step)
-        } else {
-            executionCosts = nil
-        }
+        executionCosts = ExUnitPrices(
+            memPrice: nonNegative(p.executionUnitPrices.priceMemory),
+            stepPrice: nonNegative(p.executionUnitPrices.priceSteps))
 
         maxTxExUnits = ExUnits(
             mem: p.maxTxExecutionUnits.memory, steps: p.maxTxExecutionUnits.steps)
@@ -677,37 +681,23 @@ extension ProtocolParamUpdate {
         collateralPercentage = p.collateralPercentage
         maxCollateralInputs = p.maxCollateralInputs
 
-        let pvt = p.poolVotingThresholds
-        if let cnc = doubleToUnitInterval(pvt.committeeNoConfidence),
-            let cn = doubleToUnitInterval(pvt.committeeNormal),
-            let hfi = doubleToUnitInterval(pvt.hardForkInitiation),
-            let mnc = doubleToUnitInterval(pvt.motionNoConfidence),
-            let psg = doubleToUnitInterval(pvt.ppSecurityGroup)
-        {
-            poolVotingThresholds = PoolVotingThresholds(
-                committeeNoConfidence: cnc,
-                committeeNormal: cn,
-                hardForkInitiation: hfi,
-                motionNoConfidence: mnc,
-                ppSecurityGroup: psg
-            )
-        } else {
-            poolVotingThresholds = nil
-        }
+        // `PoolVotingThresholds` writes its fields in declaration order, so
+        // they are filled by position: pool_voting_thresholds is [motion no
+        // confidence, committee normal, committee no confidence, hard fork
+        // initiation, security group] in the CDDL.
+        let pvt = p.poolVotingThresholds.ledgerOrder.map(unit)
+        poolVotingThresholds = PoolVotingThresholds(
+            committeeNoConfidence: pvt[0],
+            committeeNormal: pvt[1],
+            hardForkInitiation: pvt[2],
+            motionNoConfidence: pvt[3],
+            ppSecurityGroup: pvt[4]
+        )
 
         // drep_voting_thresholds CDDL order:
         // [motionNoConfidence, committeeNormal, committeeNoConfidence, updateToConstitution,
         //  hardForkInitiation, ppNetworkGroup, ppEconomicGroup, ppTechnicalGroup, ppGovGroup, treasuryWithdrawal]
-        let dvt = p.dRepVotingThresholds
-        let dvtDoubles = [
-            dvt.motionNoConfidence, dvt.committeeNormal, dvt.committeeNoConfidence,
-            dvt.updateToConstitution, dvt.hardForkInitiation, dvt.ppNetworkGroup,
-            dvt.ppEconomicGroup, dvt.ppTechnicalGroup, dvt.ppGovGroup, dvt.treasuryWithdrawal,
-        ]
-        let dvtIntervals = dvtDoubles.compactMap { doubleToUnitInterval($0) }
-        drepVotingThresholds =
-            dvtIntervals.count == 10
-            ? DrepVotingThresholds(thresholds: dvtIntervals) : nil
+        drepVotingThresholds = DrepVotingThresholds(thresholds: p.dRepVotingThresholds.ledgerOrder.map(unit))
 
         minCommitteeSize = p.committeeMinSize
         committeeTermLimit = p.committeeMaxTermLength
@@ -715,6 +705,6 @@ extension ProtocolParamUpdate {
         governanceActionDeposit = p.govActionDeposit
         drepDeposit = p.dRepDeposit
         drepInactivityPeriod = p.dRepActivity
-        minFeeRefScriptCoinsPerByte = p.minFeeRefScriptCostPerByte.flatMap { doubleToNonNegativeInterval($0) }
+        minFeeRefScriptCoinsPerByte = p.minFeeRefScriptCostPerByte.map(nonNegative)
     }
 }

@@ -4,7 +4,7 @@ import CBORCodable
 @testable import SwiftCardanoCore
 
 @Suite struct GenesisParametersTests {
-    let activeSlotsCoefficient = 1000
+    let activeSlotsCoefficient = UnitInterval(numerator: 1, denominator: 20)
     let maxLovelaceSupply: UInt64 = 45_000_000_000
     let networkId = "mainnet"
     let networkMagic: UInt32 = 42
@@ -19,7 +19,7 @@ import CBORCodable
     
     @Test func testInitialization() async throws {
         let genesisParameters = GenesisParameters(
-            activeSlotsCoefficient: Double(activeSlotsCoefficient),
+            activeSlotsCoefficient: activeSlotsCoefficient,
             epochLength: epochLength,
             maxKesEvolutions: maxKESEvolutions,
             maxLovelaceSupply: maxLovelaceSupply,
@@ -32,7 +32,7 @@ import CBORCodable
             updateQuorum: updateQuorum
         )
         
-        #expect(genesisParameters.activeSlotsCoefficient == Double(activeSlotsCoefficient))
+        #expect(genesisParameters.activeSlotsCoefficient == activeSlotsCoefficient)
         #expect(genesisParameters.epochLength == epochLength)
         #expect(genesisParameters.maxKesEvolutions == maxKESEvolutions)
         #expect(genesisParameters.maxLovelaceSupply == maxLovelaceSupply)
@@ -93,12 +93,15 @@ import CBORCodable
         )
         let shelleyGenesis = try ShelleyGenesis.load(from: shelleyGenesisfilePath!)
         
-        _ = GenesisParameters(
+        let parameters = GenesisParameters(
             alonzoGenesis: alonzoGenesis,
             byronGenesis: byronGenesis,
             conwayGenesis: conwayGenesis,
             shelleyGenesis: shelleyGenesis
         )
+        // Exact: mainnet's 0.05 is 1/20, not the nearest Double.
+        #expect(parameters.activeSlotsCoefficient == UnitInterval(numerator: 1, denominator: 20))
+        #expect(parameters.systemStart == ISO8601DateFormatter().date(from: "2017-09-23T21:44:51Z"))
     }
         
         
