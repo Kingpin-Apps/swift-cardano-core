@@ -18,6 +18,13 @@ Scripts in Cardano enable programmable conditions for spending UTxOs and minting
 - ``ScriptInvalidBefore``: Valid only after a specific slot
 - ``ScriptInvalidHereafter``: Valid only before a specific slot
 
+A native script read from CBOR — on its own, or from a transaction's witness
+set, auxiliary data or a reference script — is read as the ledger reads it:
+records and lists of definite or indefinite length, integers of any width, and
+any depth. It keeps the bytes it was read from, and its hash and encoding are
+taken over them, so `scriptHash()` matches the ledger's however the script was
+written. A script built in Swift is written in its canonical form.
+
 ### Plutus Scripts
 
 - ``PlutusV1Script``: First generation Plutus smart contracts
