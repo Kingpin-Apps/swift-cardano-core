@@ -1,81 +1,129 @@
 import Foundation
 import OrderedCollections
 import CBORCodable
-import SwiftNaCl
 
-/// A parsed Byron era block header — either an Epoch Boundary Block header or a
-/// regular BFT block header.
+/// A Byron era block header — either an Epoch Boundary Block header or a
+/// regular block header.
 ///
-/// Derived from the official Byron CDDL specification:
+/// Derived from the Byron CDDL specification:
 /// https://github.com/IntersectMBO/cardano-ledger/blob/master/eras/byron/ledger/impl/cddl-spec/byron.cddl
 ///
-/// Both header types share the same 5-element CBOR array shape but differ in
-/// the structure of `consensusData` and `extraData`:
+/// Both header types are 5-element arrays but differ in `bodyProof`,
+/// `consensusData` and `extraData`:
 ///
 /// ```
-/// ebbhead  = [protocolMagic, prevBlock, bodyProof, consensusData, extraData]
-///   ebbcons  = [epochid, difficulty]
+/// ebbhead   = [protocolMagic, prevBlock, bodyProof : hash, consensusData : ebbcons, extraData : [attributes]]
+///   ebbcons   = [epochid, difficulty]
 ///
-/// blockhead = [protocolMagic, prevBlock, bodyProof, consensusData, extraData]
-///   blockcons = [slotid, pubkey, difficulty, blocksig]
+/// blockhead = [protocolMagic, prevBlock, bodyProof : blockproof, consensusData : blockcons, extraData : blockheadex]
+///   blockcons   = [slotid, pubkey, difficulty, blocksig]
 ///   blockheadex = [blockVersion, softwareVersion, attributes, extraProof]
 /// ```
 ///
-/// The discriminant (0 = EBB, 1 = BFT) comes from the outer block wrapper
+/// The discriminant (0 = EBB, 1 = regular) comes from the outer block wrapper
 /// (`block = [0, ebblock] / [1, mainblock]`) or from the NtN framing
-/// (`[[0|1, epochOrSlot], tag24(head)]`).
+/// (`[[0|1, blockSize], #6.24(head)]`). A decoded header keeps the bytes it
+/// was read from, and its ``hash()`` — the block hash — is taken over them.
 public enum ByronBlockHeader: Sendable {
     case ebb(EBBHead)
     case bft(BFTHead)
 
     // MARK: - EBBHead
 
-    /// Parsed `ebbhead` — the header of an Epoch Boundary Block.
+    /// The header of an Epoch Boundary Block.
     ///
     /// ```
     /// ebbhead = [ protocolMagic : u32
-    ///           , prevBlock      : blockid       ; blake2b-256 (32 bytes)
-    ///           , bodyProof      : hash           ; blake2b-256 (32 bytes)
-    ///           , consensusData  : ebbcons        ; [epochid, difficulty]
+    ///           , prevBlock      : blockid       ; blake2b-256
+    ///           , bodyProof      : hash          ; blake2b-256 of the body
+    ///           , consensusData  : ebbcons       ; [epochid, difficulty]
     ///           , extraData      : [attributes]
     ///           ]
-    /// ebbcons    = [epochid, difficulty]
     /// difficulty = [u64]
     /// ```
-    public struct EBBHead: Sendable {
+    public struct EBBHead: Sendable, Equatable, Hashable {
         /// Network protocol magic.
-        public let protocolMagic: UInt32
-        /// Previous block id (blake2b-256, 32 bytes). Nil at genesis.
-        public let prevBlock: Data?
-        /// Body proof hash (blake2b-256, 32 bytes).
-        public let bodyProof: Data
+        public var protocolMagic: UInt32 { didSet { _original.data = nil } }
+        /// Hash of the previous block; the genesis hash for the first EBB.
+        public var prevBlock: Data { didSet { _original.data = nil } }
+        /// Blake2b-256 hash of the block body.
+        public var bodyProof: Data { didSet { _original.data = nil } }
         /// Epoch number from `ebbcons[0]`.
-        public let epoch: UInt64
+        public var epoch: UInt64 { didSet { _original.data = nil } }
         /// Chain difficulty (block height) from `ebbcons[1] = [u64]`.
-        public let difficulty: UInt64
-        /// Absolute slot number from NtN framing. Nil when decoded from an NtC full block.
-        public let absoluteSlot: UInt64?
+        public var difficulty: UInt64 { didSet { _original.data = nil } }
+        /// The attributes in `extraData = [attributes]`.
+        public var attributes: ByronAttributes { didSet { _original.data = nil } }
+
+        var _original = ByronOriginalBytes()
+
+        /// The exact bytes this header was decoded from, while it is unchanged.
+        public internal(set) var originalCBOR: Data? {
+            get { _original.data }
+            set { _original.data = newValue }
+        }
 
         public init(
             protocolMagic: UInt32,
-            prevBlock: Data?,
+            prevBlock: Data,
             bodyProof: Data,
             epoch: UInt64,
             difficulty: UInt64,
-            absoluteSlot: UInt64?
+            attributes: ByronAttributes = .empty
         ) {
             self.protocolMagic = protocolMagic
             self.prevBlock = prevBlock
             self.bodyProof = bodyProof
             self.epoch = epoch
             self.difficulty = difficulty
-            self.absoluteSlot = absoluteSlot
+            self.attributes = attributes
+        }
+
+        /// The block hash: Blake2b-256 of `[0, ebbhead]`.
+        public func hash() -> Data {
+            ByronHash.header(discriminant: 0, headerCBOR: try! toCBORData())
+        }
+
+        /// The bytes this header was decoded from while it is unchanged,
+        /// otherwise a fresh encoding.
+        public func toCBORData() throws -> Data {
+            try originalCBOR ?? freshCBOR()
+        }
+
+        func freshCBOR() throws -> Data {
+            var writer = ByronCBORWriter()
+            writer.array(5)
+            writer.uint(protocolMagic)
+            writer.bytes(prevBlock)
+            writer.bytes(bodyProof)
+            writer.array(2)
+            writer.uint(epoch)
+            ByronBlockHeader.writeDifficulty(difficulty, to: &writer)
+            writer.array(1)
+            writer.raw(try attributes.toCBORData())
+            return writer.data
+        }
+
+        static func decode(_ item: ByronCBORItem) throws -> EBBHead {
+            let elements = try item.array("ebbhead", count: 5)
+            let consensus = try elements[3].array("ebbhead consensusData", count: 2)
+            let extra = try elements[4].array("ebbhead extraData", count: 1)
+            var head = EBBHead(
+                protocolMagic: try elements[0].uint("ebbhead protocolMagic", as: UInt32.self),
+                prevBlock: try elements[1].byteString("ebbhead prevBlock", count: 32),
+                bodyProof: try elements[2].byteString("ebbhead bodyProof", count: 32),
+                epoch: try consensus[0].uint("ebbhead epoch"),
+                difficulty: try ByronBlockHeader.decodeDifficulty(consensus[1]),
+                attributes: try ByronAttributes.decode(extra[0], "ebbhead attributes")
+            )
+            head.originalCBOR = item.bytes
+            return head
         }
     }
 
     // MARK: - BFTHead
 
-    /// Parsed `blockhead` — the header of a regular Byron BFT block.
+    /// The header of a regular Byron block.
     ///
     /// ```
     /// blockhead = [ protocolMagic : u32
@@ -86,43 +134,53 @@ public enum ByronBlockHeader: Sendable {
     ///             ]
     /// blockcons   = [slotid, pubkey, difficulty, blocksig]
     /// slotid      = [epoch : u64, slot : u64]
-    /// blockheadex = [blockVersion, softwareVersion, attributes, extraProof]
-    /// bver        = [u16, u16, u8]
+    /// blockheadex = [blockVersion : bver, softwareVersion : [text, u32], attributes, extraProof : hash]
     /// ```
-    public struct BFTHead: Sendable {
+    public struct BFTHead: Sendable, Equatable, Hashable {
         /// Network protocol magic.
-        public let protocolMagic: UInt32
-        /// Previous block id (blake2b-256). Nil at genesis.
-        public let prevBlock: Data?
-        /// Block body proof (`blockproof`) — blake2b-256 hash of the block body.
-        public let bodyProof: Data
+        public var protocolMagic: UInt32 { didSet { _original.data = nil } }
+        /// Hash of the previous block.
+        public var prevBlock: Data { didSet { _original.data = nil } }
+        /// Proofs committing to each payload of the block body.
+        public var bodyProof: BlockProof { didSet { _original.data = nil } }
         /// Slot identifier — epoch number and slot within epoch.
-        public let slotId: SlotId
-        /// Block issuer public key (`pubkey` in `blockcons`).
-        /// This is the hot key that actually signed the block (the BFT delegate).
-        public let issuerKey: Data
+        public var slotId: SlotId { didSet { _original.data = nil } }
+        /// Block issuer public key (`pubkey` in `blockcons`) — the hot key
+        /// that signed the block, normally a 64-byte extended Ed25519 key.
+        public var issuerKey: Data { didSet { _original.data = nil } }
         /// Chain difficulty (block height).
-        public let difficulty: UInt64
-        /// Block signature — encodes the delegation chain.
-        public let signature: BlockSignature
+        public var difficulty: UInt64 { didSet { _original.data = nil } }
+        /// Block signature, carrying the delegation the issuer signs under.
+        public var signature: BlockSignature { didSet { _original.data = nil } }
         /// Protocol version from `blockheadex.blockVersion`.
-        public let blockVersion: BlockVersion
+        public var blockVersion: BlockVersion { didSet { _original.data = nil } }
         /// Software version from `blockheadex.softwareVersion`.
-        public let softwareVersion: SoftwareVersion
-        /// Absolute slot number from NtN framing. Nil when decoded from an NtC full block.
-        public let absoluteSlot: UInt64?
+        public var softwareVersion: SoftwareVersion { didSet { _original.data = nil } }
+        /// Attributes from `blockheadex.attributes`.
+        public var attributes: ByronAttributes { didSet { _original.data = nil } }
+        /// Blake2b-256 hash of the block's extra body data.
+        public var extraProof: Data { didSet { _original.data = nil } }
+
+        var _original = ByronOriginalBytes()
+
+        /// The exact bytes this header was decoded from, while it is unchanged.
+        public internal(set) var originalCBOR: Data? {
+            get { _original.data }
+            set { _original.data = newValue }
+        }
 
         public init(
             protocolMagic: UInt32,
-            prevBlock: Data?,
-            bodyProof: Data,
+            prevBlock: Data,
+            bodyProof: BlockProof,
             slotId: SlotId,
             issuerKey: Data,
             difficulty: UInt64,
             signature: BlockSignature,
             blockVersion: BlockVersion,
             softwareVersion: SoftwareVersion,
-            absoluteSlot: UInt64?
+            attributes: ByronAttributes = .empty,
+            extraProof: Data
         ) {
             self.protocolMagic = protocolMagic
             self.prevBlock = prevBlock
@@ -133,7 +191,209 @@ public enum ByronBlockHeader: Sendable {
             self.signature = signature
             self.blockVersion = blockVersion
             self.softwareVersion = softwareVersion
-            self.absoluteSlot = absoluteSlot
+            self.attributes = attributes
+            self.extraProof = extraProof
+        }
+
+        /// The block hash: Blake2b-256 of `[1, blockhead]`.
+        public func hash() -> Data {
+            ByronHash.header(discriminant: 1, headerCBOR: try! toCBORData())
+        }
+
+        /// The absolute slot, given the number of slots in a Byron epoch
+        /// (21600 on mainnet: ten times the security parameter k = 2160).
+        public func absoluteSlot(epochLength: UInt64 = ByronBlockHeader.mainnetEpochLength) -> UInt64 {
+            slotId.epoch * epochLength + slotId.slot
+        }
+
+        /// The bytes this header was decoded from while it is unchanged,
+        /// otherwise a fresh encoding.
+        public func toCBORData() throws -> Data {
+            try originalCBOR ?? freshCBOR()
+        }
+
+        func freshCBOR() throws -> Data {
+            var writer = ByronCBORWriter()
+            writer.array(5)
+            writer.uint(protocolMagic)
+            writer.bytes(prevBlock)
+            bodyProof.write(to: &writer)
+            writer.array(4)
+            slotId.write(to: &writer)
+            writer.bytes(issuerKey)
+            ByronBlockHeader.writeDifficulty(difficulty, to: &writer)
+            signature.write(to: &writer)
+            writer.array(4)
+            blockVersion.write(to: &writer)
+            softwareVersion.write(to: &writer)
+            writer.raw(try attributes.toCBORData())
+            writer.bytes(extraProof)
+            return writer.data
+        }
+
+        static func decode(_ item: ByronCBORItem) throws -> BFTHead {
+            let elements = try item.array("blockhead", count: 5)
+            let consensus = try elements[3].array("blockhead consensusData", count: 4)
+            let extra = try elements[4].array("blockhead extraData", count: 4)
+            var head = BFTHead(
+                protocolMagic: try elements[0].uint("blockhead protocolMagic", as: UInt32.self),
+                prevBlock: try elements[1].byteString("blockhead prevBlock", count: 32),
+                bodyProof: try BlockProof.decode(elements[2]),
+                slotId: try SlotId.decode(consensus[0]),
+                issuerKey: try consensus[1].byteString("blockhead issuer"),
+                difficulty: try ByronBlockHeader.decodeDifficulty(consensus[2]),
+                signature: try BlockSignature.decode(consensus[3]),
+                blockVersion: try BlockVersion.decode(extra[0]),
+                softwareVersion: try SoftwareVersion.decode(extra[1]),
+                attributes: try ByronAttributes.decode(extra[2], "blockhead attributes"),
+                extraProof: try extra[3].byteString("blockhead extraProof", count: 32)
+            )
+            head.originalCBOR = item.bytes
+            return head
+        }
+    }
+
+    // MARK: - Body proof
+
+    /// Proofs of the four payloads of a regular block's body.
+    ///
+    /// ```
+    /// blockproof = [txProof : txproof, sscProof : sscproof, dlgProof : hash, updProof : hash]
+    /// ```
+    public struct BlockProof: Sendable, Equatable, Hashable {
+        /// Proof of the transaction payload.
+        public let txProof: TxProof
+        /// Proof of the shared seed computation payload.
+        public let sscProof: SscProof
+        /// Blake2b-256 hash of the delegation payload.
+        public let dlgProof: Data
+        /// Blake2b-256 hash of the update payload.
+        public let updProof: Data
+
+        public init(txProof: TxProof, sscProof: SscProof, dlgProof: Data, updProof: Data) {
+            self.txProof = txProof
+            self.sscProof = sscProof
+            self.dlgProof = dlgProof
+            self.updProof = updProof
+        }
+
+        static func decode(_ item: ByronCBORItem) throws -> BlockProof {
+            let elements = try item.array("blockproof", count: 4)
+            return BlockProof(
+                txProof: try TxProof.decode(elements[0]),
+                sscProof: try SscProof.decode(elements[1]),
+                dlgProof: try elements[2].byteString("blockproof dlgProof", count: 32),
+                updProof: try elements[3].byteString("blockproof updProof", count: 32)
+            )
+        }
+
+        func write(to writer: inout ByronCBORWriter) {
+            writer.array(4)
+            txProof.write(to: &writer)
+            sscProof.write(to: &writer)
+            writer.bytes(dlgProof)
+            writer.bytes(updProof)
+        }
+    }
+
+    /// Proof of the transaction payload.
+    ///
+    /// `txproof = [u32, hash, hash]` — the number of transactions, the Merkle
+    /// root of the transactions, and the hash of the list of witness lists.
+    public struct TxProof: Sendable, Equatable, Hashable {
+        public let transactionCount: UInt32
+        public let merkleRoot: Data
+        public let witnessesHash: Data
+
+        public init(transactionCount: UInt32, merkleRoot: Data, witnessesHash: Data) {
+            self.transactionCount = transactionCount
+            self.merkleRoot = merkleRoot
+            self.witnessesHash = witnessesHash
+        }
+
+        static func decode(_ item: ByronCBORItem) throws -> TxProof {
+            let elements = try item.array("txproof", count: 3)
+            return TxProof(
+                transactionCount: try elements[0].uint("txproof count", as: UInt32.self),
+                merkleRoot: try elements[1].byteString("txproof merkle root", count: 32),
+                witnessesHash: try elements[2].byteString("txproof witnesses hash", count: 32)
+            )
+        }
+
+        func write(to writer: inout ByronCBORWriter) {
+            writer.array(3)
+            writer.uint(transactionCount)
+            writer.bytes(merkleRoot)
+            writer.bytes(witnessesHash)
+        }
+    }
+
+    /// Proof of the shared seed computation payload, one case per
+    /// ``ByronSscPayload`` case.
+    ///
+    /// ```
+    /// sscproof = [0, hash, hash] / [1, hash, hash] / [2, hash, hash] / [3, hash]
+    /// ```
+    public enum SscProof: Sendable, Equatable, Hashable {
+        /// `[0, commitmentsHash, certificatesHash]`
+        case commitments(payloadHash: Data, certificatesHash: Data)
+        /// `[1, openingsHash, certificatesHash]`
+        case openings(payloadHash: Data, certificatesHash: Data)
+        /// `[2, sharesHash, certificatesHash]`
+        case shares(payloadHash: Data, certificatesHash: Data)
+        /// `[3, certificatesHash]`
+        case certificates(certificatesHash: Data)
+
+        static func decode(_ item: ByronCBORItem) throws -> SscProof {
+            let elements = try item.array("sscproof")
+            guard let first = elements.first else {
+                throw CardanoCoreError.deserializeError("sscproof: empty array")
+            }
+            let kind = try first.uint("sscproof kind")
+            if kind == 3 {
+                guard elements.count == 2 else {
+                    throw CardanoCoreError.deserializeError("sscproof [3, hash]: expected 2 elements")
+                }
+                return .certificates(
+                    certificatesHash: try elements[1].byteString("sscproof hash", count: 32))
+            }
+            guard elements.count == 3 else {
+                throw CardanoCoreError.deserializeError("sscproof [\(kind), hash, hash]: expected 3 elements")
+            }
+            let payloadHash = try elements[1].byteString("sscproof hash", count: 32)
+            let certificatesHash = try elements[2].byteString("sscproof hash", count: 32)
+            switch kind {
+            case 0: return .commitments(payloadHash: payloadHash, certificatesHash: certificatesHash)
+            case 1: return .openings(payloadHash: payloadHash, certificatesHash: certificatesHash)
+            case 2: return .shares(payloadHash: payloadHash, certificatesHash: certificatesHash)
+            default:
+                throw CardanoCoreError.deserializeError("sscproof: unknown kind \(kind)")
+            }
+        }
+
+        func write(to writer: inout ByronCBORWriter) {
+            switch self {
+            case .commitments(let payloadHash, let certificatesHash),
+                .openings(let payloadHash, let certificatesHash),
+                .shares(let payloadHash, let certificatesHash):
+                writer.array(3)
+                writer.uint(kind)
+                writer.bytes(payloadHash)
+                writer.bytes(certificatesHash)
+            case .certificates(let certificatesHash):
+                writer.array(2)
+                writer.uint(3 as UInt8)
+                writer.bytes(certificatesHash)
+            }
+        }
+
+        private var kind: UInt8 {
+            switch self {
+            case .commitments: return 0
+            case .openings: return 1
+            case .shares: return 2
+            case .certificates: return 3
+            }
         }
     }
 
@@ -149,6 +409,20 @@ public enum ByronBlockHeader: Sendable {
         public init(epoch: UInt64, slot: UInt64) {
             self.epoch = epoch
             self.slot = slot
+        }
+
+        static func decode(_ item: ByronCBORItem) throws -> SlotId {
+            let elements = try item.array("slotid", count: 2)
+            return SlotId(
+                epoch: try elements[0].uint("slotid epoch"),
+                slot: try elements[1].uint("slotid slot")
+            )
+        }
+
+        func write(to writer: inout ByronCBORWriter) {
+            writer.array(2)
+            writer.uint(epoch)
+            writer.uint(slot)
         }
     }
 
@@ -167,6 +441,22 @@ public enum ByronBlockHeader: Sendable {
         }
 
         public static let zero = BlockVersion(major: 0, minor: 0, alt: 0)
+
+        static func decode(_ item: ByronCBORItem) throws -> BlockVersion {
+            let elements = try item.array("bver", count: 3)
+            return BlockVersion(
+                major: try elements[0].uint("bver major", as: UInt16.self),
+                minor: try elements[1].uint("bver minor", as: UInt16.self),
+                alt: try elements[2].uint("bver alt", as: UInt8.self)
+            )
+        }
+
+        func write(to writer: inout ByronCBORWriter) {
+            writer.array(3)
+            writer.uint(major)
+            writer.uint(minor)
+            writer.uint(alt)
+        }
     }
 
     /// Byron software version.
@@ -182,22 +472,63 @@ public enum ByronBlockHeader: Sendable {
         }
 
         public static let unknown = SoftwareVersion(appName: "", number: 0)
+
+        static func decode(_ item: ByronCBORItem) throws -> SoftwareVersion {
+            let elements = try item.array("softwareVersion", count: 2)
+            return SoftwareVersion(
+                appName: try elements[0].text("softwareVersion appName"),
+                number: try elements[1].uint("softwareVersion number", as: UInt32.self)
+            )
+        }
+
+        func write(to writer: inout ByronCBORWriter) {
+            writer.array(2)
+            writer.text(appName)
+            writer.uint(number)
+        }
     }
 
     /// Byron block signature.
     ///
     /// ```
-    /// blocksig = [0, signature]    ; plain BFT signature
+    /// blocksig = [0, signature]    ; signed directly by the issuer
     ///          / [1, lwdlgsig]     ; lightweight delegation signature
-    ///          / [2, dlgsig]       ; heavy delegation signature (most common)
+    ///          / [2, dlgsig]       ; heavy delegation signature (used on mainnet)
     /// ```
     public enum BlockSignature: Sendable {
-        /// Plain BFT signature: `[0, signature]`
+        /// Plain signature: `[0, signature]`
         case regular(Data)
         /// Lightweight (short-range) delegation: `[1, lwdlgsig]`
         case lightweightDelegation(LwDlgSig)
         /// Heavy delegation certificate: `[2, dlgsig]`
         case delegation(DlgSig)
+
+        static func decode(_ item: ByronCBORItem) throws -> BlockSignature {
+            let elements = try item.array("blocksig", count: 2)
+            let kind = try elements[0].uint("blocksig kind")
+            switch kind {
+            case 0: return .regular(try elements[1].byteString("blocksig signature"))
+            case 1: return .lightweightDelegation(try LwDlgSig.decode(elements[1]))
+            case 2: return .delegation(try DlgSig.decode(elements[1]))
+            default:
+                throw CardanoCoreError.deserializeError("blocksig: unknown kind \(kind)")
+            }
+        }
+
+        func write(to writer: inout ByronCBORWriter) {
+            writer.array(2)
+            switch self {
+            case .regular(let signature):
+                writer.uint(0 as UInt8)
+                writer.bytes(signature)
+            case .lightweightDelegation(let signature):
+                writer.uint(1 as UInt8)
+                signature.write(to: &writer)
+            case .delegation(let signature):
+                writer.uint(2 as UInt8)
+                signature.write(to: &writer)
+            }
+        }
     }
 
     /// Heavy delegation signature: `dlgsig = [dlg, signature]`
@@ -208,6 +539,20 @@ public enum ByronBlockHeader: Sendable {
         public init(delegation: Dlg, signature: Data) {
             self.delegation = delegation
             self.signature = signature
+        }
+
+        static func decode(_ item: ByronCBORItem) throws -> DlgSig {
+            let elements = try item.array("dlgsig", count: 2)
+            return DlgSig(
+                delegation: try Dlg.decode(elements[0]),
+                signature: try elements[1].byteString("dlgsig signature")
+            )
+        }
+
+        func write(to writer: inout ByronCBORWriter) {
+            writer.array(2)
+            delegation.write(to: &writer)
+            writer.bytes(signature)
         }
     }
 
@@ -220,15 +565,30 @@ public enum ByronBlockHeader: Sendable {
             self.delegation = delegation
             self.signature = signature
         }
+
+        static func decode(_ item: ByronCBORItem) throws -> LwDlgSig {
+            let elements = try item.array("lwdlgsig", count: 2)
+            return LwDlgSig(
+                delegation: try LwDlg.decode(elements[0]),
+                signature: try elements[1].byteString("lwdlgsig signature")
+            )
+        }
+
+        func write(to writer: inout ByronCBORWriter) {
+            writer.array(2)
+            delegation.write(to: &writer)
+            writer.bytes(signature)
+        }
     }
 
-    /// Heavy delegation certificate.
+    /// Heavy delegation certificate, as carried in a block signature and in a
+    /// block body's delegation payload.
     ///
     /// ```
     /// dlg = [epoch : epochid, issuer : pubkey, delegate : pubkey, certificate : signature]
     /// ```
     public struct Dlg: Sendable {
-        /// Epoch the delegation is valid for.
+        /// Epoch the delegation is valid from.
         public let epoch: UInt64
         /// Cold verification key (genesis key holder).
         public let issuer: Data
@@ -242,6 +602,24 @@ public enum ByronBlockHeader: Sendable {
             self.issuer = issuer
             self.delegate = delegate
             self.certificate = certificate
+        }
+
+        static func decode(_ item: ByronCBORItem) throws -> Dlg {
+            let elements = try item.array("dlg", count: 4)
+            return Dlg(
+                epoch: try elements[0].uint("dlg epoch"),
+                issuer: try elements[1].byteString("dlg issuer"),
+                delegate: try elements[2].byteString("dlg delegate"),
+                certificate: try elements[3].byteString("dlg certificate")
+            )
+        }
+
+        func write(to writer: inout ByronCBORWriter) {
+            writer.array(4)
+            writer.uint(epoch)
+            writer.bytes(issuer)
+            writer.bytes(delegate)
+            writer.bytes(certificate)
         }
     }
 
@@ -272,15 +650,64 @@ public enum ByronBlockHeader: Sendable {
             self.delegate = delegate
             self.certificate = certificate
         }
+
+        static func decode(_ item: ByronCBORItem) throws -> LwDlg {
+            let elements = try item.array("lwdlg", count: 4)
+            let range = try elements[0].array("lwdlg epochRange", count: 2)
+            return LwDlg(
+                epochFrom: try range[0].uint("lwdlg epochRange"),
+                epochTo: try range[1].uint("lwdlg epochRange"),
+                issuer: try elements[1].byteString("lwdlg issuer"),
+                delegate: try elements[2].byteString("lwdlg delegate"),
+                certificate: try elements[3].byteString("lwdlg certificate")
+            )
+        }
+
+        func write(to writer: inout ByronCBORWriter) {
+            writer.array(4)
+            writer.array(2)
+            writer.uint(epochFrom)
+            writer.uint(epochTo)
+            writer.bytes(issuer)
+            writer.bytes(delegate)
+            writer.bytes(certificate)
+        }
     }
 
     // MARK: - Convenience accessors
 
-    /// Previous block id regardless of variant.
-    public var prevBlock: Data? {
+    /// Slots in a mainnet Byron epoch: 10 × k, with k = 2160.
+    public static let mainnetEpochLength: UInt64 = 21600
+
+    /// The block discriminant: 0 for an EBB, 1 for a regular block.
+    public var discriminant: UInt8 {
+        switch self {
+        case .ebb: return 0
+        case .bft: return 1
+        }
+    }
+
+    /// Network protocol magic regardless of variant.
+    public var protocolMagic: UInt32 {
+        switch self {
+        case .ebb(let h): return h.protocolMagic
+        case .bft(let h): return h.protocolMagic
+        }
+    }
+
+    /// Previous block hash regardless of variant.
+    public var prevBlock: Data {
         switch self {
         case .ebb(let h): return h.prevBlock
         case .bft(let h): return h.prevBlock
+        }
+    }
+
+    /// Epoch number regardless of variant.
+    public var epoch: UInt64 {
+        switch self {
+        case .ebb(let h): return h.epoch
+        case .bft(let h): return h.slotId.epoch
         }
     }
 
@@ -292,12 +719,61 @@ public enum ByronBlockHeader: Sendable {
         }
     }
 
-    /// Absolute slot from NtN framing (nil for NtC).
-    public var absoluteSlot: UInt64? {
+    /// The absolute slot, given the number of slots in a Byron epoch. An EBB
+    /// shares the slot of the first block of its epoch.
+    public func absoluteSlot(epochLength: UInt64 = mainnetEpochLength) -> UInt64 {
         switch self {
-        case .ebb(let h): return h.absoluteSlot
-        case .bft(let h): return h.absoluteSlot
+        case .ebb(let h): return h.epoch * epochLength
+        case .bft(let h): return h.absoluteSlot(epochLength: epochLength)
         }
+    }
+
+    /// The exact bytes this header was decoded from, while it is unchanged.
+    public var originalCBOR: Data? {
+        switch self {
+        case .ebb(let h): return h.originalCBOR
+        case .bft(let h): return h.originalCBOR
+        }
+    }
+
+    // MARK: - Decoding
+
+    /// Decodes a header from its `ebbhead` or `blockhead` bytes, keeping them.
+    ///
+    /// Without the outer discriminant the variant is told by `consensusData`:
+    /// a 2-element `ebbcons` for an EBB, a 4-element `blockcons` otherwise.
+    public static func fromCBOR(data: Data) throws -> ByronBlockHeader {
+        try decode(try ByronCBORItem(root: data, "Byron header"), discriminant: nil)
+    }
+
+    /// Decodes a header whose variant is given by `discriminant`, or told by
+    /// its `consensusData` when it is `nil`.
+    static func decode(_ item: ByronCBORItem, discriminant: UInt64?) throws -> ByronBlockHeader {
+        let kind: UInt64
+        if let discriminant {
+            kind = discriminant
+        } else {
+            let elements = try item.array("Byron header", count: 5)
+            kind = try elements[3].array("Byron header consensusData").count == 2 ? 0 : 1
+        }
+        switch kind {
+        case 0: return .ebb(try EBBHead.decode(item))
+        case 1: return .bft(try BFTHead.decode(item))
+        default:
+            throw CardanoCoreError.deserializeError("Byron header: unknown discriminant \(kind)")
+        }
+    }
+
+    // MARK: - Shared helpers
+
+    /// `difficulty = [u64]`
+    static func decodeDifficulty(_ item: ByronCBORItem) throws -> UInt64 {
+        try item.array("difficulty", count: 1)[0].uint("difficulty")
+    }
+
+    static func writeDifficulty(_ difficulty: UInt64, to writer: inout ByronCBORWriter) {
+        writer.array(1)
+        writer.uint(difficulty)
     }
 }
 
@@ -311,8 +787,6 @@ extension ByronBlockHeader.DlgSig: Equatable, Hashable {}
 extension ByronBlockHeader.LwDlg: Equatable, Hashable {}
 extension ByronBlockHeader.LwDlgSig: Equatable, Hashable {}
 extension ByronBlockHeader.BlockSignature: Equatable, Hashable {}
-extension ByronBlockHeader.EBBHead: Equatable, Hashable {}
-extension ByronBlockHeader.BFTHead: Equatable, Hashable {}
 extension ByronBlockHeader: Equatable, Hashable {}
 
 // MARK: - Serializable
@@ -321,604 +795,73 @@ extension ByronBlockHeader: Serializable {
 
     // MARK: CBORSerializable
 
-    /// Decode from the 5-element Byron head array (shared by both EBB and BFT).
+    /// Decodes from the 5-element `ebbhead` or `blockhead` array.
     ///
-    /// The variant is detected by the structure of `consensusData` (element[3]):
-    /// - 2-element list → EBB (`[epoch, [difficulty]]`)
-    /// - ≥4-element list → BFT (`[slotId, issuer, [difficulty], signature]`)
+    /// A primitive does not record how its items were written, so prefer
+    /// ``fromCBOR(data:)`` where the header hash matters.
     public init(from primitive: Primitive) throws {
-        guard case .list(let headElements) = primitive, headElements.count >= 5 else {
-            throw CardanoCoreError.deserializeError(
-                "ByronBlockHeader: expected ≥5-element array, got \(primitive)"
-            )
-        }
-        guard case .list(let cons) = headElements[3] else {
-            throw CardanoCoreError.deserializeError(
-                "ByronBlockHeader: consensusData (element[3]) must be a list"
-            )
-        }
-
-        if cons.count == 2 {
-            // EBB: consensusData = [epoch, [difficulty]]
-            let protocolMagic = UInt32(try Self.uintFrom(headElements[0]))
-            let prevBlock = Self.bytesOrNil(headElements[1])
-            let bodyProof = try Self.primitiveToData(headElements[2])
-            let epoch = try Self.uintFrom(cons[0])
-            let difficulty = try Self.difficultyFrom(cons[1])
-            self = .ebb(
-                EBBHead(
-                    protocolMagic: protocolMagic,
-                    prevBlock: prevBlock,
-                    bodyProof: bodyProof,
-                    epoch: epoch,
-                    difficulty: difficulty,
-                    absoluteSlot: nil
-                ))
-        } else {
-            // BFT: consensusData = [slotId, issuer, [difficulty], signature]
-            guard cons.count >= 4 else {
-                throw CardanoCoreError.deserializeError(
-                    "ByronBlockHeader BFT: consensusData needs ≥4 elements, got \(cons.count)"
-                )
-            }
-            let protocolMagic = UInt32(try Self.uintFrom(headElements[0]))
-            let prevBlock = Self.bytesOrNil(headElements[1])
-            let bodyProof = try Self.primitiveToData(headElements[2])
-
-            guard case .list(let slotEl) = cons[0], slotEl.count >= 2 else {
-                throw CardanoCoreError.deserializeError(
-                    "ByronBlockHeader BFT: slotId must be [epoch, slot]"
-                )
-            }
-            let slotId = SlotId(
-                epoch: try Self.uintFrom(slotEl[0]),
-                slot: try Self.uintFrom(slotEl[1])
-            )
-            guard case .bytes(let issuerKey) = cons[1] else {
-                throw CardanoCoreError.deserializeError(
-                    "ByronBlockHeader BFT: issuer must be bytes"
-                )
-            }
-            let difficulty = try Self.difficultyFrom(cons[2])
-            let signature = try Self.parseBlockSig(cons[3])
-
-            var blockVersion = BlockVersion.zero
-            var softwareVersion = SoftwareVersion.unknown
-            if case .list(let extra) = headElements[4], extra.count >= 2 {
-                blockVersion = Self.parseBlockVer(extra[0])
-                softwareVersion = Self.parseSoftVer(extra[1])
-            }
-
-            self = .bft(
-                BFTHead(
-                    protocolMagic: protocolMagic,
-                    prevBlock: prevBlock,
-                    bodyProof: bodyProof,
-                    slotId: slotId,
-                    issuerKey: issuerKey,
-                    difficulty: difficulty,
-                    signature: signature,
-                    blockVersion: blockVersion,
-                    softwareVersion: softwareVersion,
-                    absoluteSlot: nil
-                ))
-        }
+        self = try Self.fromCBOR(data: CBORSerialization.data(from: primitive.toCBOR()))
     }
 
-    /// Encode to the 5-element Byron head CBOR array.
     public func toPrimitive() throws -> Primitive {
-        switch self {
-        case .ebb(let ebb):
-            return .list([
-                .uint(UInt64(ebb.protocolMagic)),
-                ebb.prevBlock.map { .bytes($0) } ?? .bytes(Data()),
-                Self.dataToBodyProofPrimitive(ebb.bodyProof),
-                .list([
-                    .uint(ebb.epoch),
-                    .list([.uint(ebb.difficulty)]),
-                ]),
-                .list([]),
-            ])
+        try Primitive.from(cbor: CBORSerialization.cbor(from: toCBORData()))
+    }
 
-        case .bft(let bft):
-            let sigPrimitive = Self.encodeSig(bft.signature)
-            return .list([
-                .uint(UInt64(bft.protocolMagic)),
-                bft.prevBlock.map { .bytes($0) } ?? .bytes(Data()),
-                Self.dataToBodyProofPrimitive(bft.bodyProof),
-                .list([
-                    .list([.uint(bft.slotId.epoch), .uint(bft.slotId.slot)]),
-                    .bytes(bft.issuerKey),
-                    .list([.uint(bft.difficulty)]),
-                    sigPrimitive,
-                ]),
-                .list([
-                    .list([
-                        .uint(UInt64(bft.blockVersion.major)),
-                        .uint(UInt64(bft.blockVersion.minor)),
-                        .uint(UInt64(bft.blockVersion.alt)),
-                    ]),
-                    .list([
-                        .string(bft.softwareVersion.appName),
-                        .uint(UInt64(bft.softwareVersion.number)),
-                    ]),
-                    .orderedDict([:]),  // attributes
-                    .bytes(Data()),  // extraProof
-                ]),
-            ])
+    /// The bytes this header was decoded from while it is unchanged,
+    /// otherwise a fresh encoding.
+    public func toCBORData(deterministic: Bool = false) throws -> Data {
+        _ = deterministic
+        switch self {
+        case .ebb(let h): return try h.toCBORData()
+        case .bft(let h): return try h.toCBORData()
         }
     }
 
     // MARK: JSONSerializable
 
+    /// Decodes from the dictionary ``toDict()`` writes, using its `cbor` field;
+    /// the other fields are a summary for reading.
     public static func fromDict(_ primitive: Primitive) throws -> ByronBlockHeader {
-        guard case .orderedDict(let dict) = primitive else {
-            throw CardanoCoreError.deserializeError("ByronBlockHeader.fromDict: expected dict")
-        }
-        guard let typeP = dict[.string("type")], case .string(let type_) = typeP else {
+        guard case .orderedDict(let dict) = primitive,
+            case .string(let hex) = dict[.string("cbor")] ?? .null,
+            let data = Data(hexString: hex)
+        else {
             throw CardanoCoreError.deserializeError(
-                "ByronBlockHeader.fromDict: missing 'type' field")
+                "ByronBlockHeader.fromDict: expected a dict with a 'cbor' hex string")
         }
-
-        switch type_ {
-        case "ebb":
-            guard let pmP = dict[.string("protocolMagic")],
-                let epochP = dict[.string("epoch")],
-                let diffP = dict[.string("difficulty")]
-            else {
-                throw CardanoCoreError.deserializeError(
-                    "ByronBlockHeader EBB: missing required fields")
-            }
-            let protocolMagic = UInt32(try uintFrom(pmP))
-            let prevBlock: Data? = try hexDataOrNil(dict[.string("prevBlock")])
-            let bodyProof: Data = (try? hexDataOrNil(dict[.string("bodyProof")])) ?? Data()
-            let epoch = try uintFrom(epochP)
-            let difficulty = try uintFrom(diffP)
-            let absSlot: UInt64? = dict[.string("absoluteSlot")].flatMap { try? uintFrom($0) }
-            return .ebb(
-                EBBHead(
-                    protocolMagic: protocolMagic,
-                    prevBlock: prevBlock,
-                    bodyProof: bodyProof,
-                    epoch: epoch,
-                    difficulty: difficulty,
-                    absoluteSlot: absSlot
-                ))
-
-        case "bft":
-            guard let pmP = dict[.string("protocolMagic")],
-                let epochP = dict[.string("slotEpoch")],
-                let slotP = dict[.string("slotInEpoch")],
-                let ikP = dict[.string("issuerKey")],
-                let diffP = dict[.string("difficulty")],
-                let sigP = dict[.string("signature")]
-            else {
-                throw CardanoCoreError.deserializeError(
-                    "ByronBlockHeader BFT: missing required fields")
-            }
-            let protocolMagic = UInt32(try uintFrom(pmP))
-            let prevBlock: Data? = try hexDataOrNil(dict[.string("prevBlock")])
-            let bodyProof: Data = (try? hexDataOrNil(dict[.string("bodyProof")])) ?? Data()
-            let slotId = SlotId(epoch: try uintFrom(epochP), slot: try uintFrom(slotP))
-            guard case .string(let ikHex) = ikP, let issuerKey = Data(hexString: ikHex) else {
-                throw CardanoCoreError.deserializeError(
-                    "ByronBlockHeader BFT: issuerKey must be hex string")
-            }
-            let difficulty = try uintFrom(diffP)
-            let signature = try blockSigFromDict(sigP)
-            let absSlot: UInt64? = dict[.string("absoluteSlot")].flatMap { try? uintFrom($0) }
-
-            var blockVersion = BlockVersion.zero
-            if let bvP = dict[.string("blockVersion")],
-                case .orderedDict(let bvD) = bvP,
-                let majP = bvD[.string("major")],
-                let minP = bvD[.string("minor")],
-                let altP = bvD[.string("alt")]
-            {
-                blockVersion = BlockVersion(
-                    major: UInt16(try uintFrom(majP)),
-                    minor: UInt16(try uintFrom(minP)),
-                    alt: UInt8(try uintFrom(altP))
-                )
-            }
-            var softwareVersion = SoftwareVersion.unknown
-            if let svP = dict[.string("softwareVersion")],
-                case .orderedDict(let svD) = svP,
-                case .string(let appName) = svD[.string("appName")],
-                let numP = svD[.string("number")]
-            {
-                softwareVersion = SoftwareVersion(
-                    appName: appName, number: UInt32(try uintFrom(numP)))
-            }
-
-            return .bft(
-                BFTHead(
-                    protocolMagic: protocolMagic,
-                    prevBlock: prevBlock,
-                    bodyProof: bodyProof,
-                    slotId: slotId,
-                    issuerKey: issuerKey,
-                    difficulty: difficulty,
-                    signature: signature,
-                    blockVersion: blockVersion,
-                    softwareVersion: softwareVersion,
-                    absoluteSlot: absSlot
-                ))
-
-        default:
+        let header = try fromCBOR(data: data)
+        if case .string(let type_) = dict[.string("type")] ?? .null,
+            type_ != (header.discriminant == 0 ? "ebb" : "bft")
+        {
             throw CardanoCoreError.deserializeError(
-                "ByronBlockHeader.fromDict: unknown type '\(type_)'")
+                "ByronBlockHeader.fromDict: 'type' \(type_) does not match the header")
         }
+        return header
     }
 
     public func toDict() throws -> Primitive {
-        switch self {
-        case .ebb(let ebb):
-            var dict = OrderedDictionary<Primitive, Primitive>()
-            dict[.string("type")] = .string("ebb")
-            dict[.string("protocolMagic")] = .uint(UInt64(ebb.protocolMagic))
-            dict[.string("prevBlock")] = ebb.prevBlock.map { .string($0.toHex) } ?? .null
-            dict[.string("bodyProof")] = .string(ebb.bodyProof.toHex)
-            dict[.string("epoch")] = .uint(ebb.epoch)
-            dict[.string("difficulty")] = .uint(ebb.difficulty)
-            if let abs = ebb.absoluteSlot { dict[.string("absoluteSlot")] = .uint(abs) }
-            return .orderedDict(dict)
-
-        case .bft(let bft):
-            var dict = OrderedDictionary<Primitive, Primitive>()
-            dict[.string("type")] = .string("bft")
-            dict[.string("protocolMagic")] = .uint(UInt64(bft.protocolMagic))
-            dict[.string("prevBlock")] = bft.prevBlock.map { .string($0.toHex) } ?? .null
-            dict[.string("bodyProof")] = .string(bft.bodyProof.toHex)
-            dict[.string("slotEpoch")] = .uint(bft.slotId.epoch)
-            dict[.string("slotInEpoch")] = .uint(bft.slotId.slot)
-            dict[.string("issuerKey")] = .string(bft.issuerKey.toHex)
-            dict[.string("difficulty")] = .uint(bft.difficulty)
-            dict[.string("signature")] = sigToDict(bft.signature)
-
-            var bvDict = OrderedDictionary<Primitive, Primitive>()
-            bvDict[.string("major")] = .uint(UInt64(bft.blockVersion.major))
-            bvDict[.string("minor")] = .uint(UInt64(bft.blockVersion.minor))
-            bvDict[.string("alt")] = .uint(UInt64(bft.blockVersion.alt))
-            dict[.string("blockVersion")] = .orderedDict(bvDict)
-
-            var svDict = OrderedDictionary<Primitive, Primitive>()
-            svDict[.string("appName")] = .string(bft.softwareVersion.appName)
-            svDict[.string("number")] = .uint(UInt64(bft.softwareVersion.number))
-            dict[.string("softwareVersion")] = .orderedDict(svDict)
-
-            if let abs = bft.absoluteSlot { dict[.string("absoluteSlot")] = .uint(abs) }
-            return .orderedDict(dict)
+        var dict = OrderedDictionary<Primitive, Primitive>()
+        dict[.string("type")] = .string(discriminant == 0 ? "ebb" : "bft")
+        dict[.string("hash")] = .string(hash().toHex)
+        dict[.string("protocolMagic")] = .uint(UInt64(protocolMagic))
+        dict[.string("prevBlock")] = .string(prevBlock.toHex)
+        dict[.string("epoch")] = .uint(epoch)
+        if case .bft(let h) = self {
+            dict[.string("slotInEpoch")] = .uint(h.slotId.slot)
+            dict[.string("issuerKey")] = .string(h.issuerKey.toHex)
         }
+        dict[.string("difficulty")] = .uint(difficulty)
+        dict[.string("cbor")] = .string(try toCBORData().toHex)
+        return .orderedDict(dict)
     }
 
-    // MARK: - Hashable
+    // MARK: - Hashing
 
+    /// The block hash: Blake2b-256 of `[discriminant, header]`.
     public func hash() -> Data {
-        return try! Hash().blake2b(
-            data: try self.toCBORData(),
-            digestSize: BLOCK_HEADER_HASH_SIZE,
-            encoder: RawEncoder.self
-        )
-    }
-
-    // MARK: Private helpers
-
-    private static func uintFrom(_ p: Primitive) throws -> UInt64 {
-        switch p {
-        case .uint(let v): return UInt64(v)
-        case .int(let v): return UInt64(v)
-        default:
-            throw CardanoCoreError.deserializeError("ByronBlockHeader: expected uint, got \(p)")
+        switch self {
+        case .ebb(let h): return h.hash()
+        case .bft(let h): return h.hash()
         }
-    }
-
-    private static func bytesOrNil(_ p: Primitive) -> Data? {
-        guard case .bytes(let d) = p, !d.isEmpty else { return nil }
-        return d
-    }
-
-    private static func bytesOrEmpty(_ p: Primitive) -> Data {
-        guard case .bytes(let d) = p else { return Data() }
-        return d
-    }
-
-    /// Re-encodes `p` to CBOR bytes if it is not already a `.bytes` primitive.
-    /// `blockproof` on the wire is a list structure, not raw bytes.
-    private static func primitiveToData(_ p: Primitive) throws -> Data {
-        if case .bytes(let d) = p { return d }
-        return try CBOREncoder().encode(p)
-    }
-
-    /// Decodes CBOR bytes back to the original `Primitive` for wire output.
-    /// Falls back to `.list([])` for empty data and `.bytes` for opaque blobs.
-    private static func dataToBodyProofPrimitive(_ d: Data) -> Primitive {
-        if d.isEmpty { return .list([]) }
-        return (try? Primitive.from(cbor: CBORDecoder().decode(CBOR.self, from: d))) ?? .bytes(d)
-    }
-
-    private static func difficultyFrom(_ p: Primitive) throws -> UInt64 {
-        guard case .list(let elements) = p, let first = elements.first else {
-            throw CardanoCoreError.deserializeError(
-                "ByronBlockHeader: chainDifficulty must be [uint]"
-            )
-        }
-        return try uintFrom(first)
-    }
-
-    private static func hexDataOrNil(_ p: Primitive?) throws -> Data? {
-        guard let p = p else { return nil }
-        switch p {
-        case .null: return nil
-        case .string(let hex): return Data(hexString: hex)
-        default: return nil
-        }
-    }
-
-    private static func parseBlockSig(_ p: Primitive) throws -> BlockSignature {
-        guard case .list(let elements) = p, elements.count >= 2 else {
-            throw CardanoCoreError.deserializeError(
-                "ByronBlockHeader BlockSignature: expected [kind, payload]"
-            )
-        }
-        let kind = try uintFrom(elements[0])
-        switch kind {
-        case 0:
-            guard case .bytes(let sig) = elements[1] else {
-                throw CardanoCoreError.deserializeError(
-                    "ByronBlockHeader BlockSignature regular: payload must be bytes"
-                )
-            }
-            return .regular(sig)
-        case 1:
-            return .lightweightDelegation(try parseLwDlgSig(elements[1]))
-        case 2:
-            return .delegation(try parseDlgSig(elements[1]))
-        default:
-            throw CardanoCoreError.deserializeError(
-                "ByronBlockHeader BlockSignature: unknown kind \(kind)"
-            )
-        }
-    }
-
-    private static func parseDlgSig(_ p: Primitive) throws -> DlgSig {
-        guard case .list(let elements) = p, elements.count >= 2 else {
-            throw CardanoCoreError.deserializeError(
-                "ByronBlockHeader DlgSig: expected [dlg, signature]")
-        }
-        let dlg = try parseDlg(elements[0])
-        guard case .bytes(let sig) = elements[1] else {
-            throw CardanoCoreError.deserializeError(
-                "ByronBlockHeader DlgSig: signature must be bytes")
-        }
-        return DlgSig(delegation: dlg, signature: sig)
-    }
-
-    private static func parseDlg(_ p: Primitive) throws -> Dlg {
-        guard case .list(let elements) = p, elements.count >= 4 else {
-            throw CardanoCoreError.deserializeError(
-                "ByronBlockHeader Dlg: expected [epoch, issuer, delegate, certificate]"
-            )
-        }
-        guard case .bytes(let issuer) = elements[1],
-            case .bytes(let delegate) = elements[2],
-            case .bytes(let cert) = elements[3]
-        else {
-            throw CardanoCoreError.deserializeError(
-                "ByronBlockHeader Dlg: issuer, delegate, certificate must be bytes"
-            )
-        }
-        return Dlg(
-            epoch: try uintFrom(elements[0]), issuer: issuer, delegate: delegate, certificate: cert)
-    }
-
-    private static func parseLwDlgSig(_ p: Primitive) throws -> LwDlgSig {
-        guard case .list(let elements) = p, elements.count >= 2 else {
-            throw CardanoCoreError.deserializeError(
-                "ByronBlockHeader LwDlgSig: expected [lwdlg, signature]")
-        }
-        let lwdlg = try parseLwDlg(elements[0])
-        guard case .bytes(let sig) = elements[1] else {
-            throw CardanoCoreError.deserializeError(
-                "ByronBlockHeader LwDlgSig: signature must be bytes")
-        }
-        return LwDlgSig(delegation: lwdlg, signature: sig)
-    }
-
-    private static func parseLwDlg(_ p: Primitive) throws -> LwDlg {
-        guard case .list(let elements) = p, elements.count >= 4 else {
-            throw CardanoCoreError.deserializeError(
-                "ByronBlockHeader LwDlg: expected [[epochFrom, epochTo], issuer, delegate, certificate]"
-            )
-        }
-        guard case .list(let epochRange) = elements[0], epochRange.count >= 2 else {
-            throw CardanoCoreError.deserializeError(
-                "ByronBlockHeader LwDlg: epochRange must be [from, to]")
-        }
-        guard case .bytes(let issuer) = elements[1],
-            case .bytes(let delegate) = elements[2],
-            case .bytes(let cert) = elements[3]
-        else {
-            throw CardanoCoreError.deserializeError(
-                "ByronBlockHeader LwDlg: issuer, delegate, certificate must be bytes"
-            )
-        }
-        return LwDlg(
-            epochFrom: try uintFrom(epochRange[0]),
-            epochTo: try uintFrom(epochRange[1]),
-            issuer: issuer, delegate: delegate, certificate: cert
-        )
-    }
-
-    private static func parseBlockVer(_ p: Primitive) -> BlockVersion {
-        guard case .list(let bv) = p, bv.count >= 3,
-            let maj = try? uintFrom(bv[0]),
-            let min = try? uintFrom(bv[1]),
-            let alt = try? uintFrom(bv[2])
-        else { return .zero }
-        return BlockVersion(major: UInt16(maj), minor: UInt16(min), alt: UInt8(alt))
-    }
-
-    private static func parseSoftVer(_ p: Primitive) -> SoftwareVersion {
-        guard case .list(let sv) = p, sv.count >= 2,
-            case .string(let appName) = sv[0],
-            let num = try? uintFrom(sv[1])
-        else { return .unknown }
-        return SoftwareVersion(appName: appName, number: UInt32(num))
-    }
-
-    // MARK: Encoding helpers
-
-    private static func encodeSig(_ sig: BlockSignature) -> Primitive {
-        switch sig {
-        case .regular(let bytes):
-            return .list([.uint(0), .bytes(bytes)])
-        case .lightweightDelegation(let lwdlg):
-            return .list([.uint(1), encodeLwDlgSig(lwdlg)])
-        case .delegation(let dlg):
-            return .list([.uint(2), encodeDlgSig(dlg)])
-        }
-    }
-
-    private static func encodeDlgSig(_ d: DlgSig) -> Primitive {
-        .list([encodeDlg(d.delegation), .bytes(d.signature)])
-    }
-
-    private static func encodeDlg(_ d: Dlg) -> Primitive {
-        .list([.uint(d.epoch), .bytes(d.issuer), .bytes(d.delegate), .bytes(d.certificate)])
-    }
-
-    private static func encodeLwDlgSig(_ l: LwDlgSig) -> Primitive {
-        .list([encodeLwDlg(l.delegation), .bytes(l.signature)])
-    }
-
-    private static func encodeLwDlg(_ l: LwDlg) -> Primitive {
-        .list([
-            .list([.uint(l.epochFrom), .uint(l.epochTo)]),
-            .bytes(l.issuer), .bytes(l.delegate), .bytes(l.certificate),
-        ])
-    }
-
-    // MARK: JSON signature helpers
-
-    private static func blockSigFromDict(_ p: Primitive) throws -> BlockSignature {
-        guard case .orderedDict(let dict) = p,
-            let typeP = dict[.string("type")],
-            case .string(let type_) = typeP
-        else {
-            throw CardanoCoreError.deserializeError(
-                "ByronBlockHeader: signature must be a dict with 'type'")
-        }
-        switch type_ {
-        case "regular":
-            guard let sigP = dict[.string("signature")],
-                case .string(let hex) = sigP,
-                let sig = Data(hexString: hex)
-            else {
-                throw CardanoCoreError.deserializeError(
-                    "ByronBlockHeader regular sig: missing/invalid signature")
-            }
-            return .regular(sig)
-        case "lightweightDelegation":
-            guard let dlgP = dict[.string("delegation")],
-                let sigP = dict[.string("signature")],
-                case .string(let sigHex) = sigP,
-                let sig = Data(hexString: sigHex)
-            else {
-                throw CardanoCoreError.deserializeError("ByronBlockHeader lwdlg: missing fields")
-            }
-            return .lightweightDelegation(
-                LwDlgSig(delegation: try lwDlgFromDict(dlgP), signature: sig))
-        case "delegation":
-            guard let dlgP = dict[.string("delegation")],
-                let sigP = dict[.string("signature")],
-                case .string(let sigHex) = sigP,
-                let sig = Data(hexString: sigHex)
-            else {
-                throw CardanoCoreError.deserializeError("ByronBlockHeader dlg: missing fields")
-            }
-            return .delegation(DlgSig(delegation: try dlgFromDict(dlgP), signature: sig))
-        default:
-            throw CardanoCoreError.deserializeError(
-                "ByronBlockHeader: unknown signature type '\(type_)'")
-        }
-    }
-
-    private static func dlgFromDict(_ p: Primitive) throws -> Dlg {
-        guard case .orderedDict(let dict) = p,
-            let epochP = dict[.string("epoch")],
-            case .string(let issuerHex) = dict[.string("issuer")] ?? .null,
-            case .string(let delegateHex) = dict[.string("delegate")] ?? .null,
-            case .string(let certHex) = dict[.string("certificate")] ?? .null,
-            let issuer = Data(hexString: issuerHex),
-            let delegate = Data(hexString: delegateHex),
-            let cert = Data(hexString: certHex)
-        else {
-            throw CardanoCoreError.deserializeError(
-                "ByronBlockHeader Dlg dict: missing/invalid fields")
-        }
-        return Dlg(
-            epoch: try uintFrom(epochP), issuer: issuer, delegate: delegate, certificate: cert)
-    }
-
-    private static func lwDlgFromDict(_ p: Primitive) throws -> LwDlg {
-        guard case .orderedDict(let dict) = p,
-            let fromP = dict[.string("epochFrom")],
-            let toP = dict[.string("epochTo")],
-            case .string(let issuerHex) = dict[.string("issuer")] ?? .null,
-            case .string(let delegateHex) = dict[.string("delegate")] ?? .null,
-            case .string(let certHex) = dict[.string("certificate")] ?? .null,
-            let issuer = Data(hexString: issuerHex),
-            let delegate = Data(hexString: delegateHex),
-            let cert = Data(hexString: certHex)
-        else {
-            throw CardanoCoreError.deserializeError(
-                "ByronBlockHeader LwDlg dict: missing/invalid fields")
-        }
-        return LwDlg(
-            epochFrom: try uintFrom(fromP), epochTo: try uintFrom(toP),
-            issuer: issuer, delegate: delegate, certificate: cert
-        )
-    }
-
-    private func sigToDict(_ sig: BlockSignature) -> Primitive {
-        switch sig {
-        case .regular(let bytes):
-            var d = OrderedDictionary<Primitive, Primitive>()
-            d[.string("type")] = .string("regular")
-            d[.string("signature")] = .string(bytes.toHex)
-            return .orderedDict(d)
-        case .lightweightDelegation(let l):
-            var d = OrderedDictionary<Primitive, Primitive>()
-            d[.string("type")] = .string("lightweightDelegation")
-            d[.string("delegation")] = lwDlgToDict(l.delegation)
-            d[.string("signature")] = .string(l.signature.toHex)
-            return .orderedDict(d)
-        case .delegation(let dl):
-            var d = OrderedDictionary<Primitive, Primitive>()
-            d[.string("type")] = .string("delegation")
-            d[.string("delegation")] = dlgToDict(dl.delegation)
-            d[.string("signature")] = .string(dl.signature.toHex)
-            return .orderedDict(d)
-        }
-    }
-
-    private func dlgToDict(_ dlg: Dlg) -> Primitive {
-        var d = OrderedDictionary<Primitive, Primitive>()
-        d[.string("epoch")] = .uint(dlg.epoch)
-        d[.string("issuer")] = .string(dlg.issuer.toHex)
-        d[.string("delegate")] = .string(dlg.delegate.toHex)
-        d[.string("certificate")] = .string(dlg.certificate.toHex)
-        return .orderedDict(d)
-    }
-
-    private func lwDlgToDict(_ lwdlg: LwDlg) -> Primitive {
-        var d = OrderedDictionary<Primitive, Primitive>()
-        d[.string("epochFrom")] = .uint(lwdlg.epochFrom)
-        d[.string("epochTo")] = .uint(lwdlg.epochTo)
-        d[.string("issuer")] = .string(lwdlg.issuer.toHex)
-        d[.string("delegate")] = .string(lwdlg.delegate.toHex)
-        d[.string("certificate")] = .string(lwdlg.certificate.toHex)
-        return .orderedDict(d)
     }
 }

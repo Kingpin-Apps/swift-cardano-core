@@ -7,10 +7,9 @@ import CBORCodable
 /// NtN ChainSync delivers block headers only (not full blocks). The wire format
 /// is era-prefixed for Shelley+ and discriminant-prefixed for Byron:
 ///
-/// **Byron NtN** — the raw bytes are `[[discriminant, epochOrSlot], #6.24(head_bytes)]`:
+/// **Byron NtN** — the raw bytes are `[[discriminant, blockSize], #6.24(head_bytes)]`:
 /// ```
-///   discriminant 0 → EBB,  epochOrSlot = epoch number
-///   discriminant 1 → BFT,  epochOrSlot = absolute slot
+///   discriminant 0 → EBB, 1 → BFT; blockSize is the size of the whole block in bytes
 /// ```
 ///
 /// **Shelley+ NtN** — the raw bytes are `[[era, #6.24(header_cbor)], kes_sig]`,
@@ -62,277 +61,18 @@ public enum EraBlockHeader: Sendable {
 
     // MARK: - Byron NtN parsing
 
-    /// Parse a `ByronBlockHeader` from NtN raw bytes.
+    /// Parse a `ByronBlockHeader` from NtN raw bytes, keeping the header's bytes.
     ///
-    /// `data` must be the full `[[discriminant, epochOrSlot], #6.24(head_bytes)]`
+    /// `data` must be the full `[[discriminant, blockSize], #6.24(head_bytes)]`
     /// 2-element array as delivered by the NtN ChainSync protocol for era 0.
     ///
     /// - Returns: `.byron(.ebb(_))` or `.byron(.bft(_))`
     /// - Throws: `CardanoCoreError.deserializeError` if the bytes are malformed.
     public static func fromByronNtNData(_ data: Data) throws -> EraBlockHeader {
-        let primitive = try Primitive.from(cbor: CBORDecoder().decode(CBOR.self, from: data))
-
-        guard case .list(let elements) = primitive, elements.count == 2 else {
-            throw CardanoCoreError.deserializeError(
-                "EraBlockHeader Byron NtN: expected 2-element outer array"
-            )
-        }
-        guard case .list(let framingElements) = elements[0], framingElements.count == 2 else {
-            throw CardanoCoreError.deserializeError(
-                "EraBlockHeader Byron NtN: expected [discriminant, epochOrSlot] framing array"
-            )
-        }
-
-        let discriminant = try requireUInt(framingElements[0])
-        let epochOrSlot = try requireUInt(framingElements[1])
-
-        let headData = try unwrapEmbeddedCBOR(elements[1])
-        let headPrimitive = try Primitive.from(cbor: CBORDecoder().decode(CBOR.self, from: headData))
-
-        guard case .list(let headElements) = headPrimitive, headElements.count >= 5 else {
-            throw CardanoCoreError.deserializeError(
-                "EraBlockHeader Byron NtN: head must be a ≥5-element array, "
-                    + "got \((headPrimitive as Any))"
-            )
-        }
-
-        if discriminant == 0 {
-            let ebb = try parseEBBHead(headElements: headElements, absoluteSlot: epochOrSlot)
-            return .byron(.ebb(ebb))
-        } else {
-            let bft = try parseBFTHead(headElements: headElements, absoluteSlot: epochOrSlot)
-            return .byron(.bft(bft))
-        }
-    }
-
-    // MARK: - EBB head parsing
-
-    /// Parse an `EBBHead` from the 5-element `ebbhead` CBOR array.
-    ///
-    /// ```
-    /// ebbhead = [protocolMagic, prevBlock, bodyProof, consensusData, extraData]
-    ///   ebbcons = [epoch : uint, difficulty : [uint]]
-    /// ```
-    private static func parseEBBHead(
-        headElements: [Primitive],
-        absoluteSlot: UInt64?
-    ) throws -> ByronBlockHeader.EBBHead {
-        let protocolMagic = UInt32(try requireUInt(headElements[0]))
-        let prevBlock = bytesOrNil(headElements[1])
-        let bodyProof = try Self.primitiveToData(headElements[2])
-
-        guard case .list(let cons) = headElements[3], cons.count >= 2 else {
-            throw CardanoCoreError.deserializeError(
-                "EBBHead: consensusData must be a 2-element array [epoch, difficulty]"
-            )
-        }
-        let epoch = try requireUInt(cons[0])
-        let difficulty = try extractDifficulty(cons[1])
-
-        return ByronBlockHeader.EBBHead(
-            protocolMagic: protocolMagic,
-            prevBlock: prevBlock,
-            bodyProof: bodyProof,
-            epoch: epoch,
-            difficulty: difficulty,
-            absoluteSlot: absoluteSlot
-        )
-    }
-
-    // MARK: - BFT head parsing
-
-    /// Parse a `BFTHead` from the 5-element `blockhead` CBOR array.
-    ///
-    /// ```
-    /// blockhead = [protocolMagic, prevBlock, bodyProof, consensusData, extraData]
-    ///   blockcons = [slotId, pubkey, difficulty, blocksig]
-    ///   slotId    = [epoch : uint, slot : uint]
-    ///   pubkey    = bytes .size 64
-    ///   blocksig  = [0, sig] / [1, lwdlgsig] / [2, dlgsig]
-    ///   blockheadex = [blockVersion, softwareVersion, attributes, extraProof]
-    /// ```
-    private static func parseBFTHead(
-        headElements: [Primitive],
-        absoluteSlot: UInt64?
-    ) throws -> ByronBlockHeader.BFTHead {
-        let protocolMagic = UInt32(try requireUInt(headElements[0]))
-        let prevBlock = bytesOrNil(headElements[1])
-        let bodyProof = try Self.primitiveToData(headElements[2])
-
-        guard case .list(let cons) = headElements[3], cons.count >= 4 else {
-            throw CardanoCoreError.deserializeError(
-                "BFTHead: consensusData must be a 4-element array [slotId, pubkey, difficulty, blocksig]"
-            )
-        }
-
-        // slotId = [epoch, slotWithinEpoch]
-        guard case .list(let slotElements) = cons[0], slotElements.count >= 2 else {
-            throw CardanoCoreError.deserializeError(
-                "BFTHead: slotId must be a 2-element array [epoch, slot]"
-            )
-        }
-        let slotId = ByronBlockHeader.SlotId(
-            epoch: try requireUInt(slotElements[0]),
-            slot: try requireUInt(slotElements[1])
-        )
-
-        guard case .bytes(let issuerKey) = cons[1] else {
-            throw CardanoCoreError.deserializeError(
-                "BFTHead: pubkey (consensusData[1]) must be bytes"
-            )
-        }
-
-        let difficulty = try extractDifficulty(cons[2])
-        let signature = try parseBlockSignature(cons[3])
-
-        // extraData = [blockVersion, softwareVersion, attributes, extraProof]
-        let blockVersion: ByronBlockHeader.BlockVersion
-        let softwareVersion: ByronBlockHeader.SoftwareVersion
-
-        if case .list(let extra) = headElements[4], extra.count >= 2 {
-            blockVersion = parseBlockVersion(extra[0])
-            softwareVersion = parseSoftwareVersion(extra[1])
-        } else {
-            blockVersion = .zero
-            softwareVersion = .unknown
-        }
-
-        return ByronBlockHeader.BFTHead(
-            protocolMagic: protocolMagic,
-            prevBlock: prevBlock,
-            bodyProof: bodyProof,
-            slotId: slotId,
-            issuerKey: issuerKey,
-            difficulty: difficulty,
-            signature: signature,
-            blockVersion: blockVersion,
-            softwareVersion: softwareVersion,
-            absoluteSlot: absoluteSlot
-        )
-    }
-
-    // MARK: - BlockSignature parsing
-
-    private static func parseBlockSignature(_ primitive: Primitive) throws
-        -> ByronBlockHeader.BlockSignature
-    {
-        guard case .list(let elements) = primitive, elements.count >= 2 else {
-            throw CardanoCoreError.deserializeError(
-                "BlockSignature: expected [kind, payload] array"
-            )
-        }
-        let kind = try requireUInt(elements[0])
-        switch kind {
-        case 0:
-            guard case .bytes(let sig) = elements[1] else {
-                throw CardanoCoreError.deserializeError(
-                    "BlockSignature regular: payload must be bytes"
-                )
-            }
-            return .regular(sig)
-        case 1:
-            return .lightweightDelegation(try parseLwDlgSig(elements[1]))
-        case 2:
-            return .delegation(try parseDlgSig(elements[1]))
-        default:
-            throw CardanoCoreError.deserializeError(
-                "BlockSignature: unknown kind \(kind)"
-            )
-        }
-    }
-
-    private static func parseDlgSig(_ primitive: Primitive) throws -> ByronBlockHeader.DlgSig {
-        guard case .list(let elements) = primitive, elements.count >= 2 else {
-            throw CardanoCoreError.deserializeError("DlgSig: expected [dlg, signature]")
-        }
-        let dlg = try parseDlg(elements[0])
-        guard case .bytes(let sig) = elements[1] else {
-            throw CardanoCoreError.deserializeError("DlgSig: signature must be bytes")
-        }
-        return ByronBlockHeader.DlgSig(delegation: dlg, signature: sig)
-    }
-
-    private static func parseDlg(_ primitive: Primitive) throws -> ByronBlockHeader.Dlg {
-        guard case .list(let elements) = primitive, elements.count >= 4 else {
-            throw CardanoCoreError.deserializeError(
-                "Dlg: expected [epoch, issuer, delegate, certificate]"
-            )
-        }
-        let epoch = try requireUInt(elements[0])
-        guard case .bytes(let issuer) = elements[1],
-            case .bytes(let delegate) = elements[2],
-            case .bytes(let cert) = elements[3]
-        else {
-            throw CardanoCoreError.deserializeError(
-                "Dlg: issuer, delegate, certificate must all be bytes"
-            )
-        }
-        return ByronBlockHeader.Dlg(
-            epoch: epoch, issuer: issuer, delegate: delegate, certificate: cert)
-    }
-
-    private static func parseLwDlgSig(_ primitive: Primitive) throws -> ByronBlockHeader.LwDlgSig {
-        guard case .list(let elements) = primitive, elements.count >= 2 else {
-            throw CardanoCoreError.deserializeError("LwDlgSig: expected [lwdlg, signature]")
-        }
-        let lwdlg = try parseLwDlg(elements[0])
-        guard case .bytes(let sig) = elements[1] else {
-            throw CardanoCoreError.deserializeError("LwDlgSig: signature must be bytes")
-        }
-        return ByronBlockHeader.LwDlgSig(delegation: lwdlg, signature: sig)
-    }
-
-    private static func parseLwDlg(_ primitive: Primitive) throws -> ByronBlockHeader.LwDlg {
-        guard case .list(let elements) = primitive, elements.count >= 4 else {
-            throw CardanoCoreError.deserializeError(
-                "LwDlg: expected [[epochFrom, epochTo], issuer, delegate, certificate]"
-            )
-        }
-        guard case .list(let epochRange) = elements[0], epochRange.count >= 2 else {
-            throw CardanoCoreError.deserializeError(
-                "LwDlg: epochRange must be [epochFrom, epochTo]"
-            )
-        }
-        let epochFrom = try requireUInt(epochRange[0])
-        let epochTo = try requireUInt(epochRange[1])
-        guard case .bytes(let issuer) = elements[1],
-            case .bytes(let delegate) = elements[2],
-            case .bytes(let cert) = elements[3]
-        else {
-            throw CardanoCoreError.deserializeError(
-                "LwDlg: issuer, delegate, certificate must all be bytes"
-            )
-        }
-        return ByronBlockHeader.LwDlg(
-            epochFrom: epochFrom,
-            epochTo: epochTo,
-            issuer: issuer,
-            delegate: delegate,
-            certificate: cert
-        )
-    }
-
-    // MARK: - Version parsing
-
-    private static func parseBlockVersion(_ primitive: Primitive) -> ByronBlockHeader.BlockVersion {
-        guard case .list(let bv) = primitive, bv.count >= 3,
-            let major = try? requireUInt(bv[0]),
-            let minor = try? requireUInt(bv[1]),
-            let alt = try? requireUInt(bv[2])
-        else { return .zero }
-        return ByronBlockHeader.BlockVersion(
-            major: UInt16(major), minor: UInt16(minor), alt: UInt8(alt)
-        )
-    }
-
-    private static func parseSoftwareVersion(_ primitive: Primitive)
-        -> ByronBlockHeader.SoftwareVersion
-    {
-        guard case .list(let sv) = primitive, sv.count >= 2,
-            case .string(let appName) = sv[0],
-            let number = try? requireUInt(sv[1])
-        else { return .unknown }
-        return ByronBlockHeader.SoftwareVersion(appName: appName, number: UInt32(number))
+        let item = try ByronCBORItem(root: data, "EraBlockHeader Byron NtN")
+        let block = try ByronBlock.decodeHeaderOnly(
+            try item.array("EraBlockHeader Byron NtN", count: 2), bytes: item.bytes)
+        return .byron(block.header)
     }
 
     // MARK: - Shared helpers
@@ -358,43 +98,6 @@ public enum EraBlockHeader: Sendable {
                 "EraBlockHeader: expected tag-24 or bytes for embedded CBOR"
             )
         }
-    }
-
-    private static func requireUInt(_ primitive: Primitive) throws -> UInt64 {
-        switch primitive {
-        case .uint(let val): return UInt64(val)
-        case .int(let val): return UInt64(val)
-        default:
-            throw CardanoCoreError.deserializeError(
-                "EraBlockHeader: expected uint, got \(primitive)"
-            )
-        }
-    }
-
-    private static func bytesOrNil(_ primitive: Primitive) -> Data? {
-        guard case .bytes(let data) = primitive, !data.isEmpty else { return nil }
-        return data
-    }
-
-    private static func bytesOrEmpty(_ primitive: Primitive) -> Data {
-        guard case .bytes(let data) = primitive else { return Data() }
-        return data
-    }
-
-    /// Re-encodes `p` to CBOR bytes if it is not already a `.bytes` primitive.
-    /// `blockproof` on the wire is a list structure, not raw bytes.
-    private static func primitiveToData(_ p: Primitive) throws -> Data {
-        if case .bytes(let d) = p { return d }
-        return try CBOREncoder().encode(p)
-    }
-
-    private static func extractDifficulty(_ primitive: Primitive) throws -> UInt64 {
-        guard case .list(let elements) = primitive, let first = elements.first else {
-            throw CardanoCoreError.deserializeError(
-                "EraBlockHeader: chainDifficulty must be [uint]"
-            )
-        }
-        return try requireUInt(first)
     }
 }
 
@@ -425,8 +128,7 @@ extension EraBlockHeader: Serializable {
         let headerBytes = try Self.unwrapEmbeddedCBOR(elements[1])
         switch eraId {
         case 0:
-            let primitive = try Primitive.from(cbor: CBORDecoder().decode(CBOR.self, from: headerBytes))
-            self = .byron(try ByronBlockHeader(from: primitive))
+            self = .byron(try ByronBlockHeader.fromCBOR(data: headerBytes))
         case 1: self = .shelley(try Header.fromCBOR(data: headerBytes))
         case 2: self = .allegra(try Header.fromCBOR(data: headerBytes))
         case 3: self = .mary(try Header.fromCBOR(data: headerBytes))
