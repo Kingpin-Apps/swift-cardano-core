@@ -54,12 +54,12 @@ public struct VoteRegisterDelegate: CertificateSerializable {
     ///  - payload: The CBOR representation of the certificate
     ///  - type: The type of the certificate
     ///  - description: The description of the certificate
-    public init(payload: Data, type: String?, description: String?) {
+    public init(payload: Data, type: String?, description: String?) throws {
         self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
 
-        let cbor = try! CBORDecoder().decode(VoteRegisterDelegate.self, from: payload)
+        let cbor = try CBORDecoder().decode(VoteRegisterDelegate.self, from: payload)
 
         self.stakeCredential = cbor.stakeCredential
         self.drep = cbor.drep
@@ -89,7 +89,7 @@ public struct VoteRegisterDelegate: CertificateSerializable {
             .uint(UInt64(Self.CODE.rawValue)),
             try stakeCredential.toPrimitive(),
             try drep.toPrimitive(),
-            .int(Int64(coin)),
+            .integer(coin),
         ])
     }
 
@@ -115,13 +115,11 @@ public struct VoteRegisterDelegate: CertificateSerializable {
 
         let drep = try DRep(from: drepId)
 
-        guard let coinPrimitive = dictValue[.string(CodingKeys.coin.rawValue)],
-            case .int(let coinValue) = coinPrimitive
-        else {
+        guard let coinPrimitive = dictValue[.string(CodingKeys.coin.rawValue)] else {
             throw CardanoCoreError.deserializeError(
                 "Invalid or missing coin in VoteRegisterDelegate dict")
         }
-        let coin = Coin(coinValue)
+        let coin = try coinPrimitive.integer("VoteRegisterDelegate coin", as: Coin.self)
 
         return VoteRegisterDelegate(
             stakeCredential: stakeCredential,
@@ -135,7 +133,7 @@ public struct VoteRegisterDelegate: CertificateSerializable {
         dict[.string(CodingKeys.stakeCredential.rawValue)] = .string(
             stakeCredential.credential.payload.toHex)
         dict[.string(CodingKeys.drep.rawValue)] = .string(try drep.id())
-        dict[.string(CodingKeys.coin.rawValue)] = .int(Int64(coin))
+        dict[.string(CodingKeys.coin.rawValue)] = .integer(coin)
         return .orderedDict(dict)
     }
 }

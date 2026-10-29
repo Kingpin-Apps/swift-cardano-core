@@ -62,7 +62,8 @@ public enum GovAction: CBORSerializable, Sendable {
         guard case let .list(primitiveList) = primitive,
               !primitiveList.isEmpty,
               case let .uint(code) = primitiveList[0],
-              let govActionCode = GovActionCode(rawValue: Int(code)) else {
+              let intCode = Int(exactly: code),
+              let govActionCode = GovActionCode(rawValue: intCode) else {
             throw CardanoCoreError.deserializeError("Invalid GovAction type: \(primitive)")
         }
         
@@ -157,11 +158,16 @@ public struct GovActionID: Serializable, Sendable {
             idx = parsed
         }
         
+        // gov_action_index = uint .size 2
+        guard let govActionIndex = UInt16(exactly: idx) else {
+            throw CardanoCoreError.valueError("GovActionID index \(idx) is out of range for UInt16.")
+        }
+        
         let transactionID = try TransactionId(from: .string(utxoHex))
         
         self.init(
             transactionID: transactionID,
-            govActionIndex: UInt16(idx)
+            govActionIndex: govActionIndex
         )
     }
     
@@ -177,11 +183,10 @@ public struct GovActionID: Serializable, Sendable {
             
             let transactionID = try TransactionId(from: primitiveList[0])
             
-            guard case let .uint(govActionIndex) = primitiveList[1] else {
-                throw CardanoCoreError.deserializeError("Invalid GovActionID type")
-            }
+            // gov_action_index = uint .size 2
+            let govActionIndex = try primitiveList[1].integer("GovActionID index", as: UInt16.self)
             
-            self.init(transactionID: transactionID, govActionIndex: UInt16(govActionIndex))
+            self.init(transactionID: transactionID, govActionIndex: govActionIndex)
             
         } else if case let .string(primitiveString) = primitive {
             try self.init(from: primitiveString)
@@ -293,19 +298,24 @@ public struct PoolVotingThresholds: CBORSerializable, Sendable {
     
     public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
-        committeeNoConfidence = try container.decodeIfPresent(UnitInterval.self)
-        committeeNormal = try container.decodeIfPresent(UnitInterval.self)
-        hardForkInitiation = try container.decodeIfPresent(UnitInterval.self)
-        motionNoConfidence = try container.decodeIfPresent(UnitInterval.self)
-        ppSecurityGroup = try container.decodeIfPresent(UnitInterval.self)
-        
-        thresholds = [
-            committeeNoConfidence!,
-            committeeNormal!,
-            hardForkInitiation!,
-            motionNoConfidence!,
-            ppSecurityGroup!
-        ]
+        // pool_voting_thresholds = [5 * unit_interval]: every entry is required.
+        guard let committeeNoConfidence = try container.decodeIfPresent(UnitInterval.self),
+              let committeeNormal = try container.decodeIfPresent(UnitInterval.self),
+              let hardForkInitiation = try container.decodeIfPresent(UnitInterval.self),
+              let motionNoConfidence = try container.decodeIfPresent(UnitInterval.self),
+              let ppSecurityGroup = try container.decodeIfPresent(UnitInterval.self) else {
+            throw CardanoCoreError.deserializeError("PoolVotingThresholds must contain exactly 5 unit intervals")
+        }
+        guard container.isAtEnd else {
+            throw CardanoCoreError.deserializeError("PoolVotingThresholds must contain exactly 5 unit intervals")
+        }
+        self.init(
+            committeeNoConfidence: committeeNoConfidence,
+            committeeNormal: committeeNormal,
+            hardForkInitiation: hardForkInitiation,
+            motionNoConfidence: motionNoConfidence,
+            ppSecurityGroup: ppSecurityGroup
+        )
     }
     
     public init(from primitive: Primitive) throws {
@@ -313,18 +323,13 @@ public struct PoolVotingThresholds: CBORSerializable, Sendable {
               primitive.count == 5 else {
             throw CardanoCoreError.deserializeError("Invalid PoolVotingThresholds type")
         }
-        self.committeeNoConfidence = try UnitInterval(from: primitive[0])
-        self.committeeNormal = try UnitInterval(from: primitive[1])
-        self.hardForkInitiation = try UnitInterval(from: primitive[2])
-        self.motionNoConfidence = try UnitInterval(from: primitive[3])
-        self.ppSecurityGroup = try UnitInterval(from: primitive[4])
-        self.thresholds = [
-            committeeNoConfidence!,
-            committeeNormal!,
-            hardForkInitiation!,
-            motionNoConfidence!,
-            ppSecurityGroup!
-        ]
+        self.init(
+            committeeNoConfidence: try UnitInterval(from: primitive[0]),
+            committeeNormal: try UnitInterval(from: primitive[1]),
+            hardForkInitiation: try UnitInterval(from: primitive[2]),
+            motionNoConfidence: try UnitInterval(from: primitive[3]),
+            ppSecurityGroup: try UnitInterval(from: primitive[4])
+        )
     }
     
     public func encode(to encoder: Encoder) throws {
@@ -378,7 +383,12 @@ public struct DrepVotingThresholds: CBORSerializable, Sendable  {
     
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
-        thresholds = try container.decode([UnitInterval].self)
+        let thresholds = try container.decode([UnitInterval].self)
+        // drep_voting_thresholds = [10 * unit_interval]
+        guard thresholds.count == 10 else {
+            throw CardanoCoreError.deserializeError("DrepVotingThresholds must contain exactly 10 unit intervals, got \(thresholds.count)")
+        }
+        self.thresholds = thresholds
     }
     
     public init(from primitive: Primitive) throws {

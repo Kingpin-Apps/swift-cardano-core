@@ -7,13 +7,7 @@ public enum Vote: Int, Serializable {
     case abstain = 2
 
     public init(from primitive: Primitive) throws {
-        let raw: Int
-        switch primitive {
-        case .uint(let u): raw = Int(u)
-        case .int(let i):  raw = Int(i)
-        default:
-            throw CardanoCoreError.deserializeError("Vote: expected uint, got \(primitive)")
-        }
+        let raw = try primitive.integer("Vote", as: Int.self)
         guard let v = Vote(rawValue: raw) else {
             throw CardanoCoreError.deserializeError("Vote: invalid rawValue \(raw)")
         }
@@ -150,7 +144,8 @@ public struct VotingProcedure: Serializable {
             throw CardanoCoreError.deserializeError("Invalid vote value in VotingProcedure")
         }
         
-        guard let vote = Vote(rawValue: Int(voteValue)) else {
+        guard let rawVote = Int(exactly: voteValue),
+              let vote = Vote(rawValue: rawVote) else {
             throw CardanoCoreError.deserializeError("Invalid vote enum value: \(voteValue)")
         }
         

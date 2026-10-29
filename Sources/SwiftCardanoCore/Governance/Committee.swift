@@ -16,19 +16,18 @@ public struct CommitteeMember: CBORSerializable, CustomStringConvertible, Custom
         guard let credential = dict.keys.first else {
             throw CardanoCoreError.deserializeError("Expected a single-entry dictionary")
         }
-        guard let epochPrimitive = dict[credential],
-              case let .int(epoch) = epochPrimitive else {
+        guard let epochPrimitive = dict[credential] else {
             throw CardanoCoreError.deserializeError("Expected a single-entry dictionary")
         }
         
         self.coldCredential = try CommitteeColdCredential(from: credential)
-        self.epoch = EpochNumber(epoch)
+        self.epoch = try epochPrimitive.integer("CommitteeMember epoch", as: EpochNumber.self)
     }
     
     public func toPrimitive() throws -> Primitive {
         return .orderedDict(
             OrderedDictionary<Primitive, Primitive>(uniqueKeysWithValues: [
-                try self.coldCredential.toPrimitive(): .int(Int64(self.epoch))
+                try self.coldCredential.toPrimitive(): .integer(self.epoch)
             ])
         )
     }

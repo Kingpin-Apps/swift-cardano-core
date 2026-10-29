@@ -108,23 +108,9 @@ public struct OperationalCertificate: TextEnvelopable, JSONSerializable, Sendabl
 
         self.hotVKey = try KESVerificationKey(from: certElements[0])
 
-        switch certElements[1] {
-        case .uint(let val): self.sequenceNumber = UInt64(val)
-        case .int(let val): self.sequenceNumber = UInt64(val)
-        default:
-            throw CardanoCoreError.deserializeError(
-                "Invalid OperationalCertificate sequence_number type"
-            )
-        }
+        self.sequenceNumber = try certElements[1].integer("OperationalCertificate sequence_number", as: UInt64.self)
 
-        switch certElements[2] {
-        case .uint(let val): self.kesPeriod = UInt64(val)
-        case .int(let val): self.kesPeriod = UInt64(val)
-        default:
-            throw CardanoCoreError.deserializeError(
-                "Invalid OperationalCertificate kes_period type"
-            )
-        }
+        self.kesPeriod = try certElements[2].integer("OperationalCertificate kes_period", as: UInt64.self)
 
         guard case let .bytes(sigma) = certElements[3] else {
             throw CardanoCoreError.deserializeError(
@@ -178,25 +164,9 @@ public struct OperationalCertificate: TextEnvelopable, JSONSerializable, Sendabl
 
         let hotVKey = try KESVerificationKey(from: elements[0])
 
-        let sequenceNumber: UInt64
-        switch elements[1] {
-        case .uint(let val): sequenceNumber = UInt64(val)
-        case .int(let val): sequenceNumber = UInt64(val)
-        default:
-            throw CardanoCoreError.deserializeError(
-                "Invalid OperationalCertificate sequence_number type"
-            )
-        }
+        let sequenceNumber = try elements[1].integer("OperationalCertificate sequence_number", as: UInt64.self)
 
-        let kesPeriod: UInt64
-        switch elements[2] {
-        case .uint(let val): kesPeriod = UInt64(val)
-        case .int(let val): kesPeriod = UInt64(val)
-        default:
-            throw CardanoCoreError.deserializeError(
-                "Invalid OperationalCertificate kes_period type"
-            )
-        }
+        let kesPeriod = try elements[2].integer("OperationalCertificate kes_period", as: UInt64.self)
 
         guard case let .bytes(sigma) = elements[3] else {
             throw CardanoCoreError.deserializeError(
@@ -237,24 +207,12 @@ public struct OperationalCertificate: TextEnvelopable, JSONSerializable, Sendabl
         guard let seqPrimitive = dict[.string(CodingKeys.sequenceNumber.rawValue)] else {
             throw CardanoCoreError.deserializeError("Missing sequenceNumber in OperationalCert")
         }
-        let sequenceNumber: UInt64
-        switch seqPrimitive {
-        case .uint(let val): sequenceNumber = UInt64(val)
-        case .int(let val): sequenceNumber = UInt64(val)
-        default:
-            throw CardanoCoreError.deserializeError("Invalid sequenceNumber type in OperationalCert")
-        }
+        let sequenceNumber = try seqPrimitive.integer("OperationalCertificate sequence_number", as: UInt64.self)
 
         guard let kesPeriodPrimitive = dict[.string(CodingKeys.kesPeriod.rawValue)] else {
             throw CardanoCoreError.deserializeError("Missing kesPeriod in OperationalCert")
         }
-        let kesPeriod: UInt64
-        switch kesPeriodPrimitive {
-        case .uint(let val): kesPeriod = UInt64(val)
-        case .int(let val): kesPeriod = UInt64(val)
-        default:
-            throw CardanoCoreError.deserializeError("Invalid kesPeriod type in OperationalCert")
-        }
+        let kesPeriod = try kesPeriodPrimitive.integer("OperationalCertificate kes_period", as: UInt64.self)
 
         guard let sigmaPrimitive = dict[.string(CodingKeys.sigma.rawValue)],
               case let .bytes(sigma) = sigmaPrimitive else {

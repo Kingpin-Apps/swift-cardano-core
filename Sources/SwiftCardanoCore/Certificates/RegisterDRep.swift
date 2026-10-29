@@ -63,12 +63,12 @@ public struct RegisterDRep: CertificateSerializable {
     ///  - payload: The CBOR representation of the certificate
     ///  - type: The type of the certificate
     ///  - description: The description of the certificate
-    public init(payload: Data, type: String?, description: String?) {
+    public init(payload: Data, type: String?, description: String?) throws {
         self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
         
-        let cbor = try! CBORDecoder().decode(RegisterDRep.self, from: payload)
+        let cbor = try CBORDecoder().decode(RegisterDRep.self, from: payload)
         
         self.drepCredential = cbor.drepCredential
         self.coin = cbor.coin
@@ -96,7 +96,7 @@ public struct RegisterDRep: CertificateSerializable {
         return .list([
             .uint(UInt64(Self.CODE.rawValue)),
             try drepCredential.toPrimitive(),
-            .int(Int64(coin)),
+            .integer(coin),
             try anchor?.toPrimitive() ?? .null
         ])
     }
@@ -109,13 +109,12 @@ public struct RegisterDRep: CertificateSerializable {
         }
         guard let drepCredentialPrimitive = orderedDict[.string(CodingKeys.drepCredential.rawValue)],
               case let .string(drepCredentialId) = drepCredentialPrimitive,
-              let coinPrimitive = orderedDict[.string(CodingKeys.coin.rawValue)],
-              case let .int(coinInt) = coinPrimitive else {
+              let coinPrimitive = orderedDict[.string(CodingKeys.coin.rawValue)] else {
             throw CardanoCoreError.deserializeError("Invalid RegisterDRep dictionary")
         }
         
         let drepCredential = try DRepCredential(from: drepCredentialId)
-        let coin = Coin(coinInt)
+        let coin = try coinPrimitive.integer("RegisterDRep coin", as: Coin.self)
         
         var anchor: Anchor? = nil
         if let anchorPrimitive = orderedDict[.string(CodingKeys.anchor.rawValue)] {
@@ -134,7 +133,7 @@ public struct RegisterDRep: CertificateSerializable {
     public func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
         dict[.string(CodingKeys.drepCredential.rawValue)] = .string(try drepCredential.id())
-        dict[.string(CodingKeys.coin.rawValue)] = .int(Int64(coin))
+        dict[.string(CodingKeys.coin.rawValue)] = .integer(coin)
         if let anchor = anchor {
             dict[.string(CodingKeys.anchor.rawValue)] = try anchor.toDict()
         } else {

@@ -49,12 +49,12 @@ public struct PoolRetirement: CertificateSerializable {
     ///   - payload: The payload of the certificate
     ///   - type: The type of the certificate
     ///   - description: The description of the certificate
-    public init(payload: Data, type: String?, description: String?) {
+    public init(payload: Data, type: String?, description: String?) throws {
         self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
         
-        let cbor = try! CBORDecoder().decode(Self.self, from: payload)
+        let cbor = try CBORDecoder().decode(Self.self, from: payload)
         
         self.poolKeyHash = cbor.poolKeyHash
         self.epoch = cbor.epoch
@@ -95,11 +95,9 @@ public struct PoolRetirement: CertificateSerializable {
         
         let poolOperator = try PoolOperator(from: poolId)
         
-        guard case let .int(epochValue) = epochPrimitive else {
-            throw CardanoCoreError.deserializeError("Invalid epoch value in PoolRetirement dictionary")
-        }
+        let epoch = try epochPrimitive.integer("PoolRetirement epoch", as: EpochNumber.self)
 
-        return PoolRetirement(poolKeyHash: poolOperator.poolKeyHash, epoch: EpochNumber(epochValue))
+        return PoolRetirement(poolKeyHash: poolOperator.poolKeyHash, epoch: epoch)
     }
 
     public func toDict() throws -> Primitive {

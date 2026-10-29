@@ -35,12 +35,7 @@ public struct HardForkInitiationAction: GovernanceAction {
         guard case let .list(elements) = primitive, elements.count == 3 else {
             throw CardanoCoreError.deserializeError("Invalid HardForkInitiationAction primitive")
         }
-        let code: Int
-        switch elements[0] {
-        case .int(let v): code = Int(v)
-        case .uint(let v): code = Int(v)
-        default: throw CardanoCoreError.deserializeError("Invalid HardForkInitiationAction primitive")
-        }
+        let code = try elements[0].integer("HardForkInitiationAction code", as: Int.self)
         guard code == Self.code.rawValue else {
             throw CardanoCoreError.deserializeError("Invalid HardForkInitiationAction primitive")
         }

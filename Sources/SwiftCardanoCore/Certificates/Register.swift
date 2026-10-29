@@ -49,12 +49,12 @@ public struct Register: CertificateSerializable {
     ///   - payload: The payload of the certificate
     ///   - type: The type of the certificate
     ///   - description: The description of the certificate
-    public init(payload: Data, type: String?, description: String?) {
+    public init(payload: Data, type: String?, description: String?) throws {
         self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
         
-        let cbor = try! CBORDecoder().decode(Register.self, from: payload)
+        let cbor = try CBORDecoder().decode(Register.self, from: payload)
         
         self.stakeCredential = cbor.stakeCredential
         self.coin = cbor.coin
@@ -83,7 +83,7 @@ public struct Register: CertificateSerializable {
         return .list([
             .uint(UInt64(Self.CODE.rawValue)),
             try stakeCredential.toPrimitive(),
-            .int(Int64(coin))
+            .integer(coin)
         ])
     }
     
@@ -98,14 +98,13 @@ public struct Register: CertificateSerializable {
             throw CardanoCoreError.deserializeError("Missing required fields in Register dictionary")
         }
          
-        guard case let .string(stakeCredentialHex) = stakeCredentialPrimitive,
-              case let .int(coinInt) = coinPrimitive else {
+        guard case let .string(stakeCredentialHex) = stakeCredentialPrimitive else {
             throw CardanoCoreError.deserializeError("Invalid field types in Register dictionary")
         }
         
         let stakeCredentialData = Data(hex: stakeCredentialHex)
         let stakeCredential = try StakeCredential(from: .bytes(stakeCredentialData))
-        let coin = Coin(coinInt)
+        let coin = try coinPrimitive.integer("Register coin", as: Coin.self)
         
         return Register(stakeCredential: stakeCredential, coin: coin)
     }
@@ -113,7 +112,7 @@ public struct Register: CertificateSerializable {
     public func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
         dict[.string(CodingKeys.stakeCredential.rawValue)] = .string(stakeCredential.credential.payload.toHex)
-        dict[.string(CodingKeys.coin.rawValue)] = .int(Int64(coin))
+        dict[.string(CodingKeys.coin.rawValue)] = .integer(coin)
         return .orderedDict(dict)
     }
 

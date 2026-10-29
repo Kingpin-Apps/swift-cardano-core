@@ -24,20 +24,18 @@ public struct ScriptNofK: NativeScriptable {
         else {
             throw CardanoCoreError.deserializeError("Invalid ScriptNofK type")
         }
-        guard case let .uint(required) = components[1] else {
-            throw CardanoCoreError.deserializeError("Invalid ScriptNofK required")
-        }
         guard case let .list(scripts) = components[2] else {
             throw CardanoCoreError.deserializeError("Invalid ScriptNofK scripts")
         }
-        self.required = Int(required)
+        // script_n_of_k = (3, n : int64, [* native_script])
+        self.required = try components[1].integer("ScriptNofK required", as: Int.self)
         self.scripts = try scripts.map { try NativeScript(from: $0) }
     }
 
     public func toPrimitive() throws -> Primitive {
         var elements: [Primitive] = []
         elements.append(.uint(UInt64(Self.TYPE.rawValue)))
-        elements.append(.uint(UInt64(required)))
+        elements.append(.integer(required))
         elements.append(.list(try scripts.map { try $0.toPrimitive() }))
         return .list(elements)
     }
@@ -49,10 +47,10 @@ public struct ScriptNofK: NativeScriptable {
             throw CardanoCoreError.decodingError("Invalid ScriptNofK dict format")
         }
         
-        guard let requiredPrimitive = dictValue[.string("required")],
-              case let .int(required) = requiredPrimitive else {
+        guard let requiredPrimitive = dictValue[.string("required")] else {
             throw CardanoCoreError.decodingError("Invalid required value")
         }
+        let required = try requiredPrimitive.integer("ScriptNofK required", as: Int.self)
         
         guard let scriptsPrimitive = dictValue[.string("scripts")],
               case let .list(scripts) = scriptsPrimitive else {
@@ -63,7 +61,7 @@ public struct ScriptNofK: NativeScriptable {
             try NativeScript.fromDict($0)
         }
 
-        return ScriptNofK(required: Int(required), scripts: nativeScripts)
+        return ScriptNofK(required: required, scripts: nativeScripts)
     }
     
     public func toDict() throws -> Primitive {

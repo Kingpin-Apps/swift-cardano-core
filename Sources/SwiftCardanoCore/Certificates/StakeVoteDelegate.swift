@@ -56,12 +56,12 @@ public struct StakeVoteDelegate: CertificateSerializable {
     ///   - payload: The payload of the certificate
     ///   - type: The type of the certificate
     ///   - description: The description of the certificate
-    public init(payload: Data, type: String?, description: String?) {
+    public init(payload: Data, type: String?, description: String?) throws {
         self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
         
-        let cbor = try! CBORDecoder().decode(StakeVoteDelegate.self, from: payload)
+        let cbor = try CBORDecoder().decode(StakeVoteDelegate.self, from: payload)
         
         self.stakeCredential = cbor.stakeCredential
         self.poolKeyHash = cbor.poolKeyHash

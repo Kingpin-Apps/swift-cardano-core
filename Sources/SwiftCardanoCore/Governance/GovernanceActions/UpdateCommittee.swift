@@ -43,12 +43,7 @@ public struct UpdateCommittee: GovernanceAction {
         guard case let .list(elements) = primitive, elements.count == 5 else {
             throw CardanoCoreError.deserializeError("Invalid UpdateCommittee primitive")
         }
-        let code: Int
-        switch elements[0] {
-        case .int(let v): code = Int(v)
-        case .uint(let v): code = Int(v)
-        default: throw CardanoCoreError.deserializeError("Invalid UpdateCommittee primitive")
-        }
+        let code = try elements[0].integer("UpdateCommittee code", as: Int.self)
         guard code == Self.code.rawValue else {
             throw CardanoCoreError.deserializeError("Invalid UpdateCommittee primitive")
         }
@@ -88,13 +83,7 @@ public struct UpdateCommittee: GovernanceAction {
         var credentialEpochs: [CommitteeColdCredential: UInt64] = [:]
         for (keyPrimitive, valuePrimitive) in credentialEpochsPairs {
             let credential = try CommitteeColdCredential(from: keyPrimitive)
-            let epochValue: UInt64
-            switch valuePrimitive {
-            case .uint(let u): epochValue = UInt64(u)
-            case .int(let i) where i >= 0: epochValue = UInt64(i)
-            default:
-                throw CardanoCoreError.deserializeError("Invalid epoch value in credentialEpochs")
-            }
+            let epochValue = try valuePrimitive.integer("UpdateCommittee epoch", as: EpochNumber.self)
             credentialEpochs[credential] = epochValue
         }
         self.credentialEpochs = credentialEpochs

@@ -53,12 +53,12 @@ public struct StakeRegisterDelegate: CertificateSerializable {
     ///   - payload: The payload of the certificate
     ///   - type: The type of the certificate
     ///   - description: The description of the certificate
-    public init(payload: Data, type: String?, description: String?) {
+    public init(payload: Data, type: String?, description: String?) throws {
         self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
         
-        let cbor = try! CBORDecoder().decode(StakeRegisterDelegate.self, from: payload)
+        let cbor = try CBORDecoder().decode(StakeRegisterDelegate.self, from: payload)
         
         self.stakeCredential = cbor.stakeCredential
         self.poolKeyHash = cbor.poolKeyHash
@@ -98,7 +98,7 @@ public struct StakeRegisterDelegate: CertificateSerializable {
             .uint(UInt64(Self.CODE.rawValue)),
             try stakeCredential.toPrimitive(),
             poolKeyHash.toPrimitive(),
-            .int(Int64(coin))
+            .integer(coin)
         ])
     }
     
@@ -122,11 +122,10 @@ public struct StakeRegisterDelegate: CertificateSerializable {
         
         let poolOperator = try PoolOperator(from: poolId)
         
-        guard let coinPrimitive = orderedDict[.string(CodingKeys.coin.rawValue)],
-              case let .int(coinValue) = coinPrimitive else {
+        guard let coinPrimitive = orderedDict[.string(CodingKeys.coin.rawValue)] else {
             throw CardanoCoreError.deserializeError("Invalid or missing coin in StakeRegisterDelegate dict")
         }
-        let coin = Coin(coinValue)
+        let coin = try coinPrimitive.integer("StakeRegisterDelegate coin", as: Coin.self)
         
         return StakeRegisterDelegate(
             stakeCredential: stakeCredential,
@@ -143,7 +142,7 @@ public struct StakeRegisterDelegate: CertificateSerializable {
         dict[.string(CodingKeys.stakeCredential.rawValue)] =
             .string(stakeCredential.credential.payload.toHex)
         dict[.string(CodingKeys.poolKeyHash.rawValue)] = .string(try poolOperator.id())
-        dict[.string(CodingKeys.coin.rawValue)] = .int(Int64(coin))
+        dict[.string(CodingKeys.coin.rawValue)] = .integer(coin)
         
         return .orderedDict(dict)
     }

@@ -35,12 +35,7 @@ public struct TreasuryWithdrawalsAction: GovernanceAction {
         guard case let .list(elements) = primitive, elements.count == 3 else {
             throw CardanoCoreError.deserializeError("Invalid TreasuryWithdrawalsAction primitive")
         }
-        let code: Int
-        switch elements[0] {
-        case .int(let v): code = Int(v)
-        case .uint(let v): code = Int(v)
-        default: throw CardanoCoreError.deserializeError("Invalid TreasuryWithdrawalsAction primitive")
-        }
+        let code = try elements[0].integer("TreasuryWithdrawalsAction code", as: Int.self)
         guard code == Self.code.rawValue else {
             throw CardanoCoreError.deserializeError("Invalid TreasuryWithdrawalsAction primitive")
         }
@@ -58,13 +53,7 @@ public struct TreasuryWithdrawalsAction: GovernanceAction {
             guard case let .bytes(rewardsValue) = keyPrimitive else {
                 throw CardanoCoreError.deserializeError("Invalid reward account key in withdrawals")
             }
-            let coinValue: Coin
-            switch valuePrimitive {
-            case .uint(let u): coinValue = Coin(u)
-            case .int(let i) where i >= 0: coinValue = Coin(i)
-            default:
-                throw CardanoCoreError.deserializeError("Invalid coin value in withdrawals")
-            }
+            let coinValue = try valuePrimitive.integer("TreasuryWithdrawalsAction withdrawal", as: Coin.self)
             withdrawals[RewardAccount(rewardsValue)] = coinValue
         }
         self.withdrawals = withdrawals
@@ -81,7 +70,7 @@ public struct TreasuryWithdrawalsAction: GovernanceAction {
         // Convert withdrawals dictionary to primitive
         var withdrawalsDict: [Primitive: Primitive] = [:]
         for (rewardAccount, coin) in withdrawals {
-            withdrawalsDict[.bytes(rewardAccount)] = .int(Int64(coin))
+            withdrawalsDict[.bytes(rewardAccount)] = .integer(coin)
         }
 
         return .list([

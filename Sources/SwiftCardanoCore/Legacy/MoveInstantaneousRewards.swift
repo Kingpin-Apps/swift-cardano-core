@@ -41,13 +41,7 @@ public struct MoveInstantaneousReward: Serializable, Sendable {
         guard primitive.count == 3 else {
             throw CardanoCoreError.deserializeError("Invalid MoveInstantaneousReward type")
         }
-        let sourceInt: Int
-        switch primitive[0] {
-        case .int(let v): sourceInt = Int(v)
-        case .uint(let v): sourceInt = Int(v)
-        default:
-            throw CardanoCoreError.deserializeError("Invalid MoveInstantaneousReward source type")
-        }
+        let sourceInt = try primitive[0].integer("MoveInstantaneousReward source", as: Int.self)
         guard let rewardSource = MoveInstantaneousRewardSource(rawValue: sourceInt) else {
             throw CardanoCoreError.deserializeError("Invalid MoveInstantaneousReward source type")
         }
@@ -67,14 +61,7 @@ public struct MoveInstantaneousReward: Serializable, Sendable {
                     throw CardanoCoreError.deserializeError(
                         "Invalid MoveInstantaneousReward rewards type")
                 }
-                let delta: Int
-                switch value {
-                case .int(let v): delta = Int(v)
-                case .uint(let v): delta = Int(v)
-                default:
-                    throw CardanoCoreError.deserializeError(
-                        "Invalid MoveInstantaneousReward rewards type")
-                }
+                let delta = try value.integer("MoveInstantaneousReward delta coin", as: Int.self)
                 rewardsDict[keyStr] = DeltaCoin(deltaCoin: delta)
             }
             self.rewards = rewardsDict
@@ -83,11 +70,8 @@ public struct MoveInstantaneousReward: Serializable, Sendable {
         }
 
         switch primitive[2] {
-        case .int(let v): self.coin = UInt64(v)
-        case .uint(let v): self.coin = UInt64(v)
         case .null: self.coin = nil
-        default:
-            throw CardanoCoreError.deserializeError("Invalid MoveInstantaneousReward coin type")
+        default: self.coin = try primitive[2].integer("MoveInstantaneousReward coin", as: UInt64.self)
         }
     }
 
@@ -105,7 +89,7 @@ public struct MoveInstantaneousReward: Serializable, Sendable {
             elements.append(.null)
         }
         if let coin = coin {
-            elements.append(.int(Int64(coin)))
+            elements.append(.integer(coin))
         } else {
             elements.append(.null)
         }
@@ -156,11 +140,8 @@ public struct MoveInstantaneousReward: Serializable, Sendable {
         if let coinPrimitive = orderedDict[.string(CodingKeys.coin.rawValue)] {
             if case .null = coinPrimitive {
                 coin = nil
-            } else if case .int(let coinValue) = coinPrimitive {
-                coin = UInt64(coinValue)
             } else {
-                throw CardanoCoreError.deserializeError(
-                    "Invalid coin type in MoveInstantaneousReward")
+                coin = try coinPrimitive.integer("MoveInstantaneousReward coin", as: UInt64.self)
             }
         }
 
@@ -183,7 +164,7 @@ public struct MoveInstantaneousReward: Serializable, Sendable {
         }
 
         if let coin = coin {
-            dict[.string(CodingKeys.coin.rawValue)] = .int(Int64(coin))
+            dict[.string(CodingKeys.coin.rawValue)] = .integer(coin)
         } else {
             dict[.string(CodingKeys.coin.rawValue)] = .null
         }
@@ -239,12 +220,12 @@ public struct MoveInstantaneousRewards: CertificateSerializable {
     ///  - payload: The CBOR representation of the certificate
     ///  - type: The type of the certificate
     ///  - description: The description of the certificate
-    public init(payload: Data, type: String?, description: String?) {
+    public init(payload: Data, type: String?, description: String?) throws {
         self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
 
-        let cbor = try! CBORDecoder().decode(MoveInstantaneousRewards.self, from: payload)
+        let cbor = try CBORDecoder().decode(MoveInstantaneousRewards.self, from: payload)
 
         self.moveInstantaneousRewards = cbor.moveInstantaneousRewards
     }

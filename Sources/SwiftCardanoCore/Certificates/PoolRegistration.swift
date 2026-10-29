@@ -26,15 +26,25 @@ public struct PoolRegistration: CertificateSerializable {
     /// - Parameter poolParams: The pool parameters
     public init(poolParams: PoolParams) {
         self.poolParams = poolParams
-        
-        var cbor: [CBOR] = [CBOR(Self.CODE.rawValue)]
-        cbor.append(
-            contentsOf: try! CBOREncoder().encode(poolParams).toCBOR.arrayValue!
-        )
-            
-        self._payload =  try! CBORSerialization.data(from: .array(cbor))
+        self._payload =  try! Self.payload(for: poolParams)
         self._type = Self.TYPE
         self._description = Self.DESCRIPTION
+    }
+    
+    /// The decode path: the payload is built with `try`, so pool parameters
+    /// that fail to encode throw instead of trapping.
+    private init(decodedPoolParams poolParams: PoolParams) throws {
+        self.poolParams = poolParams
+        self._payload = try Self.payload(for: poolParams)
+        self._type = Self.TYPE
+        self._description = Self.DESCRIPTION
+    }
+    
+    private static func payload(for poolParams: PoolParams) throws -> Data {
+        guard let params = try CBOREncoder().encode(poolParams).toCBOR.arrayValue else {
+            throw CardanoCoreError.encodingError("PoolParams did not encode to an array")
+        }
+        return try CBORSerialization.data(from: .array([CBOR(Self.CODE.rawValue)] + params))
     }
     
     /// Initialize a new PoolRegistration certificate from a payload
@@ -85,7 +95,7 @@ public struct PoolRegistration: CertificateSerializable {
             throw CardanoCoreError.deserializeError("Invalid PoolRegistration primitive structure")
         }
         
-        self.init(poolParams: poolParams)
+        try self.init(decodedPoolParams: poolParams)
     }
 
     public func toPrimitive() throws -> Primitive {

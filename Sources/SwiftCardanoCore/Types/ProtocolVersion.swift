@@ -10,9 +10,13 @@ public struct ProtocolVersion: CBORSerializable, Sendable {
     }
 
     public init(from decoder: Decoder) throws {
+        // protocol_version = [major_protocol_version, uint .size 4]
         var container = try decoder.unkeyedContainer()
-        major = try container.decode(Int.self)
-        minor = try container.decode(Int.self)
+        major = Int(exactly: try container.decode(UInt32.self))
+        minor = Int(exactly: try container.decode(UInt32.self))
+        guard major != nil, minor != nil else {
+            throw CardanoCoreError.valueError("ProtocolVersion is out of range for Int")
+        }
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -30,20 +34,13 @@ public struct ProtocolVersion: CBORSerializable, Sendable {
             throw CardanoCoreError.valueError("ProtocolVersion must contain exactly 2 elements")
         }
 
-        let major: Int
-        switch elements[0] {
-        case .int(let val): major = Int(val)
-        case .uint(let val): major = Int(val)
-        default:
-            throw CardanoCoreError.valueError("Invalid ProtocolVersion element types")
-        }
-
-        let minor: Int
-        switch elements[1] {
-        case .int(let val): minor = Int(val)
-        case .uint(let val): minor = Int(val)
-        default:
-            throw CardanoCoreError.valueError("Invalid ProtocolVersion element types")
+        // protocol_version = [major_protocol_version, uint .size 4]. The major
+        // version is only range-checked as a uint here, so a later era's
+        // major version still decodes.
+        let major = try elements[0].integer("ProtocolVersion major", as: Int.self)
+        let minor = try elements[1].integer("ProtocolVersion minor", as: Int.self)
+        guard UInt32(exactly: major) != nil, UInt32(exactly: minor) != nil else {
+            throw CardanoCoreError.valueError("ProtocolVersion [\(major), \(minor)] is out of range")
         }
 
         self.init(major: major, minor: minor)

@@ -49,12 +49,12 @@ public struct UnregisterDRep: CertificateSerializable {
     ///  - payload: The CBOR representation of the certificate
     ///  - type: The type of the certificate
     ///  - description: The description of the certificate
-    public init(payload: Data, type: String?, description: String?) {
+    public init(payload: Data, type: String?, description: String?) throws {
         self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
 
-        let cbor = try! CBORDecoder().decode(UnregisterDRep.self, from: payload)
+        let cbor = try CBORDecoder().decode(UnregisterDRep.self, from: payload)
 
         self.drepCredential = cbor.drepCredential
         self.coin = cbor.coin
@@ -81,7 +81,7 @@ public struct UnregisterDRep: CertificateSerializable {
         return .list([
             .uint(UInt64(Self.CODE.rawValue)),
             try drepCredential.toPrimitive(),
-            .int(Int64(coin)),
+            .integer(coin),
         ])
     }
 
@@ -98,15 +98,13 @@ public struct UnregisterDRep: CertificateSerializable {
                 "Missing required fields in UnregisterDRep dictionary")
         }
 
-        guard case .string(let drepCredentialId) = drepCredentialPrimitive,
-            case .int(let coinInt) = coinPrimitive
-        else {
+        guard case .string(let drepCredentialId) = drepCredentialPrimitive else {
             throw CardanoCoreError.deserializeError(
                 "Invalid field types in UnregisterDRep dictionary")
         }
 
         let drepCredential = try DRepCredential(from: drepCredentialId)
-        let coin = Coin(coinInt)
+        let coin = try coinPrimitive.integer("UnregisterDRep coin", as: Coin.self)
 
         return UnregisterDRep(drepCredential: drepCredential, coin: coin)
     }
@@ -114,7 +112,7 @@ public struct UnregisterDRep: CertificateSerializable {
     public func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
         dict[.string(CodingKeys.drepCredential.rawValue)] = .string(try drepCredential.id())
-        dict[.string(CodingKeys.coin.rawValue)] = .int(Int64(coin))
+        dict[.string(CodingKeys.coin.rawValue)] = .integer(coin)
         return .orderedDict(dict)
     }
 }
