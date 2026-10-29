@@ -31,7 +31,7 @@ public struct TransactionInput: Serializable {
     // MARK: - CBORSerializable
     
     public init(from primitive: Primitive) throws {
-        guard case let .list(primitive) = primitive else {
+        guard let primitive = primitive.arrayElements else {
             throw CardanoCoreError.deserializeError("Invalid TransactionInput type")
         }
         

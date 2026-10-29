@@ -29,6 +29,9 @@ public struct Constr: Serializable, CustomStringConvertible, Sendable {
     /// Whether this was decoded from the general form, `#6.102([tag, fields])`,
     /// which the ledger accepts for any constructor tag.
     var writtenGeneral = false
+    /// Whether the general form's `[tag, fields]` array was written with an
+    /// indefinite length, which the ledger also accepts.
+    var writtenGeneralIndefinite = false
 
     public init(tag: UInt64?, fields: [PlutusData] = [], useIndefiniteList: Bool? = nil) {
         self.tag = tag
@@ -75,7 +78,7 @@ public struct Constr: Serializable, CustomStringConvertible, Sendable {
         }
 
         if cborTag.tag == 102 {
-            guard case .list(let valueArray) = cborTag.value,
+            guard let valueArray = cborTag.value.arrayElements,
                 valueArray.count == 2,
                 case .uint(let tag) = valueArray[0]
             else {
@@ -90,11 +93,12 @@ public struct Constr: Serializable, CustomStringConvertible, Sendable {
             self.useIndefiniteList = indefinite
             self.writtenIndefinite = indefinite
             self.writtenGeneral = true
+            if case .indefiniteList = cborTag.value { self.writtenGeneralIndefinite = true }
         } else {
             let constructorID: UInt64
             if 121 <= cborTag.tag && cborTag.tag < 128 {
                 constructorID = cborTag.tag - 121
-            } else if 1280 <= cborTag.tag && cborTag.tag < 1536 {
+            } else if 1280 <= cborTag.tag && cborTag.tag <= 1400 {
                 constructorID = cborTag.tag - 1280 + 7
             } else {
                 throw CardanoCoreError.deserializeError(
@@ -109,28 +113,33 @@ public struct Constr: Serializable, CustomStringConvertible, Sendable {
         }
     }
 
-    public func toPrimitive() throws -> Primitive {
+    /// How this is written: under its compact tag, or — when there is none
+    /// for its tag, or it was read in the general form — as
+    /// `#6.102([alternative, fields])`; and whether the fields array is
+    /// indefinite.
+    var encodingForm: (compactTag: UInt64?, alternative: UInt64, indefinite: Bool, generalIndefinite: Bool) {
         // A tag beyond the compact ranges, or no tag at all, takes the
         // general form; `#6.102` carries any `UInt64`.
         let calculatedTag = self.tag.flatMap { Int(exactly: $0) }.flatMap { getTag(constrID: $0) }
+        let indefinite = writtenIndefinite ?? (useIndefiniteList != false && !fields.isEmpty)
+        let compactTag = writtenGeneral ? nil : calculatedTag.map { UInt64($0) }
+        return (compactTag, self.tag ?? UInt64(Self.CONSTR_ID), indefinite, writtenGeneralIndefinite)
+    }
 
+    public func toPrimitive() throws -> Primitive {
+        let form = encodingForm
         let primitives = try fields.map {
             try $0.toPrimitive(isRoot: false)
         }
-
-        let indefinite = writtenIndefinite ?? (useIndefiniteList != false && !primitives.isEmpty)
-        let toEncode: Primitive = indefinite
+        let toEncode: Primitive = form.indefinite
             ? .indefiniteList(IndefiniteList<Primitive>(primitives)) : .list(primitives)
 
-        if let calculatedTag, !writtenGeneral {
-            return .cborTag(
-                CBORTag(tag: UInt64(calculatedTag), value: toEncode)
-            )
+        if let compactTag = form.compactTag {
+            return .cborTag(CBORTag(tag: compactTag, value: toEncode))
         } else {
-            let tagToUse = self.tag ?? UInt64(Self.CONSTR_ID)
-
+            let pair: [Primitive] = [.uint(form.alternative), toEncode]
             return .cborTag(
-                CBORTag(tag: 102, value: .list([.uint(tagToUse), toEncode]))
+                CBORTag(tag: 102, value: form.generalIndefinite ? .indefiniteList(IndefiniteList(pair)) : .list(pair))
             )
         }
     }

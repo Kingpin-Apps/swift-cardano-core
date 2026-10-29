@@ -41,7 +41,7 @@ public enum PlutusScript: Serializable {
     // MARK: - CBORSerializable
     
     public init(from primitive: Primitive) throws {
-        guard case let .list(elements) = primitive,
+        guard let elements = primitive.arrayElements,
               elements.count == 2,
               case let .bytes(data) = elements[1] else {
             throw CardanoCoreError.deserializeError("Invalid PlutusScript primitive")
@@ -284,7 +284,7 @@ public enum ScriptType: Serializable {
     // MARK: - CBORSerializable
     
     public init(from primitive: Primitive) throws {
-        guard case let .list(elements) = primitive,
+        guard let elements = primitive.arrayElements,
               !elements.isEmpty else {
             throw CardanoCoreError.deserializeError("Invalid ScriptType primitive")
         }

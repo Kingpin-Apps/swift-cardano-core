@@ -46,7 +46,7 @@ extension Constr {
 
     public func hash(into hasher: inout Hasher) {
         hasher.combine(tag)
-        hasher.combine(fields)
+        PlutusData.combine(fields, into: &hasher)
     }
 }
 
@@ -98,31 +98,42 @@ extension PlutusData {
     }
 
     public func hash(into hasher: inout Hasher) {
-        switch self {
-            case .constructor(let constr):
-                hasher.combine(0)
-                hasher.combine(constr)
-            // The two map cases hold the same value, so they hash alike.
-            case .map(let pairs), .indefiniteMap(let pairs):
-                hasher.combine(1)
-                hasher.combine(pairs.count)
-                for (key, value) in pairs {
-                    hasher.combine(key)
-                    hasher.combine(value)
-                }
-            // The two list cases hold the same value, so they hash alike.
-            case .array(let elements):
-                hasher.combine(2)
-                hasher.combine(elements)
-            case .indefiniteArray(let elements):
-                hasher.combine(2)
-                hasher.combine(elements.getAll())
-            case .bigInt(let value):
-                hasher.combine(3)
-                hasher.combine(value)
-            case .bytes(let value):
-                hasher.combine(4)
-                hasher.combine(value)
+        Self.combine([self], into: &hasher)
+    }
+
+    /// Hashes `values` node by node, in order, without recursing, so that a
+    /// deeply nested value hashes on a small thread stack. Each node gives
+    /// its kind and, for a container, its size, so the sequence fixes the
+    /// structure. The two list cases, and the two map cases, hash alike, as
+    /// `==` holds them equal.
+    static func combine(_ values: [PlutusData], into hasher: inout Hasher) {
+        var pending = Array(values.reversed())
+        while let value = pending.popLast() {
+            switch value {
+                case .constructor(let constr):
+                    hasher.combine(0)
+                    hasher.combine(constr.tag)
+                    hasher.combine(constr.fields.count)
+                    pending.append(contentsOf: constr.fields.reversed())
+                case .map(let pairs), .indefiniteMap(let pairs):
+                    hasher.combine(1)
+                    hasher.combine(pairs.count)
+                    for (key, value) in Array(pairs).reversed() {
+                        pending.append(value)
+                        pending.append(key)
+                    }
+                case .array, .indefiniteArray:
+                    let elements = value.listElements ?? []
+                    hasher.combine(2)
+                    hasher.combine(elements.count)
+                    pending.append(contentsOf: elements.reversed())
+                case .bigInt(let integer):
+                    hasher.combine(3)
+                    hasher.combine(integer)
+                case .bytes(let bytes):
+                    hasher.combine(4)
+                    hasher.combine(bytes)
+            }
         }
     }
 }

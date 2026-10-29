@@ -307,12 +307,20 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
         }
     }
 
+    /// The transaction id: the hash of this body as written while it is
+    /// unchanged, otherwise of its encoding.
+    ///
+    /// - Throws: When the body has changed and cannot be encoded.
     public var id: TransactionId {
-        return TransactionId(payload: hash())
+        get throws { TransactionId(payload: try hash()) }
     }
 
-    public func hash() -> Data {
-        return try! Hash().blake2b(
+    /// Blake2b-256 of this body as written while it is unchanged, otherwise of
+    /// its encoding: what every vkey witness signs.
+    ///
+    /// - Throws: When the body has changed and cannot be encoded.
+    public func hash() throws -> Data {
+        return try Hash().blake2b(
             data: try self.toCBORData(),
             digestSize: TRANSACTION_HASH_SIZE,
             encoder: RawEncoder.self
@@ -327,6 +335,12 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
     public static var preservesEncoding: Bool { true }
 
     public init(from primitive: Primitive) throws {
+        // Bytes kept as written, from this type's own `toPrimitive()`: read
+        // them again, keeping them.
+        if case .cborSimpleValue(.encoded(let bytes)) = primitive {
+            self = try Self.fromCBOR(data: bytes)
+            return
+        }
         var written: OrderedDictionary<Primitive, Primitive> = [:]
 
         switch primitive {
@@ -538,7 +552,13 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
         }
     }
 
+    /// The bytes this body was decoded from while it is unchanged — so that
+    /// encoding it, alone or inside a transaction, gives what was written and
+    /// keeps the id — otherwise its fields.
     public func toPrimitive() throws -> Primitive {
+        if let originalCBOR {
+            return .cborSimpleValue(.encoded(originalCBOR))
+        }
         var dictionary: OrderedDictionary<Primitive, Primitive> = [:]
 
         func key(_ key: CodingKeys) -> Primitive {

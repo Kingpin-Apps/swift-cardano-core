@@ -78,9 +78,9 @@ func makeHeaderBody(prevHash: BlockHeaderHash? = BlockHeaderHash(payload: Data(r
             return
         }
 
-        // Alonzo / Babbage / Conway wire format: 14 flat elements
-        // (operational_cert and protocol_version groups are inlined).
-        #expect(elements.count == 14)
+        // Babbage / Conway (Praos) wire format: 10 elements, with
+        // operational_cert and protocol_version nested as arrays.
+        #expect(elements.count == 10)
 
         // [0] blockNumber (uint)
         guard case let .uint(blockNum) = elements[0] else {
@@ -133,45 +133,41 @@ func makeHeaderBody(prevHash: BlockHeaderHash? = BlockHeaderHash(payload: Data(r
             return
         }
 
-        // operational_cert inlined:
-        // [8] hot_vkey (bytes)
-        guard case .bytes = elements[8] else {
-            Issue.record("Expected .bytes for hot_vkey")
+        // [8] operational_cert: [hot_vkey, sequence_number, kes_period, sigma]
+        guard case let .list(cert) = elements[8], cert.count == 4,
+            case .bytes = cert[0], case .uint = cert[1], case .uint = cert[2], case .bytes = cert[3]
+        else {
+            Issue.record("Expected a 4-element operational_cert")
             return
         }
 
-        // [9] sequence_number (uint)
-        guard case .uint = elements[9] else {
-            Issue.record("Expected .uint for sequence_number")
-            return
-        }
-
-        // [10] kes_period (uint)
-        guard case .uint = elements[10] else {
-            Issue.record("Expected .uint for kes_period")
-            return
-        }
-
-        // [11] sigma (bytes)
-        guard case .bytes = elements[11] else {
-            Issue.record("Expected .bytes for sigma")
-            return
-        }
-
-        // protocol_version inlined:
-        // [12] major (uint)
-        guard case let .uint(major) = elements[12] else {
-            Issue.record("Expected .uint for protocol major")
+        // [9] protocol_version: [major, minor]
+        guard case let .list(version) = elements[9], version.count == 2,
+            case let .uint(major) = version[0], case let .uint(minor) = version[1]
+        else {
+            Issue.record("Expected a 2-element protocol_version")
             return
         }
         #expect(major == 10)
+        #expect(minor == 0)
+    }
 
-        // [13] minor (uint)
-        guard case let .uint(minor) = elements[13] else {
-            Issue.record("Expected .uint for protocol minor")
+    @Test func testTPraosPrimitiveStructure() async throws {
+        // With a nonce VRF (Shelley to Alonzo): 15 flat elements.
+        var headerBody = try makeHeaderBody()
+        headerBody.nonceVrf = headerBody.vrfResult
+        guard case let .list(elements) = try headerBody.toPrimitive() else {
+            Issue.record("Expected .list primitive")
             return
         }
-        #expect(minor == 0)
+        #expect(elements.count == 15)
+        guard case .list = elements[5], case .list = elements[6], case .bytes = elements[9],
+            case .uint(10) = elements[13], case .uint(0) = elements[14]
+        else {
+            Issue.record("Expected the flat TPraos layout")
+            return
+        }
+        #expect(try HeaderBody(from: .list(elements)) == headerBody)
     }
 
     @Test func testCBORRoundTrip() async throws {

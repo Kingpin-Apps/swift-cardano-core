@@ -933,10 +933,22 @@ public struct AuxiliaryData: Serializable, Equatable {
     public static var preservesEncoding: Bool { true }
 
     public init(from primitive: Primitive) throws {
+        // Bytes kept as written, from this type's own `toPrimitive()`: read
+        // them again, keeping them.
+        if case .cborSimpleValue(.encoded(let bytes)) = primitive {
+            self = try Self.fromCBOR(data: bytes)
+            return
+        }
         self.data = try MetadataType(from: primitive)
     }
 
+    /// The bytes this was decoded from while it is unchanged — so that
+    /// encoding it, alone or inside a transaction, gives what was written and
+    /// keeps its hash — otherwise its metadata.
     public func toPrimitive() throws -> Primitive {
+        if let originalCBOR {
+            return .cborSimpleValue(.encoded(originalCBOR))
+        }
         return try data.toPrimitive()
     }
 

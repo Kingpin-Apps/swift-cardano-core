@@ -124,7 +124,7 @@ struct CertificateDecodingTests {
         let tx = try Transaction.fromCBOR(data: bytes, era: entry.era)
 
         #expect(tx.id?.payload.toHex == entry.id)
-        #expect(tx.transactionBody.hash().toHex == entry.id)
+        #expect(try tx.transactionBody.hash().toHex == entry.id)
         #expect(try tx.toCBORData() == bytes)
 
         let certificates = try #require(tx.transactionBody.certificates).asList

@@ -59,7 +59,7 @@ import Testing
             let tx = try Transaction.fromCBOR(data: bytes, era: era)
             #expect(try tx.toCBORData() == bytes)
             #expect(tx.id?.payload.toHex == Self.garbageAddressTxId)
-            #expect(tx.transactionBody.id.payload.toHex == Self.garbageAddressTxId)
+            #expect(try tx.transactionBody.id.payload.toHex == Self.garbageAddressTxId)
 
             let output = tx.transactionBody.outputs[0]
             #expect(output.address.trailingBytes.count == 21)

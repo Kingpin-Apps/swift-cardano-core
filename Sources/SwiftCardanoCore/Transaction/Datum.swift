@@ -168,8 +168,26 @@ public struct DatumOption: Serializable {
             // [1, #6.24(bytes .cbor plutus_data)]
             let tag = try scanner.header(at: spans[1].lowerBound)
             let content = try scanner.header(at: tag.end)
-            if tag.major == 6, tag.argument == 24, content.major == 2, content.argument != nil {
-                datumCBOR = scanner.bytes.subdata(in: content.end..<spans[1].upperBound)
+            if tag.major == 6, tag.argument == 24, content.major == 2 {
+                if content.argument != nil {
+                    datumCBOR = scanner.bytes.subdata(in: content.end..<spans[1].upperBound)
+                } else {
+                    // A byte string in chunks: the datum is the chunks joined,
+                    // and its hash is taken over them.
+                    var joined = Data()
+                    var position = content.end
+                    while position < spans[1].upperBound - 1 {
+                        let chunk = try scanner.header(at: position)
+                        let end = try scanner.end(ofItemAt: position)
+                        guard chunk.major == 2, chunk.argument != nil else {
+                            throw CardanoCoreError.deserializeError(
+                                "A chunk of a byte string must be a definite byte string, at byte \(position)")
+                        }
+                        joined.append(scanner.bytes.subdata(in: chunk.end..<end))
+                        position = end
+                    }
+                    datumCBOR = joined
+                }
             }
         }
         originalCBOR = scanner.bytes
@@ -208,7 +226,7 @@ public struct DatumOption: Serializable {
     // MARK: - CBORSerializable
 
     public init(from primitive: Primitive) throws {
-        guard case .list(let primitive) = primitive else {
+        guard let primitive = primitive.arrayElements else {
             throw CardanoCoreError.deserializeError("Invalid DatumOption type")
         }
         guard primitive.count == 2 else {

@@ -17,8 +17,9 @@ import CBORCodable
 /// - 5: Babbage
 /// - 6: Conway
 ///
-/// Shelley through Conway share the same 5-element `Block` body structure;
-/// era differences are confined to `HeaderBody` field count (14 vs 15).
+/// Shelley through Conway share the same `Block` structure — 4 elements to
+/// Mary, 5 from Alonzo — and the header body's layout: 15 flat elements to
+/// Alonzo, 10 with nested fields from Babbage (see ``HeaderBody``).
 /// Byron uses a completely different structure and is represented by `ByronBlock`.
 ///
 /// ## Byron wire format variants

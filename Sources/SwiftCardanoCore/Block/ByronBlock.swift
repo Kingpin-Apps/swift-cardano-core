@@ -358,8 +358,10 @@ extension ByronBlock: Serializable {
         self = try Self.fromCBOR(data: CBORSerialization.data(from: primitive.toCBOR()))
     }
 
+    /// The bytes ``toCBORData(deterministic:)`` gives, kept as they are, so
+    /// that encoding this alone or inside another value writes exactly them.
     public func toPrimitive() throws -> Primitive {
-        try Primitive.from(cbor: CBORSerialization.cbor(from: toCBORData()))
+        .cborSimpleValue(.encoded(try toCBORData()))
     }
 
     // MARK: JSONSerializable

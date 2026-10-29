@@ -1,4 +1,5 @@
 import BigInt
+import CBORCodable
 import Foundation
 import Testing
 import OrderedCollections
@@ -102,7 +103,8 @@ struct ByronBlockTests {
         let block = try ByronBlock.fromCBOR(data: bytes)
         #expect(block.originalCBOR == bytes)
         #expect(try block.toCBORData() == bytes)
-        #expect(try block.toPrimitive() == Primitive.from(cbor: CBORSerialization.cbor(from: bytes)))
+        #expect(try CBOREncoder().encode(block) == bytes)
+        #expect(try ByronBlock(from: block.toPrimitive()) == block)
     }
 
     @Test("EraBlock era 0 keeps the bytes, bare and network-wrapped", arguments: vectors)

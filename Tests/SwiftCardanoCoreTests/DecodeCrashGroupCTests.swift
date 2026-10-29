@@ -50,26 +50,38 @@ private func replacingKey(_ primitive: Primitive, _ key: String, with value: Pri
         }
     }
 
+    /// A Shelley-to-Alonzo header body: 15 flat elements, with a nonce VRF.
+    private func tpraos() throws -> Primitive {
+        var body = try makeHeaderBody()
+        body.nonceVrf = body.vrfResult
+        return try body.toPrimitive()
+    }
+
     @Test("A block body size beyond UInt32 throws")
     func blockBodySize() throws {
         #expect(throws: CardanoCoreError.self) {
             try HeaderBody.fromCBOR(data: hex("8a 00 00 f6 40 40 82 40 40 1b0000000100000000 00 00 00"))
         }
-        let flat = try makeHeaderBody().toPrimitive()
-        #expect(throws: CardanoCoreError.self) { try HeaderBody(from: replacing(flat, at: 6, with: .int(-1))) }
+        let praos = try makeHeaderBody().toPrimitive()
+        #expect(throws: CardanoCoreError.self) { try HeaderBody(from: replacing(praos, at: 6, with: .int(-1))) }
+        #expect(throws: CardanoCoreError.self) { try HeaderBody(from: replacing(try tpraos(), at: 7, with: .int(-1))) }
     }
 
     @Test("A negative sequence number or KES period throws, flat or nested")
     func operationalCertificateFields() throws {
-        let flat = try makeHeaderBody().toPrimitive()
-        #expect(throws: CardanoCoreError.self) { try HeaderBody(from: replacing(flat, at: 9, with: .int(-1))) }
+        // The flat, 15-element form.
+        let flat = try tpraos()
         #expect(throws: CardanoCoreError.self) { try HeaderBody(from: replacing(flat, at: 10, with: .int(-1))) }
+        #expect(throws: CardanoCoreError.self) { try HeaderBody(from: replacing(flat, at: 11, with: .int(-1))) }
 
         // The nested, 10-element form.
-        guard case .list(let e) = flat else { Issue.record("expected a list"); return }
+        guard case .list(let e) = try makeHeaderBody().toPrimitive(), case .list(let cert) = e[8] else {
+            Issue.record("expected a list")
+            return
+        }
         func nested(sequence: Primitive = .uint(1), kes: Primitive = .uint(2),
                     major: Primitive = .uint(10), minor: Primitive = .uint(0)) -> Primitive {
-            .list(Array(e[0...7]) + [.list([e[8], sequence, kes, e[11]]), .list([major, minor])])
+            .list(Array(e[0...7]) + [.list([cert[0], sequence, kes, cert[3]]), .list([major, minor])])
         }
         let decoded = try HeaderBody(from: nested())
         #expect(decoded.operationalCert.sequenceNumber == 1)
@@ -82,11 +94,11 @@ private func replacingKey(_ primitive: Primitive, _ key: String, with value: Pri
 
     @Test("A protocol version beyond Int, or negative, throws; a valid one round-trips")
     func protocolVersion() throws {
-        let flat = try makeHeaderBody().toPrimitive()
-        #expect(throws: CardanoCoreError.self) { try HeaderBody(from: replacing(flat, at: 12, with: maxU64)) }
+        let flat = try tpraos()
         #expect(throws: CardanoCoreError.self) { try HeaderBody(from: replacing(flat, at: 13, with: maxU64)) }
+        #expect(throws: CardanoCoreError.self) { try HeaderBody(from: replacing(flat, at: 14, with: maxU64)) }
         // A negative major was accepted, then trapped on when written.
-        #expect(throws: CardanoCoreError.self) { try HeaderBody(from: replacing(flat, at: 12, with: .int(-1))) }
+        #expect(throws: CardanoCoreError.self) { try HeaderBody(from: replacing(flat, at: 13, with: .int(-1))) }
 
         let body = try HeaderBody(from: flat)
         #expect(try HeaderBody.fromCBOR(data: body.toCBORData()) == body)

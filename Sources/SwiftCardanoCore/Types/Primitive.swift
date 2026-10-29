@@ -744,6 +744,15 @@ public indirect enum Primitive: CBORSerializable, Sendable {
         return value
     }
 
+    /// This primitive, with bytes kept as written —
+    /// `.cborSimpleValue(.encoded(_:))`, as a type that keeps its bytes puts
+    /// them in its `toPrimitive()` — read back into a primitive that keeps
+    /// how they were written.
+    func expandingEncoded() throws -> Primitive {
+        guard case .cborSimpleValue(.encoded(let bytes)) = self else { return self }
+        return try Primitive.from(cbor: CBORSerialization.cbor(from: bytes), preservingEncoding: true)
+    }
+
     public var indefiniteListValue: IndefiniteList<Primitive>? {
         guard case .indefiniteList(let value) = self else { return nil }
         return value
