@@ -1,3 +1,9 @@
+## 0.9.1 (2026-10-29)
+
+### Fix
+
+- **plutus**: write decoded constructors and datums back as read
+
 ## 0.9.0 (2026-10-29)
 
 ### Fix
