@@ -11,7 +11,7 @@ import CBORCodable
     let coin: Coin = 500000000
     
     @Test func testInitialization() async throws {
-        let cert = UnregisterDRep(
+        let cert = try UnregisterDRep(
             drepCredential: drepCredential,
             coin: coin
         )
@@ -33,7 +33,7 @@ import CBORCodable
     @Test func testToFromCBOR() async throws {
         let excpectedCBOR = unregisterDRepCertificate?.payload.toHex
         
-        let cert = UnregisterDRep(
+        let cert = try UnregisterDRep(
             drepCredential: drepCredential,
             coin: coin
         )

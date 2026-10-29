@@ -20,7 +20,7 @@ struct ResignCommitteeColdTests {
             )
         )
 
-        let resignCommitteeCold = ResignCommitteeCold(
+        let resignCommitteeCold = try ResignCommitteeCold(
             committeeColdCredential: committeeColdCredential,
             anchor: anchor
         )
@@ -48,7 +48,7 @@ struct ResignCommitteeColdTests {
             credential: .verificationKeyHash(try coldVKey!.hash())
         )
 
-        let resignCommitteeCold = ResignCommitteeCold(
+        let resignCommitteeCold = try ResignCommitteeCold(
             committeeColdCredential: committeeColdCredential
         )
         

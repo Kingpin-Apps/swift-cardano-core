@@ -13,7 +13,7 @@ struct StakeRegisterDelegateTests {
     let coin: Coin = 2000000
     
     @Test func testInitialization() async throws {
-        let stakeRegistration = StakeRegisterDelegate(
+        let stakeRegistration = try StakeRegisterDelegate(
             stakeCredential: stakeCredential,
             poolKeyHash: poolKeyHash,
             coin: coin
@@ -35,7 +35,7 @@ struct StakeRegisterDelegateTests {
     @Test func testToFromCBOR() async throws {
         let excpectedCBOR = stakeRegisterDelegateCertificate?.payload.toHex
         
-        let cert = StakeRegisterDelegate(
+        let cert = try StakeRegisterDelegate(
             stakeCredential: stakeCredential,
             poolKeyHash: poolKeyHash,
             coin: coin

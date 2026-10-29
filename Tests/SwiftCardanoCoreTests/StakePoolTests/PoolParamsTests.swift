@@ -7,8 +7,8 @@ import CBORCodable
 
     let testPoolOperator = try! stakePoolVerificationKey!.poolKeyHash()
     let testVrfKeyHash = try! vrfVerificationKey!.hash()
-    let testPledge = 1_000_000
-    let testCost = 340_000_000
+    let testPledge: Coin = 1_000_000
+    let testCost: Coin = 340_000_000
     let testMargin = UnitInterval(numerator: 3, denominator: 100)  // 3%
     let testRewardAccount =  try! stakeVerificationKey!.rewardAccountHash(network: .mainnet)
     let testPoolOwners: ListOrOrderedSet = .orderedSet(try! OrderedSet(

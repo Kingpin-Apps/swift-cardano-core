@@ -14,7 +14,7 @@ import CBORCodable
             credential: .verificationKeyHash(verificationKeyHash)
         )
         
-        let stakeRegistration = Register(
+        let stakeRegistration = try Register(
             stakeCredential: stakeCredential,
             coin: coin
         )
@@ -47,7 +47,7 @@ import CBORCodable
             credential: .verificationKeyHash(verificationKeyHash)
         )
         
-        let cert = Register(
+        let cert = try Register(
             stakeCredential: stakeCredential,
             coin: coin
         )

@@ -34,7 +34,7 @@ import FractionNumber
     
     @Test func testInitialization() async throws {
         
-        let poolRegistration = PoolRegistration(poolParams: poolParams)
+        let poolRegistration = try PoolRegistration(poolParams: poolParams)
         
         #expect(PoolRegistration.CODE.rawValue == 3)
         #expect(poolRegistration.poolParams == poolParams)
@@ -52,7 +52,7 @@ import FractionNumber
     @Test func testToFromCBOR() async throws {
         let excpectedCBOR = poolRegistrationCertificate?.payload.toHex
         
-        let cert = PoolRegistration(poolParams: poolParams)
+        let cert = try PoolRegistration(poolParams: poolParams)
         
         let cborData = try cert.toCBORData()
         let cborHex = cborData.toHex

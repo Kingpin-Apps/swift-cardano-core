@@ -1,4 +1,5 @@
 import Testing
+import BigInt
 import Foundation
 import OrderedCollections
 @testable import SwiftCardanoCore
@@ -134,12 +135,20 @@ struct DecodeCrashGroupBTests {
 
     // MARK: - Stake pools
 
-    @Test("Pool registration with a pledge above Int.max throws")
-    func poolPledgeOutOfRange() throws {
-        let hex = "8a03" + Self.poolKeyHash + Self.hash32 + "1b8000000000000000" + "000000000000"
-        #expect(throws: (any Error).self) { try Certificate.fromCBORHex(hex) }
-        let costHex = "8a03" + Self.poolKeyHash + Self.hash32 + "00" + "1b8000000000000000" + "0000000000"
-        #expect(throws: (any Error).self) { try Certificate.fromCBORHex(costHex) }
+    @Test("Pool registration with a pledge and cost above Int.max decodes and re-encodes")
+    func poolPledgeAboveIntMax() throws {
+        // pledge 2^63, cost 2^64 - 1: both are `coin`, a uint up to 2^64 - 1.
+        let hex = "8a03" + Self.poolKeyHash + Self.hash32
+            + "1b8000000000000000" + Self.maxUInt64
+            + "d81e820001" + "581de0" + Self.zeros(28) + "80" + "80" + "f6"
+        let certificate = try Certificate.fromCBORHex(hex)
+        guard case let .poolRegistration(registration) = certificate else {
+            Issue.record("expected a pool registration"); return
+        }
+        #expect(registration.poolParams.pledge == 1 << 63)
+        #expect(registration.poolParams.cost == .max)
+        #expect(try certificate.toCBORHex() == hex)
+        #expect(try PoolParams.fromDict(try registration.poolParams.toDict()).cost == .max)
     }
 
     @Test("PoolParams dict margins above one or over zero throw")
@@ -371,22 +380,38 @@ struct DecodeCrashGroupBTests {
 
     @Test("Move instantaneous rewards out of range throw")
     func moveInstantaneousRewards() throws {
+        let credential: Primitive = .list([.uint(0), .bytes(Data(count: 28))])
+        // A source other than 0 or 1.
         #expect(throws: (any Error).self) {
-            try MoveInstantaneousReward(from: .list([.uint(.max), .null, .null]))
+            try MoveInstantaneousReward(from: .list([.uint(.max), .uint(0)]))
         }
+        // A delta outside the CBOR int range.
         #expect(throws: (any Error).self) {
-            try MoveInstantaneousReward(from: .list([.uint(0), .orderedDict([.string("a"): .uint(.max)]), .null]))
+            try MoveInstantaneousReward(from: .list([
+                .uint(0), .orderedDict([credential: .bigInt(BigInt(1) << 64)]),
+            ]))
         }
+        // A key that is not a stake credential.
         #expect(throws: (any Error).self) {
-            try MoveInstantaneousReward(from: .list([.uint(0), .null, .int(-1)]))
+            try MoveInstantaneousReward(from: .list([.uint(0), .orderedDict([.string("a"): .uint(1)])]))
+        }
+        // A negative coin to the other pot.
+        #expect(throws: (any Error).self) {
+            try MoveInstantaneousReward(from: .list([.uint(0), .int(-1)]))
         }
         #expect(throws: (any Error).self) {
             try MoveInstantaneousReward.fromDict(.orderedDict([
-                .string("source"): .int(0), .string("rewards"): .null, .string("coin"): .int(-1),
+                .string("source"): .uint(0), .string("coin"): .int(-1),
             ]))
         }
-        let mir = try MoveInstantaneousReward(from: .list([.uint(1), .null, .uint(.max)]))
+        let mir = try MoveInstantaneousReward(from: .list([.uint(1), .uint(.max)]))
         #expect(mir.coin == .max)
         #expect(try MoveInstantaneousReward.fromDict(try mir.toDict()).coin == .max)
+        // The extremes of delta_coin decode and re-encode.
+        let extremes = try MoveInstantaneousReward(from: .list([
+            .uint(0), .orderedDict([credential: .bigInt(-(BigInt(1) << 64))]),
+        ]))
+        #expect(extremes.rewards?.values.first == -(BigInt(1) << 64))
+        #expect(try extremes.toCBORHex() == "8200a1" + "8200581c" + Self.zeros(28) + "3bffffffffffffffff")
     }
 }

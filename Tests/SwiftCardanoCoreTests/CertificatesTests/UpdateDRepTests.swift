@@ -18,7 +18,7 @@ import CBORCodable
     )
     
     @Test func testInitialization() async throws {
-        let cert = UpdateDRep(
+        let cert = try UpdateDRep(
             drepCredential: drepCredential,
             anchor: anchor
         )
@@ -40,7 +40,7 @@ import CBORCodable
     @Test func testToFromCBOR() async throws {
         let excpectedCBOR = updateDRepCertificate?.payload.toHex
         
-        let cert = UpdateDRep(
+        let cert = try UpdateDRep(
             drepCredential: drepCredential,
             anchor: anchor
         )

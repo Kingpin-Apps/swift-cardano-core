@@ -16,7 +16,7 @@ import CBORCodable
     
     @Test("Test ProposalProcedure Initialization")
     func testProposalProcedureInitialization() async throws {
-        let proposalProcedure = ProposalProcedure(
+        let proposalProcedure = try ProposalProcedure(
             deposit: deposit,
             rewardAccount: rewardAccount,
             govAction: govAction,
@@ -31,7 +31,7 @@ import CBORCodable
 
     @Test("Test ProposalProcedure CBOR Encoding and Decoding")
     func testProposalProcedureCBORSerialization() async throws {
-        let originalProposal = ProposalProcedure(
+        let originalProposal = try ProposalProcedure(
             deposit: deposit,
             rewardAccount: rewardAccount,
             govAction: govAction,
@@ -51,7 +51,7 @@ import CBORCodable
 
     @Test("Test ProposalProcedure JSON Encoding")
     func testProposalProcedureJSONEncoding() async throws {
-        let proposal = ProposalProcedure(
+        let proposal = try ProposalProcedure(
             deposit: deposit,
             rewardAccount: rewardAccount,
             govAction: govAction,
@@ -66,14 +66,14 @@ import CBORCodable
 
     @Test("Test ProposalProcedures Collection Initialization")
     func testProposalProceduresCollection() async throws {
-        let proposal1 = ProposalProcedure(
+        let proposal1 = try ProposalProcedure(
             deposit: deposit,
             rewardAccount: rewardAccount,
             govAction: govAction,
             anchor: anchor
         )
 
-        let proposal2 = ProposalProcedure(
+        let proposal2 = try ProposalProcedure(
             deposit: Coin(1_000_000_000),
             rewardAccount: rewardAccount,
             govAction: govAction,

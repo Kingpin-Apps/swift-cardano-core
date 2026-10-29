@@ -15,7 +15,7 @@ struct VoteRegisterDelegateTests {
     let coin: Coin = 2000000
     
     @Test func testInitialization() async throws {
-        let stakeRegistration = VoteRegisterDelegate(
+        let stakeRegistration = try VoteRegisterDelegate(
             stakeCredential: stakeCredential,
             drep: drep,
             coin: coin
@@ -39,7 +39,7 @@ struct VoteRegisterDelegateTests {
     @Test func testToFromCBOR() async throws {
         let excpectedCBOR = voteRegisterDelegateCertificate?.payload.toHex
         
-        let cert = VoteRegisterDelegate(
+        let cert = try VoteRegisterDelegate(
             stakeCredential: stakeCredential,
             drep: drep,
             coin: coin

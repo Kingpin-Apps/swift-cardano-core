@@ -1,5 +1,6 @@
 import Foundation
 import CBORCodable
+import OrderedCollections
 
 enum CertificateType: String, Codable {
     case shelley = "CertificateShelley"
@@ -73,16 +74,14 @@ public enum Certificate: Serializable {
     // MARK: - CBORSerializable
     
     public init(from primitive: Primitive) throws {
-        guard case let .list(elements) = primitive else {
+        let first: Primitive?
+        switch primitive {
+        case .list(let elements): first = elements.first
+        case .indefiniteList(let elements): first = elements.first
+        default:
             throw CardanoCoreError.deserializeError("Invalid Certificate format")
         }
-        
-        guard let firstElement = elements.first,
-                case let .uint(code) = firstElement,
-              let intCode = Int(exactly: code),
-              let certificateCode = CertificateCode(rawValue: intCode) else {
-            throw CardanoCoreError.deserializeError("Invalid Certificate code")
-        }
+        let certificateCode = try Self.code(first)
         
         switch certificateCode {
             case .stakeRegistration:
@@ -190,122 +189,84 @@ public enum Certificate: Serializable {
     
     // MARK: - JSONSerializable
     
-    public static func fromDict(_ primitive: Primitive) throws -> Certificate {
-        guard case let .list(elements) = primitive else {
-            throw CardanoCoreError.deserializeError("Invalid Certificate format")
+    /// The certificate code that starts a certificate array.
+    private static func code(_ primitive: Primitive?) throws -> CertificateCode {
+        guard let primitive else {
+            throw CardanoCoreError.deserializeError("Invalid Certificate code: empty certificate")
         }
-        
-        guard let firstElement = elements.first,
-                case let .uint(code) = firstElement,
-              let intCode = Int(exactly: code),
+        let code = try primitive.integer("Certificate code", as: UInt64.self)
+        guard let intCode = Int(exactly: code),
               let certificateCode = CertificateCode(rawValue: intCode) else {
-            throw CardanoCoreError.deserializeError("Invalid Certificate code")
+            throw CardanoCoreError.deserializeError("Invalid Certificate code: \(code)")
         }
-        
-        let restElements = Array(elements.dropFirst())
-        let restPrimitive = Primitive.list(restElements)
+        return certificateCode
+    }
+
+    /// The key of ``toDict()``'s form that holds the certificate code.
+    static let dictCodeKey = "certificateCode"
+
+    /// Reads ``toDict()``'s form: the certificate's own dict with its code
+    /// under `certificateCode`.
+    public static func fromDict(_ primitive: Primitive) throws -> Certificate {
+        guard case let .orderedDict(entries) = primitive else {
+            throw CardanoCoreError.deserializeError("Invalid Certificate dict: \(primitive)")
+        }
+        let certificateCode = try code(entries[.string(dictCodeKey)])
         switch certificateCode {
-            case .stakeRegistration:
-                let stakeReg = try StakeRegistration(from: restPrimitive)
-                return .stakeRegistration(stakeReg)
-            case .stakeDeregistration:
-                let stakeDereg = try StakeDeregistration(from: restPrimitive)
-                return .stakeDeregistration(stakeDereg)
-            case .stakeDelegation:
-                let stakeDel = try StakeDelegation(from: restPrimitive)
-                return .stakeDelegation(stakeDel)
-            case .poolRegistration:
-                let poolReg = try PoolRegistration(from: restPrimitive)
-                return .poolRegistration(poolReg)
-            case .poolRetirement:
-                let poolRet = try PoolRetirement(from: restPrimitive)
-                return .poolRetirement(poolRet)
-            case .genesisKeyDelegation:
-                let genKeyDel = try GenesisKeyDelegation(from: restPrimitive)
-                return .genesisKeyDelegation(genKeyDel)
-            case .moveInstantaneousRewards:
-                let mir = try MoveInstantaneousRewards(from: restPrimitive)
-                return .moveInstantaneousRewards(mir)
-            case .register:
-                let reg = try Register(from: restPrimitive)
-                return .register(reg)
-            case .unregister:
-                let unreg = try Unregister(from: restPrimitive)
-                return .unregister(unreg)
-            case .voteDelegate:
-                let voteDel = try VoteDelegate(from: restPrimitive)
-                return .voteDelegate(voteDel)
-            case .stakeVoteDelegate:
-                let stakeVoteDel = try StakeVoteDelegate(from: restPrimitive)
-                return .stakeVoteDelegate(stakeVoteDel)
-            case .stakeRegisterDelegate:
-                let stakeRegDel = try StakeRegisterDelegate(from: restPrimitive)
-                return .stakeRegisterDelegate(stakeRegDel)
-            case .voteRegisterDelegate:
-                let voteRegDel = try VoteRegisterDelegate(from: restPrimitive)
-                return .voteRegisterDelegate(voteRegDel)
-            case .stakeVoteRegisterDelegate:
-                let stakeVoteRegDel = try StakeVoteRegisterDelegate(from: restPrimitive)
-                return .stakeVoteRegisterDelegate(stakeVoteRegDel)
-            case .authCommitteeHot:
-                let authCommHot = try AuthCommitteeHot(from: restPrimitive)
-                return .authCommitteeHot(authCommHot)
-            case .resignCommitteeCold:
-                let resignCommCold = try ResignCommitteeCold(from: restPrimitive)
-                return .resignCommitteeCold(resignCommCold)
-            case .registerDRep:
-                let regDRep = try RegisterDRep(from: restPrimitive)
-                return .registerDRep(regDRep)
-            case .unRegisterDRep:
-                let unRegDRep = try UnregisterDRep(from: restPrimitive)
-                return .unRegisterDRep(unRegDRep)
-            case .updateDRep:
-                let updDRep = try UpdateDRep(from: restPrimitive)
-                return .updateDRep(updDRep)
+            case .stakeRegistration: return .stakeRegistration(try .fromDict(primitive))
+            case .stakeDeregistration: return .stakeDeregistration(try .fromDict(primitive))
+            case .stakeDelegation: return .stakeDelegation(try .fromDict(primitive))
+            case .poolRegistration: return .poolRegistration(try .fromDict(primitive))
+            case .poolRetirement: return .poolRetirement(try .fromDict(primitive))
+            case .genesisKeyDelegation: return .genesisKeyDelegation(try .fromDict(primitive))
+            case .moveInstantaneousRewards: return .moveInstantaneousRewards(try .fromDict(primitive))
+            case .register: return .register(try .fromDict(primitive))
+            case .unregister: return .unregister(try .fromDict(primitive))
+            case .voteDelegate: return .voteDelegate(try .fromDict(primitive))
+            case .stakeVoteDelegate: return .stakeVoteDelegate(try .fromDict(primitive))
+            case .stakeRegisterDelegate: return .stakeRegisterDelegate(try .fromDict(primitive))
+            case .voteRegisterDelegate: return .voteRegisterDelegate(try .fromDict(primitive))
+            case .stakeVoteRegisterDelegate: return .stakeVoteRegisterDelegate(try .fromDict(primitive))
+            case .authCommitteeHot: return .authCommitteeHot(try .fromDict(primitive))
+            case .resignCommitteeCold: return .resignCommitteeCold(try .fromDict(primitive))
+            case .registerDRep: return .registerDRep(try .fromDict(primitive))
+            case .unRegisterDRep: return .unRegisterDRep(try .fromDict(primitive))
+            case .updateDRep: return .updateDRep(try .fromDict(primitive))
         }
     }
-    
+
+    /// The certificate's own dict, with its code first under
+    /// `certificateCode` so ``fromDict(_:)`` knows which certificate it is.
     public func toDict() throws -> Primitive {
+        let (code, inner): (CertificateCode, Primitive)
         switch self {
-            case .stakeRegistration(let stakeReg):
-                return try stakeReg.toDict()
-            case .stakeDeregistration(let stakeDereg):
-                return try stakeDereg.toDict()
-            case .stakeDelegation(let stakeDel):
-                return try stakeDel.toDict()
-            case .poolRegistration(let poolReg):
-                return try poolReg.toDict()
-            case .poolRetirement(let poolRet):
-                return try poolRet.toDict()
-            case .genesisKeyDelegation(let genKeyDel):
-                return try genKeyDel.toDict()
-            case .moveInstantaneousRewards(let mir):
-                return try mir.toDict()
-            case .register(let reg):
-                return try reg.toDict()
-            case .unregister(let unreg):
-                return try unreg.toDict()
-            case .voteDelegate(let voteDel):
-                return try voteDel.toDict()
-            case .stakeVoteDelegate(let stakeVoteDel):
-                return try stakeVoteDel.toDict()
-            case .stakeRegisterDelegate(let stakeRegDel):
-                return try stakeRegDel.toDict()
-            case .voteRegisterDelegate(let voteRegDel):
-                return try voteRegDel.toDict()
-            case .stakeVoteRegisterDelegate(let stakeVoteRegDel):
-                return try stakeVoteRegDel.toDict()
-            case .authCommitteeHot(let authCommHot):
-                return try authCommHot.toDict()
-            case .resignCommitteeCold(let resignCommCold):
-                return try resignCommCold.toDict()
-            case .registerDRep(let regDRep):
-                return try regDRep.toDict()
-            case .unRegisterDRep(let unRegDRep):
-                return try unRegDRep.toDict()
-            case .updateDRep(let updDRep):
-                return try updDRep.toDict()
+            case .stakeRegistration(let c): (code, inner) = (StakeRegistration.CODE, try c.toDict())
+            case .stakeDeregistration(let c): (code, inner) = (StakeDeregistration.CODE, try c.toDict())
+            case .stakeDelegation(let c): (code, inner) = (StakeDelegation.CODE, try c.toDict())
+            case .poolRegistration(let c): (code, inner) = (PoolRegistration.CODE, try c.toDict())
+            case .poolRetirement(let c): (code, inner) = (PoolRetirement.CODE, try c.toDict())
+            case .genesisKeyDelegation(let c): (code, inner) = (GenesisKeyDelegation.CODE, try c.toDict())
+            case .moveInstantaneousRewards(let c): (code, inner) = (MoveInstantaneousRewards.CODE, try c.toDict())
+            case .register(let c): (code, inner) = (Register.CODE, try c.toDict())
+            case .unregister(let c): (code, inner) = (Unregister.CODE, try c.toDict())
+            case .voteDelegate(let c): (code, inner) = (VoteDelegate.CODE, try c.toDict())
+            case .stakeVoteDelegate(let c): (code, inner) = (StakeVoteDelegate.CODE, try c.toDict())
+            case .stakeRegisterDelegate(let c): (code, inner) = (StakeRegisterDelegate.CODE, try c.toDict())
+            case .voteRegisterDelegate(let c): (code, inner) = (VoteRegisterDelegate.CODE, try c.toDict())
+            case .stakeVoteRegisterDelegate(let c): (code, inner) = (StakeVoteRegisterDelegate.CODE, try c.toDict())
+            case .authCommitteeHot(let c): (code, inner) = (AuthCommitteeHot.CODE, try c.toDict())
+            case .resignCommitteeCold(let c): (code, inner) = (ResignCommitteeCold.CODE, try c.toDict())
+            case .registerDRep(let c): (code, inner) = (RegisterDRep.CODE, try c.toDict())
+            case .unRegisterDRep(let c): (code, inner) = (UnregisterDRep.CODE, try c.toDict())
+            case .updateDRep(let c): (code, inner) = (UpdateDRep.CODE, try c.toDict())
         }
+        guard case let .orderedDict(fields) = inner else {
+            throw CardanoCoreError.serializeError("Certificate dict is not a dict: \(inner)")
+        }
+        var dict = OrderedDictionary<Primitive, Primitive>()
+        dict[.string(Self.dictCodeKey)] = .uint(UInt64(code.rawValue))
+        for (key, value) in fields { dict[key] = value }
+        return .orderedDict(dict)
     }
 
     public func save(to path: String, overwrite: Bool = false) throws {

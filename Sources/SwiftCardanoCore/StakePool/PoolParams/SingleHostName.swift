@@ -19,6 +19,10 @@ public struct SingleHostName: Serializable, Sendable {
         guard case let .list(elements) = primitive else {
             throw CardanoCoreError.deserializeError("Invalid SingleHostName primitive")
         }
+        // single_host_name = (1, port / nil, dns_name)
+        guard elements.count == 3 else {
+            throw CardanoCoreError.deserializeError("SingleHostName requires 3 elements, got \(elements.count)")
+        }
         
         var iterator = elements.makeIterator()
         guard let codeElement = iterator.next(),
@@ -43,9 +47,8 @@ public struct SingleHostName: Serializable, Sendable {
             switch dnsNameElement {
                 case .string(let dnsNameValue):
                     self.dnsName = dnsNameValue
-                case .null:
-                    self.dnsName = nil
                 default:
+                    // dns_name is text: it has no null.
                     throw CardanoCoreError.deserializeError("Invalid dnsName value in SingleHostName")
             }
         } else {
@@ -63,11 +66,11 @@ public struct SingleHostName: Serializable, Sendable {
             elements.append(.null)
         }
         
-        if let dnsName = self.dnsName {
-            elements.append(.string(dnsName))
-        } else {
-            elements.append(.null)
+        // dns_name is text, which has no null.
+        guard let dnsName = self.dnsName else {
+            throw CardanoCoreError.serializeError("SingleHostName requires a dnsName")
         }
+        elements.append(.string(dnsName))
         
         return .list(elements)
     }
