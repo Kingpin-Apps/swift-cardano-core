@@ -27,7 +27,7 @@ public struct VerificationKeyWitness: Serializable, TextEnvelopable {
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
         
-        let cbor = try CBORDecoder().decode(Self.self, from: payload)
+        let cbor = try CBORDecoder.ledger().decode(Self.self, from: payload)
         self.vkey = cbor.vkey
         self.signature = cbor.signature
     }
@@ -285,7 +285,7 @@ public struct TransactionWitnessSet: Serializable, Equatable {
     private mutating func readDatums(_ scanner: CBORItemScanner, at offset: Int) throws {
         let reader = PlutusDataReader(scanner.bytes)
         let datums = try scanner.elements(ofArrayAt: scanner.untagged(at: offset)).map {
-            try reader.read(at: $0.lowerBound, depth: 0).0
+            try reader.read(at: $0.lowerBound).0
         }
         switch plutusData {
             case .list: plutusData = .list(datums)
@@ -306,7 +306,7 @@ public struct TransactionWitnessSet: Serializable, Equatable {
                 for (index, span) in spans.enumerated() {
                     let parts = try scanner.elements(ofArrayAt: span.lowerBound)
                     guard parts.count == 4 else { continue }
-                    list[index].data = try reader.read(at: parts[2].lowerBound, depth: 0).0
+                    list[index].data = try reader.read(at: parts[2].lowerBound).0
                 }
                 redeemers = .list(list)
             case .map(var map):
@@ -317,7 +317,7 @@ public struct TransactionWitnessSet: Serializable, Equatable {
                         RedeemerKey.self, from: scanner.bytes.subdata(in: key))
                     let parts = try scanner.elements(ofArrayAt: value.lowerBound)
                     guard let data = parts.first else { continue }
-                    map[redeemerKey]?.data = try reader.read(at: data.lowerBound, depth: 0).0
+                    map[redeemerKey]?.data = try reader.read(at: data.lowerBound).0
                 }
                 redeemers = .map(map)
             case nil:

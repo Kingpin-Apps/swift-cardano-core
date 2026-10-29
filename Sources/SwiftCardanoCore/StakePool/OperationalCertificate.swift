@@ -91,7 +91,7 @@ public struct OperationalCertificate: TextEnvelopable, JSONSerializable, Sendabl
     ///   - description: Optional description string.
     /// - Throws: `CardanoCoreError.deserializeError` if the payload is invalid.
     public init(payload: Data, type: String?, description: String?) throws {
-        let primitive = try Primitive.from(cbor: CBORDecoder().decode(CBOR.self, from: payload))
+        let primitive = try Primitive.from(cbor: CBORDecoder.ledger().decode(CBOR.self, from: payload))
 
         guard case let .list(outerElements) = primitive, outerElements.count == 2 else {
             throw CardanoCoreError.deserializeError(

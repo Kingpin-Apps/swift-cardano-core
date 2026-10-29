@@ -77,7 +77,7 @@ public enum EraBlock: Sendable {
 
     /// Decode from the full NtN/NtC outer wrapper: `[era_id, #6.24(block_cbor)]`.
     public static func fromNetworkCBOR(data: Data) throws -> EraBlock {
-        let primitive = try Primitive.from(cbor: CBORDecoder().decode(CBOR.self, from: data))
+        let primitive = try Primitive.from(cbor: CBORDecoder.ledger().decode(CBOR.self, from: data))
 
         guard case .list(let elements) = primitive, elements.count == 2 else {
             throw CardanoCoreError.deserializeError(

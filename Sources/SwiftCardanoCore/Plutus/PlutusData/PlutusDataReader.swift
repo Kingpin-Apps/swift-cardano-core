@@ -13,20 +13,10 @@ import Foundation
 struct PlutusDataReader {
     let scanner: CBORItemScanner
 
-    /// The deepest nesting read: each list, map and constructor is one level
-    /// (a constructor's tag and its fields array are one Plutus level).
-    ///
-    /// The ledger sets no depth limit of its own on Plutus data — only the
-    /// size of the transaction bounds it. Reading here is iterative, and so
-    /// are encoding (``PlutusDataWriter``), hashing and `==`, but a decoded
-    /// value is still released, described and turned into a primitive or
-    /// JSON by code that recurses once per level, on threads whose stacks
-    /// may be as small as a Swift concurrency cooperative thread's 512 KB.
-    /// Measured there in an unoptimised build, release overflows past about
-    /// 1,600 levels, `debugDescription` past about 210 constructors and
-    /// `toDict()` past about 220; this keeps every one of them in reach.
-    static let maxDepth = 128
-
+    /// The ledger sets no depth limit on Plutus data, and neither does this:
+    /// reading is iterative, and so are writing, hashing, `==`, describing
+    /// and freeing the value read, so any depth a transaction can hold is
+    /// read on a small thread stack.
     init(_ bytes: Data) {
         scanner = CBORItemScanner(bytes)
     }
@@ -34,7 +24,7 @@ struct PlutusDataReader {
     /// The datum that makes up all of the bytes.
     static func read(_ bytes: Data) throws -> PlutusData {
         let reader = PlutusDataReader(bytes)
-        let (value, end) = try reader.read(at: 0, depth: 0)
+        let (value, end) = try reader.read(at: 0)
         guard end == reader.scanner.bytes.count else {
             throw CardanoCoreError.deserializeError("Trailing bytes after PlutusData")
         }
@@ -73,12 +63,11 @@ struct PlutusDataReader {
         }
     }
 
-    /// The datum that starts at `offset`, `depth` levels down, and the
-    /// offset just past it.
+    /// The datum that starts at `offset`, and the offset just past it.
     ///
     /// Iterative, with the containers being read kept in an array, so that
     /// how deep the datum is costs no stack.
-    func read(at offset: Int, depth: Int) throws -> (PlutusData, end: Int) {
+    func read(at offset: Int) throws -> (PlutusData, end: Int) {
         var stack: [Frame] = []
         var position = offset
         while true {
@@ -87,10 +76,6 @@ struct PlutusDataReader {
                 stack.removeLast()
                 value = try finish(top, at: &position)
             } else {
-                guard depth + stack.count < Self.maxDepth else {
-                    throw CardanoCoreError.deserializeError(
-                        "PlutusData nested deeper than \(Self.maxDepth)")
-                }
                 let header = try scanner.header(at: position)
                 switch (header.major, header.argument) {
                 case (0, let argument?):

@@ -119,7 +119,7 @@ public struct Transaction: Serializable, TextEnvelopable {
     /// key, are read again from their bytes by ``PlutusDataReader`` and
     /// ``MetadatumReader``, keeping every pair.
     static func decoder() -> CBORDecoder {
-        let decoder = CBORDecoder()
+        let decoder = CBORDecoder.ledger()
         decoder.allowDuplicateMapKeys = true
         return decoder
     }

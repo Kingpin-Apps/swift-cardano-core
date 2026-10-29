@@ -37,7 +37,7 @@ public struct Header: Serializable {
         guard try scanner.end(ofItemAt: 0) == scanner.bytes.count else {
             throw CardanoCoreError.deserializeError("Trailing bytes after Header")
         }
-        var header = try CBORDecoder().decode(Header.self, from: data)
+        var header = try CBORDecoder.ledger().decode(Header.self, from: data)
         header.originalCBOR = scanner.bytes
         return header
     }

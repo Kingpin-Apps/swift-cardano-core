@@ -2,10 +2,28 @@ import Foundation
 import CBORCodable
 
 public struct IndefiniteList<T: Sendable>: CBORSerializable, Sendable where T: Hashable {
-    private var items: [T]
+    /// Kept in a ``NestedStorage``, so that a list of Plutus data nested
+    /// however deep is freed without recursion.
+    private var storage: NestedStorage<T>
+
+    private var items: [T] {
+        get { storage.items }
+        set { storage = NestedStorage(newValue) }
+    }
 
     public init(_ items: [T] = []) {
-        self.items = items
+        self.storage = NestedStorage(items)
+    }
+
+    private mutating func makeUnique() {
+        if !isKnownUniquelyReferenced(&storage) {
+            storage = NestedStorage(storage.items)
+        }
+    }
+
+    /// Moves the items onto `pending` when nothing else holds them.
+    mutating func moveItems(into pending: inout [T]) {
+        NestedStorage.move(&storage, into: &pending)
     }
 
     public init(from decoder: Decoder) throws {
@@ -14,9 +32,9 @@ public struct IndefiniteList<T: Sendable>: CBORSerializable, Sendable where T: H
 
         switch cborData {
             case .array(let arrayData):
-                self.items = try arrayData.map { try Self.cast($0.unwrapped as Any) }
+                self.storage = NestedStorage(try arrayData.map { try Self.cast($0.unwrapped as Any) })
             case .indefiniteArray(let arrayData):
-                self.items = try arrayData.map { try Self.cast($0.unwrapped as Any) }
+                self.storage = NestedStorage(try arrayData.map { try Self.cast($0.unwrapped as Any) })
             default:
                 throw CardanoCoreError.valueError("IndefiniteList must be an array")
         }
@@ -33,9 +51,9 @@ public struct IndefiniteList<T: Sendable>: CBORSerializable, Sendable where T: H
     public init(from primitive: Primitive) throws {
         switch primitive {
             case .list(let elements):
-                self.items = try elements.map { try Self.cast($0) }
+                self.storage = NestedStorage(try elements.map { try Self.cast($0) })
             case .indefiniteList(let elements):
-                self.items = try elements.map { try Self.cast($0) }
+                self.storage = NestedStorage(try elements.map { try Self.cast($0) })
             default:
                 throw CardanoCoreError.valueError("IndefiniteList must be an array")
         }
@@ -63,13 +81,15 @@ public struct IndefiniteList<T: Sendable>: CBORSerializable, Sendable where T: H
             return items[index]
         }
         set {
-            items[index] = newValue
+            makeUnique()
+            storage.items[index] = newValue
         }
     }
 
     // Adds an item to the list
     public mutating func add(_ item: T) {
-        items.append(item)
+        makeUnique()
+        storage.items.append(item)
     }
 
     // Returns the item at the specified index, or nil if out of bounds
@@ -86,7 +106,8 @@ public struct IndefiniteList<T: Sendable>: CBORSerializable, Sendable where T: H
     // Removes the item at the specified index
     public mutating func remove(at index: Int) {
         guard index < items.count else { return }
-        items.remove(at: index)
+        makeUnique()
+        storage.items.remove(at: index)
     }
 
     // Returns the count of items in the list
@@ -114,6 +135,10 @@ public struct IndefiniteList<T: Sendable>: CBORSerializable, Sendable where T: H
 
     public static func == (lhs: IndefiniteList<T>, rhs: [T]) -> Bool {
         return lhs.items == rhs
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(items)
     }
 }
 

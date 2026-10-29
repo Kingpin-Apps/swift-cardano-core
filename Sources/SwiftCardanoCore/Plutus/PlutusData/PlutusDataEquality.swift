@@ -55,7 +55,7 @@ extension PlutusData {
     /// when this is not a list.
     public var listElements: [PlutusData]? {
         switch self {
-            case .array(let elements): return elements
+            case .array(let elements): return elements.array
             case .indefiniteArray(let elements): return elements.getAll()
             default: return nil
         }
@@ -70,31 +70,41 @@ extension PlutusData {
         }
     }
 
+    /// Equal when they hold the same structure and content, compared node
+    /// by node without recursing, so that deeply nested values compare on a
+    /// small thread stack.
     public static func == (lhs: PlutusData, rhs: PlutusData) -> Bool {
-        switch (lhs, rhs) {
-            case (.constructor(let lhs), .constructor(let rhs)):
-                return lhs == rhs
+        var pending: [(PlutusData, PlutusData)] = [(lhs, rhs)]
+        while let (lhs, rhs) = pending.popLast() {
+            switch (lhs, rhs) {
+                case (.constructor(let lhs), .constructor(let rhs)):
+                    guard lhs.tag == rhs.tag, lhs.fieldList.count == rhs.fieldList.count else { return false }
+                    pending.append(contentsOf: zip(lhs.fieldList, rhs.fieldList))
 
-            case (.map(let lhs), .map(let rhs)), (.map(let lhs), .indefiniteMap(let rhs)),
-                (.indefiniteMap(let lhs), .map(let rhs)),
-                (.indefiniteMap(let lhs), .indefiniteMap(let rhs)):
-                // A Plutus map is a list of pairs on chain, so its order —
-                // and any repeated key — is part of its value. The pairs are
-                // walked here rather than deferring to `MapPairs`'s own `==`
-                // so that each key and value is compared through this operator.
-                guard lhs.count == rhs.count else { return false }
-                return zip(lhs, rhs).allSatisfy { $0.key == $1.key && $0.value == $1.value }
+                case (.map(let lhs), .map(let rhs)), (.map(let lhs), .indefiniteMap(let rhs)),
+                    (.indefiniteMap(let lhs), .map(let rhs)),
+                    (.indefiniteMap(let lhs), .indefiniteMap(let rhs)):
+                    // A Plutus map is a list of pairs on chain, so its order —
+                    // and any repeated key — is part of its value.
+                    guard lhs.count == rhs.count else { return false }
+                    for (left, right) in zip(lhs, rhs) {
+                        pending.append((left.key, right.key))
+                        pending.append((left.value, right.value))
+                    }
 
-            case (.bigInt(let lhs), .bigInt(let rhs)):
-                return lhs == rhs
+                case (.bigInt(let lhs), .bigInt(let rhs)):
+                    guard lhs == rhs else { return false }
 
-            case (.bytes(let lhs), .bytes(let rhs)):
-                return lhs == rhs
+                case (.bytes(let lhs), .bytes(let rhs)):
+                    guard lhs == rhs else { return false }
 
-            default:
-                guard let lhs = lhs.listElements, let rhs = rhs.listElements else { return false }
-                return lhs == rhs
+                default:
+                    guard let lhs = lhs.listElements, let rhs = rhs.listElements,
+                          lhs.count == rhs.count else { return false }
+                    pending.append(contentsOf: zip(lhs, rhs))
+            }
         }
+        return true
     }
 
     public func hash(into hasher: inout Hasher) {

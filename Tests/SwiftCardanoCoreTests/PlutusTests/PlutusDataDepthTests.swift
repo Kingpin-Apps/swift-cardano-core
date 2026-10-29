@@ -57,12 +57,16 @@ import Testing
         #expect(encoded == data)
     }
 
-    @Test("Nesting past the depth cap throws instead of crashing")
-    func rejectsNestingPastCap() async {
-        let data = Self.nestedArrays(200)
-        await #expect(throws: (any Error).self) {
-            try await Task.detached { try PlutusData.fromCBOR(data: data) }.value
-        }
+    @Test("Nesting far past what a transaction holds decodes, hashes and frees on a cooperative thread")
+    func decodesWithoutADepthCap() async throws {
+        // The ledger sets no depth limit on Plutus data.
+        let data = Self.nestedArrays(200_000)
+        let encoded = try await Task.detached {
+            let decoded = try PlutusData.fromCBOR(data: data)
+            _ = try decoded.hash()
+            return try decoded.toCBORData()
+        }.value
+        #expect(encoded == data)
     }
 
     @Test("63 nested constructors decode on a cooperative thread")

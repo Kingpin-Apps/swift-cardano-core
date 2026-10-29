@@ -39,7 +39,7 @@ public struct ProposalProcedure: TextEnvelopable, CBORSerializable, Sendable {
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
         
-        let cbor = try CBORDecoder().decode(ProposalProcedure.self, from: payload)
+        let cbor = try CBORDecoder.ledger().decode(ProposalProcedure.self, from: payload)
         
         self.deposit = cbor.deposit
         self.rewardAccount = cbor.rewardAccount

@@ -15,21 +15,40 @@ import OrderedCollections
 public struct MapPairs<Key: Hashable, Value> {
     public typealias Element = (key: Key, value: Value)
 
+    /// Kept in a ``NestedPairStorage``, so that a map of Plutus data or
+    /// metadata nested however deep is freed without recursion.
+    private var storage: NestedPairStorage<Key, Value>
+
     /// The pairs, in order.
-    public var elements: [Element]
+    public var elements: [Element] {
+        get { storage.pairs }
+        set { storage = NestedPairStorage(newValue) }
+    }
 
     public init() {
-        elements = []
+        storage = NestedPairStorage([])
     }
 
     /// A map of `pairs`, in order, repeated keys included.
     public init<S: Sequence>(_ pairs: S) where S.Element == (Key, Value) {
-        elements = pairs.map { (key: $0.0, value: $0.1) }
+        storage = NestedPairStorage(pairs.map { (key: $0.0, value: $0.1) })
     }
 
     /// A map of the entries of `dictionary`, in its order.
     public init(_ dictionary: OrderedDictionary<Key, Value>) {
-        elements = dictionary.map { (key: $0.key, value: $0.value) }
+        storage = NestedPairStorage(dictionary.map { (key: $0.key, value: $0.value) })
+    }
+
+    private mutating func makeUnique() {
+        if !isKnownUniquelyReferenced(&storage) {
+            storage = NestedPairStorage(storage.pairs)
+        }
+    }
+
+    /// Moves the keys and values onto `pending`, in order, when nothing else
+    /// holds them. `Key` and `Value` must both be `Node`.
+    mutating func moveKeysAndValues<Node>(into pending: inout [Node]) {
+        NestedPairStorage.move(&storage, into: &pending)
     }
 
     public var count: Int { elements.count }
@@ -49,13 +68,15 @@ public struct MapPairs<Key: Hashable, Value> {
         get { elements.first { $0.key == key }?.value }
         set {
             if let newValue {
-                if let index = elements.firstIndex(where: { $0.key == key }) {
-                    elements[index].value = newValue
+                makeUnique()
+                if let index = storage.pairs.firstIndex(where: { $0.key == key }) {
+                    storage.pairs[index].value = newValue
                 } else {
-                    elements.append((key, newValue))
+                    storage.pairs.append((key, newValue))
                 }
             } else {
-                elements.removeAll { $0.key == key }
+                makeUnique()
+                storage.pairs.removeAll { $0.key == key }
             }
         }
     }
@@ -71,7 +92,8 @@ public struct MapPairs<Key: Hashable, Value> {
     }
 
     public mutating func append(key: Key, value: Value) {
-        elements.append((key, value))
+        makeUnique()
+        storage.pairs.append((key, value))
     }
 }
 

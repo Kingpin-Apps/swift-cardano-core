@@ -122,7 +122,7 @@ extension SetTaggable {
 
             let decodedElements = try arrayData.map {
                 let data = try CBORSerialization.data(from: $0)
-                let element = try CBORDecoder().decode(
+                let element = try CBORDecoder.ledger().decode(
                     Element.self,
                     from: data
                 )
@@ -134,7 +134,7 @@ extension SetTaggable {
             )
         } else if case let .array(arrayData) = cborData.definiteOrIndefiniteArray {
             let decodedElements = try arrayData.map {
-                try CBORDecoder().decode(Element.self, from: CBORSerialization.data(from: $0))
+                try CBORDecoder.ledger().decode(Element.self, from: CBORSerialization.data(from: $0))
             }
             try self.init(
                 tag: Self.TAG,
@@ -447,7 +447,7 @@ public struct NonEmptyOrderedSet<T: CBORSerializable & Hashable & Sendable>: Set
         default: throw CardanoCoreError.valueError("Invalid CBOR format for NonEmptyOrderedSet")
         }
         let elements = try items.map {
-            try CBORDecoder().decode(Element.self, from: CBORSerialization.data(from: $0))
+            try CBORDecoder.ledger().decode(Element.self, from: CBORSerialization.data(from: $0))
         }
         try self.init(nonEmpty: elements)
     }

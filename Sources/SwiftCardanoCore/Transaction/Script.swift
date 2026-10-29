@@ -109,9 +109,9 @@ public struct ScriptRef: CBORTaggable, Serializable {
             throw CardanoCoreError.valueError("Invalid ScriptRef tag: \(tag)")
         }
         if case let .string(script) = value {
-            self.script = try CBORDecoder().decode(Script.self, from: script.toData)
+            self.script = try CBORDecoder.ledger().decode(Script.self, from: script.toData)
         } else if case let .bytes(script) = value {
-            self.script = try CBORDecoder().decode(Script.self, from: script)
+            self.script = try CBORDecoder.ledger().decode(Script.self, from: script)
         } else {
             throw CardanoCoreError
                 .valueError("Invalid ScriptRef value: \(value)")

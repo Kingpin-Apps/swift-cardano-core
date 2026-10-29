@@ -27,7 +27,7 @@ enum PlutusDataWriter {
                 data.append(try encoder.encode(bytes.toPrimitive()))
             case .value(.array(let elements)):
                 data.append(CBORItemScanner.definiteHeader(major: 4, count: elements.count))
-                push(elements, onto: &steps)
+                push(elements.array, onto: &steps)
             case .value(.indefiniteArray(let elements)):
                 data.append(0x9F)
                 steps.append(.bytes(Data([0xFF])))

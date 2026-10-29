@@ -151,7 +151,7 @@ public struct DatumOption: Serializable {
         guard try scanner.end(ofItemAt: 0) == scanner.bytes.count else {
             throw CardanoCoreError.deserializeError("Trailing bytes after DatumOption")
         }
-        var option = try CBORDecoder().decode(DatumOption.self, from: data)
+        var option = try CBORDecoder.ledger().decode(DatumOption.self, from: data)
         try option.keepBytes(scanner.bytes)
         return option
     }

@@ -29,23 +29,17 @@ public enum PlutusData: Serializable, Sendable {
     /// value as ``map(_:)`` and compares equal to it; only the encoding, and
     /// with it any hash taken over it, differs.
     case indefiniteMap(MapPairs<PlutusData, PlutusData>)
-    case array([PlutusData])
+    /// A list written with a definite-length header. Its elements are kept in
+    /// a ``NestedList``, which reads like an array and is freed without
+    /// recursion however deep the data nests.
+    case array(NestedList<PlutusData>)
     case indefiniteArray(IndefiniteList<PlutusData>)
     case bigInt(BigInteger)
     case bytes(Bytes)
 
-    public var debugDescription: String {
-        switch self {
-        case .constructor(
-            let c
-        ): return "constructor(tag: \(String(describing: c.tag)), fields: \(c.fields))"
-        case .map(let pairs): return "map(\(pairs))"
-        case .indefiniteMap(let pairs): return "indefiniteMap(\(pairs))"
-        case .array(let arr): return "array(\(arr))"
-        case .indefiniteArray(let arr): return "indefiniteArray(\(arr))"
-        case .bigInt(let bi): return "bigInt(\(bi))"
-        case .bytes(let b): return "bytes(size: \(b.count))"
-        }
+    /// A definite-length list of `elements`.
+    public static func array(_ elements: [PlutusData]) -> PlutusData {
+        .array(NestedList(elements))
     }
 
     /// The datum hash: Blake2b-256 of the encoding.
@@ -94,6 +88,10 @@ public enum PlutusData: Serializable, Sendable {
         // out-of-line helpers. That keeps this frame small in unoptimized
         // builds, where every case binding gets its own stack slot.
         switch primitive {
+        case .cborSimpleValue(.encoded(let bytes)):
+            // Carried as its bytes — as a decoder hands over deep data — and
+            // read without recursing.
+            self = try PlutusDataReader.read(bytes)
         case .cborTag(let cborTag):
             self = try PlutusData.fromTagged(cborTag, primitive)
         case .dict(let dict):
@@ -167,10 +165,16 @@ public enum PlutusData: Serializable, Sendable {
         return try toPrimitive(isRoot: true)
     }
 
+    /// The value as a primitive tree; one deeper than
+    /// ``maxConversionDepth`` as its encoded bytes, which hold the same value
+    /// and encode the same way.
     public func toPrimitive(isRoot: Bool) throws -> Primitive {
+        if isRoot, nests(deeperThan: Self.maxConversionDepth) {
+            return .cborSimpleValue(.encoded(try toCBORData()))
+        }
         switch self {
         case .constructor(let constr):
-            return try constr.toPrimitive()
+            return try constr.primitive()
 
         case .array(let array):
             return .list(try array.map { try $0.toPrimitive(isRoot: false) })
@@ -212,15 +216,26 @@ public enum PlutusData: Serializable, Sendable {
 
     // MARK: - JSONSerializable
 
+    /// The value as JSON's dictionary form.
+    ///
+    /// - Throws: When it nests deeper than ``maxConversionDepth``.
     public func toDict() throws -> Primitive {
+        guard !nests(deeperThan: Self.maxConversionDepth) else {
+            throw CardanoCoreError.valueError(
+                "PlutusData nests deeper than \(Self.maxConversionDepth) levels, too deep to convert to JSON")
+        }
+        return try dict()
+    }
+
+    func dict() throws -> Primitive {
         switch self {
         case .constructor(let constr):
-            return try constr.toDict()
+            return try constr.dict()
         case .map(let dict), .indefiniteMap(let dict):
             // Build an array of {"k": ..., "v": ...} objects
             let pairs: [Primitive] = try dict.map { (kv) -> Primitive in
-                let keyPrimitive = try Primitive.fromAny(kv.key.toDict())
-                let valuePrimitive = try Primitive.fromAny(kv.value.toDict())
+                let keyPrimitive = try Primitive.fromAny(kv.key.dict())
+                let valuePrimitive = try Primitive.fromAny(kv.value.dict())
                 let pair = OrderedDictionary<Primitive, Primitive>(
                     uniqueKeysWithValues: [
                         .string("k"): keyPrimitive,
@@ -241,7 +256,7 @@ public enum PlutusData: Serializable, Sendable {
                     uniqueKeysWithValues: [
                         .string("list"): .list(
                             try array.map {
-                                try Primitive.fromAny($0.toDict())
+                                try Primitive.fromAny($0.dict())
                             })
                     ]
                 ))
@@ -251,7 +266,7 @@ public enum PlutusData: Serializable, Sendable {
                     uniqueKeysWithValues: [
                         .string("list"): .list(
                             try array.map {
-                                try Primitive.fromAny($0.toDict())
+                                try Primitive.fromAny($0.dict())
                             })
                     ]
                 ))

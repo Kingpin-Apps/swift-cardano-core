@@ -465,55 +465,70 @@ struct ReviewCodableKeptBytesTests {
 
 // MARK: - 9. Plutus data depth
 
-@Suite("Review fix 9: a constructor is one level of Plutus nesting")
+@Suite("Review fix 9: Plutus data of any depth the ledger accepts")
 struct ReviewPlutusDepthTests {
-    static let depth = PlutusDataReader.maxDepth
+    /// Deeper than a 16 KB transaction can nest anything: the ledger sets no
+    /// depth limit of its own.
+    static let depth = 16_384
 
     /// `Constr 0 [Constr 0 [... 0]]`, `depth` constructors deep.
     static func nestedConstrs(_ depth: Int) -> Data {
         Data(Array(repeating: [UInt8(0xd8), 0x79, 0x81], count: depth).joined()) + Data([0x00])
     }
 
-    /// Everything done with a decoded datum, on a cooperative thread.
+    /// Everything done with a decoded datum, on a cooperative thread, whose
+    /// stack is 512 KB; the value is freed there too.
     static func exercise(_ data: Data) async throws -> Data {
         try await Task.detached {
             let decoded = try PlutusData.fromCBOR(data: data)
             _ = try decoded.hash()
             var hasher = Hasher()
             hasher.combine(decoded)
-            _ = decoded == decoded
+            #expect(decoded == (try PlutusData.fromCBOR(data: data)))
             _ = decoded.debugDescription
-            _ = try decoded.toDict()
+            #expect(try PlutusData(from: decoded.toPrimitive()) == decoded)
             _ = try TransactionWitnessSet(plutusData: .list([decoded])).toCBORData()
             return try decoded.toCBORData()
         }.value
     }
 
-    @Test("Constructors as deep as the limit decode, and everything done with them fits a small stack")
+    @Test("Constructors of any depth decode, and everything done with them fits a small stack")
     func deepConstrs() async throws {
-        let data = Self.nestedConstrs(Self.depth - 1)
+        let data = Self.nestedConstrs(Self.depth)
         #expect(try await Self.exercise(data) == data)
         #expect(try PlutusData.fromCBOR(data: data).hash().payload == blake2b256(data))
-        await #expect(throws: (any Error).self) {
-            try await Task.detached { try PlutusData.fromCBOR(data: Self.nestedConstrs(Self.depth)) }.value
-        }
+        #expect(try PlutusData.fromCBOR(data: data).depth == Self.depth + 1)
     }
 
-    @Test("Lists, maps and general-form constructors as deep as the limit")
+    @Test("Lists, maps and general-form constructors of any depth")
     func deepOtherContainers() async throws {
-        let arrays = Data(repeating: 0x81, count: Self.depth - 1) + Data([0x00])
-        let maps = Data(Array(repeating: [UInt8(0xa1), 0x00], count: Self.depth - 1).joined()) + Data([0x00])
+        let depth = Self.depth
+        let arrays = Data(repeating: 0x81, count: depth) + Data([0x00])
+        let maps = Data(Array(repeating: [UInt8(0xa1), 0x00], count: depth).joined()) + Data([0x00])
         // #6.102([300, [_ ...]]), an indefinite outer array too.
-        let general = Data(Array(repeating: [UInt8(0xd8), 0x66, 0x9f, 0x19, 0x01, 0x2c, 0x9f], count: Self.depth - 1).joined())
-            + Data([0x00]) + Data(repeating: 0xff, count: 2 * (Self.depth - 1))
+        let general = Data(Array(repeating: [UInt8(0xd8), 0x66, 0x9f, 0x19, 0x01, 0x2c, 0x9f], count: depth).joined())
+            + Data([0x00]) + Data(repeating: 0xff, count: 2 * depth)
         for data in [arrays, maps, general] {
             #expect(try await Self.exercise(data) == data)
         }
     }
 
-    @Test("An inline datum as deep as the limit decodes inside a transaction")
+    @Test("Conversion to JSON is bounded; to a primitive, a deep value carries its bytes")
+    func conversions() throws {
+        let shallow = try PlutusData.fromCBOR(data: Self.nestedConstrs(PlutusData.maxConversionDepth - 1))
+        _ = try shallow.toDict()
+        guard case .cborTag = try shallow.toPrimitive() else {
+            Issue.record("a shallow value converts to a primitive tree")
+            return
+        }
+        let deep = try PlutusData.fromCBOR(data: Self.nestedConstrs(PlutusData.maxConversionDepth))
+        #expect(throws: CardanoCoreError.self) { try deep.toDict() }
+        #expect(try deep.toPrimitive() == .cborSimpleValue(.encoded(deep.toCBORData())))
+    }
+
+    @Test("An inline datum as deep as a transaction allows decodes inside one")
     func deepInlineDatum() async throws {
-        let datum = Self.nestedConstrs(Self.depth - 1)
+        let datum = Self.nestedConstrs(5_000)
         let output = "a3" + "00581d61" + repeated("22", 28) + "011a000f4240"
             + "028201d81859" + String(format: "%04x", datum.count) + datum.toHex
         let body = "a3" + "00" + taggedSet([inputHex("11")]) + "0181" + output + "02" + "1a00000001"

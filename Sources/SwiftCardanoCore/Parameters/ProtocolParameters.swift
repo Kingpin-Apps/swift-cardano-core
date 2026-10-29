@@ -788,7 +788,7 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
             items = indef.getAll()
         case .bytes(let data):
             // PlutusV1 in n2c is wrapped in a byte string containing nested CBOR.
-            let nested = try Primitive.from(cbor: CBORDecoder().decode(CBOR.self, from: data))
+            let nested = try Primitive.from(cbor: CBORDecoder.ledger().decode(CBOR.self, from: data))
             return try costModelInts(nested)
         default:
             throw CardanoCoreError.deserializeError("Invalid cost model value: \(primitive)")

@@ -14,7 +14,11 @@ public struct Constr: Serializable, CustomStringConvertible, Sendable {
     /// In CDDL the constructors may be encoded with a CBOR constructor tag.
     public let tag: UInt64?
     /// Fields of the constructor
-    public let fields: [PlutusData]
+    public var fields: [PlutusData] { fieldList.array }
+
+    /// The fields, kept so that Plutus data nested however deep is freed
+    /// without recursion.
+    var fieldList: NestedList<PlutusData>
 
     /// Whether the fields are written as an indefinite-length array. A
     /// constructor without fields is written `[]` either way, unless it was
@@ -35,7 +39,7 @@ public struct Constr: Serializable, CustomStringConvertible, Sendable {
 
     public init(tag: UInt64?, fields: [PlutusData] = [], useIndefiniteList: Bool? = nil) {
         self.tag = tag
-        self.fields = fields
+        self.fieldList = NestedList(fields)
         self.useIndefiniteList = useIndefiniteList ?? true
     }
 
@@ -89,7 +93,7 @@ public struct Constr: Serializable, CustomStringConvertible, Sendable {
 
             let (fields, indefinite) = try Self.fields(of: valueArray[1])
             self.tag = UInt64(tag)
-            self.fields = try fields.map { try PlutusData(from: $0) }
+            self.fieldList = NestedList(try fields.map { try PlutusData(from: $0) })
             self.useIndefiniteList = indefinite
             self.writtenIndefinite = indefinite
             self.writtenGeneral = true
@@ -107,7 +111,7 @@ public struct Constr: Serializable, CustomStringConvertible, Sendable {
 
             let (fields, indefinite) = try Self.fields(of: cborTag.value)
             self.tag = constructorID
-            self.fields = try fields.map { try PlutusData(from: $0) }
+            self.fieldList = NestedList(try fields.map { try PlutusData(from: $0) })
             self.useIndefiniteList = indefinite
             self.writtenIndefinite = indefinite
         }
@@ -126,7 +130,13 @@ public struct Constr: Serializable, CustomStringConvertible, Sendable {
         return (compactTag, self.tag ?? UInt64(Self.CONSTR_ID), indefinite, writtenGeneralIndefinite)
     }
 
+    /// The constructor as a primitive tree; one nested deeper than
+    /// ``PlutusData/maxConversionDepth`` as its encoded bytes.
     public func toPrimitive() throws -> Primitive {
+        try PlutusData.constructor(self).toPrimitive()
+    }
+
+    func primitive() throws -> Primitive {
         let form = encodingForm
         let primitives = try fields.map {
             try $0.toPrimitive(isRoot: false)
@@ -170,12 +180,19 @@ public struct Constr: Serializable, CustomStringConvertible, Sendable {
         return Constr(tag: tagValue, fields: fields)
     }
 
+    /// The constructor as JSON's dictionary form.
+    ///
+    /// - Throws: When it nests deeper than ``PlutusData/maxConversionDepth``.
     public func toDict() throws -> Primitive {
+        try PlutusData.constructor(self).toDict()
+    }
+
+    func dict() throws -> Primitive {
         var data: OrderedDictionary<Primitive, Primitive> = [:]
         data[.string("constructor")] = .uint(self.tag ?? UInt64(Self.CONSTR_ID))
         data[.string("fields")] = .list(
             try self.fields.map { field in
-                try Primitive.fromAny(field.toDict())
+                try Primitive.fromAny(field.dict())
             }
         )
         return .orderedDict(data)

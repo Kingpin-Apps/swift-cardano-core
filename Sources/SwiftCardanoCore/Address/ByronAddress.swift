@@ -128,7 +128,7 @@ public struct ByronAddress: CBORSerializable, CustomStringConvertible, Equatable
         // ── Outer CBOR: [payload_bytes, crc32_uint] ──────────────────────────────
         let outerCBOR: CBOR
         do {
-            outerCBOR = try CBORDecoder().decode(CBOR.self, from: rawBytes)
+            outerCBOR = try CBORDecoder.ledger().decode(CBOR.self, from: rawBytes)
         } catch {
             throw CardanoCoreError.deserializeError(
                 "Could not CBOR-decode Byron address: \(error)"
@@ -178,7 +178,7 @@ public struct ByronAddress: CBORSerializable, CustomStringConvertible, Equatable
         // ── Inner CBOR: [root_bytes, attributes_map, address_type_uint] ──────────
         let innerCBOR: CBOR
         do {
-            innerCBOR = try CBORDecoder().decode(CBOR.self, from: payloadBytes)
+            innerCBOR = try CBORDecoder.ledger().decode(CBOR.self, from: payloadBytes)
         } catch {
             throw CardanoCoreError.deserializeError(
                 "Could not CBOR-decode Byron address payload: \(error)"
@@ -219,7 +219,7 @@ public struct ByronAddress: CBORSerializable, CustomStringConvertible, Equatable
             case 2:
                 // Protocol magic — stored as bytes containing a CBOR-encoded uint
                 // — a Word32, as the Byron ledger reads it.
-                guard case .unsignedInt(let magic) = try CBORDecoder().decode(CBOR.self, from: v),
+                guard case .unsignedInt(let magic) = try CBORDecoder.ledger().decode(CBOR.self, from: v),
                       let narrowed = UInt32(exactly: magic) else {
                     throw CardanoCoreError.deserializeError("Invalid Byron address protocol magic")
                 }

@@ -12,6 +12,23 @@ import CBORCodable
 /// `data(from:)`; CBORCodable does the same via its writer/reader types
 /// directly. Keeping the old surface lets the migration touch every
 /// other call site without breaking encapsulation here.
+extension CBORDecoder {
+    /// How deep ledger data is decoded into a CBOR tree. Every ledger
+    /// structure fits within it, except Plutus data, metadata and native
+    /// scripts, which the ledger lets nest without a limit; their parts
+    /// below this depth are handed over as their bytes, which their own
+    /// readers take apart in a loop.
+    static let ledgerRawDepth = 32
+
+    /// A decoder for ledger data: it hands over items nested deeper than
+    /// ``ledgerRawDepth`` as their bytes.
+    static func ledger() -> CBORDecoder {
+        let decoder = CBORDecoder()
+        decoder.rawDepth = ledgerRawDepth
+        return decoder
+    }
+}
+
 public enum CBORSerialization {
 
     /// Decode the bytes as a single CBOR data item. Lenient (matches
@@ -19,7 +36,7 @@ public enum CBORSerialization {
     /// ignored. Use `CBORReader` directly if you want strict single-item
     /// enforcement.
     public static func cbor(from data: Data) throws -> CBOR {
-        var reader = CBORReader(data)
+        var reader = CBORReader(data, rawDepth: CBORDecoder.ledgerRawDepth)
         return try reader.decode()
     }
 

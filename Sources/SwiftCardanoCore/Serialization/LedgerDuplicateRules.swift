@@ -197,22 +197,30 @@ struct LedgerDuplicateRules {
     // MARK: Shapes
 
     /// Any item, its maps ordinary maps and its tag-258 arrays sets.
+    ///
+    /// Walked in a loop: native scripts, for one, nest without a limit.
     private func checkItem(at offset: Int) throws {
-        let header = try scanner.header(at: offset)
-        switch header.major {
-        case 4:
-            try checkElements(at: offset, element: checkItem)
-        case 5:
-            try checkMap(at: offset, key: checkItem, value: checkItem)
-        case 6 where header.argument == 258:
-            try checkSet(at: offset)
-        case 6 where header.argument == 24:
-            // Embedded CBOR — an inline datum or a script — is bytes here.
-            break
-        case 6:
-            try checkItem(at: header.end)
-        default:
-            break
+        var pending = [offset]
+        while let offset = pending.popLast() {
+            let header = try scanner.header(at: offset)
+            switch header.major {
+            case 4:
+                pending.append(contentsOf: try scanner.elements(ofArrayAt: offset).map(\.lowerBound))
+            case 5:
+                for entry in try mapEntries(at: offset) {
+                    pending.append(entry.key.lowerBound)
+                    pending.append(entry.value.lowerBound)
+                }
+            case 6 where header.argument == 258:
+                pending.append(contentsOf: try setElements(at: offset).map(\.lowerBound))
+            case 6 where header.argument == 24:
+                // Embedded CBOR — an inline datum or a script — is bytes here.
+                break
+            case 6:
+                pending.append(header.end)
+            default:
+                break
+            }
         }
     }
 
@@ -225,6 +233,13 @@ struct LedgerDuplicateRules {
 
     /// A set, tagged 258 or not: from Conway, no element may repeat.
     private func checkSet(at offset: Int, element: ((Int) throws -> Void)? = nil) throws {
+        for span in try setElements(at: offset) {
+            try (element ?? checkItem)(span.lowerBound)
+        }
+    }
+
+    /// The elements of a set, checked not to repeat from Conway.
+    private func setElements(at offset: Int) throws -> [Range<Int>] {
         let start = try scanner.untagged(at: offset)
         let spans = try scanner.elements(ofArrayAt: start)
         if strict {
@@ -234,9 +249,7 @@ struct LedgerDuplicateRules {
                     "A set repeats an element, which the ledger rejects from Conway")
             }
         }
-        for span in spans {
-            try (element ?? checkItem)(span.lowerBound)
-        }
+        return spans
     }
 
     /// An ordinary map: from Conway, no key may repeat.
@@ -245,6 +258,14 @@ struct LedgerDuplicateRules {
         key: ((Int) throws -> Void)? = nil,
         value checkValue: ((Int) throws -> Void)? = nil
     ) throws {
+        for entry in try mapEntries(at: offset) {
+            try (key ?? checkItem)(entry.key.lowerBound)
+            try (checkValue ?? checkItem)(entry.value.lowerBound)
+        }
+    }
+
+    /// The entries of an ordinary map, checked not to repeat a key from Conway.
+    private func mapEntries(at offset: Int) throws -> [(key: Range<Int>, value: Range<Int>)] {
         let entries = try scanner.entries(ofMapAt: offset)
         if strict {
             var seen = Set<Primitive>()
@@ -253,10 +274,7 @@ struct LedgerDuplicateRules {
                     "A map repeats a key, which the ledger rejects from Conway")
             }
         }
-        for entry in entries {
-            try (key ?? checkItem)(entry.key.lowerBound)
-            try (checkValue ?? checkItem)(entry.value.lowerBound)
-        }
+        return entries
     }
 
     /// A sparse record's fields by number. No field may repeat, in any era.
@@ -278,7 +296,7 @@ struct LedgerDuplicateRules {
     /// The value of the item in `span`, for comparing keys and elements as
     /// the ledger does — by value, not by how they were written.
     private func value(in span: Range<Int>) throws -> Primitive {
-        let decoder = CBORDecoder()
+        let decoder = CBORDecoder.ledger()
         decoder.allowDuplicateMapKeys = true
         return try Primitive.from(
             cbor: decoder.decode(CBOR.self, from: scanner.bytes.subdata(in: span)))

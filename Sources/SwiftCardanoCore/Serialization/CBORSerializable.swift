@@ -26,7 +26,7 @@ extension CBORSerializable {
     }
     
     public init(from cbor: Data) throws {
-        self = try CBORDecoder().decode(Self.self, from: cbor)
+        self = try CBORDecoder.ledger().decode(Self.self, from: cbor)
     }
     
     public func encode(to encoder: Swift.Encoder) throws {
@@ -52,7 +52,7 @@ extension CBORSerializable {
     }
     
     public static func fromCBOR(data: Data) throws -> Self {
-        return try CBORDecoder().decode(Self.self, from: data)
+        return try CBORDecoder.ledger().decode(Self.self, from: data)
     }
     
     public static func fromCBORHex(_ hexString: String) throws -> Self {

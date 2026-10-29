@@ -48,53 +48,61 @@ struct CBORItemScanner {
         }
     }
 
-    /// The deepest nesting the scanner follows. Deeper input is rejected
-    /// rather than allowed to exhaust the stack.
-    static let maxDepth = 256
-
     /// The offset just past the item that starts at `offset`.
+    ///
+    /// Walked in a loop, with the containers still open kept in an array, so
+    /// an item nested as deep as the input allows — the ledger sets no depth
+    /// limit on Plutus data, metadata or native scripts — costs no stack.
     func end(ofItemAt offset: Int) throws -> Int {
-        try end(ofItemAt: offset, depth: 0)
-    }
-
-    private func end(ofItemAt offset: Int, depth: Int) throws -> Int {
-        guard depth <= Self.maxDepth else {
-            throw CardanoCoreError.deserializeError(
-                "CBOR nested deeper than \(Self.maxDepth) at byte \(offset)")
-        }
-        let header = try header(at: offset)
-        switch (header.major, header.argument) {
-        case (0, _), (1, _), (7, .some):
-            return header.end
-        case (2, let length?), (3, let length?):
-            // Compared before adding, so a huge length cannot overflow.
-            guard length <= UInt64(bytes.count - header.end) else { throw truncated(at: offset) }
-            return header.end + Int(length)
-        case (2, nil), (3, nil):
-            // Indefinite string: definite chunks up to a break.
-            var position = header.end
-            while try byte(at: position) != 0xFF {
-                position = try end(ofItemAt: position, depth: depth + 1)
+        // Items still to step over in each open container, or `nil` until a
+        // break.
+        var open: [UInt64?] = []
+        var position = offset
+        repeat {
+            let itemStart = position
+            let header = try header(at: position)
+            position = header.end
+            switch (header.major, header.argument) {
+            case (0, _), (1, _), (7, .some):
+                break
+            case (2, let length?), (3, let length?):
+                // Compared before adding, so a huge length cannot overflow.
+                guard length <= UInt64(bytes.count - position) else { throw truncated(at: itemStart) }
+                position += Int(length)
+            case (2, nil), (3, nil), (4, nil), (5, nil):
+                // Indefinite: items up to a break.
+                open.append(nil)
+            case (4, let count?):
+                guard count <= UInt64(bytes.count - position) else { throw truncated(at: itemStart) }
+                open.append(count)
+            case (5, let count?):
+                // Every item takes at least a byte, so a count beyond the
+                // bytes left is truncated; checking first keeps the doubling
+                // in range.
+                guard count <= UInt64(bytes.count - position) else { throw truncated(at: itemStart) }
+                open.append(count * 2)
+            case (6, _):
+                open.append(1)
+            default:
+                throw CardanoCoreError.deserializeError("Malformed CBOR at byte \(itemStart)")
             }
-            return position + 1
-        case (4, let count?):
-            return try skip(count, itemsFrom: header.end, depth: depth)
-        case (5, let count?):
-            // Every item takes at least a byte, so a count beyond the bytes
-            // left is truncated; checking first keeps the doubling in range.
-            guard count <= UInt64(bytes.count) else { throw truncated(at: offset) }
-            return try skip(count * 2, itemsFrom: header.end, depth: depth)
-        case (4, nil), (5, nil):
-            var position = header.end
-            while try byte(at: position) != 0xFF {
-                position = try end(ofItemAt: position, depth: depth + 1)
+            // Close what is complete; claim the next item's slot in what is not.
+            while let remaining = open.last {
+                if let remaining {
+                    if remaining > 0 {
+                        open[open.count - 1] = remaining - 1
+                        break
+                    }
+                    open.removeLast()
+                } else if try byte(at: position) == 0xFF {
+                    position += 1
+                    open.removeLast()
+                } else {
+                    break
+                }
             }
-            return position + 1
-        case (6, _):
-            return try end(ofItemAt: header.end, depth: depth + 1)
-        default:
-            throw CardanoCoreError.deserializeError("Malformed CBOR at byte \(offset)")
-        }
+        } while !open.isEmpty
+        return position
     }
 
     /// The byte spans of the elements of the array that starts at `offset`.
@@ -177,16 +185,6 @@ struct CBORItemScanner {
         case 0x10000...0xFFFF_FFFF: return Data([initial | 26]) + withUnsafeBytes(of: UInt32(count).bigEndian) { Data($0) }
         default: return Data([initial | 27]) + withUnsafeBytes(of: count.bigEndian) { Data($0) }
         }
-    }
-
-    private func skip(_ count: UInt64, itemsFrom offset: Int, depth: Int) throws -> Int {
-        var position = offset
-        var remaining = count
-        while remaining > 0 {
-            position = try end(ofItemAt: position, depth: depth + 1)
-            remaining -= 1
-        }
-        return position
     }
 
     private func byte(at offset: Int) throws -> UInt8 {

@@ -36,15 +36,21 @@ struct DecodeCrashSystemicTests {
         #expect(throws: (any Error).self) { try Transaction.fromCBORHex(hex) }
     }
 
-    @Test("Deep nesting is rejected, not allowed to exhaust the stack")
+    @Test("Deep nesting is read or rejected, never allowed to exhaust the stack")
     func deepNesting() async throws {
         for prefix in ["81", "c6", "9f"] {
             let data = Data(repeating: 0, count: 0)
                 + String(repeating: prefix, count: 200_000).hexStringToData + Data([0x00])
             try await Task.detached {
                 #expect(throws: (any Error).self) { try TransactionBody.fromCBOR(data: data) }
-                #expect(throws: (any Error).self) { try PlutusData.fromCBOR(data: data) }
                 #expect(throws: (any Error).self) { try Block.fromCBOR(data: data) }
+                if prefix == "81" {
+                    // Lists nested this deep are Plutus data; the ledger sets no depth limit.
+                    #expect((try? PlutusData.fromCBOR(data: data).toCBORData()) == data)
+                } else {
+                    // Tag 6 is not Plutus data; the indefinite lists have no breaks.
+                    #expect(throws: (any Error).self) { try PlutusData.fromCBOR(data: data) }
+                }
             }.value
         }
     }

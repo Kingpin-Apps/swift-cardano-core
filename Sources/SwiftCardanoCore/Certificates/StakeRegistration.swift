@@ -38,7 +38,7 @@ public struct StakeRegistration: CertificateSerializable {
     ///   - type: The text-envelope type
     ///   - description: The text-envelope description
     public init(payload: Data, type: String?, description: String?) throws {
-        let decoded = try CBORDecoder().decode(Self.self, from: payload)
+        let decoded = try CBORDecoder.ledger().decode(Self.self, from: payload)
         self = decoded
         self._payload = payload
         self._type = type ?? Self.TYPE
