@@ -62,33 +62,11 @@ public struct ShelleyTransactionOutput: Serializable {
             throw CardanoCoreError.deserializeError("Invalid TransactionOutputLegacy JSON format: missing address")
         }
         
-        // Handle amount: can be a simple int/uint (coin only) or a Value object (coin + multiAsset)
-        let amount: Value
-        if let amountPrimitive = orderedDict[.string("amount")] {
-            switch amountPrimitive {
-            case .int, .uint:
-                // Simple coin-only value
-                amount = Value(coin: try Value.coin(from: amountPrimitive))
-            case .orderedDict(let amountDict):
-                // Complex Value with multiAsset - deserialize from {coin, multiAsset} format
-                guard let coinPrimitive = amountDict[.string("coin")] else {
-                    throw CardanoCoreError.deserializeError("Invalid Value format: missing coin")
-                }
-                let coinValue = try Value.coin(from: coinPrimitive)
-                let multiAsset: MultiAsset
-                if let multiAssetPrimitive = amountDict[.string("multiAsset")] {
-                    multiAsset = try MultiAsset.fromDict(multiAssetPrimitive)
-                } else {
-                    multiAsset = MultiAsset([:])
-                }
-                amount = Value(coin: coinValue, multiAsset: multiAsset)
-            default:
-                throw CardanoCoreError.deserializeError("Invalid TransactionOutputLegacy JSON format: invalid amount type")
-            }
-        } else {
+        guard let amountPrimitive = orderedDict[.string("amount")] else {
             throw CardanoCoreError.deserializeError("Invalid TransactionOutputLegacy JSON format: missing amount")
         }
-        
+        let amount = try Value.fromOutputAmountDict(amountPrimitive)
+
         let address = try Address(from: .string(addressStr))
         
         var datumHash: DatumHash? = nil
@@ -113,19 +91,8 @@ public struct ShelleyTransactionOutput: Serializable {
             .string("address"): .string(try address.toBech32())
         ]
         
-        // Serialize the full Value (including multiAsset if present)
-        // to avoid data loss during JSON round-tripping
-        if amount.multiAsset.isEmpty {
-            // Simple case: just coin
-            dict[.string("amount")] = .integer(amount.coin)
-        } else {
-            // Complex case: coin + multiAsset - serialize as array [coin, multiAsset]
-            var amountDict = OrderedDictionary<Primitive, Primitive>()
-            amountDict[.string("coin")] = .integer(amount.coin)
-            amountDict[.string("multiAsset")] = try amount.multiAsset.toDict()
-            dict[.string("amount")] = .orderedDict(amountDict)
-        }
-        
+        dict[.string("amount")] = try amount.outputAmountDict()
+
         if let datumHash = datumHash {
             dict[.string("datumHash")] = .string(datumHash.payload.base64EncodedString())
         }

@@ -102,17 +102,12 @@ public struct BabbageTransactionOutput: Serializable {
             throw CardanoCoreError.deserializeError("Invalid TransactionOutputPostAlonzo JSON format")
         }
 
-        // Handle both int and uint for amount
-        let amountValue: BigInt
-        if let amountPrimitive = orderedDict[.string("amount")],
-           amountPrimitive.integerValue != nil {
-            amountValue = try Value.coin(from: amountPrimitive)
-        } else {
-            throw CardanoCoreError.deserializeError("Invalid TransactionOutputPostAlonzo JSON format: invalid amount: \(String(describing: orderedDict[.string("amount")]))")
+        guard let amountPrimitive = orderedDict[.string("amount")] else {
+            throw CardanoCoreError.deserializeError("Invalid TransactionOutputPostAlonzo JSON format: missing amount")
         }
+        let amount = try Value.fromOutputAmountDict(amountPrimitive)
 
         let address = try Address(from: .string(addressStr))
-        let amount = Value(coin: amountValue)
         
         var datumOption: DatumOption? = nil
         if case let .orderedDict(datumDict) = orderedDict[.string("datum")] {
@@ -135,7 +130,7 @@ public struct BabbageTransactionOutput: Serializable {
     public func toDict() throws -> Primitive {
         var dict: OrderedDictionary<Primitive, Primitive> = [
             .string("address"): .string(try address.toBech32()),
-            .string("amount"): .integer(amount.coin)
+            .string("amount"): try amount.outputAmountDict()
         ]
         if let datumOption = datumOption {
             dict[.string("datum")] = try datumOption.toDict()

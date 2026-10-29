@@ -76,6 +76,28 @@ public struct Value: CBORSerializable, Comparable, Sendable {
         return value
     }
 
+    /// The JSON form an output gives its amount: the coin alone as a number,
+    /// or `{"coin": …, "multiAsset": …}` when it holds tokens.
+    func outputAmountDict() throws -> Primitive {
+        guard !multiAsset.isEmpty else { return .integer(coin) }
+        return .orderedDict([.string("coin"): .integer(coin), .string("multiAsset"): try multiAsset.toDict()])
+    }
+
+    /// Reads an output's amount from ``outputAmountDict()``'s JSON form.
+    static func fromOutputAmountDict(_ primitive: Primitive) throws -> Value {
+        if case .orderedDict(let amount) = primitive {
+            guard let coin = amount[.string("coin")] else {
+                throw CardanoCoreError.deserializeError("Invalid output amount JSON: missing coin")
+            }
+            let multiAsset = try amount[.string("multiAsset")].map { try MultiAsset.fromDict($0) }
+            return Value(coin: try Value.coin(from: coin), multiAsset: multiAsset ?? MultiAsset([:]))
+        }
+        if case .string(let text) = primitive, let value = BigInt(text) {
+            return Value(coin: try Value.coin(from: .bigInt(value)))
+        }
+        return Value(coin: try Value.coin(from: primitive))
+    }
+
     /// Reads the value of an output as the ledger of the era decoding follows
     /// does (``Era/decoding``):
     ///
@@ -88,7 +110,15 @@ public struct Value: CBORSerializable, Comparable, Sendable {
             case .uint, .int, .bigInt, .bigUInt:
                 self.coin = try Value.coin(from: primitive)
                 self.multiAsset = MultiAsset([:])
-            case .list(let listValue):
+            case .list, .indefiniteList:
+                let listValue: [Primitive]
+                if case .list(let elements) = primitive {
+                    listValue = elements
+                } else if case .indefiniteList(let elements) = primitive {
+                    listValue = elements.getAll()
+                } else {
+                    listValue = []
+                }
                 guard Era.decodingRules >= .mary else {
                     throw CardanoCoreError.deserializeError(
                         "Value: an output holds only a coin before Mary, got \(primitive)")

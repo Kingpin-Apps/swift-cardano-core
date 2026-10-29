@@ -83,6 +83,14 @@ public struct MultiAsset: Serializable, Comparable {
         
         let refusesZeros = AssetAmountRule.refusesZeros
         for (policyId, asset) in primitiveDict {
+            // policy_id = script_hash, a byte string. Read off the ledger's
+            // bytes, a text key is rejected; a multi-asset built in code may
+            // name its policies in hex.
+            let isBytes: Bool
+            if case .bytes = policyId { isBytes = true } else { isBytes = false }
+            if Era.decoding != nil, !isBytes {
+                throw CardanoCoreError.deserializeError("A policy id must be a byte string, got \(policyId)")
+            }
             let pid = try ScriptHash(from: policyId)
             let assets = try Asset(from: asset, amounts: amounts)
             if assets.isEmpty {

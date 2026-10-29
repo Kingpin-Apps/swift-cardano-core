@@ -380,3 +380,34 @@ import Testing
         #expect(json.contains("18446744073709551615"))
     }
 }
+
+@Suite("Output amounts keep their tokens")
+struct OutputAmountTests {
+    let policy = String(repeating: "a1", count: 28)
+
+    @Test("A Babbage output with tokens round-trips through JSON")
+    func babbageJSON() throws {
+        let hex = "a200581d60" + String(repeating: "aa", count: 28) + "01821a004c4b40a1581c"
+            + policy + "a1416101"
+        let output = try TransactionOutput.fromCBORHex(hex)
+        let restored = try TransactionOutput.fromDict(try output.toDict())
+        #expect(restored.amount == output.amount)
+        #expect(!restored.amount.multiAsset.isEmpty)
+    }
+
+    @Test("A value written as an indefinite-length list decodes")
+    func indefiniteValue() throws {
+        let value = try Value.fromCBORHex("9f1a004c4b40a1581c" + policy + "a1416101ff")
+        #expect(value.coin == 5_000_000)
+        #expect(!value.multiAsset.isEmpty)
+    }
+
+    @Test("A policy id written as text is rejected")
+    func textPolicyId() {
+        let output = "a200581d60" + String(repeating: "aa", count: 28) + "01821a004c4b40a17838"
+            + Data(policy.utf8).toHex + "a1416101"
+        #expect(throws: (any Error).self) {
+            try TransactionOutput.fromCBOR(data: output.hexStringToData, era: .conway)
+        }
+    }
+}
