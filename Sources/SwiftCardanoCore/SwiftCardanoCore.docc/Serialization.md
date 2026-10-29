@@ -150,11 +150,21 @@ Four things make this hold:
   a transaction id 32, and the ledger rejects any other size.
 - **Decoding never crashes.** Whatever the input — CBOR bytes, a ``Primitive``,
   JSON — a decoder either produces a value or throws a ``CardanoCoreError``:
-  lengths and counts are checked against the bytes present, nesting is capped,
-  and no integer is narrowed with a conversion that traps. ``Primitive`` offers
+  lengths and counts are checked against the bytes present, and no integer is
+  narrowed with a conversion that traps. ``Primitive`` offers
   the same tools to code that reads its own types:
   `integer(_:as:)` reads an integer into a type, throwing when it does not fit,
   and `Primitive.integer(_:)` writes one without trapping.
+- **Plutus data, metadata and native scripts of any depth decode**, as the
+  ledger reads them with no depth limit — a transaction can nest them as deep as
+  its size allows, and a preprod block holds a native script 5,383 levels deep.
+  Reading, writing, hashing, `==`, describing and freeing them all run in loops,
+  so a value of any depth is safe on a 512 KB thread stack. Their nested lists
+  are ``NestedList``s, which read like arrays. Ledger decoding takes CBOR apart
+  only 32 levels deep and hands what lies below to these types as its bytes.
+  Converting one of them to JSON is bounded: past
+  ``PlutusData/maxConversionDepth`` levels `toDict()` throws, and
+  `toPrimitive()` gives the encoded bytes instead of a tree.
 
 > Note: `toCBORData(deterministic:)` accepts a flag that is currently ignored.
 > Cardano's notion of deterministic encoding (CIP-21) is not RFC 8949 §4.2 — it

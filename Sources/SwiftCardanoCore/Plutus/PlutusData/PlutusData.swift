@@ -92,6 +92,9 @@ public enum PlutusData: Serializable, Sendable {
             // Carried as its bytes — as a decoder hands over deep data — and
             // read without recursing.
             self = try PlutusDataReader.read(bytes)
+        case _ where primitive.containsEncoded:
+            // Deep data, cut part-way down by the decoder: read it whole.
+            self = try PlutusDataReader.read(primitive.encodedBytes())
         case .cborTag(let cborTag):
             self = try PlutusData.fromTagged(cborTag, primitive)
         case .dict(let dict):

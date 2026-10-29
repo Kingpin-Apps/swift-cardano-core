@@ -3,10 +3,14 @@ import OrderedCollections
 
 public struct ScriptAll: NativeScriptable {
     public static let TYPE = NativeScriptType.scriptAll
-    public let scripts: [NativeScript]
+    public var scripts: [NativeScript] { scriptList.array }
+
+    /// The scripts, kept so that scripts nested however deep are freed
+    /// without recursion.
+    var scriptList: NestedList<NativeScript>
     
     public init (scripts: [NativeScript]) {
-        self.scripts = scripts
+        self.scriptList = NestedList(scripts)
     }
     
     // MARK: - CBORSerializable
@@ -28,11 +32,17 @@ public struct ScriptAll: NativeScriptable {
         guard case let .list(nativeScript) = primitiveArray[1] else {
             throw CardanoCoreError.deserializeError("Invalid ScriptAll type")
             }
-        self.scripts = try nativeScript.map { try NativeScript(from: $0)}
+        self.scriptList = NestedList(try nativeScript.map { try NativeScript(from: $0)})
     }
 
+    /// The script as a primitive tree; one nested deeper than
+    /// ``NativeScript/maxConversionDepth`` as its encoded bytes.
     public func toPrimitive() throws -> Primitive {
-        let scriptPrimitives = try scripts.map { try $0.toPrimitive() }
+        try NativeScript.scriptAll(self).toPrimitive()
+    }
+
+    func primitive() throws -> Primitive {
+        let scriptPrimitives = try scripts.map { try $0.primitive() }
         return .list([.int(Int64(Self.TYPE.rawValue)), .list(scriptPrimitives)])
     }
 
@@ -55,10 +65,17 @@ public struct ScriptAll: NativeScriptable {
         return ScriptAll(scripts: nativeScripts)
     }
     
+    /// The script as JSON.
+    ///
+    /// - Throws: When it nests deeper than ``NativeScript/maxConversionDepth``.
     public func toDict() throws -> Primitive {
+        try NativeScript.scriptAll(self).toDict()
+    }
+
+    func dict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
         dict[.string("type")] = .string(Self.TYPE.description())
-        dict[.string("scripts")] = .list(try scripts.map({ try $0.toDict() }))
+        dict[.string("scripts")] = .list(try scripts.map({ try $0.dict() }))
         return .orderedDict(dict)
     }
 }

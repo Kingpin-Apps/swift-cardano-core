@@ -196,32 +196,99 @@ struct LedgerDuplicateRules {
 
     // MARK: Shapes
 
+    /// A container ``checkItem(at:)`` is inside.
+    private struct ItemFrame {
+        /// Where the container starts.
+        let start: Int
+        /// Items left, or `nil` until a break.
+        var remaining: UInt64?
+        let isMap: Bool
+        let isSet: Bool
+        /// Items read so far.
+        var count = 0
+        /// The spans of a map's keys or a set's elements.
+        var spans: [Range<Int>] = []
+    }
+
     /// Any item, its maps ordinary maps and its tag-258 arrays sets.
     ///
-    /// Walked in a loop: native scripts, for one, nest without a limit.
+    /// One pass over the bytes, with the containers still open kept in an
+    /// array: native scripts, for one, nest without a limit, and finding
+    /// each element's end afresh at every level would take time quadratic
+    /// in the depth.
     private func checkItem(at offset: Int) throws {
-        var pending = [offset]
-        while let offset = pending.popLast() {
-            let header = try scanner.header(at: offset)
-            switch header.major {
-            case 4:
-                pending.append(contentsOf: try scanner.elements(ofArrayAt: offset).map(\.lowerBound))
-            case 5:
-                for entry in try mapEntries(at: offset) {
-                    pending.append(entry.key.lowerBound)
-                    pending.append(entry.value.lowerBound)
-                }
-            case 6 where header.argument == 258:
-                pending.append(contentsOf: try setElements(at: offset).map(\.lowerBound))
-            case 6 where header.argument == 24:
+        var stack: [ItemFrame] = []
+        var position = offset
+        var nextIsSet = false
+        repeat {
+            let start = position
+            let header = try scanner.header(at: position)
+            position = header.end
+            let isSet = nextIsSet
+            nextIsSet = false
+            var completed: Range<Int>?
+            switch (header.major, header.argument) {
+            case (2, _), (3, _):
+                position = try scanner.end(ofItemAt: start)
+                completed = start..<position
+            case (4, let count):
+                if let count, count > UInt64(scanner.bytes.count - position) { throw truncated(at: start) }
+                stack.append(ItemFrame(start: start, remaining: count, isMap: false, isSet: isSet))
+            case (5, let count):
+                if let count, count > UInt64(scanner.bytes.count - position) { throw truncated(at: start) }
+                stack.append(ItemFrame(start: start, remaining: count.map { $0 * 2 }, isMap: true, isSet: false))
+            case (6, 24?):
                 // Embedded CBOR — an inline datum or a script — is bytes here.
-                break
-            case 6:
-                pending.append(header.end)
+                position = try scanner.end(ofItemAt: start)
+                completed = start..<position
+            case (6, let tag):
+                nextIsSet = tag == 258
+                stack.append(ItemFrame(start: start, remaining: 1, isMap: false, isSet: false))
             default:
-                break
+                completed = start..<position
             }
+            // Record what has completed in the container around it, and close
+            // every container that is now complete.
+            while true {
+                if let span = completed {
+                    completed = nil
+                    guard !stack.isEmpty else { break }
+                    let index = stack.count - 1
+                    if stack[index].isSet || (stack[index].isMap && stack[index].count % 2 == 0) {
+                        stack[index].spans.append(span)
+                    }
+                    stack[index].count += 1
+                    if let remaining = stack[index].remaining { stack[index].remaining = remaining - 1 }
+                }
+                guard let top = stack.last else { break }
+                if top.remaining == 0 {
+                    // Done.
+                } else if top.remaining == nil, try scanner.header(at: position).major == 7,
+                          scanner.bytes[safe: position] == 0xFF {
+                    position += 1
+                } else {
+                    break
+                }
+                stack.removeLast()
+                try checkUnique(top)
+                completed = top.start..<position
+            }
+        } while !stack.isEmpty
+    }
+
+    /// From Conway, no key of a map and no element of a set may repeat.
+    private func checkUnique(_ frame: ItemFrame) throws {
+        guard strict, frame.isMap || frame.isSet else { return }
+        var seen = Set<Primitive>()
+        for span in frame.spans where !seen.insert(try value(in: span)).inserted {
+            throw CardanoCoreError.deserializeError(frame.isMap
+                ? "A map repeats a key, which the ledger rejects from Conway"
+                : "A set repeats an element, which the ledger rejects from Conway")
         }
+    }
+
+    private func truncated(at offset: Int) -> CardanoCoreError {
+        CardanoCoreError.deserializeError("Truncated CBOR at byte \(offset)")
     }
 
     private func checkElements(at offset: Int, element: (Int) throws -> Void) throws {

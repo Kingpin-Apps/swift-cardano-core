@@ -65,3 +65,38 @@ extension UInt64 {
 
 // Note: `Data.toCBOR` already exists in `Utils/Extensions.swift`. No
 // duplicate declaration needed here.
+
+extension Primitive {
+    /// Whether any part of this holds bytes carried as written — as a ledger
+    /// decoder hands over what lies past ``CBORDecoder/ledgerRawDepth``.
+    ///
+    /// The types that nest without a limit read such a value back from its
+    /// bytes in a loop, since the cut can fall inside one of their nodes.
+    var containsEncoded: Bool {
+        var pending = [self]
+        while let value = pending.popLast() {
+            switch value {
+            case .cborSimpleValue(.encoded):
+                return true
+            case .list(let items), .frozenList(let items):
+                pending.append(contentsOf: items)
+            case .indefiniteList(let items), .indefiniteFrozenList(let items):
+                pending.append(contentsOf: items.getAll())
+            case .dict(let entries), .frozenDict(let entries):
+                for (key, value) in entries { pending.append(key); pending.append(value) }
+            case .orderedDict(let entries), .indefiniteDictionary(let entries):
+                for (key, value) in entries { pending.append(key); pending.append(value) }
+            case .cborTag(let tag):
+                pending.append(tag.value)
+            default:
+                break
+            }
+        }
+        return false
+    }
+
+    /// This value's encoding, its carried bytes written as they are.
+    func encodedBytes() throws -> Data {
+        try CBOREncoder().encode(self)
+    }
+}

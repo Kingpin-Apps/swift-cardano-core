@@ -31,6 +31,17 @@ public enum NativeScript: Serializable {
     // MARK: - CBORSerializable
     
     public init(from primitive: Primitive) throws {
+        if case .cborSimpleValue(.encoded(let bytes)) = primitive {
+            // Carried as its bytes — as a decoder hands over deep scripts —
+            // and read without recursing.
+            self = try NativeScriptReader.read(bytes)
+            return
+        }
+        if primitive.containsEncoded {
+            // A deep script, cut part-way down by the decoder: read it whole.
+            self = try NativeScriptReader.read(primitive.encodedBytes())
+            return
+        }
         guard case let .list(elements) = primitive, let head = elements.first else {
             throw CardanoCoreError.decodingError("NativeScript expected CBOR array primitive: \(primitive)")
         }
@@ -57,16 +68,25 @@ public enum NativeScript: Serializable {
         }
     }
 
+    /// The script as a primitive tree; one nested deeper than
+    /// ``maxConversionDepth`` as its encoded bytes, which hold the same script.
     public func toPrimitive() throws -> Primitive {
+        if nests(deeperThan: Self.maxConversionDepth) {
+            return .cborSimpleValue(.encoded(try NativeScriptWriter.encode(self)))
+        }
+        return try primitive()
+    }
+
+    func primitive() throws -> Primitive {
         switch self {
             case .scriptPubkey(let script):
                 return try script.toPrimitive()
             case .scriptAll(let script):
-                return try script.toPrimitive()
+                return try script.primitive()
             case .scriptAny(let script):
-                return try script.toPrimitive()
+                return try script.primitive()
             case .scriptNofK(let script):
-                return try script.toPrimitive()
+                return try script.primitive()
             case .invalidBefore(let script):
                 return try script.toPrimitive()
             case .invalidHereAfter(let script):
@@ -99,16 +119,27 @@ public enum NativeScript: Serializable {
         }
     }
     
+    /// The script as JSON.
+    ///
+    /// - Throws: When it nests deeper than ``maxConversionDepth``.
     public func toDict() throws -> Primitive {
+        guard !nests(deeperThan: Self.maxConversionDepth) else {
+            throw CardanoCoreError.valueError(
+                "A native script nests deeper than \(Self.maxConversionDepth) levels, too deep to convert to JSON")
+        }
+        return try dict()
+    }
+
+    func dict() throws -> Primitive {
         switch self {
             case .scriptPubkey(let script):
                 return try script.toDict()
             case .scriptAll(let script):
-                return try script.toDict()
+                return try script.dict()
             case .scriptAny(let script):
-                return try script.toDict()
+                return try script.dict()
             case .scriptNofK(let script):
-                return try script.toDict()
+                return try script.dict()
             case .invalidBefore(let script):
                 return try script.toDict()
             case .invalidHereAfter(let script):

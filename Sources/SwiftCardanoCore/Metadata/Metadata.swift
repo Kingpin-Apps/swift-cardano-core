@@ -13,11 +13,18 @@ public typealias TransactionMetadatumLabel = UInt64
 /// compare and hash alike when they hold the same value.
 public enum TransactionMetadatum: Serializable, Hashable, Equatable {
     case map(MapPairs<TransactionMetadatum, TransactionMetadatum>)
-    case list([TransactionMetadatum])
+    /// A list. Its elements are kept in a ``NestedList``, which reads like an
+    /// array and is freed without recursion however deep the metadata nests.
+    case list(NestedList<TransactionMetadatum>)
     case int(Int)
     case bigInt(BigInt)
     case bytes(Data)
     case text(String)
+
+    /// A list of `elements`.
+    public static func list(_ elements: [TransactionMetadatum]) -> TransactionMetadatum {
+        .list(NestedList(elements))
+    }
 
     /// An integer metadatum for `value`, held as ``int(_:)`` when it fits.
     public static func integer(_ value: BigInt) -> TransactionMetadatum {
@@ -49,28 +56,6 @@ public enum TransactionMetadatum: Serializable, Hashable, Equatable {
         return debugDescription
     }
 
-    public static func == (lhs: TransactionMetadatum, rhs: TransactionMetadatum) -> Bool {
-        switch (lhs, rhs) {
-        case (.map(let lhs), .map(let rhs)): return lhs == rhs
-        case (.list(let lhs), .list(let rhs)): return lhs == rhs
-        case (.bytes(let lhs), .bytes(let rhs)): return lhs == rhs
-        case (.text(let lhs), .text(let rhs)): return lhs == rhs
-        default:
-            guard let lhs = lhs.integerValue, let rhs = rhs.integerValue else { return false }
-            return lhs == rhs
-        }
-    }
-
-    public func hash(into hasher: inout Hasher) {
-        switch self {
-        case .map(let map): hasher.combine(0); hasher.combine(map)
-        case .list(let list): hasher.combine(1); hasher.combine(list)
-        case .int, .bigInt: hasher.combine(2); hasher.combine(integerValue)
-        case .bytes(let data): hasher.combine(3); hasher.combine(data)
-        case .text(let text): hasher.combine(4); hasher.combine(text)
-        }
-    }
-
     // MARK: - CBORSerializable
 
     public static var preservesEncoding: Bool { true }
@@ -78,6 +63,13 @@ public enum TransactionMetadatum: Serializable, Hashable, Equatable {
     /// Reads a metadatum, whether `primitive` keeps how it was written or not.
     public init(from primitive: Primitive) throws {
         switch primitive {
+        case .cborSimpleValue(.encoded(let bytes)):
+            // Carried as its bytes — as a decoder hands over deep metadata —
+            // and read without recursing.
+            self = try MetadatumReader.read(bytes)
+        case _ where primitive.containsEncoded:
+            // Deep metadata, cut part-way down by the decoder: read it whole.
+            self = try MetadatumReader.read(primitive.encodedBytes())
         case .uint(let value):
             self = .integer(BigInt(value))
         case .int(let value):
@@ -115,7 +107,16 @@ public enum TransactionMetadatum: Serializable, Hashable, Equatable {
         }
     }
 
+    /// The metadatum as a primitive tree; one nested deeper than
+    /// ``maxConversionDepth`` as its encoded bytes, which hold the same value.
     public func toPrimitive() throws -> Primitive {
+        if nests(deeperThan: Self.maxConversionDepth) {
+            return .cborSimpleValue(.encoded(try MetadatumWriter.encode(self)))
+        }
+        return try primitive()
+    }
+
+    func primitive() throws -> Primitive {
         switch self {
         case .int(let value):
             return value >= 0 ? .uint(UInt64(value)) : .int(Int64(value))
@@ -127,11 +128,11 @@ public enum TransactionMetadatum: Serializable, Hashable, Equatable {
         case .text(let string):
             return .string(string)
         case .list(let array):
-            let list = try array.map { try $0.toPrimitive() }
+            let list = try array.map { try $0.primitive() }
             return .list(list)
         case .map(let map):
             return try map.primitive(
-                indefinite: false, key: { try $0.toPrimitive() }, value: { try $0.toPrimitive() })
+                indefinite: false, key: { try $0.primitive() }, value: { try $0.primitive() })
         }
     }
 
@@ -204,7 +205,17 @@ public enum TransactionMetadatum: Serializable, Hashable, Equatable {
     /// The metadatum as JSON in cardano-cli's detailed schema, which keeps
     /// bytes apart from text, keeps map keys of any type, and keeps every pair
     /// of a map that repeats a key.
+    ///
+    /// - Throws: When it nests deeper than ``maxConversionDepth``.
     public func toDict() throws -> Primitive {
+        guard !nests(deeperThan: Self.maxConversionDepth) else {
+            throw CardanoCoreError.valueError(
+                "Metadata nests deeper than \(Self.maxConversionDepth) levels, too deep to convert to JSON")
+        }
+        return try dict()
+    }
+
+    func dict() throws -> Primitive {
         switch self {
         case .int(let value):
             return .orderedDict([.string("int"): .int(Int64(value))])
@@ -215,10 +226,10 @@ public enum TransactionMetadatum: Serializable, Hashable, Equatable {
         case .text(let string):
             return .orderedDict([.string("string"): .string(string)])
         case .list(let array):
-            return .orderedDict([.string("list"): .list(try array.map { try $0.toDict() })])
+            return .orderedDict([.string("list"): .list(try array.map { try $0.dict() })])
         case .map(let map):
             let entries: [Primitive] = try map.map {
-                .orderedDict([.string("k"): try $0.key.toDict(), .string("v"): try $0.value.toDict()])
+                .orderedDict([.string("k"): try $0.key.dict(), .string("v"): try $0.value.dict()])
             }
             return .orderedDict([.string("map"): .list(entries)])
         }
@@ -508,21 +519,18 @@ public struct Metadata: Serializable, Equatable {
         return .orderedDict(result)
     }
 
+    /// Checks every byte and text string in `value`, in a loop.
     private static func validate(_ value: VALUE_TYPE) throws {
-        switch value {
-        case .bytes(let data) where data.count > MAX_ITEM_SIZE:
-            throw CardanoCoreError.invalidArgument("Data size exceeds \(MAX_ITEM_SIZE) bytes.")
-        case .text(let string) where string.utf8.count > MAX_ITEM_SIZE:
-            throw CardanoCoreError.invalidArgument("String size exceeds \(MAX_ITEM_SIZE) bytes.")
-        case .list(let list):
-            try list.forEach(validate)
-        case .map(let map):
-            for (key, value) in map {
-                try validate(key)
-                try validate(value)
+        var pending = [value]
+        while let value = pending.popLast() {
+            switch value {
+            case .bytes(let data) where data.count > MAX_ITEM_SIZE:
+                throw CardanoCoreError.invalidArgument("Data size exceeds \(MAX_ITEM_SIZE) bytes.")
+            case .text(let string) where string.utf8.count > MAX_ITEM_SIZE:
+                throw CardanoCoreError.invalidArgument("String size exceeds \(MAX_ITEM_SIZE) bytes.")
+            default:
+                pending.append(contentsOf: value.children)
             }
-        default:
-            break
         }
     }
 }
