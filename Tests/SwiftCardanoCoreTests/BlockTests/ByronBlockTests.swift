@@ -1,3 +1,4 @@
+import BigInt
 import Foundation
 import Testing
 import OrderedCollections
@@ -593,5 +594,24 @@ struct ByronBlockTests {
             delegationPayload: body.delegationPayload,
             updatePayload: ByronUpdatePayload(proposal: proposal, votes: body.updatePayload.votes)
         )
+    }
+}
+
+@Suite("Byron parameter updates read bigints as the ledger does")
+struct ByronBigintTests {
+    @Test("A bigint field holds a bignum beyond 64 bits, and a small one written as a bignum")
+    func bignumFields() throws {
+        // bvermod with maxBlockSize = 2^64 and every other field left unchanged.
+        let hex = "8e" + "8080" + "81c249010000000000000000" + String(repeating: "80", count: 11)
+        let item = try ByronCBORItem(root: hex.hexStringToData, "bvermod")
+        let modification = try ByronBlockVersionModification.decode(item)
+        #expect(modification.maxBlockSize == BigUInt(1) << 64)
+        #expect(ByronCBORWriter.encode { modification.write(to: &$0) }.toHex == hex)
+
+        let small = try ByronCBORItem(root: "c24101".hexStringToData, "bigint")
+        #expect(try small.natural("bigint") == 1)
+        #expect(throws: CardanoCoreError.self) {
+            try ByronCBORItem(root: "20".hexStringToData, "bigint").natural("bigint")
+        }
     }
 }

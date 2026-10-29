@@ -137,85 +137,90 @@ public enum TransactionMetadatum: Serializable, Hashable, Equatable {
 
     // MARK: - JSONSerializable
 
+    /// Reads a metadatum from JSON in cardano-cli's detailed schema —
+    /// `{"int": 1}`, `{"bytes": "<hex>"}`, `{"string": "…"}`, `{"list": […]}`,
+    /// `{"map": [{"k": …, "v": …}]}` — which keeps every value as it is. Plain
+    /// JSON values are read too: a number as an integer, a string as text, an
+    /// array as a list and an object as a map with text keys.
     public static func fromDict(_ primitive: Primitive) throws -> TransactionMetadatum {
+        if case .orderedDict(let object) = primitive, object.count == 1,
+            case .string(let key) = object.keys[0]
+        {
+            let value = object.values[0]
+            switch (key, value) {
+            case ("int", _):
+                return try fromDict(value)
+            case ("bytes", .string(let hex)):
+                guard let data = Data(hexString: hex) else {
+                    throw CardanoCoreError.deserializeError("Invalid hex in metadata bytes: \(hex)")
+                }
+                return .bytes(data)
+            case ("string", .string(let text)):
+                return .text(text)
+            case ("list", .list(let elements)):
+                return .list(try elements.map(fromDict))
+            case ("map", .list(let entries)):
+                var pairs = MapPairs<TransactionMetadatum, TransactionMetadatum>()
+                for entry in entries {
+                    guard case .orderedDict(let pair) = entry, let k = pair[.string("k")],
+                        let v = pair[.string("v")]
+                    else {
+                        throw CardanoCoreError.deserializeError("Invalid metadata map entry: \(entry)")
+                    }
+                    pairs.append(key: try fromDict(k), value: try fromDict(v))
+                }
+                return .map(pairs)
+            default:
+                break
+            }
+        }
         switch primitive {
         case .uint(let value):
             return .integer(BigInt(value))
         case .int(let value):
             return .integer(BigInt(value))
-        case .bytes(let data):
-            return .bytes(data)
-        case .string(let string):
-            return .text(string)
-        case .list(let array):
-            let list = try array.map { try TransactionMetadatum.fromDict($0) }
-            return .list(list)
-        case .indefiniteList(let array):
-            let list = try array.map { try TransactionMetadatum.fromDict($0) }
-            return .list(list)
         case .bigInt(let value):
             return .integer(value)
         case .bigUInt(let value):
             return .integer(BigInt(value))
-        case .dict(let dict):
-            // Convert to OrderedDictionary maintaining deterministic order
-            // Sort keys to ensure consistent ordering across serialization/deserialization
-            let sortedKeys = dict.keys.sorted { lhs, rhs in
-                // Sort primitives by their string representation for deterministic ordering
-                String(describing: lhs) < String(describing: rhs)
+        case .string(let string):
+            return .text(string)
+        case .list(let array):
+            return .list(try array.map(fromDict))
+        case .indefiniteList(let array):
+            return .list(try array.getAll().map(fromDict))
+        case .dict, .orderedDict:
+            var pairs = MapPairs<TransactionMetadatum, TransactionMetadatum>()
+            for (key, value) in try Metadata.entries(of: primitive) {
+                pairs.append(key: try fromDict(key), value: try fromDict(value))
             }
-            var map = MapPairs<TransactionMetadatum, TransactionMetadatum>()
-            for key in sortedKeys {
-                map.append(key: try TransactionMetadatum.fromDict(key), value: try TransactionMetadatum.fromDict(dict[key]!))
-            }
-            return .map(map)
-        case .orderedDict(let dict):
-            var map = MapPairs<TransactionMetadatum, TransactionMetadatum>()
-            for (key, value) in dict {
-                map.append(key: try TransactionMetadatum.fromDict(key), value: try TransactionMetadatum.fromDict(value))
-            }
-            return .map(map)
+            return .map(pairs)
         default:
             throw CardanoCoreError.deserializeError(
-                "Unsupported CBOR type for TransactionMetadatum")
+                "Unsupported JSON for TransactionMetadatum: \(primitive)")
         }
     }
 
+    /// The metadatum as JSON in cardano-cli's detailed schema, which keeps
+    /// bytes apart from text, keeps map keys of any type, and keeps every pair
+    /// of a map that repeats a key.
     public func toDict() throws -> Primitive {
         switch self {
         case .int(let value):
-            return .int(Int64(value))
+            return .orderedDict([.string("int"): .int(Int64(value))])
         case .bigInt(let value):
-            return .bigInt(value)
+            return .orderedDict([.string("int"): .bigInt(value)])
         case .bytes(let data):
-            return .string(data.base64EncodedString())
+            return .orderedDict([.string("bytes"): .string(data.toHex)])
         case .text(let string):
-            return .string(string)
+            return .orderedDict([.string("string"): .string(string)])
         case .list(let array):
-            let list = try array.map { try $0.toDict() }
-            return .list(list)
+            return .orderedDict([.string("list"): .list(try array.map { try $0.toDict() })])
         case .map(let map):
-            var orderedDict = OrderedDictionary<Primitive, Primitive>()
-            for (key, value) in map {
-                // Convert key to string for JSON compatibility
-                let keyStr: String
-                switch key {
-                case .int(let i):
-                    keyStr = String(i)
-                case .bigInt(let i):
-                    keyStr = String(i)
-                case .bytes(let data):
-                    keyStr = data.base64EncodedString()
-                case .text(let str):
-                    keyStr = str
-                case .list(_), .map(_):
-                    // For complex keys, serialize to JSON string
-                    keyStr = try String(describing: key.toDict())
-                }
-                let valuePrim = try value.toDict()
-                orderedDict[.string(keyStr)] = valuePrim
+            let entries: [Primitive] = try map.map {
+                .orderedDict([.string("k"): try $0.key.toDict(), .string("v"): try $0.value.toDict()])
             }
-            return .orderedDict(orderedDict)
+            return .orderedDict([.string("map"): .list(entries)])
         }
     }
 

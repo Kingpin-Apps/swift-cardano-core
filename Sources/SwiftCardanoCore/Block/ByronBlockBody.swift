@@ -1,3 +1,4 @@
+@preconcurrency import BigInt
 import Foundation
 import OrderedCollections
 
@@ -520,15 +521,16 @@ public struct ByronUpdateProposal: Sendable, Equatable, Hashable {
 ///           ]
 /// ```
 ///
-/// The `bigint` fields are read as unsigned integers up to `UInt64.max`.
+/// The `bigint` fields are read as the ledger reads them, as natural numbers of
+/// any size, written as bignums beyond 64 bits.
 public struct ByronBlockVersionModification: Sendable, Equatable, Hashable {
     public let scriptVersion: UInt16?
     /// Slot duration, in milliseconds.
-    public let slotDuration: UInt64?
-    public let maxBlockSize: UInt64?
-    public let maxHeaderSize: UInt64?
-    public let maxTxSize: UInt64?
-    public let maxProposalSize: UInt64?
+    public let slotDuration: BigUInt?
+    public let maxBlockSize: BigUInt?
+    public let maxHeaderSize: BigUInt?
+    public let maxTxSize: BigUInt?
+    public let maxProposalSize: BigUInt?
     /// Thresholds, as lovelace portions (parts of 10^15).
     public let mpcThreshold: UInt64?
     public let heavyDelegationThreshold: UInt64?
@@ -542,11 +544,11 @@ public struct ByronBlockVersionModification: Sendable, Equatable, Hashable {
 
     public init(
         scriptVersion: UInt16? = nil,
-        slotDuration: UInt64? = nil,
-        maxBlockSize: UInt64? = nil,
-        maxHeaderSize: UInt64? = nil,
-        maxTxSize: UInt64? = nil,
-        maxProposalSize: UInt64? = nil,
+        slotDuration: BigUInt? = nil,
+        maxBlockSize: BigUInt? = nil,
+        maxHeaderSize: BigUInt? = nil,
+        maxTxSize: BigUInt? = nil,
+        maxProposalSize: BigUInt? = nil,
         mpcThreshold: UInt64? = nil,
         heavyDelegationThreshold: UInt64? = nil,
         updateVoteThreshold: UInt64? = nil,
@@ -585,13 +587,16 @@ public struct ByronBlockVersionModification: Sendable, Equatable, Hashable {
         func uint(_ index: Int) throws -> UInt64? {
             try optional(index) { try $0.uint("bvermod field \(index)") }
         }
+        func natural(_ index: Int) throws -> BigUInt? {
+            try optional(index) { try $0.natural("bvermod field \(index)") }
+        }
         return ByronBlockVersionModification(
             scriptVersion: try optional(0) { try $0.uint("bvermod scriptVersion", as: UInt16.self) },
-            slotDuration: try uint(1),
-            maxBlockSize: try uint(2),
-            maxHeaderSize: try uint(3),
-            maxTxSize: try uint(4),
-            maxProposalSize: try uint(5),
+            slotDuration: try natural(1),
+            maxBlockSize: try natural(2),
+            maxHeaderSize: try natural(3),
+            maxTxSize: try natural(4),
+            maxProposalSize: try natural(5),
             mpcThreshold: try uint(6),
             heavyDelegationThreshold: try uint(7),
             updateVoteThreshold: try uint(8),
@@ -614,8 +619,10 @@ public struct ByronBlockVersionModification: Sendable, Equatable, Hashable {
         }
         writer.array(14)
         optional(scriptVersion) { $0.uint($1) }
+        for value in [slotDuration, maxBlockSize, maxHeaderSize, maxTxSize, maxProposalSize] {
+            optional(value) { $0.integer(BigInt($1)) }
+        }
         for value in [
-            slotDuration, maxBlockSize, maxHeaderSize, maxTxSize, maxProposalSize,
             mpcThreshold, heavyDelegationThreshold, updateVoteThreshold,
             updateProposalThreshold, updateImplicit,
         ] {
@@ -665,7 +672,7 @@ public struct ByronSoftForkRule: Sendable, Equatable, Hashable {
 public enum ByronTxFeePolicy: Sendable, Equatable, Hashable {
     /// `[0, #6.24([a, b])]` — a fee of `a + b × size`, both scaled by 10^9
     /// as the node writes them.
-    case linear(constant: Int64, perByte: Int64)
+    case linear(constant: BigInt, perByte: BigInt)
     /// `[tag, payload]` for a tag the ledger does not define; `payload` is the
     /// CBOR of the second element as written.
     case unknown(tag: UInt8, payload: Data)
@@ -678,8 +685,8 @@ public enum ByronTxFeePolicy: Sendable, Equatable, Hashable {
         }
         let pair = try elements[1].embedded("txfeepol").array("txfeepol [a, b]", count: 2)
         return .linear(
-            constant: try pair[0].int("txfeepol a"),
-            perByte: try pair[1].int("txfeepol b")
+            constant: try pair[0].integer("txfeepol a"),
+            perByte: try pair[1].integer("txfeepol b")
         )
     }
 
@@ -690,8 +697,8 @@ public enum ByronTxFeePolicy: Sendable, Equatable, Hashable {
             writer.uint(0 as UInt8)
             writer.embedded(ByronCBORWriter.encode {
                 $0.array(2)
-                $0.int(constant)
-                $0.int(perByte)
+                $0.integer(constant)
+                $0.integer(perByte)
             })
         case .unknown(let tag, let payload):
             writer.uint(tag)

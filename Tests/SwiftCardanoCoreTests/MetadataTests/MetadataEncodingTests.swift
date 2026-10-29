@@ -115,4 +115,24 @@ struct MetadataEncodingTests {
         #expect(lhs == rhs)
         #expect(lhs.hashValue == rhs.hashValue)
     }
+
+    @Test("Metadata round-trips through JSON with every value kept as it is")
+    func jsonRoundTrip() throws {
+        let metadata = try Metadata([
+            1: .bytes(Data([0x01, 0x02])),
+            2: .text("0102"),
+            3: .map([.int(1): .text("int key"), .text("1"): .text("text key"), .int(1): .text("again")]),
+            4: .list([.bigInt(BigInt(1) << 70), .int(-5)]),
+        ])
+        let json = try metadata.toDict()
+        #expect(try Metadata.fromDict(json) == metadata)
+        #expect(try Metadata.fromDict(json).toCBORData() == metadata.toCBORData())
+    }
+
+    @Test("Plain JSON values are read too")
+    func plainJSON() throws {
+        let metadatum = try TransactionMetadatum.fromDict(
+            .orderedDict([.string("name"): .string("x"), .string("n"): .int(3)]))
+        #expect(metadatum == .map([.text("name"): .text("x"), .text("n"): .int(3)]))
+    }
 }

@@ -1,3 +1,4 @@
+@preconcurrency import BigInt
 import Foundation
 import CBORCodable
 import OrderedCollections
@@ -97,6 +98,31 @@ struct ByronCBORItem {
             throw CardanoCoreError.deserializeError("\(what): expected an integer within Int64")
         }
         return header.major == 0 ? Int64(argument) : -1 - Int64(argument)
+    }
+
+    /// A CDDL `bigint`, as the ledger reads an `Integer`: a major type 0 or 1
+    /// integer, or a bignum (`#6.2` or `#6.3` around a byte string).
+    func integer(_ what: String) throws -> BigInt {
+        let header = try header()
+        switch (header.major, header.argument) {
+        case (0, let value?): return BigInt(value)
+        case (1, let value?): return -1 - BigInt(value)
+        case (6, let tag?) where tag == 2 || tag == 3:
+            let content = ByronCBORItem(scanner: scanner, span: header.end..<span.upperBound)
+            let magnitude = BigInt(BigUInt(try content.byteString("\(what) bignum")))
+            return tag == 2 ? magnitude : -1 - magnitude
+        default:
+            throw CardanoCoreError.deserializeError("\(what): expected an integer")
+        }
+    }
+
+    /// A `bigint` the ledger reads as a `Natural`, which may not be negative.
+    func natural(_ what: String) throws -> BigUInt {
+        let value = try integer(what)
+        guard value.sign == .plus else {
+            throw CardanoCoreError.deserializeError("\(what): \(value) is negative")
+        }
+        return value.magnitude
     }
 
     /// A byte string. An indefinite-length one has its chunks joined.
@@ -212,6 +238,22 @@ struct ByronCBORWriter {
             head(0, UInt64(value))
         } else {
             head(1, UInt64(-1 - value))
+        }
+    }
+
+    /// An integer as the ledger writes one: a major type 0 or 1 integer when
+    /// it fits, otherwise a bignum.
+    mutating func integer(_ value: BigInt) {
+        if value.sign == .plus, let small = UInt64(exactly: value) {
+            head(0, small)
+        } else if value.sign == .minus, let small = UInt64(exactly: -1 - value) {
+            head(1, small)
+        } else if value.sign == .plus {
+            tag(2)
+            bytes(value.magnitude.serialize())
+        } else {
+            tag(3)
+            bytes((-1 - value).magnitude.serialize())
         }
     }
 
