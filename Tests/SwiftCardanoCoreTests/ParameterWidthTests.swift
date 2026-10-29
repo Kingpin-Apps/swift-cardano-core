@@ -163,14 +163,18 @@ struct WidthCase: Sendable, CustomTestStringConvertible {
         }
         guard let key = field.cborKey else { return }
         let base = try decode(ProtocolParameters.self, params())
-        guard case .dict(var map) = try base.toPrimitive() else {
-            Issue.record("expected a CBOR map")
-            return
-        }
+        var map = try base.ledgerMap()
         map[.int(key)] = .bigUInt(BigUInt(field.beyond)!)
         #expect(throws: CardanoCoreError.self) { try ProtocolParameters(from: .dict(map)) }
         map[.int(key)] = .int(-1)
         #expect(throws: CardanoCoreError.self) { try ProtocolParameters(from: .dict(map)) }
+        // The same in the ledger's list.
+        #expect(throws: CardanoCoreError.self) {
+            try ProtocolParameters(from: base.ledgerList(setting: key, to: .bigUInt(BigUInt(field.beyond)!)))
+        }
+        #expect(throws: CardanoCoreError.self) {
+            try ProtocolParameters(from: base.ledgerList(setting: key, to: .int(-1)))
+        }
     }
 
     @Test("Execution units: Word64 in JSON, at most Int64.max in CBOR")
@@ -189,10 +193,7 @@ struct WidthCase: Sendable, CustomTestStringConvertible {
         #expect(past.maxTxExecutionUnits.steps == UInt64(Int64.max) + 1)
         #expect(throws: CardanoCoreError.self) { try past.toPrimitive() }
 
-        guard case .dict(var map) = try top.toPrimitive() else {
-            Issue.record("expected a CBOR map")
-            return
-        }
+        var map = try top.ledgerMap()
         map[.int(20)] = .list([.uint(UInt64(Int64.max) + 1), .uint(0)])
         #expect(throws: CardanoCoreError.self) { try ProtocolParameters(from: .dict(map)) }
     }
@@ -211,10 +212,7 @@ struct WidthCase: Sendable, CustomTestStringConvertible {
         #expect(try ProtocolParameters(from: large.toPrimitive()).minFeeRefScriptCostPerByte == whole)
 
         // A ratio of Word64s, at the top of their range, decodes.
-        guard case .dict(var map) = try fractional.toPrimitive() else {
-            Issue.record("expected a CBOR map")
-            return
-        }
+        var map = try fractional.ledgerMap()
         map[.int(33)] = .cborTag(CBORTag(tag: 30, value: .list([.uint(.max), .uint(.max)])))
         // The ledger reduces it to 1/1.
         #expect(try ProtocolParameters(from: .dict(map)).minFeeRefScriptCostPerByte

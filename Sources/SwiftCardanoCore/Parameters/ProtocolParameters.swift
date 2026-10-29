@@ -344,17 +344,13 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
             try c.encode(txFeePerByte, forKey: .txFeePerByte)
             try c.encode(utxoCostPerByte, forKey: .utxoCostPerByte)
         } else {
-            // CBOR path: encode via Primitive to ensure an integer-keyed CBOR map.
-            // PotentCBOR's keyed container uses key.stringValue regardless of CodingKey.intValue,
-            // so we sidestep it by emitting the map through toPrimitive().
+            // CBOR path: the ledger's 31-element list, from toPrimitive().
             var c = encoder.singleValueContainer()
             try c.encode(try toPrimitive())
         }
     }
 
     // MARK: CBORSerializable — toPrimitive / init(from primitive:)
-    // These are used for direct Primitive manipulation (e.g. embedding in ParameterChangeAction).
-    // The CBOR encode/decode path above uses keyed containers for reliable round-tripping.
 
     /// Conway CDDL key assignments for protocol_param_update / current_pparams.
     enum CBORKey: Int64 {
@@ -374,7 +370,12 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
         // Accept both .dict and .orderedDict since CBOR round-trips produce .orderedDict.
         // Also accept the n2c 31-element positional array (node-to-client wire format).
         switch primitive {
-        case .list(let elements) where elements.count == 31:
+        case .list, .indefiniteList:
+            let elements = primitive.arrayElements ?? []
+            guard elements.count == 31 else {
+                throw CardanoCoreError.deserializeError(
+                    "Conway protocol parameters must have 31 elements, got \(elements.count)")
+            }
             try self.init(fromN2CArray: elements)
             return
         default:
@@ -514,25 +515,20 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
         )
     }
 
+    /// The parameters as the Conway ledger writes them (`PParams`): a
+    /// 31-element list in `eraPParams` order, which is how a node sends them
+    /// over node-to-client and how ledger state holds them.
+    ///
+    /// - Throws: When `minFeeRefScriptCostPerByte` is missing, which every
+    ///   Conway parameter set has, or a value is outside its ledger type.
     public func toPrimitive() throws -> Primitive {
-        var dict: [Primitive: Primitive] = [:]
-
-        dict[.int(CBORKey.minFeeA.rawValue)]          = .integer(txFeePerByte)
-        dict[.int(CBORKey.minFeeB.rawValue)]          = .integer(txFeeFixed)
-        dict[.int(CBORKey.maxBlockBodySize.rawValue)]  = .integer(maxBlockBodySize)
-        dict[.int(CBORKey.maxTxSize.rawValue)]         = .integer(maxTxSize)
-        dict[.int(CBORKey.maxBlockHeaderSize.rawValue)] = .integer(maxBlockHeaderSize)
-        dict[.int(CBORKey.keyDeposit.rawValue)]        = .integer(stakeAddressDeposit)
-        dict[.int(CBORKey.poolDeposit.rawValue)]       = .integer(stakePoolDeposit)
-        dict[.int(CBORKey.maximumEpoch.rawValue)]      = .integer(poolRetireMaxEpoch)
-        dict[.int(CBORKey.nOpt.rawValue)]              = .integer(stakePoolTargetNum)
-
         // The ledger's CBOR decoder refuses execution units above Int64.max.
-        func exUnit(_ value: UInt64, _ what: String) throws -> UInt64 {
-            guard value <= UInt64(Int64.max) else {
-                throw CardanoCoreError.valueError("\(what): \(value) is above Int64.max")
+        func exUnits(_ units: ProtocolParametersExecutionUnits, _ what: String) throws -> Primitive {
+            for (value, part) in [(units.memory, "memory"), (units.steps, "steps")]
+            where value > UInt64(Int64.max) {
+                throw CardanoCoreError.valueError("\(what) \(part): \(value) is above Int64.max")
             }
-            return value
+            return .list([.integer(units.memory), .integer(units.steps)])
         }
 
         // Rationals as the ledger writes them: reduced, as `#6.30` pairs. A
@@ -542,65 +538,64 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
         try LedgerRational.check(monetaryExpansion.numerator, monetaryExpansion.denominator,
                                  .unitInterval, "monetaryExpansion")
         try LedgerRational.check(treasuryCut.numerator, treasuryCut.denominator, .unitInterval, "treasuryCut")
-        dict[.int(CBORKey.poolPledgeInfluence.rawValue)] = poolPledgeInfluence.ledgerPrimitive()
-        dict[.int(CBORKey.expansionRate.rawValue)] = monetaryExpansion.ledgerPrimitive()
-        dict[.int(CBORKey.treasuryGrowthRate.rawValue)] = treasuryCut.ledgerPrimitive()
-
-        dict[.int(CBORKey.protocolVersion.rawValue)] = try ProtocolVersion(
-            major: Int(protocolVersion.major), minor: Int(protocolVersion.minor)
-        ).toPrimitive()
-
-        dict[.int(CBORKey.minPoolCost.rawValue)]    = .integer(minPoolCost)
-        dict[.int(CBORKey.adaPerUtxoByte.rawValue)] = .integer(utxoCostPerByte)
-
-        // Round-trip the raw cost-model values directly. CostModels.init validates
-        // each array against a hardcoded template (e.g. PlutusV1 = 166 entries),
-        // which can't represent on-chain encodings that the wire actually emits
-        // (newer Conway nodes have been observed sending 332-int arrays). Skip
-        // the validation so values that decoded successfully also re-encode.
-        var cmDict: [Primitive: Primitive] = [:]
-        if !costModels.PlutusV1.isEmpty {
-            cmDict[.int(0)] = .indefiniteList(IndefiniteList(costModels.PlutusV1.map { Primitive.int($0) }))
+        guard let minFeeRefScriptCostPerByte else {
+            throw CardanoCoreError.valueError(
+                "minFeeRefScriptCostPerByte is required to write Conway protocol parameters")
         }
-        if !costModels.PlutusV2.isEmpty {
-            cmDict[.int(1)] = .indefiniteList(IndefiniteList(costModels.PlutusV2.map { Primitive.int($0) }))
+        try LedgerRational.check(minFeeRefScriptCostPerByte.numerator, minFeeRefScriptCostPerByte.denominator,
+                                 .nonNegativeInterval, "minFeeRefScriptCostPerByte")
+
+        return .list([
+            .integer(txFeePerByte),
+            .integer(txFeeFixed),
+            .integer(maxBlockBodySize),
+            .integer(maxTxSize),
+            .integer(maxBlockHeaderSize),
+            .integer(stakeAddressDeposit),
+            .integer(stakePoolDeposit),
+            .integer(poolRetireMaxEpoch),
+            .integer(stakePoolTargetNum),
+            poolPledgeInfluence.ledgerPrimitive(),
+            monetaryExpansion.ledgerPrimitive(),
+            treasuryCut.ledgerPrimitive(),
+            .list([.integer(protocolVersion.major), .integer(protocolVersion.minor)]),
+            .integer(minPoolCost),
+            .integer(utxoCostPerByte),
+            costModelsPrimitive(),
+            try executionUnitPrices.ledgerPrimitive(),
+            try exUnits(maxTxExecutionUnits, "maxTxExecutionUnits"),
+            try exUnits(maxBlockExecutionUnits, "maxBlockExecutionUnits"),
+            .integer(maxValueSize),
+            .integer(collateralPercentage),
+            .integer(maxCollateralInputs),
+            try poolVotingThresholds.ledgerPrimitive(),
+            try dRepVotingThresholds.ledgerPrimitive(),
+            .integer(committeeMinSize),
+            .integer(committeeMaxTermLength),
+            .integer(govActionLifetime),
+            .integer(govActionDeposit),
+            .integer(dRepDeposit),
+            .integer(dRepActivity),
+            minFeeRefScriptCostPerByte.ledgerPrimitive(),
+        ])
+    }
+
+    /// The cost models as the ledger writes them: a map from language to its
+    /// parameters, in language order, each list written with an indefinite
+    /// length when it has more than 23 entries (`encodeList`).
+    ///
+    /// The raw values are written as they are rather than through
+    /// `CostModels`, whose fixed per-language lengths cannot hold the longer
+    /// lists newer nodes send.
+    private func costModelsPrimitive() -> Primitive {
+        var models = OrderedDictionary<Primitive, Primitive>()
+        for (language, values) in [(0, costModels.PlutusV1), (1, costModels.PlutusV2), (2, costModels.PlutusV3)]
+        where !values.isEmpty {
+            let parameters = values.map { Primitive.integer($0) }
+            models[.uint(UInt64(language))] = parameters.count > 23
+                ? .indefiniteList(IndefiniteList(parameters)) : .list(parameters)
         }
-        if !costModels.PlutusV3.isEmpty {
-            cmDict[.int(2)] = .indefiniteList(IndefiniteList(costModels.PlutusV3.map { Primitive.int($0) }))
-        }
-        dict[.int(CBORKey.costModels.rawValue)] = .dict(cmDict)
-
-        dict[.int(CBORKey.executionCosts.rawValue)] = try executionUnitPrices.ledgerPrimitive()
-
-        dict[.int(CBORKey.maxTxExUnits.rawValue)] = try ExUnits(
-            mem: try exUnit(maxTxExecutionUnits.memory, "maxTxExecutionUnits memory"),
-            steps: try exUnit(maxTxExecutionUnits.steps, "maxTxExecutionUnits steps")
-        ).toPrimitive()
-        dict[.int(CBORKey.maxBlockExUnits.rawValue)] = try ExUnits(
-            mem: try exUnit(maxBlockExecutionUnits.memory, "maxBlockExecutionUnits memory"),
-            steps: try exUnit(maxBlockExecutionUnits.steps, "maxBlockExecutionUnits steps")
-        ).toPrimitive()
-
-        dict[.int(CBORKey.maxValueSize.rawValue)]         = .integer(maxValueSize)
-        dict[.int(CBORKey.collateralPercentage.rawValue)]  = .integer(collateralPercentage)
-        dict[.int(CBORKey.maxCollateralInputs.rawValue)]   = .integer(maxCollateralInputs)
-
-        dict[.int(CBORKey.poolVotingThresholds.rawValue)] = try poolVotingThresholds.ledgerPrimitive()
-        dict[.int(CBORKey.drepVotingThresholds.rawValue)] = try dRepVotingThresholds.ledgerPrimitive()
-
-        dict[.int(CBORKey.minCommitteeSize.rawValue)]       = .integer(committeeMinSize)
-        dict[.int(CBORKey.committeeTermLimit.rawValue)]     = .integer(committeeMaxTermLength)
-        dict[.int(CBORKey.govActionValidityPeriod.rawValue)] = .integer(govActionLifetime)
-        dict[.int(CBORKey.govActionDeposit.rawValue)]       = .integer(govActionDeposit)
-        dict[.int(CBORKey.drepDeposit.rawValue)]            = .integer(dRepDeposit)
-        dict[.int(CBORKey.drepInactivityPeriod.rawValue)]   = .integer(dRepActivity)
-        if let minFeeRefScriptCostPerByte {
-            try LedgerRational.check(minFeeRefScriptCostPerByte.numerator, minFeeRefScriptCostPerByte.denominator,
-                                     .nonNegativeInterval, "minFeeRefScriptCostPerByte")
-            dict[.int(CBORKey.minFeeRefScriptCoinsPerByte.rawValue)] = minFeeRefScriptCostPerByte.ledgerPrimitive()
-        }
-
-        return .dict(dict)
+        return .orderedDict(models)
     }
 
     // MARK: - n2c positional-array initializer
@@ -629,7 +624,7 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
         let monetaryExpansion   = try UnitInterval.ledgerCBOR(elements[10], "n2c monetaryExpansion")
         let treasuryCut         = try UnitInterval.ledgerCBOR(elements[11], "n2c treasuryCut")
 
-        guard case .list(let pvArr) = elements[12], pvArr.count == 2 else {
+        guard let pvArr = elements[12].arrayElements, pvArr.count == 2 else {
             throw CardanoCoreError.deserializeError("Invalid protocolVersion at n2c position 12")
         }
         let pvMajor = try pvArr[0].integer("n2c protocol major", as: UInt32.self)
@@ -643,7 +638,7 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
 
         let executionUnitPrices = try ExecutionUnitPrices(cbor: elements[16], "n2c executionCosts")
 
-        guard case .list(let txExArr) = elements[17], txExArr.count == 2 else {
+        guard let txExArr = elements[17].arrayElements, txExArr.count == 2 else {
             throw CardanoCoreError.deserializeError("Invalid maxTxExUnits at n2c position 17")
         }
         let maxTxExecutionUnits = ProtocolParametersExecutionUnits(
@@ -651,7 +646,7 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
             steps:  try exUnitsParameter(txExArr[1], "n2c maxTxExUnits steps")
         )
 
-        guard case .list(let blkExArr) = elements[18], blkExArr.count == 2 else {
+        guard let blkExArr = elements[18].arrayElements, blkExArr.count == 2 else {
             throw CardanoCoreError.deserializeError("Invalid maxBlockExUnits at n2c position 18")
         }
         let maxBlockExecutionUnits = ProtocolParametersExecutionUnits(

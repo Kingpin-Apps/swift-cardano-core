@@ -309,10 +309,7 @@ private let mainnetStepPrice = nonNegative(721, 10_000_000)
 
         // A ProtocolParamUpdate built from them writes the same order.
         let p = try ExactRationalFileTests.loadParams()
-        guard case .dict(var map) = try p.toPrimitive() else {
-            Issue.record("expected a map")
-            return
-        }
+        var map = try p.ledgerMap()
         map[.int(25)] = ledger
         let update = ProtocolParamUpdate(from: try ProtocolParameters(from: .dict(map)))
         #expect(try update.poolVotingThresholds?.toPrimitive() == ledger)
@@ -321,10 +318,7 @@ private let mainnetStepPrice = nonNegative(721, 10_000_000)
     @Test("Rationals in protocol-parameter CBOR are tagged, reduced and range-checked")
     func protocolParameterRationals() throws {
         let p = try ExactRationalFileTests.loadParams()
-        guard case .dict(var map) = try p.toPrimitive() else {
-            Issue.record("expected a map")
-            return
-        }
+        var map = try p.ledgerMap()
         #expect(map[.int(19)] == .list([LedgerRational.primitive(577, 10_000), LedgerRational.primitive(721, 10_000_000)]))
         #expect(map[.int(10)] == LedgerRational.primitive(3, 1000))
 

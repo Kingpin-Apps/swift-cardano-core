@@ -250,9 +250,7 @@ private func replacingKey(_ primitive: Primitive, _ key: String, with value: Pri
 
     /// The parameters as an integer-keyed map, with `key` set to `value`.
     func map(setting key: Int64, to value: Primitive) throws -> Primitive {
-        guard case .dict(var d) = try loadParams().toPrimitive() else {
-            throw CardanoCoreError.valueError("expected a map")
-        }
+        var d = try loadParams().ledgerMap()
         d[.int(key)] = value
         return .dict(d)
     }
@@ -331,7 +329,8 @@ private func replacingKey(_ primitive: Primitive, _ key: String, with value: Pri
                 govActionLifetime: p.govActionLifetime, maxBlockBodySize: p.maxBlockBodySize,
                 maxBlockExecutionUnits: p.maxBlockExecutionUnits, maxBlockHeaderSize: p.maxBlockHeaderSize,
                 maxCollateralInputs: p.maxCollateralInputs, maxTxExecutionUnits: tx ?? p.maxTxExecutionUnits,
-                maxTxSize: p.maxTxSize, maxValueSize: p.maxValueSize, minPoolCost: p.minPoolCost,
+                maxTxSize: p.maxTxSize, maxValueSize: p.maxValueSize,
+                minFeeRefScriptCostPerByte: p.minFeeRefScriptCostPerByte, minPoolCost: p.minPoolCost,
                 monetaryExpansion: p.monetaryExpansion, poolPledgeInfluence: pledge ?? p.poolPledgeInfluence,
                 poolRetireMaxEpoch: p.poolRetireMaxEpoch, poolVotingThresholds: p.poolVotingThresholds,
                 protocolVersion: p.protocolVersion, stakeAddressDeposit: p.stakeAddressDeposit,
