@@ -133,7 +133,10 @@ public indirect enum Primitive: CBORSerializable, Sendable {
         case .unsignedInt(let value):
             return .uint(value)
         case .negativeInt(let value):
-            return .int(Int64(bitPattern: ~value))
+            // The wire value n stands for -1 - n, which below -2^63 no
+            // longer fits Int64.
+            return value <= UInt64(Int64.max)
+                ? .int(Int64(bitPattern: ~value)) : .bigInt(-1 - BigInt(value))
         case .float(let value):
             return .float(Double(value))
         case .double(let value):
@@ -373,9 +376,9 @@ public indirect enum Primitive: CBORSerializable, Sendable {
         case .plutusData(let plutusData):
             return try plutusData.toCBORData().toCBOR
         case .bigInt(let bigInt):
-            return try CBOREncoder().encode(bigInt).toCBOR
+            return Primitive.integerCBOR(bigInt)
         case .bigUInt(let bigUInt):
-            return try CBOREncoder().encode(bigUInt).toCBOR
+            return Primitive.integerCBOR(BigInt(bigUInt))
         case .bytes, .string, .int, .uint, .float, .bool, .list, .frozenList,
             .indefiniteList, .indefiniteFrozenList, .orderedDict, .cborTag, .null:
             return try toCBOR()
@@ -697,6 +700,19 @@ public indirect enum Primitive: CBORSerializable, Sendable {
 
     public init(from primitive: Primitive) throws {
         self = primitive
+    }
+
+    /// An integer as CBOR writes it: as a major type 0 or 1 integer whenever
+    /// it fits one — the whole range down to -2^64 — and as a bignum
+    /// (tag 2 or 3) otherwise.
+    static func integerCBOR(_ value: BigInt) -> CBOR {
+        if value.sign == .plus {
+            if let unsigned = UInt64(exactly: value) { return .unsignedInt(unsigned) }
+            return .tagged(2, .byteString(value.magnitude.serialize()))
+        }
+        let wire = -1 - value
+        if let unsigned = UInt64(exactly: wire) { return .negativeInt(unsigned) }
+        return .tagged(3, .byteString(wire.magnitude.serialize()))
     }
 
     /// This value as a decode without `preservingEncoding` would give it:

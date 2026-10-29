@@ -103,11 +103,22 @@ public enum BigInteger: Serializable, CustomStringConvertible, Sendable {
             if let unsigned = UInt64(exactly: value.magnitude) {
                 return .uint(unsigned)
             }
-            return .cborTag(CBORTag(tag: 2, value: .bytes(value.magnitude.serialize())))
+            return .cborTag(CBORTag(tag: 2, value: Self.boundedBytes(value.magnitude.serialize())))
+        }
+        // Down to -2^64 an integer still fits CBOR's negative integer.
+        if UInt64(exactly: value.magnitude - 1) != nil {
+            return .bigInt(value)
         }
         // Tag 3 carries -1 - n, so what goes on the wire is one below the
         // magnitude.
-        return .cborTag(CBORTag(tag: 3, value: .bytes((value.magnitude - 1).serialize())))
+        return .cborTag(CBORTag(tag: 3, value: Self.boundedBytes((value.magnitude - 1).serialize())))
+    }
+
+    /// A bignum's magnitude as `bounded_bytes`: over 64 bytes it is written in
+    /// chunks of 64, as the ledger requires of every Plutus byte string.
+    private static func boundedBytes(_ magnitude: Data) -> Primitive {
+        let byteString = Bytes.chunked(ByteString(bytes: magnitude))
+        return byteString.chunks == nil ? .bytes(magnitude) : .byteString(byteString)
     }
     
     /// The big-endian magnitude carried by a CBOR bignum tag.

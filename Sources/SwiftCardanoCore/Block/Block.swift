@@ -1,4 +1,5 @@
 import Foundation
+import CBORCodable
 import OrderedCollections
 import SwiftNaCl
 
@@ -16,15 +17,25 @@ import SwiftNaCl
 /// Serialized as a CBOR array with 5 elements.
 public struct Block: Serializable {
     /// Block header containing metadata and KES signature
-    public var header: Header
+    public var header: Header { didSet { originalCBOR = nil } }
     /// Transaction bodies in this block
-    public var transactionBodies: [TransactionBody]
+    public var transactionBodies: [TransactionBody] { didSet { originalCBOR = nil } }
     /// Witness sets corresponding to each transaction
-    public var transactionWitnessSets: [TransactionWitnessSet]
+    public var transactionWitnessSets: [TransactionWitnessSet] { didSet { originalCBOR = nil } }
     /// Auxiliary data keyed by transaction index
-    public var auxiliaryDataSet: OrderedDictionary<TransactionIndex, AuxiliaryData>
+    public var auxiliaryDataSet: OrderedDictionary<TransactionIndex, AuxiliaryData> {
+        didSet { originalCBOR = nil }
+    }
     /// Indices of invalid transactions within this block
-    public var invalidTransactions: [TransactionIndex]
+    public var invalidTransactions: [TransactionIndex] { didSet { originalCBOR = nil } }
+
+    /// The exact bytes this block was decoded from, while it is unchanged.
+    ///
+    /// Its header, transaction bodies, witness sets and auxiliary data keep
+    /// their own bytes too, so the block hash and every transaction id — and
+    /// the datums, redeemers and metadata those commit to — are those of what
+    /// was written, not of a re-encoding.
+    public internal(set) var originalCBOR: Data? = nil
 
     enum CodingKeys: String, CodingKey {
         case header
@@ -48,7 +59,71 @@ public struct Block: Serializable {
         self.invalidTransactions = invalidTransactions
     }
 
+    /// Decodes a block, keeping the bytes of it and of its parts.
+    public static func fromCBOR(data: Data) throws -> Block {
+        let scanner = CBORItemScanner(data)
+        guard try scanner.end(ofItemAt: 0) == scanner.bytes.count else {
+            throw CardanoCoreError.deserializeError("Trailing bytes after Block")
+        }
+        var block = try Transaction.decoder().decode(Block.self, from: data)
+        let bytes = scanner.bytes
+        let spans = try scanner.elements(ofArrayAt: 0)
+
+        block.header.originalCBOR = bytes.subdata(in: spans[0])
+        for (index, span) in try scanner.elements(ofArrayAt: spans[1].lowerBound).enumerated()
+        where index < block.transactionBodies.count {
+            block.transactionBodies[index].originalCBOR = bytes.subdata(in: span)
+        }
+        for (index, span) in try scanner.elements(ofArrayAt: spans[2].lowerBound).enumerated()
+        where index < block.transactionWitnessSets.count {
+            try block.transactionWitnessSets[index].keepBytes(bytes.subdata(in: span))
+        }
+        for (key, value) in try scanner.entries(ofMapAt: spans[3].lowerBound) {
+            guard let index = try scanner.unsignedInteger(at: key.lowerBound),
+                let transactionIndex = TransactionIndex(exactly: index),
+                block.auxiliaryDataSet[transactionIndex] != nil
+            else { continue }
+            block.auxiliaryDataSet[transactionIndex]?.originalCBOR = bytes.subdata(in: value)
+        }
+        block.originalCBOR = bytes
+        return block
+    }
+
+    public init(from cbor: Data) throws {
+        self = try Self.fromCBOR(data: cbor)
+    }
+
+    /// The bytes this block was decoded from while it is unchanged; otherwise
+    /// a fresh encoding that keeps the written bytes of every part that is
+    /// unchanged.
+    public func toCBORData(deterministic: Bool = false) throws -> Data {
+        _ = deterministic
+        if let originalCBOR { return originalCBOR }
+        var data = CBORItemScanner.definiteHeader(major: 4, count: 5)
+        data.append(try header.toCBORData())
+        data.append(CBORItemScanner.definiteHeader(major: 4, count: transactionBodies.count))
+        for body in transactionBodies {
+            data.append(try body.toCBORData())
+        }
+        data.append(CBORItemScanner.definiteHeader(major: 4, count: transactionWitnessSets.count))
+        for witnessSet in transactionWitnessSets {
+            data.append(try witnessSet.toCBORData())
+        }
+        data.append(CBORItemScanner.definiteHeader(major: 5, count: auxiliaryDataSet.count))
+        let encoder = CBOREncoder()
+        for (index, auxiliaryData) in auxiliaryDataSet {
+            data.append(try encoder.encode(Primitive.uint(UInt64(index))))
+            data.append(try auxiliaryData.toCBORData())
+        }
+        data.append(try encoder.encode(Primitive.list(invalidTransactions.map { .uint(UInt64($0)) })))
+        return data
+    }
+
     // MARK: - CBORSerializable
+
+    /// Witness sets and auxiliary data are read as written; the header and
+    /// bodies in the usual form.
+    public static var preservesEncoding: Bool { true }
 
     public init(from primitive: Primitive) throws {
         let elements: [Primitive]
@@ -66,7 +141,7 @@ public struct Block: Serializable {
         }
 
         // 0: header
-        self.header = try Header(from: elements[0])
+        self.header = try Header(from: elements[0].normalized())
 
         // 1: transaction_bodies : [* transaction_body]
         let txBodyPrimitives: [Primitive]
@@ -77,7 +152,7 @@ public struct Block: Serializable {
             throw CardanoCoreError.deserializeError(
                 "Invalid Block transaction_bodies: expected list")
         }
-        self.transactionBodies = try txBodyPrimitives.map { try TransactionBody(from: $0) }
+        self.transactionBodies = try txBodyPrimitives.map { try TransactionBody(from: $0.normalized()) }
 
         // 2: transaction_witness_sets : [* transaction_witness_set]
         let txWitnessPrimitives: [Primitive]
@@ -98,7 +173,7 @@ public struct Block: Serializable {
         // 3: auxiliary_data_set : {* transaction_index => auxiliary_data}
         self.auxiliaryDataSet = OrderedDictionary<TransactionIndex, AuxiliaryData>()
         switch elements[3] {
-        case .orderedDict(let dict):
+        case .orderedDict(let dict), .indefiniteDictionary(let dict):
             for (key, value) in dict {
                 let index: TransactionIndex
                 switch key {
@@ -295,7 +370,13 @@ public struct Block: Serializable {
     }
 
     // MARK: - Hashable
-    
+
+    /// Hashes what `==` compares, leaving out the bytes it was read from.
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(header)
+        hasher.combine(transactionBodies)
+    }
+
     public func hash() -> Data {
         return try! Hash().blake2b(
             data: try self.toCBORData(),

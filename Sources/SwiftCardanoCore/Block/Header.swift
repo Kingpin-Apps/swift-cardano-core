@@ -1,4 +1,5 @@
 import Foundation
+import CBORCodable
 import OrderedCollections
 import SwiftKES
 import SwiftNaCl
@@ -9,9 +10,16 @@ import SwiftNaCl
 /// Serialized as a CBOR array with 2 elements.
 public struct Header: Serializable {
     /// The header body containing block metadata
-    public var headerBody: HeaderBody
+    public var headerBody: HeaderBody { didSet { originalCBOR = nil } }
     /// KES signature over the header body (448 bytes)
-    public var bodySignature: SwiftKES.KESSignature
+    public var bodySignature: SwiftKES.KESSignature { didSet { originalCBOR = nil } }
+
+    /// The exact bytes this header was decoded from, while it is unchanged.
+    ///
+    /// A block's hash is the hash of its header as written, so while this is
+    /// set ``toCBORData(deterministic:)`` returns these bytes and ``hash()``
+    /// hashes them.
+    public internal(set) var originalCBOR: Data? = nil
 
     enum CodingKeys: String, CodingKey {
         case headerBody
@@ -21,6 +29,28 @@ public struct Header: Serializable {
     public init(headerBody: HeaderBody, bodySignature: SwiftKES.KESSignature) {
         self.headerBody = headerBody
         self.bodySignature = bodySignature
+    }
+
+    /// Decodes a header, keeping the bytes it was read from.
+    public static func fromCBOR(data: Data) throws -> Header {
+        let scanner = CBORItemScanner(data)
+        guard try scanner.end(ofItemAt: 0) == scanner.bytes.count else {
+            throw CardanoCoreError.deserializeError("Trailing bytes after Header")
+        }
+        var header = try CBORDecoder().decode(Header.self, from: data)
+        header.originalCBOR = scanner.bytes
+        return header
+    }
+
+    public init(from cbor: Data) throws {
+        self = try Self.fromCBOR(data: cbor)
+    }
+
+    /// The bytes this header was decoded from while it is unchanged, otherwise
+    /// a fresh encoding.
+    public func toCBORData(deterministic: Bool = false) throws -> Data {
+        _ = deterministic
+        return try originalCBOR ?? CBOREncoder().encode(self)
     }
 
     // MARK: - CBORSerializable
@@ -82,7 +112,12 @@ public struct Header: Serializable {
     }
 
     // MARK: - Hashable
-    
+
+    /// Hashes what `==` compares, leaving out the bytes it was read from.
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(headerBody)
+    }
+
     public func hash() -> Data {
         return try! Hash().blake2b(
             data: try self.toCBORData(),

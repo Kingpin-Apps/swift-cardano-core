@@ -143,14 +143,130 @@ public struct VerificationKeyWitness: Serializable, TextEnvelopable {
 }
 
 public struct TransactionWitnessSet: Serializable, Equatable {
-    public var vkeyWitnesses: ListOrNonEmptyOrderedSet<VerificationKeyWitness>?
-    public var nativeScripts: ListOrNonEmptyOrderedSet<NativeScript>?
-    public var bootstrapWitness: ListOrNonEmptyOrderedSet<BootstrapWitness>?
-    public var plutusV1Script: ListOrNonEmptyOrderedSet<PlutusV1Script>?
-    public var plutusData: ListOrNonEmptyOrderedSet<PlutusData>?
-    public var redeemers: Redeemers?
-    public var plutusV2Script: ListOrNonEmptyOrderedSet<PlutusV2Script>?
-    public var plutusV3Script: ListOrNonEmptyOrderedSet<PlutusV3Script>?
+    public var vkeyWitnesses: ListOrNonEmptyOrderedSet<VerificationKeyWitness>? {
+        didSet { originalCBOR = nil }
+    }
+    public var nativeScripts: ListOrNonEmptyOrderedSet<NativeScript>? {
+        didSet { originalCBOR = nil }
+    }
+    public var bootstrapWitness: ListOrNonEmptyOrderedSet<BootstrapWitness>? {
+        didSet { originalCBOR = nil }
+    }
+    public var plutusV1Script: ListOrNonEmptyOrderedSet<PlutusV1Script>? {
+        didSet { originalCBOR = nil }
+    }
+    public var plutusData: ListOrNonEmptyOrderedSet<PlutusData>? {
+        didSet { originalCBOR = nil; originalPlutusDataCBOR = nil }
+    }
+    public var redeemers: Redeemers? {
+        didSet { originalCBOR = nil; originalRedeemersCBOR = nil }
+    }
+    public var plutusV2Script: ListOrNonEmptyOrderedSet<PlutusV2Script>? {
+        didSet { originalCBOR = nil }
+    }
+    public var plutusV3Script: ListOrNonEmptyOrderedSet<PlutusV3Script>? {
+        didSet { originalCBOR = nil }
+    }
+
+    /// The exact bytes this witness set was decoded from, while it is unchanged.
+    public internal(set) var originalCBOR: Data? = nil
+    /// The bytes the witness datums (key 4) were decoded from, while they are
+    /// unchanged.
+    ///
+    /// `script_data_hash` is taken over the datums and redeemers *as written*,
+    /// and decoding cannot keep every detail of them — the width of an
+    /// integer's header, for one — so adding a witness keeps these bytes
+    /// rather than re-encoding them.
+    public internal(set) var originalPlutusDataCBOR: Data? = nil
+    /// The bytes the redeemers (key 5) were decoded from, while they are
+    /// unchanged. See ``originalPlutusDataCBOR``.
+    public internal(set) var originalRedeemersCBOR: Data? = nil
+
+    /// The witness datums as `script_data_hash` takes them: as written while
+    /// they are unchanged, otherwise freshly encoded; `nil` when there are none.
+    public func plutusDataCBOR() throws -> Data? {
+        guard let plutusData else { return nil }
+        return try originalPlutusDataCBOR ?? CBOREncoder().encode(plutusData.toPrimitive())
+    }
+
+    /// The redeemers as `script_data_hash` takes them: as written while they
+    /// are unchanged, otherwise freshly encoded; `nil` when there are none.
+    public func redeemersCBOR() throws -> Data? {
+        guard let redeemers else { return nil }
+        return try originalRedeemersCBOR ?? CBOREncoder().encode(redeemers.toPrimitive())
+    }
+
+    public static func == (lhs: TransactionWitnessSet, rhs: TransactionWitnessSet) -> Bool {
+        lhs.vkeyWitnesses == rhs.vkeyWitnesses && lhs.nativeScripts == rhs.nativeScripts
+            && lhs.bootstrapWitness == rhs.bootstrapWitness
+            && lhs.plutusV1Script == rhs.plutusV1Script && lhs.plutusData == rhs.plutusData
+            && lhs.redeemers == rhs.redeemers && lhs.plutusV2Script == rhs.plutusV2Script
+            && lhs.plutusV3Script == rhs.plutusV3Script
+    }
+
+    /// Hashes what `==` compares, leaving out the bytes it was read from.
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(vkeyWitnesses)
+        hasher.combine(plutusData)
+        hasher.combine(redeemers)
+    }
+
+    /// Decodes a witness set, keeping the bytes of it and of its datums and
+    /// redeemers.
+    public static func fromCBOR(data: Data) throws -> TransactionWitnessSet {
+        let scanner = CBORItemScanner(data)
+        guard try scanner.end(ofItemAt: 0) == scanner.bytes.count else {
+            throw CardanoCoreError.deserializeError("Trailing bytes after TransactionWitnessSet")
+        }
+        var witnessSet = try CBORDecoder().decode(TransactionWitnessSet.self, from: data)
+        try witnessSet.keepBytes(scanner.bytes)
+        return witnessSet
+    }
+
+    public init(from cbor: Data) throws {
+        self = try Self.fromCBOR(data: cbor)
+    }
+
+    /// Records `bytes` as what this witness set was decoded from.
+    mutating func keepBytes(_ bytes: Data) throws {
+        let scanner = CBORItemScanner(bytes)
+        for (key, value) in try scanner.entries(ofMapAt: scanner.untagged(at: 0)) {
+            switch try scanner.unsignedInteger(at: key.lowerBound) {
+                case UInt64(CodingKeys.plutusData.rawValue):
+                    originalPlutusDataCBOR = scanner.bytes.subdata(in: value)
+                case UInt64(CodingKeys.redeemers.rawValue):
+                    originalRedeemersCBOR = scanner.bytes.subdata(in: value)
+                default:
+                    break
+            }
+        }
+        originalCBOR = scanner.bytes
+    }
+
+    /// The bytes this witness set was decoded from while it is unchanged;
+    /// otherwise a fresh encoding that keeps the datums and redeemers as
+    /// written while they are unchanged.
+    public func toCBORData(deterministic: Bool = false) throws -> Data {
+        _ = deterministic
+        if let originalCBOR { return originalCBOR }
+        guard case let .orderedDict(fields) = try toPrimitive() else {
+            return try CBOREncoder().encode(self)
+        }
+        let encoder = CBOREncoder()
+        var data = CBORItemScanner.definiteHeader(major: 5, count: fields.count)
+        for (key, value) in fields {
+            data.append(try encoder.encode(key))
+            switch key {
+                case .uint(UInt64(CodingKeys.plutusData.rawValue)) where originalPlutusDataCBOR != nil:
+                    data.append(originalPlutusDataCBOR!)
+                case .uint(UInt64(CodingKeys.redeemers.rawValue)) where originalRedeemersCBOR != nil:
+                    data.append(originalRedeemersCBOR!)
+                default:
+                    data.append(try encoder.encode(value))
+            }
+        }
+        return data
+    }
 
     public init(
         vkeyWitnesses: ListOrNonEmptyOrderedSet<VerificationKeyWitness>? = nil,
@@ -208,8 +324,12 @@ public struct TransactionWitnessSet: Serializable, Equatable {
     public static var preservesEncoding: Bool { true }
     
     public init(from primitive: Primitive) throws {
-        guard case let .orderedDict(dict) = primitive else {
-            throw CardanoCoreError.deserializeError("Invalid TransactionWitnessSet primitive")
+        let dict: OrderedDictionary<Primitive, Primitive>
+        switch primitive {
+            case .orderedDict(let entries), .indefiniteDictionary(let entries):
+                dict = entries
+            default:
+                throw CardanoCoreError.deserializeError("Invalid TransactionWitnessSet primitive")
         }
         
         func key(_ codingKey: CodingKeys) -> Primitive {
@@ -275,41 +395,20 @@ public struct TransactionWitnessSet: Serializable, Equatable {
     }
     
     public func toPrimitive() throws -> Primitive {
-        var dict: [Primitive: Primitive] = [:]
-        
-        if let vkeyWitnesses = vkeyWitnesses {
-            dict[.int(Int64(CodingKeys.vkeyWitnesses.rawValue))] = try vkeyWitnesses.toPrimitive()
+        // In ascending key order, so a witness set always encodes the same way.
+        var dict = OrderedDictionary<Primitive, Primitive>()
+        func put<T: CBORSerializable>(_ key: CodingKeys, _ value: T?) throws {
+            if let value { dict[.uint(UInt64(key.rawValue))] = try value.toPrimitive() }
         }
-
-        if let nativeScripts = nativeScripts {
-            dict[.int(Int64(CodingKeys.nativeScripts.rawValue))] = try nativeScripts.toPrimitive()
-        }
-
-        if let bootstrapWitness = bootstrapWitness {
-            dict[.int(Int64(CodingKeys.bootstrapWitness.rawValue))] = try bootstrapWitness.toPrimitive()
-        }
-
-        if let plutusV1Script = plutusV1Script {
-            dict[.int(Int64(CodingKeys.plutusV1Script.rawValue))] = try plutusV1Script.toPrimitive()
-        }
-
-        if let plutusData = plutusData {
-            dict[.int(Int64(CodingKeys.plutusData.rawValue))] = try plutusData.toPrimitive()
-        }
-
-        if let redeemers = redeemers {
-            dict[.int(Int64(CodingKeys.redeemers.rawValue))] = try redeemers.toPrimitive()
-        }
-
-        if let plutusV2Script = plutusV2Script {
-            dict[.int(Int64(CodingKeys.plutusV2Script.rawValue))] = try plutusV2Script.toPrimitive()
-        }
-
-        if let plutusV3Script = plutusV3Script {
-            dict[.int(Int64(CodingKeys.plutusV3Script.rawValue))] = try plutusV3Script.toPrimitive()
-        }
-        
-        return .dict(dict)
+        try put(.vkeyWitnesses, vkeyWitnesses)
+        try put(.nativeScripts, nativeScripts)
+        try put(.bootstrapWitness, bootstrapWitness)
+        try put(.plutusV1Script, plutusV1Script)
+        try put(.plutusData, plutusData)
+        try put(.redeemers, redeemers)
+        try put(.plutusV2Script, plutusV2Script)
+        try put(.plutusV3Script, plutusV3Script)
+        return .orderedDict(dict)
     }
     
     // MARK: - JSONSerializable

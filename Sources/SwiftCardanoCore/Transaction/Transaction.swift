@@ -16,27 +16,24 @@ public struct Transaction: Serializable, TextEnvelopable {
     }
     
     public var transactionBody: TransactionBody { didSet { originalCBOR = nil } }
-    public var transactionWitnessSet: TransactionWitnessSet {
-        didSet { originalCBOR = nil; originalWitnessSetCBOR = nil }
-    }
+    public var transactionWitnessSet: TransactionWitnessSet { didSet { originalCBOR = nil } }
     public var valid: Bool = true { didSet { originalCBOR = nil } }
-    public var auxiliaryData: AuxiliaryData? = nil {
-        didSet { originalCBOR = nil; originalAuxiliaryDataCBOR = nil }
-    }
+    public var auxiliaryData: AuxiliaryData? = nil { didSet { originalCBOR = nil } }
 
     /// The exact bytes this transaction was decoded from, for as long as it is
     /// unchanged since. Changing any part clears it.
     ///
-    /// The body keeps its own bytes too (``TransactionBody/originalCBOR``), as
-    /// do the witness set and auxiliary data here, so adding a witness to a
-    /// decoded transaction re-encodes the witness set alone: the body — whose
-    /// hash is the id every witness signs — and the auxiliary data — whose hash
-    /// the body commits to — stay as written.
+    /// The body, witness set and auxiliary data keep their own bytes too, so
+    /// adding a witness to a decoded transaction re-encodes the witness set
+    /// alone — and in it, not the datums and redeemers. The body — whose hash
+    /// is the id every witness signs — the auxiliary data — whose hash the
+    /// body commits to — and the datums and redeemers — which
+    /// `script_data_hash` commits to — stay as written.
     public internal(set) var originalCBOR: Data? = nil
     /// The bytes the witness set was decoded from, while it is unchanged.
-    public internal(set) var originalWitnessSetCBOR: Data? = nil
+    public var originalWitnessSetCBOR: Data? { transactionWitnessSet.originalCBOR }
     /// The bytes the auxiliary data was decoded from, while it is unchanged.
-    public internal(set) var originalAuxiliaryDataCBOR: Data? = nil
+    public var originalAuxiliaryDataCBOR: Data? { auxiliaryData?.originalCBOR }
 
     /// Whether this was written in the Shelley to Mary shape,
     /// `[body, witnesses, auxiliary data]`, which has no validity flag.
@@ -88,16 +85,34 @@ public struct Transaction: Serializable, TextEnvelopable {
             throw CardanoCoreError.deserializeError("Trailing bytes after Transaction")
         }
         let spans = try scanner.elements(ofArrayAt: 0)
-        var tx = try CBORDecoder().decode(Transaction.self, from: data)
+        var tx = try decoder().decode(Transaction.self, from: data)
         guard spans.count >= 3 else { return tx }
-
-        let bytes = scanner.bytes
-        tx.transactionBody.originalCBOR = bytes.subdata(in: spans[0])
-        tx.originalWitnessSetCBOR = bytes.subdata(in: spans[1])
-        let auxiliarySpan = tx.isPreAlonzo ? spans[2] : spans.count > 3 ? spans[3] : nil
-        tx.originalAuxiliaryDataCBOR = auxiliarySpan.map { bytes.subdata(in: $0) }
-        tx.originalCBOR = bytes
+        try tx.keepBytes(scanner.bytes, spans: spans)
         return tx
+    }
+
+    /// A decoder for whole transactions and blocks.
+    ///
+    /// The ledger reads a Plutus or metadata map as a list of pairs, so a key
+    /// may repeat in one that is on chain. Such a map is read with its later
+    /// value — the typed value cannot hold both — but the bytes are kept, so the
+    /// transaction still encodes, and hashes, as written.
+    static func decoder() -> CBORDecoder {
+        let decoder = CBORDecoder()
+        decoder.allowDuplicateMapKeys = true
+        return decoder
+    }
+
+    /// Records `bytes`, whose top-level elements span `spans`, as what this
+    /// transaction was decoded from.
+    mutating func keepBytes(_ bytes: Data, spans: [Range<Int>]) throws {
+        transactionBody.originalCBOR = bytes.subdata(in: spans[0])
+        try transactionWitnessSet.keepBytes(bytes.subdata(in: spans[1]))
+        let auxiliarySpan = isPreAlonzo ? spans[2] : spans.count > 3 ? spans[3] : nil
+        if let auxiliarySpan, auxiliaryData != nil {
+            auxiliaryData?.originalCBOR = bytes.subdata(in: auxiliarySpan)
+        }
+        originalCBOR = bytes
     }
 
     public init(from cbor: Data) throws {
@@ -110,24 +125,14 @@ public struct Transaction: Serializable, TextEnvelopable {
     public func toCBORData(deterministic: Bool = false) throws -> Data {
         _ = deterministic
         if let originalCBOR { return originalCBOR }
-        guard transactionBody.originalCBOR != nil
-            || originalWitnessSetCBOR != nil
-            || originalAuxiliaryDataCBOR != nil
-        else {
-            return try CBOREncoder().encode(self)
-        }
-
-        let encoder = CBOREncoder()
         var data = Data([isPreAlonzo ? 0x83 : 0x84])
         data.append(try transactionBody.toCBORData())
-        data.append(try originalWitnessSetCBOR ?? encoder.encode(transactionWitnessSet))
+        data.append(try transactionWitnessSet.toCBORData())
         if !isPreAlonzo {
             data.append(valid ? 0xF5 : 0xF4)
         }
-        if let originalAuxiliaryDataCBOR {
-            data.append(originalAuxiliaryDataCBOR)
-        } else if let auxiliaryData {
-            data.append(try encoder.encode(auxiliaryData))
+        if let auxiliaryData {
+            data.append(try auxiliaryData.toCBORData())
         } else {
             data.append(0xF6)
         }
@@ -141,15 +146,7 @@ public struct Transaction: Serializable, TextEnvelopable {
     /// integer widths, string chunking — and with them the hash, so the
     /// written bytes are hashed while they are kept.
     public func auxiliaryDataHash() throws -> AuxiliaryDataHash? {
-        guard let auxiliaryData else { return nil }
-        guard let originalAuxiliaryDataCBOR else { return try auxiliaryData.hash() }
-        return AuxiliaryDataHash(
-            payload: try Hash().blake2b(
-                data: originalAuxiliaryDataCBOR,
-                digestSize: AUXILIARY_DATA_HASH_SIZE,
-                encoder: RawEncoder.self
-            )
-        )
+        try auxiliaryData?.hash()
     }
 
     /// The text-envelope type cardano-cli gives a transaction of `era`:
@@ -220,7 +217,7 @@ public struct Transaction: Serializable, TextEnvelopable {
 
         var auxiliaryData: AuxiliaryData? = nil
         if let auxiliaryElement, auxiliaryElement != .null {
-            auxiliaryData = try AuxiliaryData(from: auxiliaryElement.normalized())
+            auxiliaryData = try AuxiliaryData(from: auxiliaryElement)
         }
         
         self.init(

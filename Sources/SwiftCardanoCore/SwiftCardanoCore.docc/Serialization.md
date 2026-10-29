@@ -108,8 +108,26 @@ Four things make this hold:
 - **A decoded ``Primitive``** keeps indefinite-length byte strings, text strings
   and maps as such. A type that does not care how its value was written reads it
   through ``Primitive/normalized()``.
-- **A map that repeats a key** fails to decode, because the repeated entry would
-  be lost and the map would no longer re-encode to its bytes.
+- **Everything a hash covers keeps the bytes it was read from.** Decoding cannot
+  hold every detail of an encoding — the width of an integer's header, for one —
+  so a decoded ``Transaction``, ``Block``, ``Header``, ``TransactionBody``,
+  ``AuxiliaryData`` and ``TransactionWitnessSet`` each keep their bytes while
+  unchanged, as the witness set does for its datums and redeemers. Changing one
+  part re-encodes that part alone. To compute `script_data_hash` from a decoded
+  witness set, take ``TransactionWitnessSet/redeemersCBOR()`` and
+  ``TransactionWitnessSet/plutusDataCBOR()``, which give those bytes.
+- **Integers** cover the whole range CBOR carries, down to -2^64, and are
+  written as a bignum only beyond it, with a magnitude over 64 bytes in 64-byte
+  chunks.
+- **Metadata** keeps its label order. Metadata built from a dictionary is written
+  in label order, and a byte or text string over 64 bytes is rejected when it is
+  built; decoded metadata is not checked, since the ledger did not always
+  enforce the limit.
+- **A map that repeats a key** fails to decode on its own, because the repeated
+  entry would be lost and the map would no longer re-encode to its bytes. The
+  ledger reads Plutus and metadata maps as lists of pairs, so a transaction or
+  block on chain may hold one: decoded whole, it keeps the later value in its
+  typed form and its bytes as written.
 
 > Note: `toCBORData(deterministic:)` accepts a flag that is currently ignored.
 > Cardano's notion of deterministic encoding (CIP-21) is not RFC 8949 §4.2 — it

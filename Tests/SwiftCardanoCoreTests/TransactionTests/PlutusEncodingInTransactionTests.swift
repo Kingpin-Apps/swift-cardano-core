@@ -1,5 +1,6 @@
 import Foundation
 import OrderedCollections
+import SwiftNaCl
 import Testing
 
 @testable import SwiftCardanoCore
@@ -59,6 +60,72 @@ struct PlutusEncodingInTransactionTests {
         #expect(signed.contains("04" + "81" + Self.datum))
         #expect(signed.contains("05" + "bf" + "820000" + "82" + Self.datum + "820000" + "ff"))
         #expect(try Transaction.fromCBORHex(signed).transactionBody.hash() == tx.transactionBody.hash())
+    }
+
+    func witness() throws -> ListOrNonEmptyOrderedSet<VerificationKeyWitness> {
+        .list([
+            VerificationKeyWitness(
+                vkey: .verificationKey(try VerificationKey(payload: Data(repeating: 0x01, count: 32))),
+                signature: Data(repeating: 0x02, count: 64))
+        ])
+    }
+
+    @Test("Redeemers and datums keep bytes decoding cannot hold", arguments: [
+        // An indefinite-length redeemer list, its datum a 1 written in two bytes.
+        ("05", "9f840000180182" + "0000ff"),
+        // A redeemer map whose execution units are written wide.
+        ("05", "a1820000821801821a000000011a00000002"),
+        // Datums as an indefinite-length set.
+        ("04", "d901029f1801ff"),
+    ])
+    func keepsBytes(key: String, value: String) throws {
+        let witnessSet = "a1" + key + value
+        let unsigned = "84" + (try body().toCBORHex()) + witnessSet + "f5f6"
+        var tx = try Transaction.fromCBORHex(unsigned)
+        #expect(try tx.transactionWitnessSet.toCBORHex() == witnessSet)
+
+        tx.transactionWitnessSet.vkeyWitnesses = try witness()
+        let signed = try tx.toCBORHex()
+        #expect(signed.contains(key + value))
+
+        let written = try key == "05"
+            ? tx.transactionWitnessSet.redeemersCBOR() : tx.transactionWitnessSet.plutusDataCBOR()
+        #expect(written?.toHex == value)
+    }
+
+    @Test("Changed redeemers are encoded afresh")
+    func changedRedeemers() throws {
+        var witnessSet = try TransactionWitnessSet.fromCBORHex("a1059f840000180182" + "0000ff")
+        #expect(try witnessSet.redeemersCBOR()?.toHex == "9f8400001801820000ff")
+        let redeemers = witnessSet.redeemers
+        witnessSet.redeemers = redeemers
+        #expect(try witnessSet.redeemersCBOR()?.toHex == "8184000001820000")
+    }
+
+    @Test("A transaction whose Plutus data repeats a map key decodes and keeps its bytes")
+    func duplicateKeysInTransaction() throws {
+        // A witness datum {1: 2, 1: 3}, which the ledger reads as a list of pairs.
+        let unsigned = "84" + (try body().toCBORHex()) + "a10481a201020103" + "f5f6"
+        var tx = try Transaction.fromCBORHex(unsigned)
+        #expect(try tx.toCBORHex() == unsigned)
+
+        tx.transactionWitnessSet.vkeyWitnesses = try witness()
+        #expect(try tx.toCBORHex().contains("0481a201020103"))
+    }
+
+    @Test("An inline datum that repeats a map key decodes")
+    func duplicateKeysInInlineDatum() throws {
+        let input = "825820" + String(repeating: "11", count: 32) + "00"
+        // {0: address, 1: 5 ADA, 2: [1, #6.24(h'a201020103')]}
+        let output = "a300581d60" + String(repeating: "aa", count: 28) + "011a004c4b40"
+            + "028201d81845a201020103"
+        let body = "a300d9010281" + input + "0181" + output + "021a00030d40"
+        let unsigned = "84" + body + "a0f5f6"
+
+        let tx = try Transaction.fromCBORHex(unsigned)
+        #expect(try tx.toCBORHex() == unsigned)
+        #expect(tx.transactionBody.id.payload == (try Hash().blake2b(
+            data: body.hexStringToData, digestSize: TRANSACTION_HASH_SIZE, encoder: RawEncoder.self)))
     }
 
     @Test("A body with a long inline datum keeps its hash through a round trip")

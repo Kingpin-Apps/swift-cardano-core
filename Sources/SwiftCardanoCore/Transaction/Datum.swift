@@ -15,9 +15,12 @@ public enum DatumType: Serializable {
                     "Invalid DatumType type. Tag must be 24, but found \(cborTag.tag)")
             }
 
-            // Handle CBOR-encoded data inside the tag
+            // Handle CBOR-encoded data inside the tag. An inline datum is
+            // only ever read from an output, which the ledger accepted with
+            // any repeated map key, so one is not rejected here (see
+            // ``Transaction/decoder()``).
             if case .bytes(let cborData) = cborTag.value {
-                let plutusData = try CBORDecoder().decode(
+                let plutusData = try Transaction.decoder().decode(
                     PlutusData.self,
                     from: cborData
                 )

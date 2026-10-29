@@ -132,7 +132,7 @@ public enum PlutusData: Serializable, Sendable {
     @inline(never)
     private static func fromScalar(_ primitive: Primitive) throws -> PlutusData {
         switch primitive {
-        case .int(_), .uint(_):
+        case .int(_), .uint(_), .bigInt(_), .bigUInt(_):
             return .bigInt(try BigInteger(from: primitive))
         case .string(_), .byteString(_):
             return .bytes(try Bytes(from: primitive))

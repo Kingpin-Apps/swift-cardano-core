@@ -248,8 +248,10 @@ public struct CostModels: CBORSerializable, Sendable {
 
         return try list.map {
             switch $0 {
-            case .unsignedInt(let value): return Int64(value)
-            case .negativeInt(let value): return -1 - Int64(value)
+            case .unsignedInt(let value) where value <= UInt64(Int64.max):
+                return Int64(value)
+            case .negativeInt(let value) where value <= UInt64(Int64.max):
+                return -1 - Int64(value)
             default:
                 throw CardanoCoreError.deserializeError(
                     "Invalid cost model CBOR parameter value: \($0)")

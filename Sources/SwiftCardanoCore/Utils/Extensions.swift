@@ -115,7 +115,10 @@ extension CBOR {
             case .unsignedInt(let value):
                 return .uint(UInt64(value))
             case .negativeInt(let value):
-                return .int(-Int64(value) - 1) // CBOR negative integers are encoded as -1 - n
+                // CBOR negative integers are encoded as -1 - n, which below
+                // -2^63 no longer fits Int64.
+                return value <= UInt64(Int64.max)
+                    ? .int(Int64(bitPattern: ~value)) : .bigInt(-1 - BigInt(value))
             case .indefiniteByteString(let chunks):
                 var out = Data()
                 for c in chunks { out.append(c) }

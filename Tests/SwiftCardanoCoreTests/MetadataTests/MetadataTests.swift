@@ -18,8 +18,8 @@ let validMetadata: [TransactionMetadatumLabel: TransactionMetadatum] = [
     @Test("Test Metadata Encoding")
     func testEncoding() async throws {
         let metadata = try Metadata(validMetadata)
-        let encoded = try CBOREncoder().encode(metadata.data)
-        
+        let encoded = try metadata.toCBORData()
+
         #expect(encoded.count > 0, "Encoded CBOR data should not be nil")
     }
     
@@ -27,9 +27,10 @@ let validMetadata: [TransactionMetadatumLabel: TransactionMetadatum] = [
     func testDecoding() async throws {
         let metadata = try Metadata(validMetadata)
         let encoded = try metadata.toCBORData()
-        let decoded = try CBORDecoder().decode([TransactionMetadatumLabel: TransactionMetadatum].self, from: encoded)
-        
-        #expect(decoded == metadata.data, "Decoded metadata should match the original")
+        let decoded = try Metadata.fromCBOR(data: encoded)
+
+        #expect(decoded == metadata, "Decoded metadata should match the original")
+        #expect(try decoded.toCBORData() == encoded)
     }
     
     @Test("Test Subscript Access")
@@ -57,11 +58,11 @@ let validMetadata: [TransactionMetadatumLabel: TransactionMetadatum] = [
         ]
         
         let metadata = try Metadata(complexMetadata)
-        let encoded = try CBOREncoder().encode(metadata.data)
-        
-        let decoded = try CBORDecoder().decode([TransactionMetadatumLabel: TransactionMetadatum].self, from: encoded)
-        
-        #expect(decoded == metadata.data, "Complex nested metadata should encode and decode correctly")
+        let encoded = try metadata.toCBORData()
+
+        let decoded = try Metadata.fromCBOR(data: encoded)
+
+        #expect(decoded == metadata, "Complex nested metadata should encode and decode correctly")
     }
 }
 

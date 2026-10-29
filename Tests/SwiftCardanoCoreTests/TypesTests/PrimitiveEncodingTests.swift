@@ -1,3 +1,4 @@
+import BigInt
 import CBORCodable
 import Foundation
 import Testing
@@ -32,6 +33,16 @@ struct PrimitiveEncodingTests {
     ])
     func roundTrip(hex: String) throws {
         #expect(try CBOREncoder().encode(decode(hex)).toHex == hex)
+    }
+
+    @Test("Negative integers below -2^63 are read with their value")
+    func negativeIntegers() throws {
+        #expect(try decode("3bffffffffffffffff") == .bigInt(-(BigInt(1) << 64)))
+        #expect(try decode("3b8000000000000000") == .bigInt(-(BigInt(1) << 63) - 1))
+        #expect(try decode("3b7fffffffffffffff") == .int(Int64.min))
+        let cbor = try CBORDecoder().decode(CBOR.self, from: "3bffffffffffffffff".hexStringToData)
+        #expect(try cbor.toPrimitive() == .bigInt(-(BigInt(1) << 64)))
+        #expect(try CBOREncoder().encode(decode("3bffffffffffffffff")).toHex == "3bffffffffffffffff")
     }
 
     @Test("A chunked byte string holds its bytes and its chunk widths")

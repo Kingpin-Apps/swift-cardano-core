@@ -16,7 +16,8 @@ public struct RawPlutusData: PlutusDataProtocol {
     public init(from plutusData: PlutusData) throws {
         switch plutusData {
             case .bigInt(let bigInt):
-                self.data = .int(Int(bigInt.intValue))
+                // Beyond `Int` the integer is kept as the Plutus data it is.
+                self.data = Int(exactly: bigInt.value).map { .int($0) } ?? .plutusData(plutusData)
             case .bytes(let bytes):
                 self.data = .bytes(bytes.data)
             case .array(let array):
@@ -108,10 +109,19 @@ public struct RawPlutusData: PlutusDataProtocol {
             self.data = .dict(dictionary.reduce(into: [:]) { result, entry in
                 result[entry.key.toAnyValue()] = entry.value.toAnyValue()
             })
-        } else if case let .int(intValue) = primitive {
-            self.data = .int(Int(intValue))
-        } else if case let .uint(uintValue) = primitive {
-            self.data = .int(Int(uintValue))
+        } else if case let .int(intValue) = primitive, let int = Int(exactly: intValue) {
+            self.data = .int(int)
+        } else if case let .uint(uintValue) = primitive, let int = Int(exactly: uintValue) {
+            self.data = .int(int)
+        } else if case .int = primitive {
+            self.data = .cbor(try primitive.toCBOR())
+        } else if case .uint = primitive {
+            // Beyond `Int`: kept as the CBOR it was read from.
+            self.data = .cbor(try primitive.toCBOR())
+        } else if case .bigInt = primitive {
+            self.data = .cbor(try primitive.toCBOR())
+        } else if case .bigUInt = primitive {
+            self.data = .cbor(try primitive.toCBOR())
         } else if case let .bytes(data) = primitive {
             self.data = .bytes(data)
         } else if case .byteString(_) = primitive {

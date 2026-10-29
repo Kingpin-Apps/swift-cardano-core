@@ -2,20 +2,42 @@ import Foundation
 import OrderedCollections
 import CBORCodable
 import SwiftNaCl
+@preconcurrency import BigInt
 
 public typealias TransactionMetadatumLabel = UInt64
 
-// Define an enum for TransactionMetadatum
+/// A value in transaction metadata.
+///
+/// Integers that fit `Int` are held as ``int(_:)``; the ledger allows any
+/// integer CBOR can carry, and the rest are held as ``bigInt(_:)``. The two
+/// compare and hash alike when they hold the same value.
 public enum TransactionMetadatum: Serializable, Hashable, Equatable {
     case map(OrderedDictionary<TransactionMetadatum, TransactionMetadatum>)
     case list([TransactionMetadatum])
     case int(Int)
+    case bigInt(BigInt)
     case bytes(Data)
     case text(String)
+
+    /// An integer metadatum for `value`, held as ``int(_:)`` when it fits.
+    public static func integer(_ value: BigInt) -> TransactionMetadatum {
+        Int(exactly: value).map { .int($0) } ?? .bigInt(value)
+    }
+
+    /// The integer this holds, whichever case carries it, or `nil` when this
+    /// is not an integer.
+    public var integerValue: BigInt? {
+        switch self {
+        case .int(let value): return BigInt(value)
+        case .bigInt(let value): return value
+        default: return nil
+        }
+    }
 
     public var debugDescription: String {
         switch self {
         case .int(let i): return "int(\(i))"
+        case .bigInt(let i): return "int(\(i))"
         case .bytes(let data): return "bytes(\(data.base64EncodedString()))"
         case .text(let str): return "text(\(str))"
         case .list(let arr): return "list(\(arr.count) items)"
@@ -27,46 +49,64 @@ public enum TransactionMetadatum: Serializable, Hashable, Equatable {
         return debugDescription
     }
 
+    public static func == (lhs: TransactionMetadatum, rhs: TransactionMetadatum) -> Bool {
+        switch (lhs, rhs) {
+        case (.map(let lhs), .map(let rhs)): return lhs == rhs
+        case (.list(let lhs), .list(let rhs)): return lhs == rhs
+        case (.bytes(let lhs), .bytes(let rhs)): return lhs == rhs
+        case (.text(let lhs), .text(let rhs)): return lhs == rhs
+        default:
+            guard let lhs = lhs.integerValue, let rhs = rhs.integerValue else { return false }
+            return lhs == rhs
+        }
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        switch self {
+        case .map(let map): hasher.combine(0); hasher.combine(map)
+        case .list(let list): hasher.combine(1); hasher.combine(list)
+        case .int, .bigInt: hasher.combine(2); hasher.combine(integerValue)
+        case .bytes(let data): hasher.combine(3); hasher.combine(data)
+        case .text(let text): hasher.combine(4); hasher.combine(text)
+        }
+    }
+
     // MARK: - CBORSerializable
 
+    public static var preservesEncoding: Bool { true }
+
+    /// Reads a metadatum, whether `primitive` keeps how it was written or not.
     public init(from primitive: Primitive) throws {
         switch primitive {
         case .uint(let value):
-            if value >= Int.min && value <= Int.max {
-                self = .int(Int(value))
-            } else {
-                throw CardanoCoreError.deserializeError("Integer value out of bounds for Int type")
-            }
+            self = .integer(BigInt(value))
         case .int(let value):
-            if value >= Int64(Int.min) && value <= Int64(Int.max) {
-                self = .int(Int(value))
-            } else {
-                throw CardanoCoreError.deserializeError("Integer value out of bounds for Int type")
-            }
+            self = .integer(BigInt(value))
+        case .bigInt(let value):
+            self = .integer(value)
+        case .bigUInt(let value):
+            self = .integer(BigInt(value))
+        case .cborTag(let tag) where tag.tag == 2 || tag.tag == 3:
+            // The ledger reads a CBOR bignum as a metadata integer too.
+            self = .integer(try BigInteger(from: primitive).value)
         case .bytes(let data):
             self = .bytes(data)
+        case .byteArray(let bytes):
+            self = .bytes(Data(bytes))
+        case .byteString(let byteString):
+            self = .bytes(byteString.bytes)
         case .string(let string):
             self = .text(string)
+        case .cborSimpleValue(.indefiniteTextString(let chunks)):
+            self = .text(chunks.joined())
         case .list(let array):
-            let list = try array.map { try TransactionMetadatum(from: $0) }
-            self = .list(list)
+            self = .list(try array.map { try TransactionMetadatum(from: $0) })
         case .indefiniteList(let array):
-            let list = try array.map { try TransactionMetadatum(from: $0) }
-            self = .list(list)
-        case .dict(let dict):
+            self = .list(try array.map { try TransactionMetadatum(from: $0) })
+        case .dict, .orderedDict, .indefiniteDictionary:
             var map = OrderedDictionary<TransactionMetadatum, TransactionMetadatum>()
-            for (key, value) in dict {
-                let keyMeta = try TransactionMetadatum(from: key)
-                let valueMeta = try TransactionMetadatum(from: value)
-                map[keyMeta] = valueMeta
-            }
-            self = .map(map)
-        case .orderedDict(let dict):
-            var map = OrderedDictionary<TransactionMetadatum, TransactionMetadatum>()
-            for (key, value) in dict {
-                let keyMeta = try TransactionMetadatum(from: key)
-                let valueMeta = try TransactionMetadatum(from: value)
-                map[keyMeta] = valueMeta
+            for (key, value) in try Metadata.entries(of: primitive) {
+                map[try TransactionMetadatum(from: key)] = try TransactionMetadatum(from: value)
             }
             self = .map(map)
         default:
@@ -78,7 +118,10 @@ public enum TransactionMetadatum: Serializable, Hashable, Equatable {
     public func toPrimitive() throws -> Primitive {
         switch self {
         case .int(let value):
-            return .uint(UInt64(value))
+            return value >= 0 ? .uint(UInt64(value)) : .int(Int64(value))
+        case .bigInt(let value):
+            // Beyond 64 bits the ledger writes a CBOR bignum, as for Plutus data.
+            return try BigInteger(from: .bigInt(value)).toPrimitive()
         case .bytes(let data):
             return .bytes(data)
         case .text(let string):
@@ -123,6 +166,10 @@ public enum TransactionMetadatum: Serializable, Hashable, Equatable {
         case .indefiniteList(let array):
             let list = try array.map { try TransactionMetadatum.fromDict($0) }
             return .list(list)
+        case .bigInt(let value):
+            return .integer(value)
+        case .bigUInt(let value):
+            return .integer(BigInt(value))
         case .dict(let dict):
             // Convert to OrderedDictionary maintaining deterministic order
             // Sort keys to ensure consistent ordering across serialization/deserialization
@@ -155,6 +202,8 @@ public enum TransactionMetadatum: Serializable, Hashable, Equatable {
         switch self {
         case .int(let value):
             return .int(Int64(value))
+        case .bigInt(let value):
+            return .bigInt(value)
         case .bytes(let data):
             return .string(data.base64EncodedString())
         case .text(let string):
@@ -169,6 +218,8 @@ public enum TransactionMetadatum: Serializable, Hashable, Equatable {
                 let keyStr: String
                 switch key {
                 case .int(let i):
+                    keyStr = String(i)
+                case .bigInt(let i):
                     keyStr = String(i)
                 case .bytes(let data):
                     keyStr = data.base64EncodedString()
@@ -220,45 +271,19 @@ public enum MetadataType: Serializable, Equatable {
 
     // MARK: - CBORSerializable
 
+    public static var preservesEncoding: Bool { true }
+
     public init(from primitive: Primitive) throws {
-        if case .cborTag(let cborTag) = primitive,
-            cborTag.tag == AlonzoMetadata.TAG
-        {
+        switch primitive {
+        case .cborTag(let cborTag) where cborTag.tag == AlonzoMetadata.TAG:
             self = .alonzoMetadata(try AlonzoMetadata(from: primitive))
-            return
+        case .dict, .orderedDict, .indefiniteDictionary:
+            self = .metadata(try Metadata(from: primitive))
+        case .list, .indefiniteList:
+            self = .shelleyMaryMetadata(try ShelleyMaryMetadata(from: primitive))
+        default:
+            throw CardanoCoreError.deserializeError("Invalid MetadataType primitive: \(primitive)")
         }
-
-        if case .orderedDict(_) = primitive {
-            let metadata = try Metadata(from: primitive)
-            self = .metadata(metadata)
-            return
-        }
-
-        if case .list(let elements) = primitive, elements.count >= 1 {
-            // Properly initialize metadata and nativeScripts variables
-            var metadata: Metadata!
-            var nativeScripts: [NativeScript]?
-
-            if case .orderedDict(_) = elements[0] {
-                metadata = try Metadata(from: elements[0])
-            } else {
-                throw CardanoCoreError.deserializeError(
-                    "Invalid metadata format in ShelleyMaryMetadata")
-            }
-
-            if elements.count > 1, case .list(let nativeScriptsPrimitive) = elements[1] {
-                nativeScripts =
-                    try nativeScriptsPrimitive
-                    .map { try NativeScript(from: $0) }
-            }
-
-            self = .shelleyMaryMetadata(
-                ShelleyMaryMetadata(metadata: metadata, nativeScripts: nativeScripts)
-            )
-            return
-        }
-
-        throw CardanoCoreError.deserializeError("Invalid MetadataType primitive: \(primitive)")
     }
 
     public func toPrimitive() throws -> Primitive {
@@ -350,84 +375,69 @@ public struct Metadata: Serializable, Equatable {
 
     public static let MAX_ITEM_SIZE = 64
 
-    public var data: [KEY_TYPE: VALUE_TYPE] {
-        get {
-            _data
-        }
-        set {
-            _data = newValue
-        }
-    }
-    private var _data: [KEY_TYPE: VALUE_TYPE] = [:]
+    /// The metadata by label, in the order it is written.
+    ///
+    /// The auxiliary-data hash is taken over the encoded bytes, so the order
+    /// is kept: decoded metadata keeps the order it was read in.
+    public var data: OrderedDictionary<KEY_TYPE, VALUE_TYPE>
 
-    // Custom Equatable to handle dictionary comparison regardless of internal ordering
+    /// Equal when they hold the same labels and values, in whatever order.
     public static func == (lhs: Metadata, rhs: Metadata) -> Bool {
-        return lhs.data == rhs.data
+        guard lhs.data.count == rhs.data.count else { return false }
+        return lhs.data.allSatisfy { rhs.data[$0.key] == $0.value }
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(data.count)
+        for key in data.keys.sorted() {
+            hasher.combine(key)
+            hasher.combine(data[key])
+        }
     }
 
     public subscript(key: KEY_TYPE) -> VALUE_TYPE? {
         get {
-            return _data[key]
+            return data[key]
         }
         set {
-            _data[key] = newValue
+            data[key] = newValue
         }
     }
 
+    /// Metadata written in ascending label order.
+    ///
+    /// - Throws: When a byte string or text string is longer than
+    ///   ``MAX_ITEM_SIZE`` bytes, which the ledger rejects.
     public init(_ data: [KEY_TYPE: VALUE_TYPE]) throws {
-        try validate()
+        try self.init(entries: OrderedDictionary(uniqueKeysWithValues: data.sorted { $0.key < $1.key }))
+    }
 
-        var metadata = [KEY_TYPE: VALUE_TYPE]()
-        for (key, value) in data {
-            let key = key
-            let value = value
-
-            metadata[key] = value
+    /// Metadata written in the order of `entries`.
+    ///
+    /// - Throws: When a byte string or text string is longer than
+    ///   ``MAX_ITEM_SIZE`` bytes, which the ledger rejects.
+    public init(entries: OrderedDictionary<KEY_TYPE, VALUE_TYPE>) throws {
+        for value in entries.values {
+            try Self.validate(value)
         }
-
-        self.data = metadata
-    }
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        data = try container.decode([KEY_TYPE: VALUE_TYPE].self)
-    }
-
-    public func encode(to encoder: Swift.Encoder) throws {
-        var container = encoder.singleValueContainer()
-        try container.encode(data)
+        self.data = entries
     }
 
     // MARK: - CBORSerializable
 
+    public static var preservesEncoding: Bool { true }
+
+    /// Reads metadata as written. Its strings are not checked against
+    /// ``MAX_ITEM_SIZE``: the ledger only began enforcing that limit after the
+    /// first Shelley protocol version, so longer ones are on chain.
     public init(from primitive: Primitive) throws {
         self.data = [:]
-
-        var primitiveDict: OrderedDictionary<Primitive, Primitive> = [:]
-
-        switch primitive {
-        case .dict(let dict):
-            primitiveDict.merge(dict) { (_, new) in new }
-        case .orderedDict(let orderedDict):
-            primitiveDict = orderedDict
-        default:
-            throw CardanoCoreError.deserializeError("Invalid Metadata type: \(primitive)")
-        }
-
-        for (key, value) in primitiveDict {
-            guard case .uint(let keyValue) = key,
-                keyValue >= 0 && keyValue <= UInt64.max
-            else {
+        for (key, value) in try Self.entries(of: primitive) {
+            guard case .uint(let label) = key else {
                 throw CardanoCoreError.deserializeError("Invalid Metadata key type")
             }
-
-            let key = KEY_TYPE(keyValue)
-            let value = try VALUE_TYPE(from: value)
-
-            self.data[key] = value
+            self.data[label] = try VALUE_TYPE(from: value)
         }
-
-        try validate()
     }
 
     public func toPrimitive() throws -> Primitive {
@@ -438,11 +448,22 @@ public struct Metadata: Serializable, Equatable {
         return .orderedDict(dict)
     }
 
+    /// The entries of a map, whichever form `primitive` holds it in.
+    static func entries(of primitive: Primitive) throws -> OrderedDictionary<Primitive, Primitive> {
+        switch primitive {
+        case .orderedDict(let entries), .indefiniteDictionary(let entries):
+            return entries
+        case .dict(let dict):
+            return OrderedDictionary(uniqueKeysWithValues: dict.map { ($0.key, $0.value) })
+        default:
+            throw CardanoCoreError.deserializeError("Invalid Metadata type: \(primitive)")
+        }
+    }
+
     // MARK: - JSONSerializable
 
     public static func fromDict(_ primitive: Primitive) throws -> Metadata {
-        var dict: OrderedDictionary<Primitive, Primitive>
-
+        let dict: OrderedDictionary<Primitive, Primitive>
         switch primitive {
         case .dict(let d):
             dict = OrderedDictionary(uniqueKeysWithValues: d.map { ($0.key, $0.value) })
@@ -452,7 +473,7 @@ public struct Metadata: Serializable, Equatable {
             throw CardanoCoreError.deserializeError("Expected dictionary for Metadata")
         }
 
-        var metadata = [KEY_TYPE: VALUE_TYPE]()
+        var metadata = OrderedDictionary<KEY_TYPE, VALUE_TYPE>()
 
         for (key, value) in dict {
             let keyValue: UInt64
@@ -466,17 +487,24 @@ public struct Metadata: Serializable, Equatable {
             case .uint(let uintValue):
                 keyValue = UInt64(uintValue)
             case .int(let intValue):
-                keyValue = UInt64(intValue)
+                guard let uint = UInt64(exactly: intValue) else {
+                    throw CardanoCoreError.deserializeError("Negative Metadata label: \(intValue)")
+                }
+                keyValue = uint
             default:
                 throw CardanoCoreError.deserializeError(
                     "Expected string or uint key in Metadata dictionary, got: \(key)")
             }
 
-            let metadatumValue = try VALUE_TYPE.fromDict(value)
-            metadata[KEY_TYPE(keyValue)] = metadatumValue
+            metadata[KEY_TYPE(keyValue)] = try VALUE_TYPE.fromDict(value)
         }
 
-        return try Metadata(metadata)
+        // A JSON object has no order of its own, so an unordered one is
+        // written in label order.
+        if case .dict = primitive {
+            metadata.sort { $0.key < $1.key }
+        }
+        return try Metadata(entries: metadata)
     }
 
     public func toDict() throws -> Primitive {
@@ -487,27 +515,21 @@ public struct Metadata: Serializable, Equatable {
         return .orderedDict(result)
     }
 
-    private func validate() throws {
-        func validateTypeAndSize(_ value: Any) throws {
-            if let data = value as? Data, data.count > Self.MAX_ITEM_SIZE {
-                throw CardanoCoreError.invalidArgument(
-                    "Data size exceeds \(Self.MAX_ITEM_SIZE) bytes.")
-            } else if let string = value as? String, string.utf8.count > Self.MAX_ITEM_SIZE {
-                throw CardanoCoreError.invalidArgument(
-                    "String size exceeds \(Self.MAX_ITEM_SIZE) bytes.")
-            } else if let list = value as? [Any] {
-                for item in list {
-                    try validateTypeAndSize(item)
-                }
-            } else if let dict = value as? [String: Any] {
-                for (_, v) in dict {
-                    try validateTypeAndSize(v)
-                }
+    private static func validate(_ value: VALUE_TYPE) throws {
+        switch value {
+        case .bytes(let data) where data.count > MAX_ITEM_SIZE:
+            throw CardanoCoreError.invalidArgument("Data size exceeds \(MAX_ITEM_SIZE) bytes.")
+        case .text(let string) where string.utf8.count > MAX_ITEM_SIZE:
+            throw CardanoCoreError.invalidArgument("String size exceeds \(MAX_ITEM_SIZE) bytes.")
+        case .list(let list):
+            try list.forEach(validate)
+        case .map(let map):
+            for (key, value) in map {
+                try validate(key)
+                try validate(value)
             }
-        }
-
-        for (_, value) in data {
-            try validateTypeAndSize(value)
+        default:
+            break
         }
     }
 }
@@ -524,19 +546,28 @@ public struct ShelleyMaryMetadata: Serializable, Equatable {
 
     // MARK: - CBORSerializable
 
+    public static var preservesEncoding: Bool { true }
+
     public init(from primitive: Primitive) throws {
-        guard case .list(let elements) = primitive, elements.count >= 1 else {
+        guard let elements = Self.elements(of: primitive), elements.count >= 1 else {
             throw CardanoCoreError.deserializeError("Invalid ShelleyMaryMetadata type")
         }
 
         metadata = try Metadata(from: elements[0])
 
-        if elements.count > 1, case .list(let nativeScriptsPrimitive) = elements[1] {
-            nativeScripts =
-                try nativeScriptsPrimitive
-                .map { try NativeScript(from: $0) }
+        if elements.count > 1, let scripts = Self.elements(of: try elements[1].normalized()) {
+            nativeScripts = try scripts.map { try NativeScript(from: $0) }
         } else {
             nativeScripts = nil
+        }
+    }
+
+    /// The elements of a list, whether it was written definite or indefinite.
+    static func elements(of primitive: Primitive) -> [Primitive]? {
+        switch primitive {
+        case .list(let elements): return elements
+        case .indefiniteList(let elements): return elements.getAll()
+        default: return nil
         }
     }
 
@@ -618,6 +649,8 @@ public struct AlonzoMetadata: Serializable, Equatable {
 
     // MARK: - CBORSerializable
 
+    public static var preservesEncoding: Bool { true }
+
     public init(from primitive: Primitive) throws {
         guard case .cborTag(let cborTag) = primitive,
             cborTag.tag == AlonzoMetadata.TAG
@@ -646,54 +679,22 @@ public struct AlonzoMetadata: Serializable, Equatable {
         }
 
         if let metadataPrimitive = cborDict[.uint(0)] {
-            self.metadata = try Metadata(from: metadataPrimitive.toPrimitive())
+            self.metadata = try Metadata(from: metadataPrimitive)
         } else {
             self.metadata = nil
         }
 
-        if let nativeScriptsPrimitive = cborDict[.uint(1)],
-            case .list(let scriptsList) = nativeScriptsPrimitive
-        {
-            self.nativeScripts = try scriptsList.compactMap { primitive -> NativeScript? in
-                let primValue = try primitive.toPrimitive()
-                return try NativeScript(from: primValue)
-            }
-        } else {
-            self.nativeScripts = nil
+        /// The scripts under `key`, read in the usual form.
+        func scripts<T: CBORSerializable>(_ key: UInt64) throws -> [T]? {
+            guard let primitive = cborDict[.uint(key)],
+                let elements = ShelleyMaryMetadata.elements(of: try primitive.normalized())
+            else { return nil }
+            return try elements.map { try T(from: $0) }
         }
-
-        if let plutusV1ScriptPrimitive = cborDict[.uint(2)],
-            case .list(let scriptsList) = plutusV1ScriptPrimitive
-        {
-            self.plutusV1Script = try scriptsList.compactMap { primitive -> PlutusV1Script? in
-                let primValue = try primitive.toPrimitive()
-                return try PlutusV1Script(from: primValue)
-            }
-        } else {
-            self.plutusV1Script = nil
-        }
-
-        if let plutusV2ScriptPrimitive = cborDict[.uint(3)],
-            case .list(let scriptsList) = plutusV2ScriptPrimitive
-        {
-            self.plutusV2Script = try scriptsList.compactMap { primitive -> PlutusV2Script? in
-                let primValue = try primitive.toPrimitive()
-                return try PlutusV2Script(from: primValue)
-            }
-        } else {
-            self.plutusV2Script = nil
-        }
-
-        if let plutusV3ScriptPrimitive = cborDict[.uint(4)],
-            case .list(let scriptsList) = plutusV3ScriptPrimitive
-        {
-            self.plutusV3Script = try scriptsList.compactMap { primitive -> PlutusV3Script? in
-                let primValue = try primitive.toPrimitive()
-                return try PlutusV3Script(from: primValue)
-            }
-        } else {
-            self.plutusV3Script = nil
-        }
+        self.nativeScripts = try scripts(1)
+        self.plutusV1Script = try scripts(2)
+        self.plutusV2Script = try scripts(3)
+        self.plutusV3Script = try scripts(4)
     }
 
     public func toPrimitive() throws -> Primitive {
@@ -831,7 +832,15 @@ public struct AlonzoMetadata: Serializable, Equatable {
 
 // MARK: - AuxiliaryData
 public struct AuxiliaryData: Serializable, Equatable {
-    public var data: MetadataType
+    public var data: MetadataType { didSet { originalCBOR = nil } }
+
+    /// The exact bytes this was decoded from, while it is unchanged.
+    ///
+    /// The body commits to the hash of the auxiliary data as written, and
+    /// decoding cannot keep every detail of it — the width of an integer's
+    /// header, for one — so while this is set ``toCBORData(deterministic:)``
+    /// returns these bytes and ``hash()`` hashes them.
+    public internal(set) var originalCBOR: Data? = nil
 
     public init(data: MetadataType) {
         self.data = data
@@ -840,6 +849,15 @@ public struct AuxiliaryData: Serializable, Equatable {
     // Custom Equatable to handle semantic comparison
     public static func == (lhs: AuxiliaryData, rhs: AuxiliaryData) -> Bool {
         return lhs.data == rhs.data
+    }
+
+    /// Hashes the metadata alone, which every value `==` holds equal shares.
+    public func hash(into hasher: inout Hasher) {
+        switch data {
+        case .metadata(let metadata): hasher.combine(metadata)
+        case .shelleyMaryMetadata(let shelleyMary): hasher.combine(shelleyMary.metadata)
+        case .alonzoMetadata(let alonzo): hasher.combine(alonzo.metadata)
+        }
     }
 
     /// Compute a blake2b hash from the key
@@ -854,7 +872,31 @@ public struct AuxiliaryData: Serializable, Equatable {
         )
     }
 
+    /// Decodes auxiliary data, keeping the bytes it was read from.
+    public static func fromCBOR(data: Data) throws -> AuxiliaryData {
+        let scanner = CBORItemScanner(data)
+        guard try scanner.end(ofItemAt: 0) == scanner.bytes.count else {
+            throw CardanoCoreError.deserializeError("Trailing bytes after AuxiliaryData")
+        }
+        var auxiliaryData = try CBORDecoder().decode(AuxiliaryData.self, from: data)
+        auxiliaryData.originalCBOR = scanner.bytes
+        return auxiliaryData
+    }
+
+    public init(from cbor: Data) throws {
+        self = try Self.fromCBOR(data: cbor)
+    }
+
+    /// The bytes this was decoded from while it is unchanged, otherwise a
+    /// fresh encoding.
+    public func toCBORData(deterministic: Bool = false) throws -> Data {
+        _ = deterministic
+        return try originalCBOR ?? CBOREncoder().encode(self)
+    }
+
     // MARK: - CBORSerializable
+
+    public static var preservesEncoding: Bool { true }
 
     public init(from primitive: Primitive) throws {
         self.data = try MetadataType(from: primitive)

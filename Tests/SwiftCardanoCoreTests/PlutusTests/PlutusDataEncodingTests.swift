@@ -1,3 +1,4 @@
+import BigInt
 import Foundation
 import SwiftNaCl
 import Testing
@@ -164,6 +165,44 @@ struct PlutusDataEncodingTests {
     func rawMapToPlutusData() throws {
         let raw = try RawPlutusData.fromCBORHex("bf0102ff")
         #expect(try raw.toPlutusData() == PlutusData.fromCBORHex("a10102"))
+    }
+
+    // MARK: - Integers
+
+    @Test("Integers across the whole range keep their encoding", arguments: [
+        "1bffffffffffffffff",  // 2^64 - 1
+        "3b7fffffffffffffff",  // -2^63
+        "3b8000000000000000",  // -2^63 - 1
+        "3bffffffffffffffff",  // -2^64
+        "c249010000000000000000",  // 2^64
+        "c349010000000000000000",  // -2^64 - 1
+    ])
+    func integerRange(hex: String) throws {
+        try expectRoundTrip(hex)
+    }
+
+    @Test("Integers are read with their value", arguments: [
+        ("3bffffffffffffffff", -(BigInt(1) << 64)),
+        ("3b8000000000000000", -(BigInt(1) << 63) - 1),
+        ("1bffffffffffffffff", (BigInt(1) << 64) - 1),
+    ])
+    func integerValues(hex: String, value: BigInt) throws {
+        guard case .bigInt(let integer) = try PlutusData.fromCBORHex(hex) else {
+            Issue.record("not an integer")
+            return
+        }
+        #expect(integer.value == value)
+        #expect(try PlutusData.bigInt(BigInteger(from: .bigInt(value))).toCBORHex() == hex)
+    }
+
+    @Test("A bignum over 64 bytes is written in chunks of 64")
+    func longBignum() throws {
+        // 2^512: a one and 64 zero bytes.
+        let hex = "c25f5840" + "01" + String(repeating: "00", count: 63) + "4100" + "ff"
+        let value = PlutusData.bigInt(try BigInteger(from: .bigInt(BigInt(1) << 512)))
+        #expect(try value.toCBORHex() == hex)
+        #expect(try PlutusData.fromCBORHex(hex) == value)
+        try expectRoundTrip(hex)
     }
 
     // MARK: - Malformed input

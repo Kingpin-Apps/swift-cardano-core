@@ -106,6 +106,59 @@ struct CBORItemScanner {
         return spans
     }
 
+    /// The byte spans of the keys and values of the map that starts at
+    /// `offset`, in the order they were written.
+    func entries(ofMapAt offset: Int) throws -> [(key: Range<Int>, value: Range<Int>)] {
+        let header = try header(at: offset)
+        guard header.major == 5 else {
+            throw CardanoCoreError.deserializeError("Expected a CBOR map at byte \(offset)")
+        }
+        var entries: [(key: Range<Int>, value: Range<Int>)] = []
+        var position = header.end
+        func next() throws {
+            let keyEnd = try end(ofItemAt: position)
+            let valueEnd = try end(ofItemAt: keyEnd)
+            entries.append((position..<keyEnd, keyEnd..<valueEnd))
+            position = valueEnd
+        }
+        if let count = header.argument {
+            for _ in 0..<count { try next() }
+        } else {
+            while try byte(at: position) != 0xFF { try next() }
+        }
+        return entries
+    }
+
+    /// The offset of the item inside any tags that start at `offset`.
+    func untagged(at offset: Int) throws -> Int {
+        var position = offset
+        while case let header = try header(at: position), header.major == 6 {
+            position = header.end
+        }
+        return position
+    }
+
+    /// The unsigned integer that starts at `offset`, or `nil` when the item
+    /// there is anything else.
+    func unsignedInteger(at offset: Int) throws -> UInt64? {
+        let header = try header(at: offset)
+        return header.major == 0 ? header.argument : nil
+    }
+
+    /// The header of a definite-length array (major type 4) or map (major
+    /// type 5) of `count` items or entries, in its shortest form.
+    static func definiteHeader(major: UInt8, count: Int) -> Data {
+        let initial = major << 5
+        let count = UInt64(count)
+        switch count {
+        case 0..<24: return Data([initial | UInt8(count)])
+        case 24...0xFF: return Data([initial | 24, UInt8(count)])
+        case 0x100...0xFFFF: return Data([initial | 25]) + withUnsafeBytes(of: UInt16(count).bigEndian) { Data($0) }
+        case 0x10000...0xFFFF_FFFF: return Data([initial | 26]) + withUnsafeBytes(of: UInt32(count).bigEndian) { Data($0) }
+        default: return Data([initial | 27]) + withUnsafeBytes(of: count.bigEndian) { Data($0) }
+        }
+    }
+
     private func skip(_ count: Int, itemsFrom offset: Int) throws -> Int {
         var position = offset
         for _ in 0..<count {
