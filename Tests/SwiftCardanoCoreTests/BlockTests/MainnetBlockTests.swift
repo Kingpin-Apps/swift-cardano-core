@@ -79,4 +79,14 @@ struct MainnetBlockTests {
         let (era, bytes) = try Self.load("data/blocks-prerelease", "conway4.block")
         #expect(throws: CardanoCoreError.self) { try Block.fromCBOR(data: bytes, era: era) }
     }
+
+    @Test("A hash of the wrong length fails to decode, as today's node rejects it")
+    func wrongHashLength() throws {
+        // pallas's "peculiar block with hash-size issue": a stake delegation
+        // whose pool key hash is 56 bytes. Older cardano-base packed hashes
+        // without checking their length; today's checks it exactly, and so
+        // does this.
+        let (era, bytes) = try Self.load("data/blocks-prerelease", "conway8.block")
+        #expect(throws: CardanoCoreError.self) { try Block.fromCBOR(data: bytes, era: era) }
+    }
 }

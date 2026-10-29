@@ -146,7 +146,15 @@ Four things make this hold:
   their own, the generic CBOR decoder rejects any repeated map key.
 - **A value outside its field's range fails to decode**, as in the ledger — a
   protocol parameter that is a 16-bit number, say — rather than wrapping or
-  crashing.
+  crashing. So does a hash of the wrong length: a key hash must be 28 bytes and
+  a transaction id 32, and the ledger rejects any other size.
+- **Decoding never crashes.** Whatever the input — CBOR bytes, a ``Primitive``,
+  JSON — a decoder either produces a value or throws a ``CardanoCoreError``:
+  lengths and counts are checked against the bytes present, nesting is capped,
+  and no integer is narrowed with a conversion that traps. ``Primitive`` offers
+  the same tools to code that reads its own types:
+  `integer(_:as:)` reads an integer into a type, throwing when it does not fit,
+  and `Primitive.integer(_:)` writes one without trapping.
 
 > Note: `toCBORData(deterministic:)` accepts a flag that is currently ignored.
 > Cardano's notion of deterministic encoding (CIP-21) is not RFC 8949 §4.2 — it
