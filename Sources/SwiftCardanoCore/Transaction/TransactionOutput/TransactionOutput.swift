@@ -128,7 +128,8 @@ public struct TransactionOutput: Serializable {
     // MARK: - CBORSerializable
     
     public init(from primitives: Primitive) throws {
-        if case .list(_) = primitives {
+        // An old-style output is an array, of definite or indefinite length.
+        if Self.isArray(primitives) {
             let output = try ShelleyTransactionOutput(from: primitives)
             self.address = output.address
             self.amount = output.amount
@@ -161,21 +162,37 @@ public struct TransactionOutput: Serializable {
         }
     }
     
+    private static func isArray(_ primitive: Primitive) -> Bool {
+        switch primitive {
+        case .list, .indefiniteList: return true
+        default: return false
+        }
+    }
+
+    /// The one datum this output holds, if any.
+    ///
+    /// - Throws: When both ``datumHash`` and ``datumOption`` are set. An
+    ///   output holds at most one datum (`datum_option`, or the legacy
+    ///   output's datum hash), so writing one would silently drop the other.
+    private func singleDatumOption() throws -> DatumOption? {
+        switch (datumHash, datumOption) {
+        case (.some, .some):
+            throw CardanoCoreError.valueError(
+                "A transaction output holds at most one datum: set datumHash or datumOption, not both")
+        case (.some(let hash), nil):
+            return DatumOption(datum: hash)
+        case (nil, let option):
+            return option
+        }
+    }
+
     public func toPrimitive() throws -> Primitive {
         if let originalCBOR {
             return .cborSimpleValue(.encoded(originalCBOR))
         }
         if self.datumOption != nil || self.script != nil || self.postAlonzo {
-            let datumOption: DatumOption?
+            let datumOption = try singleDatumOption()
             let scriptRef: ScriptRef?
-            
-            if let datumHash = self.datumHash {
-                datumOption = DatumOption(datum: datumHash)
-            } else if let datum = self.datumOption {
-                datumOption = datum
-            } else {
-                datumOption = nil
-            }
             
             if let script = script {
                 scriptRef = try ScriptRef(script: Script(script: script))
@@ -255,8 +272,8 @@ public struct TransactionOutput: Serializable {
             let output = try BabbageTransactionOutput.fromDict(.orderedDict(orderedDict))
             let datum = output.datumOption?.datum ?? nil
             
-            var datumHash: DatumHash?
-            var datumOption: DatumOption?
+            let datumHash: DatumHash?
+            let datumOption: DatumOption?
             
             switch datum {
                 case .datumHash(let hash):
@@ -270,17 +287,12 @@ public struct TransactionOutput: Serializable {
                     datumOption = nil
             }
             
-            // Restore the separate datumHash if it was stored (when both were set)
-            if let extraDatumHashStr = orderedDict[.string("_datumHash")] {
-                if case let .string(base64Str) = extraDatumHashStr {
-                    if let data = Data(base64Encoded: base64Str) {
-                        datumHash = DatumHash(payload: data)
-                        // Keep datumOption as is since both were set
-                        if output.datumOption != nil {
-                            datumOption = output.datumOption
-                        }
-                    }
-                }
+            // Older versions wrote a second datum here, as `_datumHash`, for
+            // an output holding both a datum hash and a datum option. An
+            // output holds only one, so such a dict is refused.
+            if orderedDict[.string("_datumHash")] != nil {
+                throw CardanoCoreError.deserializeError(
+                    "TransactionOutput dict: `_datumHash` gives a second datum; an output holds at most one")
             }
             
             // Use the explicit postAlonzo flag if it was set, otherwise default based on format
@@ -315,17 +327,9 @@ public struct TransactionOutput: Serializable {
     
     public func toDict() throws -> Primitive {
         if self.datumOption != nil || self.script != nil || self.postAlonzo {
-            let datumOption: DatumOption?
+            // The same datum the CBOR holds; both set is refused, as there.
+            let datumOption = try singleDatumOption()
             let scriptRef: ScriptRef?
-            
-            // Prefer the explicitly set datumOption over datumHash
-            if let datum = self.datumOption {
-                datumOption = datum
-            } else if let datumHash = self.datumHash {
-                datumOption = DatumOption(datum: datumHash)
-            } else {
-                datumOption = nil
-            }
             
             if let script = script {
                 scriptRef = try ScriptRef(script: Script(script: script))
@@ -349,11 +353,6 @@ public struct TransactionOutput: Serializable {
             // Add extra fields for proper round-tripping
             dict[.string("postAlonzo")] = .bool(postAlonzo)
             
-            // If both datumHash and datumOption are set, preserve datumHash separately
-            if self.datumHash != nil && self.datumOption != nil {
-                dict[.string("_datumHash")] = .string(self.datumHash!.payload.base64EncodedString())
-            }
-            
             return .orderedDict(dict)
         } else {
             return try ShelleyTransactionOutput(
@@ -372,6 +371,7 @@ public struct TransactionOutput: Serializable {
     /// `eras/mary/impl/src/Cardano/Ledger/Mary/Value.hs`). A zero asset
     /// amount cannot occur: ``Asset`` drops it.
     public func validate() throws {
+        _ = try singleDatumOption()
         if amount.coin < 0 {
             throw CardanoCoreError.invalidArgument("Transaction output cannot have negative amount of ADA: \(amount)")
         }

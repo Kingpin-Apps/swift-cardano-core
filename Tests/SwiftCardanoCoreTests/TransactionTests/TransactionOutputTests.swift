@@ -128,11 +128,24 @@ struct TransactionOutputTests {
         )
             
         
-        let output1 = TransactionOutput(
+        // An output holds one datum: both set is refused rather than one
+        // being dropped.
+        let both = TransactionOutput(
             address: address,
             amount: amount,
             datumHash: datumHash,
             datumOption: datumOption,
+            script: script,
+            postAlonzo: true
+        )
+        #expect(throws: (any Error).self) { try JSONEncoder().encode(both) }
+        #expect(throws: (any Error).self) { try both.toCBORData() }
+
+        let inlineDatum = DatumOption(datum: .data(try SwiftCardanoCore.Unit().toPlutusData()))
+        let output1 = TransactionOutput(
+            address: address,
+            amount: amount,
+            datumOption: inlineDatum,
             script: script,
             postAlonzo: true
         )
@@ -141,7 +154,6 @@ struct TransactionOutputTests {
             address: address,
             amount: amount,
             datumHash: datumHash,
-            datumOption: datumOption,
             script: script,
             postAlonzo: false
         )

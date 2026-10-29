@@ -130,6 +130,8 @@ struct DecodeCrashSystemicTests {
     @Test("Execution units reject a negative value")
     func exUnits() throws {
         #expect(throws: (any Error).self) { try ExUnits.fromCBORHex("822000") }
-        #expect(try ExUnits.fromCBORHex("821bffffffffffffffff01").mem == UInt64.max)
+        // The ledger caps each field at Int64.max.
+        #expect(throws: (any Error).self) { try ExUnits.fromCBORHex("821bffffffffffffffff01") }
+        #expect(try ExUnits.fromCBORHex("821b7fffffffffffffff01").mem == UInt64(Int64.max))
     }
 }

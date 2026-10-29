@@ -21,7 +21,7 @@ import FractionNumber
         ),
         relays: [
             .singleHostName(
-                SingleHostName(port: 6000, dnsName: "relay.yourpoollink.com")
+                try! SingleHostName(port: 6000, dnsName: "relay.yourpoollink.com")
             )
         ],
         poolMetadata: try! PoolMetadata(

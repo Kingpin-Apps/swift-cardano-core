@@ -137,6 +137,33 @@ public struct ProtocolParams: Codable, Equatable, Hashable {
             try c.encode(tag, forKey: .tag)
             if tag == "Nonce" { try c.encodeIfPresent(contents, forKey: .contents) }
         }
+
+        /// The entropy of `nonce`.
+        public init(_ nonce: Nonce) {
+            if let hash = nonce.hash {
+                self.init(tag: "Nonce", contents: hash.toHex)
+            } else {
+                self = .neutral
+            }
+        }
+
+        /// This entropy as a ``Nonce``.
+        ///
+        /// - Throws: When ``tag`` is neither `NeutralNonce` nor `Nonce`, or a
+        ///   `Nonce` does not hold a 32-byte hex hash.
+        public func nonce() throws -> Nonce {
+            switch tag {
+            case "NeutralNonce":
+                return .neutral
+            case "Nonce":
+                guard let contents else {
+                    throw CardanoCoreError.valueError("ExtraEntropy: a Nonce needs its hash")
+                }
+                return try Nonce(hash: try shelleyHexBytes(contents, Nonce.hashSize, "extraEntropy nonce"))
+            default:
+                throw CardanoCoreError.valueError("ExtraEntropy: unknown tag \(tag)")
+            }
+        }
     }
 
     public let protocolVersion: ProtocolVersion
@@ -736,32 +763,15 @@ extension ProtocolParams {
 
     /// `Nonce`: `[0]` for `NeutralNonce`, `[1, hash]` for a `Nonce`.
     private static func readExtraEntropy(_ p: Primitive) throws -> ExtraEntropy {
-        let items = try shelleyList(p, "ProtocolParams extraEntropy")
-        guard let first = items.first else {
-            throw CardanoCoreError.deserializeError("ProtocolParams extraEntropy: empty")
-        }
-        switch try first.integer("ProtocolParams extraEntropy tag", as: UInt8.self) {
-        case 0 where items.count == 1:
-            return .neutral
-        case 1 where items.count == 2:
-            return ExtraEntropy(tag: "Nonce", contents: try shelleyBytes(items[1], 32, "extraEntropy nonce"))
-        default:
-            throw CardanoCoreError.deserializeError("ProtocolParams extraEntropy: not a Nonce: \(p)")
+        do {
+            return ExtraEntropy(try Nonce(from: p))
+        } catch {
+            throw CardanoCoreError.deserializeError("ProtocolParams extraEntropy: not a Nonce: \(p): \(error)")
         }
     }
 
     private static func extraEntropyPrimitive(_ entropy: ExtraEntropy) throws -> Primitive {
-        switch entropy.tag {
-        case "NeutralNonce":
-            return .list([.uint(0)])
-        case "Nonce":
-            guard let hash = entropy.contents else {
-                throw CardanoCoreError.valueError("ProtocolParams extraEntropy: a Nonce needs its hash")
-            }
-            return .list([.uint(1), .bytes(try shelleyHexBytes(hash, 32, "extraEntropy nonce"))])
-        default:
-            throw CardanoCoreError.valueError("ProtocolParams extraEntropy: unknown tag \(entropy.tag)")
-        }
+        try entropy.nonce().toPrimitive()
     }
 }
 

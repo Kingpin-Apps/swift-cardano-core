@@ -40,15 +40,9 @@ public struct PoolOperator: Serializable {
         try self.init(from: data)
     }
     
+    /// - Throws: Unless `hex` is the 28 bytes of a pool key hash.
     public init(from hex: Data) throws {
-        let poolKeyHash = PoolKeyHash(payload: hex)
-        let hexData = Bech32().encode(hrp: "pool", witprog: hex)
-        
-        if hexData == nil {
-            throw CardanoCoreError.valueError("Invalid PoolId format. The PoolId should be a valid Cardano stake pool ID in bech32 format.")
-        }
-        
-        self.init(poolKeyHash: poolKeyHash)
+        self.init(poolKeyHash: try PoolKeyHash.checked(hex))
     }
     
     public init(from primitive: Primitive) throws {
@@ -65,13 +59,25 @@ public struct PoolOperator: Serializable {
         return poolKeyHash.toPrimitive()
     }
 
+    /// JSON is the bech32 `pool…` string; CBOR is the pool key hash's bytes,
+    /// as ``toPrimitive()`` writes them.
     public init(from decoder: Decoder) throws {
+        guard String(describing: type(of: decoder)).contains("JSONDecoder") else {
+            let primitive = try Primitive.decode(from: decoder, preservingEncoding: false)
+            try self.init(from: primitive)
+            return
+        }
         let container = try decoder.singleValueContainer()
         let bech32 = try container.decode(String.self)
         try self.init(from: bech32)
     }
     
     public func encode(to encoder: Encoder) throws {
+        guard String(describing: type(of: encoder)).contains("JSONEncoder") else {
+            var container = encoder.singleValueContainer()
+            try container.encode(try toPrimitive())
+            return
+        }
         var container = encoder.singleValueContainer()
         try container.encode(try self.toBech32())
     }

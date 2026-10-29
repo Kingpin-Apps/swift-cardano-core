@@ -15,8 +15,15 @@ public struct ShelleyTransactionOutput: Serializable {
     
     // MARK: - CBORSerializable
     
-    public init(from primitive: Primitive) throws {
-        guard case let .list(primitive) = primitive else {
+    public init(from primitiveValue: Primitive) throws {
+        // The ledger reads the array with a definite or an indefinite length
+        // (`decodeRecordNamed` in Shelley; `decodeListLenOrIndef` in the
+        // Alonzo and Babbage decoders).
+        let primitive: [Primitive]
+        switch primitiveValue {
+        case .list(let list): primitive = list
+        case .indefiniteList(let list): primitive = list.getAll()
+        default:
             throw CardanoCoreError.deserializeError("Invalid TransactionOutputLegacy type")
         }
         

@@ -8,9 +8,26 @@ public struct SingleHostName: Serializable, Sendable {
     public let port: Int?
     public let dnsName: String?
     
-    public init(port: Int?, dnsName: String?) {
+    /// The longest DNS name a relay may give, in bytes of UTF-8:
+    /// `dns_name = text .size (0 .. 128)` in the Conway CDDL. The ledger
+    /// counts bytes, not characters (`textSizeN`,
+    /// `libs/cardano-ledger-core/src/Cardano/Ledger/BaseTypes.hs`).
+    public static let maxDnsNameSize = 128
+
+    /// - Throws: When `dnsName` is longer than ``maxDnsNameSize`` bytes.
+    public init(port: Int?, dnsName: String?) throws {
         self.port = port
-        self.dnsName = dnsName
+        self.dnsName = try Self.checkedDnsName(dnsName)
+    }
+
+    /// `name`, when it fits `dns_name`.
+    static func checkedDnsName(_ name: String?) throws -> String? {
+        guard let name else { return nil }
+        guard name.utf8.count <= maxDnsNameSize else {
+            throw CardanoCoreError.valueError(
+                "A relay's DNS name may be at most \(maxDnsNameSize) bytes, got \(name.utf8.count): \(name)")
+        }
+        return name
     }
     
     // MARK: - CBORSerializable
@@ -46,7 +63,7 @@ public struct SingleHostName: Serializable, Sendable {
         if let dnsNameElement = iterator.next() {
             switch dnsNameElement {
                 case .string(let dnsNameValue):
-                    self.dnsName = dnsNameValue
+                    self.dnsName = try Self.checkedDnsName(dnsNameValue)
                 default:
                     // dns_name is text: it has no null.
                     throw CardanoCoreError.deserializeError("Invalid dnsName value in SingleHostName")
@@ -108,7 +125,7 @@ public struct SingleHostName: Serializable, Sendable {
             }
         }
         
-        return SingleHostName(port: port, dnsName: dnsName)
+        return try SingleHostName(port: port, dnsName: dnsName)
     }
     
     public func toDict() throws -> Primitive {

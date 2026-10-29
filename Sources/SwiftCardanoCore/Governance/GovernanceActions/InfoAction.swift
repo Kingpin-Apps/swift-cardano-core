@@ -6,20 +6,9 @@ public struct InfoAction: GovernanceAction {
     
     public init() {}
     
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        let code = try container.decode(Int.self)
-        
-        guard code == Self.code.rawValue else {
-            throw CardanoCoreError.deserializeError("Invalid InfoAction type: \(code)")
-        }
-    }
-    
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-        try container.encode(Self.code)
-    }
-    
+    // Codable goes through `init(from: Primitive)` and `toPrimitive()`, the
+    // default for a `CBORSerializable`, so `toCBORData()` writes the CDDL's form.
+
     public init(from primitive: Primitive) throws {
         guard case let .list(elements) = primitive,
               elements.count == 1,

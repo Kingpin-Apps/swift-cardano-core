@@ -16,29 +16,9 @@ public struct UpdateCommittee: GovernanceAction {
         self.interval = interval
     }
     
-    public init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        let code = try container.decode(Int.self)
-        
-        guard code == Self.code.rawValue else {
-            throw CardanoCoreError.deserializeError("Invalid UpdateCommittee type: \(code)")
-        }
-        
-        id = try container.decode(GovActionID.self)
-        coldCredentials = try Set(container.decode([CommitteeColdCredential].self))
-        credentialEpochs = try container.decode([CommitteeColdCredential: UInt64].self)
-        interval = try container.decode(UnitInterval.self)
-    }
-    
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.unkeyedContainer()
-        try container.encode(Self.code)
-        try container.encode(id)
-        try container.encode(coldCredentials)
-        try container.encode(credentialEpochs)
-        try container.encode(interval)
-    }
-    
+    // Codable goes through `init(from: Primitive)` and `toPrimitive()`, the
+    // default for a `CBORSerializable`, so `toCBORData()` writes the CDDL's form.
+
     public init(from primitive: Primitive) throws {
         guard case let .list(elements) = primitive, elements.count == 5 else {
             throw CardanoCoreError.deserializeError("Invalid UpdateCommittee primitive")
@@ -55,13 +35,21 @@ public struct UpdateCommittee: GovernanceAction {
             self.id = try GovActionID(from: elements[1])
         }
         
-        // Parse coldCredentials set (may arrive as tag-258 wrapped set or plain list)
+        // `set<committee_cold_credential>`: `#6.258([* a]) / [* a]`, the array
+        // of either definite or indefinite length. A tag around anything but
+        // an array is not a set.
         let credentialsList: [Primitive]
         switch elements[2] {
         case .list(let l): credentialsList = l
+        case .indefiniteList(let l): credentialsList = l.getAll()
         case .cborTag(let t) where t.tag == 258:
-            if case .list(let l) = t.value { credentialsList = l }
-            else { credentialsList = [] }
+            switch t.value {
+            case .list(let l): credentialsList = l
+            case .indefiniteList(let l): credentialsList = l.getAll()
+            default:
+                throw CardanoCoreError.deserializeError(
+                    "UpdateCommittee: a #6.258 set must wrap an array, got \(t.value)")
+            }
         default:
             throw CardanoCoreError.deserializeError("Invalid coldCredentials in UpdateCommittee")
         }

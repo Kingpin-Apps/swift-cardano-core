@@ -6,26 +6,14 @@ public struct MultiHostName: Serializable, Sendable {
     public static var code: Int { get { return 2 } }
     public let dnsName: String?
     
-    public init(dnsName: String?) {
-        self.dnsName = dnsName
+    /// - Throws: When `dnsName` is longer than
+    ///   ``SingleHostName/maxDnsNameSize`` bytes of UTF-8.
+    public init(dnsName: String?) throws {
+        self.dnsName = try SingleHostName.checkedDnsName(dnsName)
     }
-    
-    public init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        let code = try container.decode(Int.self)
-        
-        guard code == 2 else {
-            throw CardanoCoreError.deserializeError("Invalid MultiHostName type: \(code)")
-        }
-        
-        dnsName = try container.decodeIfPresent(String.self)
-    }
-    
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.unkeyedContainer()
-        try container.encode(Self.code)
-        try container.encode(dnsName)
-    }
+
+    // Codable is the `Serializable` default: CBOR through `toPrimitive()`
+    // and `init(from: Primitive)`, so `toCBORData()` writes the CDDL's form.
     
     // MARK: - CBORSerializable
     
@@ -46,7 +34,7 @@ public struct MultiHostName: Serializable, Sendable {
         if let dnsNameElement = iterator.next() {
             switch dnsNameElement {
                 case .string(let dnsNameValue):
-                    self.dnsName = dnsNameValue
+                    self.dnsName = try SingleHostName.checkedDnsName(dnsNameValue)
                 default:
                     // dns_name is text: it has no null.
                     throw CardanoCoreError.deserializeError("Invalid dnsName value in MultiHostName")
@@ -96,7 +84,7 @@ public struct MultiHostName: Serializable, Sendable {
             dnsName = nil
         }
         
-        return MultiHostName(dnsName: dnsName)
+        return try MultiHostName(dnsName: dnsName)
     }
 
     public func toDict() throws -> Primitive {

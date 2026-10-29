@@ -387,35 +387,29 @@ public struct Constitution: CBORSerializable, Sendable {
         self.scriptHash = scriptHash
     }
     
-    public init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        anchor = try container.decode(Anchor.self)
-        // The guardrails script hash is optional; `encode` writes `nil` as a CBOR
-        // null, so it must be decoded with `decodeIfPresent` (a plain `decode`
-        // throws on the null and makes a guardrails-less constitution un-round-trippable).
-        scriptHash = try container.decodeIfPresent(ScriptHash.self)
-    }
+    // Codable goes through `init(from: Primitive)` and `toPrimitive()`, the
+    // default for a `CBORSerializable`: a guardrails-less constitution's null
+    // script hash, and the anchor's checks, are handled there.
 
     public init(from primitive: Primitive) throws {
-        guard case let .list(primitive) = primitive,
-              primitive.count == 2 else {
+        let elements: [Primitive]
+        switch primitive {
+        case .list(let list): elements = list
+        case .indefiniteList(let list): elements = list.getAll()
+        default: throw CardanoCoreError.deserializeError("Invalid Constitution type")
+        }
+        guard elements.count == 2 else {
             throw CardanoCoreError.deserializeError("Invalid Constitution type")
         }
-        self.anchor = try Anchor(from: primitive[0])
+        self.anchor = try Anchor(from: elements[0])
         // A constitution with no guardrails script encodes its script hash as
         // `.null` (see `toPrimitive`); map that back to nil rather than feeding
         // `.null` to `ScriptHash(from:)`, which throws "Invalid ScriptHash type: null".
-        if case .null = primitive[1] {
+        if case .null = elements[1] {
             self.scriptHash = nil
         } else {
-            self.scriptHash = try ScriptHash(from: primitive[1])
+            self.scriptHash = try ScriptHash(from: elements[1])
         }
-    }
-    
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.unkeyedContainer()
-        try container.encode(anchor)
-        try container.encode(scriptHash)
     }
     
     public func toPrimitive() throws -> Primitive {

@@ -1,4 +1,5 @@
 import Foundation
+import OrderedCollections
 
 
 public struct TreasuryWithdrawalsAction: GovernanceAction {
@@ -12,25 +13,9 @@ public struct TreasuryWithdrawalsAction: GovernanceAction {
         self.policyHash = policyHash
     }
     
-    public init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        let code = try container.decode(Int.self)
-        
-        guard code == Self.code.rawValue else {
-            throw CardanoCoreError.deserializeError("Invalid TreasuryWithdrawalsAction type: \(code)")
-        }
-        
-        withdrawals = try container.decode([RewardAccount: Coin].self)
-        policyHash = try container.decode(PolicyHash.self)
-    }
-    
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.unkeyedContainer()
-        try container.encode(Self.code)
-        try container.encode(withdrawals)
-        try container.encode(policyHash)
-    }
-    
+    // Codable goes through `init(from: Primitive)` and `toPrimitive()`, the
+    // default for a `CBORSerializable`, so `toCBORData()` writes the CDDL's form.
+
     public init(from primitive: Primitive) throws {
         guard case let .list(elements) = primitive, elements.count == 3 else {
             throw CardanoCoreError.deserializeError("Invalid TreasuryWithdrawalsAction primitive")
@@ -67,15 +52,19 @@ public struct TreasuryWithdrawalsAction: GovernanceAction {
     }
     
     public func toPrimitive() throws -> Primitive {
-        // Convert withdrawals dictionary to primitive
-        var withdrawalsDict: [Primitive: Primitive] = [:]
-        for (rewardAccount, coin) in withdrawals {
+        // A Swift `Dictionary` iterates in a different order from one process
+        // to the next, so the accounts are written sorted by their bytes:
+        // the same action always encodes, and hashes, the same way.
+        var withdrawalsDict = OrderedDictionary<Primitive, Primitive>()
+        for (rewardAccount, coin) in withdrawals.sorted(by: {
+            $0.key.lexicographicallyPrecedes($1.key)
+        }) {
             withdrawalsDict[.bytes(rewardAccount)] = .integer(coin)
         }
 
         return .list([
             .int(Int64(Self.code.rawValue)),
-            .dict(withdrawalsDict),
+            .orderedDict(withdrawalsDict),
             policyHash?.toPrimitive() ?? .null
         ])
     }

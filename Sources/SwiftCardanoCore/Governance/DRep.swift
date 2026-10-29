@@ -16,8 +16,16 @@ public enum DRepType: CBORSerializable, Hashable, Sendable {
     }
     
     public init(from primitive: Primitive) throws {
-        guard case let .list(elements) = primitive,
-              elements.count >= 1,
+        // drep = [0, addr_keyhash] / [1, script_hash] / [2] / [3], with a
+        // definite or indefinite length (`decodeRecordSum`).
+        let elements: [Primitive]
+        switch primitive {
+        case .list(let list): elements = list
+        case .indefiniteList(let list): elements = list.getAll()
+        default:
+            throw CardanoCoreError.deserializeError("Invalid DRepType primitive")
+        }
+        guard elements.count >= 1,
               case let .uint(tag) = elements[0] else {
             throw CardanoCoreError.deserializeError("Invalid DRepType primitive")
         }
@@ -34,8 +42,14 @@ public enum DRepType: CBORSerializable, Hashable, Sendable {
                 }
                 self = .scriptHash(try ScriptHash(from: elements[1]))
             case 2:
+                guard elements.count == 1 else {
+                    throw CardanoCoreError.deserializeError("Invalid DRepType alwaysAbstain primitive: expected [2]")
+                }
                 self = .alwaysAbstain
             case 3:
+                guard elements.count == 1 else {
+                    throw CardanoCoreError.deserializeError("Invalid DRepType alwaysNoConfidence primitive: expected [3]")
+                }
                 self = .alwaysNoConfidence
             default:
                 throw CardanoCoreError.deserializeError("Invalid DRepType tag: \(tag)")
@@ -135,11 +149,9 @@ public struct DRep: CBORSerializable, CustomStringConvertible, CustomDebugString
     public init(from hex: Data, as credentialType: GovernanceCredentialType) throws {
         switch credentialType {
             case .keyHash:
-                let verificationKeyHash = VerificationKeyHash(payload: hex)
-                self.credential = .verificationKeyHash(verificationKeyHash)
+                self.credential = .verificationKeyHash(try VerificationKeyHash.checked(hex))
             case .scriptHash:
-                let scriptHash = ScriptHash(payload: hex)
-                self.credential = .scriptHash(scriptHash)
+                self.credential = .scriptHash(try ScriptHash.checked(hex))
         }
     }
     
@@ -183,38 +195,20 @@ public struct DRep: CBORSerializable, CustomStringConvertible, CustomDebugString
             
         }
         else {
-            var container = try decoder.unkeyedContainer()
-            let code = try container.decode(Int.self)
-            let credential: DRepType
-            
-            if code == 0 {
-                let verificationKeyHash = try container.decode(VerificationKeyHash.self)
-                credential = .verificationKeyHash(verificationKeyHash)
-            } else if code == 1 {
-                let scriptHash = try container.decode(ScriptHash.self)
-                credential = .scriptHash(scriptHash)
-            } else if code == 2 {
-                credential = .alwaysAbstain
-            } else if code == 3 {
-                credential = .alwaysNoConfidence
-            } else {
-                throw CardanoCoreError
-                    .deserializeError(
-                        "Invalid \(type(of: Self.self)) type: \(code)"
-                    )
-            }
-            self.init(credential: credential)
+            // CBOR goes through `init(from: Primitive)`, which checks the
+            // array's length for each kind of DRep.
+            let primitive = try Primitive.decode(from: decoder, preservingEncoding: false)
+            try self.init(from: primitive)
         }
     }
     
     public init(from primitive: Primitive) throws {
-        if case .list(_) = primitive {
-            let credential = try DRepType(from: primitive)
-            self.init(credential: credential)
-        }
-        else if case let .string(drepId) = primitive {
+        switch primitive {
+        case .list, .indefiniteList:
+            self.init(credential: try DRepType(from: primitive))
+        case .string(let drepId):
             try self.init(from: drepId)
-        } else {
+        default:
             throw CardanoCoreError.decodingError("Invalid DRepId: \(primitive)")
         }
     }
@@ -225,17 +219,8 @@ public struct DRep: CBORSerializable, CustomStringConvertible, CustomDebugString
             try container.encode(try self.toBech32(.cip129))
         }
         else {
-            var container = encoder.unkeyedContainer()
-            try container.encode(code)
-            
-            switch credential {
-                case .verificationKeyHash(let verificationKeyHash):
-                    try container.encode(verificationKeyHash)
-                case .scriptHash(let scriptHash):
-                    try container.encode(scriptHash)
-                default:
-                    break
-            }
+            var container = encoder.singleValueContainer()
+            try container.encode(try toPrimitive())
         }
     }
     

@@ -38,7 +38,7 @@ struct TransactionBodyTests {
         expansionRate: UnitInterval(numerator: 1, denominator: 2),
         treasuryGrowthRate: UnitInterval(numerator: 1, denominator: 2),
         decentralizationConstant: UnitInterval(numerator: 1, denominator: 2),
-        extraEntropy: 0,
+        extraEntropy: .neutral,
         protocolVersion: ProtocolVersion(major: 1, minor: 2),
         
         minPoolCost: 0,

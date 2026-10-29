@@ -86,7 +86,11 @@ extension SetTaggable {
                     "Invalid CBOR tag: expected \(Self.TAG ) but found \(tag)")
             }
 
-            guard case let .array(arrayData) = value else {
+            // `#6.258([* a])`, the array of definite or indefinite length.
+            let arrayData: [CBOR]
+            switch value {
+            case .array(let items), .indefiniteArray(let items): arrayData = items
+            default:
                 throw CardanoCoreError.valueError("SetWrapper must contain an array")
             }
 
@@ -105,7 +109,7 @@ extension SetTaggable {
             )
             self.elements = Set(ordered)
             self.elementsOrdered = ordered
-        } else if case let .array(arrayData) = cborData {
+        } else if case let .array(arrayData) = cborData.definiteOrIndefiniteArray {
             let decodedElements = try arrayData.map {
                 try CBORDecoder().decode(Element.self, from: CBORSerialization.data(from: $0))
             }
@@ -658,5 +662,14 @@ public struct NonEmptyOrderedSet<T: CBORSerializable & Hashable & Sendable>: Set
         // for instance — and so changes its hash, which is what a witness signs
         // and what a script sees as the transaction id.
         return .nonEmptyOrderedSet(NonEmptyOrderedSet<Primitive>(primitiveElements))
+    }
+}
+
+private extension CBOR {
+    /// An array of either length encoding as a definite array, so a set
+    /// written as a plain array reads the same whichever length it uses.
+    var definiteOrIndefiniteArray: CBOR {
+        if case .indefiniteArray(let items) = self { return .array(items) }
+        return self
     }
 }

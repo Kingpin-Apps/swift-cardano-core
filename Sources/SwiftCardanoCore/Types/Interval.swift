@@ -23,13 +23,26 @@ public struct NonNegativeInterval: CBORSerializable, Sendable {
         self.init(lowerBound: numerator, upperBound: denominator)
     }
 
+    /// CBOR as ``toPrimitive()`` writes it, `#6.30([n, d])`; JSON as the
+    /// array `[n, d]`.
     public init(from decoder: Decoder) throws {
+        guard String(describing: type(of: decoder)).contains("JSONDecoder") else {
+            let primitive = try Primitive.decode(from: decoder, preservingEncoding: false)
+            try self.init(from: primitive)
+            return
+        }
         var container = try decoder.unkeyedContainer()
-        lowerBound = try container.decode(UInt64.self)
-        upperBound = try container.decode(UInt64.self)
+        self.init(
+            lowerBound: try container.decode(UInt64.self),
+            upperBound: try container.decode(UInt64.self))
     }
 
     public func encode(to encoder: Encoder) throws {
+        guard String(describing: type(of: encoder)).contains("JSONEncoder") else {
+            var container = encoder.singleValueContainer()
+            try container.encode(try toPrimitive())
+            return
+        }
         var container = encoder.unkeyedContainer()
         try container.encode(lowerBound)
         try container.encode(upperBound)

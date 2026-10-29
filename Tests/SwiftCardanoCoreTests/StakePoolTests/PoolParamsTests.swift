@@ -18,8 +18,8 @@ import CBORCodable
     ))
     let testRelays: [Relay] = [
         .singleHostAddr(SingleHostAddr(port: 3001, ipv4: IPv4Address("192.168.1.1"), ipv6: nil)),
-        .singleHostName(SingleHostName(port: 3002, dnsName: "relay.example.com")),
-        .multiHostName(MultiHostName(dnsName: "relay1.example.com")),
+        .singleHostName(try! SingleHostName(port: 3002, dnsName: "relay.example.com")),
+        .multiHostName(try! MultiHostName(dnsName: "relay1.example.com")),
     ]
     let testPoolMetadata = try! PoolMetadata(
         url: try! Url("https://yourpoollink.com/poolMetaData.json"),

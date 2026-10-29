@@ -12,21 +12,36 @@ public struct Anchor: Serializable, Sendable {
     
     // MARK: - CBORSerializable
     
+    /// `anchor = [anchor_url : url, anchor_data_hash : hash32]`.
+    ///
+    /// - Throws: Unless the anchor is a two-element array (of definite or
+    ///   indefinite length, as the ledger reads it) holding a URL of at most
+    ///   128 bytes and a 32-byte hash.
     public init(from primitive: Primitive) throws {
-        guard case let .list(elements) = primitive else {
+        let elements: [Primitive]
+        switch primitive {
+        case .list(let list): elements = list
+        case .indefiniteList(let list): elements = list.getAll()
+        default:
             throw CardanoCoreError.valueError("Invalid Anchor type")
         }
         guard elements.count == 2 else {
             throw CardanoCoreError.valueError("Anchor must contain exactly 2 elements")
         }
-        let urlPrimitive = elements[0]
-        let dataHashPrimitive = elements[1]
-        guard case let .string(urlString) = urlPrimitive,
-              case let .bytes(dataHashData) = dataHashPrimitive else {
+        guard case let .bytes(dataHashData) = elements[1] else {
             throw CardanoCoreError.valueError("Invalid Anchor elements")
         }
-        self.anchorUrl = try Url(urlString)
-        self.anchorDataHash = AnchorDataHash(payload: dataHashData)
+        self.anchorUrl = try Url(from: elements[0])
+        self.anchorDataHash = try Self.checkedHash(dataHashData)
+    }
+
+    /// `hash` as an anchor's data hash, which is a `hash32`.
+    static func checkedHash(_ hash: Data) throws -> AnchorDataHash {
+        guard hash.count == ANCHOR_DATA_HASH_SIZE else {
+            throw CardanoCoreError.deserializeError(
+                "Anchor data hash must be \(ANCHOR_DATA_HASH_SIZE) bytes, got \(hash.count)")
+        }
+        return AnchorDataHash(payload: hash)
     }
 
     public func toPrimitive() throws -> Primitive {
@@ -51,7 +66,7 @@ public struct Anchor: Serializable, Sendable {
             throw CardanoCoreError.valueError("Invalid Anchor field types")
         }
         let anchorUrl = try Url(urlString)
-        let anchorDataHash = AnchorDataHash(payload: dataHashData)
+        let anchorDataHash = try checkedHash(dataHashData)
         return Anchor(anchorUrl: anchorUrl, anchorDataHash: anchorDataHash)
     }
     

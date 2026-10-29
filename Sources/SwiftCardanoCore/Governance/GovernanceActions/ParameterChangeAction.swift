@@ -15,27 +15,6 @@ public struct ParameterChangeAction: GovernanceAction {
         self.policyHash = policyHash
     }
 
-    public init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        let code = try container.decode(Int.self)
-
-        guard code == Self.code.rawValue else {
-            throw CardanoCoreError.deserializeError("Invalid ParameterChangeAction type: \(code)")
-        }
-
-        if try container.decodeNil() {
-            id = nil
-        } else {
-            id = try container.decode(GovActionID.self)
-        }
-        protocolParamUpdate = try container.decode(ProtocolParamUpdate.self)
-        if try container.decodeNil() {
-            policyHash = nil
-        } else {
-            policyHash = try container.decode(PolicyHash.self)
-        }
-    }
-
     public init(from primitive: Primitive) throws {
         guard case .list(let elements) = primitive,
             elements.count == 4
@@ -67,14 +46,6 @@ public struct ParameterChangeAction: GovernanceAction {
         }
     }
 
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.unkeyedContainer()
-        try container.encode(Self.code)
-        try container.encode(id)
-        try container.encode(protocolParamUpdate)
-        try container.encode(policyHash)
-    }
-
     public func toPrimitive() throws -> Primitive {
         return .list([
             .int(Int64(Self.code.rawValue)),
@@ -103,8 +74,11 @@ public struct ProtocolParamUpdate: CBORSerializable, Sendable {
     public var expansionRate: UnitInterval?
     public var treasuryGrowthRate: UnitInterval?
     public var decentralizationConstant: UnitInterval?
-    public var extraEntropy: UInt32?
+    /// `nonce = [0] / [1, bytes .size 32]`, Shelley to Alonzo.
+    public var extraEntropy: Nonce?
     public var protocolVersion: ProtocolVersion?
+    /// `min_utxo_value`, Shelley to Mary.
+    public var minUtxoValue: Coin?
 
     public var minPoolCost: Coin?
     public var adaPerUtxoByte: Coin?
@@ -145,6 +119,7 @@ public struct ProtocolParamUpdate: CBORSerializable, Sendable {
         case decentralizationConstant = 12
         case extraEntropy = 13
         case protocolVersion = 14
+        case minUtxoValue = 15
 
         case minPoolCost = 16
         case adaPerUtxoByte = 17
@@ -185,8 +160,9 @@ public struct ProtocolParamUpdate: CBORSerializable, Sendable {
         expansionRate: UnitInterval? = nil,
         treasuryGrowthRate: UnitInterval? = nil,
         decentralizationConstant: UnitInterval? = nil,
-        extraEntropy: UInt32? = nil,
+        extraEntropy: Nonce? = nil,
         protocolVersion: ProtocolVersion? = nil,
+        minUtxoValue: Coin? = nil,
 
         minPoolCost: Coin? = nil,
         adaPerUtxoByte: Coin? = nil,
@@ -226,6 +202,7 @@ public struct ProtocolParamUpdate: CBORSerializable, Sendable {
         self.decentralizationConstant = decentralizationConstant
         self.extraEntropy = extraEntropy
         self.protocolVersion = protocolVersion
+        self.minUtxoValue = minUtxoValue
 
         self.minPoolCost = minPoolCost
         self.adaPerUtxoByte = adaPerUtxoByte
@@ -249,8 +226,16 @@ public struct ProtocolParamUpdate: CBORSerializable, Sendable {
         self.minFeeRefScriptCoinsPerByte = minFeeRefScriptCoinsPerByte
     }
 
+    /// CBOR goes through `init(from: Primitive)`, the integer-keyed map
+    /// the CDDL defines. JSON is an object keyed by the field names.
     public init(from decoder: Decoder) throws {
+        guard String(describing: type(of: decoder)).contains("JSONDecoder") else {
+            let primitive = try Primitive.decode(from: decoder, preservingEncoding: false)
+            try self.init(from: primitive)
+            return
+        }
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init()
 
         minFeeA = try container.decodeIfPresent(Coin.self, forKey: .minFeeA)
         minFeeB = try container.decodeIfPresent(Coin.self, forKey: .minFeeB)
@@ -270,9 +255,10 @@ public struct ProtocolParamUpdate: CBORSerializable, Sendable {
             UnitInterval.self, forKey: .treasuryGrowthRate)
         decentralizationConstant = try container.decodeIfPresent(
             UnitInterval.self, forKey: .decentralizationConstant)
-        extraEntropy = try container.decodeIfPresent(UInt32.self, forKey: .extraEntropy)
+        extraEntropy = try container.decodeIfPresent(Nonce.self, forKey: .extraEntropy)
         protocolVersion = try container.decodeIfPresent(
             ProtocolVersion.self, forKey: .protocolVersion)
+        minUtxoValue = try container.decodeIfPresent(Coin.self, forKey: .minUtxoValue)
 
         minPoolCost = try container.decodeIfPresent(Coin.self, forKey: .minPoolCost)
         adaPerUtxoByte = try container.decodeIfPresent(Coin.self, forKey: .adaPerUtxoByte)
@@ -306,6 +292,11 @@ public struct ProtocolParamUpdate: CBORSerializable, Sendable {
     }
 
     public func encode(to encoder: Encoder) throws {
+        guard String(describing: type(of: encoder)).contains("JSONEncoder") else {
+            var container = encoder.singleValueContainer()
+            try container.encode(try toPrimitive())
+            return
+        }
         var container = encoder.container(keyedBy: CodingKeys.self)
 
         try container.encodeIfPresent(minFeeA, forKey: .minFeeA)
@@ -325,6 +316,7 @@ public struct ProtocolParamUpdate: CBORSerializable, Sendable {
         try container.encodeIfPresent(decentralizationConstant, forKey: .decentralizationConstant)
         try container.encodeIfPresent(extraEntropy, forKey: .extraEntropy)
         try container.encodeIfPresent(protocolVersion, forKey: .protocolVersion)
+        try container.encodeIfPresent(minUtxoValue, forKey: .minUtxoValue)
 
         try container.encodeIfPresent(minPoolCost, forKey: .minPoolCost)
         try container.encodeIfPresent(adaPerUtxoByte, forKey: .adaPerUtxoByte)
@@ -355,21 +347,30 @@ public struct ProtocolParamUpdate: CBORSerializable, Sendable {
         switch primitive {
         case .dict(let d):
             pairs = Array(d)
-        case .orderedDict(let od):
+        case .orderedDict(let od), .indefiniteDictionary(let od):
             pairs = od.map { ($0.key, $0.value) }
         default:
             throw CardanoCoreError.deserializeError("Invalid ProtocolParamUpdate type")
         }
 
+        // A sparse record, as the ledger reads it: every key has to be a
+        // parameter's, and none may appear twice.
         var dict = [Int: Primitive]()
         for (key, value) in pairs {
+            let index: Int
             switch key {
             case .int(let keyValue) where Int(exactly: keyValue) != nil:
-                dict[Int(keyValue)] = value
+                index = Int(keyValue)
             case .uint(let keyValue) where Int(exactly: keyValue) != nil:
-                dict[Int(keyValue)] = value
+                index = Int(keyValue)
             default:
-                throw CardanoCoreError.deserializeError("Invalid ProtocolParamUpdate type")
+                throw CardanoCoreError.deserializeError("Invalid ProtocolParamUpdate key: \(key)")
+            }
+            guard CodingKeys(rawValue: index) != nil else {
+                throw CardanoCoreError.deserializeError("ProtocolParamUpdate: unknown key \(index)")
+            }
+            guard dict.updateValue(value, forKey: index) == nil else {
+                throw CardanoCoreError.deserializeError("ProtocolParamUpdate: key \(index) appears more than once")
             }
         }
 
@@ -432,13 +433,19 @@ public struct ProtocolParamUpdate: CBORSerializable, Sendable {
             decentralizationConstant = nil
         }
 
-        extraEntropy = try number(.extraEntropy)
+        if let extraEntropyPrimitive = dict[CodingKeys.extraEntropy.rawValue] {
+            extraEntropy = try Nonce(from: extraEntropyPrimitive)
+        } else {
+            extraEntropy = nil
+        }
 
         if let protocolVersionPrimitive = dict[CodingKeys.protocolVersion.rawValue] {
             protocolVersion = try ProtocolVersion(from: protocolVersionPrimitive)
         } else {
             protocolVersion = nil
         }
+
+        minUtxoValue = try number(.minUtxoValue)
 
         minPoolCost = try number(.minPoolCost)
         adaPerUtxoByte = try number(.adaPerUtxoByte)
@@ -550,10 +557,13 @@ public struct ProtocolParamUpdate: CBORSerializable, Sendable {
                 try decentralizationConstant.toPrimitive()
         }
         if let extraEntropy = extraEntropy {
-            dict[.uint(UInt64(CodingKeys.extraEntropy.rawValue))] = .uint(UInt64(extraEntropy))
+            dict[.uint(UInt64(CodingKeys.extraEntropy.rawValue))] = try extraEntropy.toPrimitive()
         }
         if let protocolVersion = protocolVersion {
             dict[.uint(UInt64(CodingKeys.protocolVersion.rawValue))] = try protocolVersion.toPrimitive()
+        }
+        if let minUtxoValue = minUtxoValue {
+            dict[.uint(UInt64(CodingKeys.minUtxoValue.rawValue))] = .uint(UInt64(minUtxoValue))
         }
 
         if let minPoolCost = minPoolCost {
@@ -658,6 +668,7 @@ extension ProtocolParamUpdate {
         treasuryGrowthRate = unit(p.treasuryCut)
         decentralizationConstant = nil
         extraEntropy = nil
+        minUtxoValue = nil
         protocolVersion = ProtocolVersion(
             major: Int(p.protocolVersion.major), minor: Int(p.protocolVersion.minor))
         minPoolCost = p.minPoolCost
