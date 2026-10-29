@@ -186,8 +186,8 @@ struct PoolMetadataTests {
         let hash = PoolMetadataHash(payload: poolMetadataHash!.hexStringToData)
         let url = try Url("https://pool.example.com/fetch-all-fields.json")
 
-        MockURLProtocol.responses[url.absoluteString] = .success(data)
-        defer { MockURLProtocol.responses[url.absoluteString] = nil }
+        MockURLProtocol.setResponse(.success(data), for: url.absoluteString)
+        defer { MockURLProtocol.setResponse(nil, for: url.absoluteString) }
 
         let metadata = try await PoolMetadata.fetch(
             url: url,
@@ -208,8 +208,8 @@ struct PoolMetadataTests {
         let wrongHash = PoolMetadataHash(payload: Data(repeating: 0xAB, count: 32))
         let url = try Url("https://pool.example.com/fetch-hash-mismatch.json")
 
-        MockURLProtocol.responses[url.absoluteString] = .success(data)
-        defer { MockURLProtocol.responses[url.absoluteString] = nil }
+        MockURLProtocol.setResponse(.success(data), for: url.absoluteString)
+        defer { MockURLProtocol.setResponse(nil, for: url.absoluteString) }
 
         await #expect(throws: CardanoCoreError.self) {
             _ = try await PoolMetadata.fetch(
@@ -224,8 +224,8 @@ struct PoolMetadataTests {
         let data = try fixtureData()
         let url = try Url("https://pool.example.com/fetch-no-hash.json")
 
-        MockURLProtocol.responses[url.absoluteString] = .success(data)
-        defer { MockURLProtocol.responses[url.absoluteString] = nil }
+        MockURLProtocol.setResponse(.success(data), for: url.absoluteString)
+        defer { MockURLProtocol.setResponse(nil, for: url.absoluteString) }
 
         let metadata = try await PoolMetadata.fetch(
             url: url,
@@ -245,8 +245,8 @@ struct PoolMetadataTests {
         let url = try Url("https://pool.example.com/fetch-invalid-json.json")
         let arrayJSON = "[]".data(using: .utf8)!
 
-        MockURLProtocol.responses[url.absoluteString] = .success(arrayJSON)
-        defer { MockURLProtocol.responses[url.absoluteString] = nil }
+        MockURLProtocol.setResponse(.success(arrayJSON), for: url.absoluteString)
+        defer { MockURLProtocol.setResponse(nil, for: url.absoluteString) }
 
         await #expect(throws: CardanoCoreError.self) {
             _ = try await PoolMetadata.fetch(
