@@ -1,3 +1,10 @@
+## 0.9.0 (2026-10-29)
+
+### Fix
+
+- **serialization**: keep the bytes every hash covers, and the full integer range
+- **plutus**: keep the CBOR encoding of decoded Plutus data
+
 ## 0.8.5 (2026-10-05)
 
 ### Fix
