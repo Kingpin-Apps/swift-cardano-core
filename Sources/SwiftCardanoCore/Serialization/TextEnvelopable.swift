@@ -1,9 +1,17 @@
 import Foundation
 import CBORCodable
 
-public protocol TextEnvelopable: PayloadSerializable {}
+public protocol TextEnvelopable: PayloadSerializable {
+    /// Decodes the envelope's CBOR. A type whose reading depends on the era
+    /// its envelope `type` names — `Tx BabbageEra`, say — reads it here.
+    static func fromEnvelopeCBOR(_ data: Data, type: String) throws -> Self
+}
 
 public extension TextEnvelopable {
+    static func fromEnvelopeCBOR(_ data: Data, type: String) throws -> Self {
+        try fromCBOR(data: data)
+    }
+
     /// Serialize to TextEnvelople JSON.
     ///
     /// The json output has three fields: "type", "description", and "cborHex".
@@ -42,7 +50,10 @@ public extension TextEnvelopable {
             }
         }
         
-        var obj = try Self.fromCBORHex(cborHex)
+        guard let cbor = Data(hexString: cborHex) else {
+            throw CardanoCoreError.invalidArgument("Invalid hex string: \(cborHex)")
+        }
+        var obj = try Self.fromEnvelopeCBOR(cbor, type: type)
         obj._type = type
         obj._description = description
         

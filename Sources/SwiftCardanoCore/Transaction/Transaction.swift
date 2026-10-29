@@ -68,8 +68,11 @@ public struct Transaction: Serializable, TextEnvelopable {
         self._payload = (try? self.toCBORData()) ?? Data()
     }
     
+    /// Reads a transaction from a text envelope, with the ledger rules of
+    /// the era its type names (`Tx BabbageEra`, say), or Conway's when it
+    /// names none.
     public init(payload: Data, type: String?, description: String?) throws {
-        self = try Self.fromCBOR(data: payload)
+        self = try Self.fromCBOR(data: payload, era: Self.ledgerEra(ofEnvelopeType: type))
         self._payload = payload
         self._description = description ?? Self.DESCRIPTION
         self._type = type ?? Self.envelopeType(
@@ -173,6 +176,17 @@ public struct Transaction: Serializable, TextEnvelopable {
     }
 
     /// The era named by a text-envelope type such as `Tx BabbageEra`, if any.
+    /// The era whose ledger rules an envelope of `type` is read with:
+    /// the one it names, or Conway when it names none.
+    static func ledgerEra(ofEnvelopeType type: String?) -> Era {
+        type.flatMap(era(ofEnvelopeType:))
+            .flatMap { Era(rawValue: String($0.dropLast(3)).lowercased()) } ?? .conway
+    }
+
+    public static func fromEnvelopeCBOR(_ data: Data, type: String) throws -> Transaction {
+        try fromCBOR(data: data, era: ledgerEra(ofEnvelopeType: type))
+    }
+
     static func era(ofEnvelopeType type: String) -> String? {
         type.split(separator: " ").last.map(String.init).flatMap {
             $0.hasSuffix("Era") && $0.count > 3 ? $0 : nil

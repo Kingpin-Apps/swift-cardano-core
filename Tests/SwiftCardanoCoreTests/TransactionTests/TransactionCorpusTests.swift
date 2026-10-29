@@ -18,6 +18,10 @@ struct TransactionCorpusTests {
         var hash: String
         var features: [String]
 
+        /// The era the transaction was written in, whose ledger rules it
+        /// is read with.
+        var ledgerEra: Era { Era(rawValue: era)! }
+
         var testDescription: String { "\(era)/\(hash.prefix(12)) \(features.joined(separator: ","))" }
 
         func bytes() throws -> Data {
@@ -50,7 +54,7 @@ struct TransactionCorpusTests {
 
     @Test("Decoding keeps the on-chain transaction id", arguments: corpus)
     func idMatchesChain(_ entry: Entry) throws {
-        let tx = try Transaction.fromCBOR(data: try entry.bytes())
+        let tx = try Transaction.fromCBOR(data: try entry.bytes(), era: entry.ledgerEra)
         #expect(tx.id?.payload.toHex == entry.hash)
         #expect(tx.transactionBody.hash().toHex == entry.hash)
     }
@@ -58,7 +62,7 @@ struct TransactionCorpusTests {
     @Test("Re-serializing an untouched transaction gives back its bytes", arguments: corpus)
     func roundTripsBytes(_ entry: Entry) throws {
         let bytes = try entry.bytes()
-        let tx = try Transaction.fromCBOR(data: bytes)
+        let tx = try Transaction.fromCBOR(data: bytes, era: entry.ledgerEra)
         #expect(try tx.toCBORData() == bytes)
     }
 
@@ -66,7 +70,7 @@ struct TransactionCorpusTests {
     func textEnvelopeKeepsId(_ entry: Entry) throws {
         let hex = try entry.bytes().toHex
         let json = """
-        {"type": "Tx ConwayEra", "description": "", "cborHex": "\(hex)"}
+        {"type": "Tx \(entry.era.capitalized)Era", "description": "", "cborHex": "\(hex)"}
         """
         let tx = try Transaction.fromTextEnvelope(json)
         #expect(tx.id?.payload.toHex == entry.hash)
@@ -75,7 +79,7 @@ struct TransactionCorpusTests {
     /// Transactions whose re-encoding from decoded values differs from what
     /// was written, so that keeping the written bytes is what makes them right.
     static let reencodingDiffers: [Entry] = corpus.filter { entry in
-        guard let tx = try? Transaction.fromCBOR(data: entry.bytes()) else { return false }
+        guard let tx = try? Transaction.fromCBOR(data: entry.bytes(), era: entry.ledgerEra) else { return false }
         var rebuilt = tx.transactionBody
         rebuilt.fee = rebuilt.fee  // clears the kept bytes
         return (try? rebuilt.toCBORData()) != tx.transactionBody.originalCBOR
@@ -89,7 +93,7 @@ struct TransactionCorpusTests {
     @Test("Adding a witness keeps the written body and auxiliary data", arguments: reencodingDiffers)
     func addingWitnessKeepsBody(_ entry: Entry) throws {
         let bytes = try entry.bytes()
-        var tx = try Transaction.fromCBOR(data: bytes)
+        var tx = try Transaction.fromCBOR(data: bytes, era: entry.ledgerEra)
         let auxiliaryBytes = tx.originalAuxiliaryDataCBOR
 
         let witness = VerificationKeyWitness(
@@ -105,7 +109,7 @@ struct TransactionCorpusTests {
 
         let reencoded = try tx.toCBORData()
         #expect(reencoded != bytes)
-        let decoded = try Transaction.fromCBOR(data: reencoded)
+        let decoded = try Transaction.fromCBOR(data: reencoded, era: entry.ledgerEra)
         #expect(decoded.id?.payload.toHex == entry.hash)
         #expect(decoded.originalAuxiliaryDataCBOR == auxiliaryBytes)
         #expect(decoded.transactionWitnessSet.vkeyWitnesses?.count == 1)
@@ -113,13 +117,13 @@ struct TransactionCorpusTests {
 
     @Test("The auxiliary data hashes to what the body declares", arguments: corpus)
     func auxiliaryDataHashMatchesBody(_ entry: Entry) throws {
-        let tx = try Transaction.fromCBOR(data: try entry.bytes())
+        let tx = try Transaction.fromCBOR(data: try entry.bytes(), era: entry.ledgerEra)
         #expect(try tx.auxiliaryDataHash() == tx.transactionBody.auxiliaryDataHash)
     }
 
     @Test("Changing the body changes its id", arguments: corpus.prefix(3))
     func changingBodyChangesId(_ entry: Entry) throws {
-        var tx = try Transaction.fromCBOR(data: try entry.bytes())
+        var tx = try Transaction.fromCBOR(data: try entry.bytes(), era: entry.ledgerEra)
         tx.transactionBody.fee = tx.transactionBody.fee + 1
         #expect(tx.transactionBody.originalCBOR == nil)
         #expect(tx.originalCBOR == nil)
@@ -129,7 +133,7 @@ struct TransactionCorpusTests {
     @Test("Shelley to Mary transactions keep their three-element shape")
     func preAlonzoShape() throws {
         let entry = try #require(Self.corpus.first { $0.era == "mary" && $0.features.contains("metadata") })
-        var tx = try Transaction.fromCBOR(data: try entry.bytes())
+        var tx = try Transaction.fromCBOR(data: try entry.bytes(), era: entry.ledgerEra)
         #expect(tx.isPreAlonzo)
         #expect(tx.auxiliaryData != nil)
 

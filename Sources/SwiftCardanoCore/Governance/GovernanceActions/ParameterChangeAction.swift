@@ -37,6 +37,11 @@ public struct ParameterChangeAction: GovernanceAction {
             id = try GovActionID(from: elements[1])
         }
 
+        // A parameter change is a Conway governance action, so its update
+        // holds Conway's fields only.
+        try LedgerFields.check(
+            LedgerFields.keys(of: elements[2]), allowed: LedgerFields.protocolParamUpdate(.conway),
+            era: .conway, in: "ProtocolParamUpdate")
         protocolParamUpdate = try ProtocolParamUpdate(from: elements[2])
 
         if case .null = elements[3] {
@@ -669,8 +674,10 @@ extension ProtocolParamUpdate {
         decentralizationConstant = nil
         extraEntropy = nil
         minUtxoValue = nil
-        protocolVersion = ProtocolVersion(
-            major: Int(p.protocolVersion.major), minor: Int(p.protocolVersion.minor))
+        // A parameter change cannot carry the protocol version (key 14 is
+        // gone from Conway's protocol_param_update): it moves by a hard-fork
+        // initiation action.
+        protocolVersion = nil
         minPoolCost = p.minPoolCost
         adaPerUtxoByte = p.utxoCostPerByte
 

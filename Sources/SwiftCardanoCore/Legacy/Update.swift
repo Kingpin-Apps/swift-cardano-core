@@ -101,6 +101,11 @@ public struct ProposedProtocolParamUpdates: Serializable {
                 throw CardanoCoreError.deserializeError("Invalid GenesisHash")
             }
             let genesisHash = try GenesisHash(from: key)
+            if let era = Era.decoding {
+                try LedgerFields.check(
+                    LedgerFields.keys(of: value), allowed: LedgerFields.protocolParamUpdate(era),
+                    era: era, in: "ProtocolParamUpdate")
+            }
             let protocolParamUpdate = try ProtocolParamUpdate(from: value)
             data[genesisHash] = protocolParamUpdate
         }

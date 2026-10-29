@@ -24,9 +24,11 @@ import CBORCodable
         
         expansionRate: UnitInterval(numerator: 1, denominator: 2),
         treasuryGrowthRate: UnitInterval(numerator: 1, denominator: 2),
-        decentralizationConstant: UnitInterval(numerator: 1, denominator: 2),
-        extraEntropy: .neutral,
-        protocolVersion: ProtocolVersion(major: 1, minor: 2),
+        // Keys 12-14 (decentralisation, extra entropy, protocol version) are
+        // not part of a Conway parameter change.
+        decentralizationConstant: nil,
+        extraEntropy: nil,
+        protocolVersion: nil,
         
         minPoolCost: 0,
         adaPerUtxoByte: 0,

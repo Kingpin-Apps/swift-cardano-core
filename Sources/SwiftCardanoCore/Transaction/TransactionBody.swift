@@ -122,6 +122,10 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
         self._type = type ?? Self.TYPE
     }
 
+    public static func fromEnvelopeCBOR(_ data: Data, type: String) throws -> TransactionBody {
+        try fromCBOR(data: data, era: Transaction.ledgerEra(ofEnvelopeType: type))
+    }
+
     /// Decodes a body as the current era's ledger reads it, keeping the bytes
     /// it was read from as ``originalCBOR``.
     public static func fromCBOR(data: Data) throws -> TransactionBody {
@@ -526,6 +530,11 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
                 throw CardanoCoreError.deserializeError("Unknown TransactionBody field \(number)")
             }
             return number
+        }
+        if let era = Era.decoding {
+            try LedgerFields.check(
+                writtenFieldOrder.map { UInt64($0) }, allowed: LedgerFields.transactionBody(era),
+                era: era, in: "TransactionBody")
         }
     }
 
