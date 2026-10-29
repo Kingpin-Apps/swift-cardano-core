@@ -89,8 +89,7 @@ extension AlonzoGenesis: CBORSerializable {
                 costModels:           try c.decode(AlonzoCostModels.self, forKey: .costModels)
             )
         } else {
-            let container = try decoder.singleValueContainer()
-            let primitive = try container.decode(Primitive.self)
+            let primitive = try Primitive.decode(from: decoder, preservingEncoding: false)
             try self.init(from: primitive)
         }
     }

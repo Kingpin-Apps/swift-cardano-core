@@ -43,8 +43,7 @@ public enum GovAction: CBORSerializable, Sendable {
             }
             self = try GovAction.fromCBOR(data: data)
         } else {
-            let container = try decoder.singleValueContainer()
-            let primitive = try container.decode(Primitive.self)
+            let primitive = try Primitive.decode(from: decoder, preservingEncoding: false)
             try self.init(from: primitive)
         }
     }

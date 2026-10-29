@@ -74,7 +74,12 @@ extension CBOR {
         }
     }
     
-    public func toPrimitive() throws -> Primitive {
+    /// Converts this value to a primitive. See
+    /// ``Primitive/decode(from:preservingEncoding:)`` for `preservingEncoding`.
+    public func toPrimitive(preservingEncoding: Bool = false) throws -> Primitive {
+        if preservingEncoding {
+            return try Primitive.from(cbor: self, preservingEncoding: true)
+        }
         switch self {
             case .null:
                 return .null

@@ -35,20 +35,33 @@ public indirect enum Primitive: CBORSerializable, Sendable {
     case plutusData(PlutusData)
     case null
 
+    /// Decodes a primitive that keeps how it was written: indefinite-length
+    /// byte strings, text strings and maps come back as such, so it encodes
+    /// back to the bytes it was read from.
     public init(from decoder: Decoder) throws {
+        self = try Primitive.decode(from: decoder, preservingEncoding: true)
+    }
+
+    /// Decodes a primitive from `decoder`.
+    ///
+    /// With `preservingEncoding`, indefinite-length byte strings decode to
+    /// ``byteString(_:)`` holding their chunk widths, text strings to
+    /// ``cborSimpleValue(_:)`` holding their chunks, and maps to
+    /// ``indefiniteDictionary(_:)``, so the value encodes back to its input.
+    /// Without it they decode to ``bytes(_:)``, ``string(_:)`` and
+    /// ``dict(_:)``, which is the form most types read.
+    public static func decode(from decoder: Decoder, preservingEncoding: Bool) throws -> Primitive {
+        let container = try decoder.singleValueContainer()
         if String(describing: type(of: decoder)).contains("JSONDecoder") {
-            let container = try decoder.singleValueContainer()
             let jsonString = try container.decode(String.self)
             guard let data = jsonString.data(using: .utf8) else {
                 throw CardanoCoreError.valueError("Invalid JSON string")
             }
             let json = try JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed])
-            self = try Primitive.from(json: json)
-        } else {
-            let container = try decoder.singleValueContainer()
-            let cbor = try container.decode(CBOR.self)
-            self = try Primitive.from(cbor: cbor)
+            return try Primitive.from(json: json)
         }
+        let cbor = try container.decode(CBOR.self)
+        return try Primitive.from(cbor: cbor, preservingEncoding: preservingEncoding)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -109,7 +122,9 @@ public indirect enum Primitive: CBORSerializable, Sendable {
         throw CardanoCoreError.valueError("Cannot convert JSON value to Primitive: \(json)")
     }
 
-    public static func from(cbor: CBOR) throws -> Primitive {
+    /// Converts `cbor` to a primitive. See
+    /// ``decode(from:preservingEncoding:)`` for `preservingEncoding`.
+    public static func from(cbor: CBOR, preservingEncoding: Bool = false) throws -> Primitive {
         switch cbor {
         case .byteString(let data):
             return .bytes(data)
@@ -128,31 +143,28 @@ public indirect enum Primitive: CBORSerializable, Sendable {
         case .null:
             return .null
         case .array(let array):
-            let primitives = try array.map { try Primitive.from(cbor: $0) }
+            let primitives = try array.map {
+                try Primitive.from(cbor: $0, preservingEncoding: preservingEncoding)
+            }
             return .list(primitives)
         case .indefiniteArray(let array):
-            let primitives = try array.map { try Primitive.from(cbor: $0) }
+            let primitives = try array.map {
+                try Primitive.from(cbor: $0, preservingEncoding: preservingEncoding)
+            }
             return .indefiniteList(IndefiniteList(primitives))
         case .map(let map):
-            return .orderedDict(try fromEntries(map.elements))
+            return .orderedDict(try fromEntries(map.elements, preservingEncoding))
         case .indefiniteMap(let map):
-            var dict: [Primitive: Primitive] = [:]
-            for (key, value) in map {
-                dict[try Primitive.from(cbor: key)] = try Primitive.from(cbor: value)
-            }
-            return .dict(dict)
+            return try fromIndefiniteMap(map, preservingEncoding)
         case .simple(let simple):
             return .cborSimpleValue(.simple(simple))
         case .tagged(let tag, let value):
-            return try fromTagged(tag, value)
+            return try fromTagged(tag, value, preservingEncoding)
         case .indefiniteByteString(let chunks):
-            // CBORCodable preserves chunk boundaries; concat for Primitive's
-            // single-Data .bytes case.
-            var out = Data()
-            for c in chunks { out.append(c) }
-            return .bytes(out)
+            let byteString = ByteString(chunks: chunks)
+            return preservingEncoding ? .byteString(byteString) : .bytes(byteString.bytes)
         case .indefiniteTextString(let chunks):
-            return .string(chunks.joined())
+            return preservingEncoding ? .cborSimpleValue(cbor) : .string(chunks.joined())
         case .undefined:
             return .null
         case .half(let value):
@@ -165,26 +177,43 @@ public indirect enum Primitive: CBORSerializable, Sendable {
     // PlutusData has to fit in a cooperative thread's ~512 KB stack.
     @inline(never)
     private static func fromEntries(
-        _ entries: OrderedDictionary<CBOR, CBOR>.Elements
+        _ entries: OrderedDictionary<CBOR, CBOR>.Elements,
+        _ preservingEncoding: Bool
     ) throws -> OrderedDictionary<Primitive, Primitive> {
         // Distinct CBOR keys can map to the same Primitive (null/undefined,
         // half/float/double, definite/indefinite strings), so assign rather
         // than use `uniqueKeysWithValues:`, which traps on duplicates.
         var dict = OrderedDictionary<Primitive, Primitive>()
         for (key, value) in entries {
-            dict[try Primitive.from(cbor: key)] = try Primitive.from(cbor: value)
+            dict[try Primitive.from(cbor: key, preservingEncoding: preservingEncoding)] =
+                try Primitive.from(cbor: value, preservingEncoding: preservingEncoding)
         }
         return dict
     }
 
     @inline(never)
-    private static func fromTagged(_ tag: UInt64, _ value: CBOR) throws -> Primitive {
+    private static func fromIndefiniteMap(
+        _ map: OrderedDictionary<CBOR, CBOR>,
+        _ preservingEncoding: Bool
+    ) throws -> Primitive {
+        let entries = try fromEntries(map.elements, preservingEncoding)
+        guard preservingEncoding else {
+            return .dict(Dictionary(uniqueKeysWithValues: entries.map { ($0.key, $0.value) }))
+        }
+        return .indefiniteDictionary(entries)
+    }
+
+    @inline(never)
+    private static func fromTagged(
+        _ tag: UInt64, _ value: CBOR, _ preservingEncoding: Bool
+    ) throws -> Primitive {
         if tag == UInt64(UnitInterval.tag) {
             return try unitInterval(from: value)
         } else if tag == UInt64.iso8601DateTime || tag == UInt64.epochDateTime {
             return try datetime(from: value)
         }
-        return .cborTag(CBORTag(tag: tag, value: try value.toPrimitive()))
+        return .cborTag(
+            CBORTag(tag: tag, value: try value.toPrimitive(preservingEncoding: preservingEncoding)))
     }
 
     @inline(never)
@@ -340,7 +369,7 @@ public indirect enum Primitive: CBORSerializable, Sendable {
         case .frozenDict(let dict):
             return .map(try Primitive.toCBOR(entries: dict))
         case .byteString(let byteString):
-            return .byteString(byteString.bytes)
+            return byteString.toCBOR()
         case .plutusData(let plutusData):
             return try plutusData.toCBORData().toCBOR
         case .bigInt(let bigInt):
@@ -668,6 +697,47 @@ public indirect enum Primitive: CBORSerializable, Sendable {
 
     public init(from primitive: Primitive) throws {
         self = primitive
+    }
+
+    /// This value as a decode without `preservingEncoding` would give it:
+    /// indefinite-length byte strings as ``bytes(_:)``, text strings as
+    /// ``string(_:)`` and maps as ``dict(_:)``, at every depth.
+    ///
+    /// A type that keeps how its value was written passes this to the parts
+    /// of it that do not.
+    public func normalized() throws -> Primitive {
+        switch self {
+        case .byteString(let byteString) where byteString.chunks != nil:
+            return .bytes(byteString.bytes)
+        case .cborSimpleValue(.indefiniteTextString(let chunks)):
+            return .string(chunks.joined())
+        case .indefiniteDictionary(let dict):
+            var result: [Primitive: Primitive] = [:]
+            for (key, value) in dict {
+                result[try key.normalized()] = try value.normalized()
+            }
+            return .dict(result)
+        case .list(let list):
+            return .list(try list.map { try $0.normalized() })
+        case .indefiniteList(let list):
+            return .indefiniteList(IndefiniteList(try list.map { try $0.normalized() }))
+        case .orderedDict(let dict):
+            var result = OrderedDictionary<Primitive, Primitive>()
+            for (key, value) in dict {
+                result[try key.normalized()] = try value.normalized()
+            }
+            return .orderedDict(result)
+        case .dict(let dict):
+            var result: [Primitive: Primitive] = [:]
+            for (key, value) in dict {
+                result[try key.normalized()] = try value.normalized()
+            }
+            return .dict(result)
+        case .cborTag(let tag):
+            return .cborTag(CBORTag(tag: tag.tag, value: try tag.value.normalized()))
+        default:
+            return self
+        }
     }
 
     public func toPrimitive() throws -> Primitive {

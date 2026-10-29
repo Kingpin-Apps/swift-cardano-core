@@ -133,8 +133,7 @@ extension ByronGenesis: CBORSerializable {
                 vssCerts:         try c.decodeIfPresent([String: VSSCert].self, forKey: .vssCerts)
             )
         } else {
-            let container = try decoder.singleValueContainer()
-            let primitive = try container.decode(Primitive.self)
+            let primitive = try Primitive.decode(from: decoder, preservingEncoding: false)
             try self.init(from: primitive)
         }
     }

@@ -24,6 +24,10 @@ import CBORCodable
 public enum PlutusData: Serializable, Sendable {
     case constructor(Constr)
     case map(OrderedDictionary<PlutusData, PlutusData>)
+    /// A map written with an indefinite-length header. It holds the same
+    /// value as ``map(_:)`` and compares equal to it; only the encoding, and
+    /// with it any hash taken over it, differs.
+    case indefiniteMap(OrderedDictionary<PlutusData, PlutusData>)
     case array([PlutusData])
     case indefiniteArray(IndefiniteList<PlutusData>)
     case bigInt(BigInteger)
@@ -35,6 +39,7 @@ public enum PlutusData: Serializable, Sendable {
             let c
         ): return "constructor(tag: \(String(describing: c.tag)), fields: \(c.fields))"
         case .map(let pairs): return "map(\(pairs))"
+        case .indefiniteMap(let pairs): return "indefiniteMap(\(pairs))"
         case .array(let arr): return "array(\(arr))"
         case .indefiniteArray(let arr): return "indefiniteArray(\(arr))"
         case .bigInt(let bi): return "bigInt(\(bi))"
@@ -48,6 +53,8 @@ public enum PlutusData: Serializable, Sendable {
 
     // MARK: - CBORSerializable
 
+    public static var preservesEncoding: Bool { true }
+
     public init(from primitive: Primitive) throws {
         // Containers recurse once per nesting level, so their bodies live in
         // out-of-line helpers. That keeps this frame small in unoptimized
@@ -59,6 +66,8 @@ public enum PlutusData: Serializable, Sendable {
             self = .map(try PlutusData.fromEntries(dict))
         case .orderedDict(let dict):
             self = .map(try PlutusData.fromEntries(dict.elements))
+        case .indefiniteDictionary(let dict):
+            self = .indefiniteMap(try PlutusData.fromEntries(dict.elements))
         case .list(let array):
             self = .array(try PlutusData.fromList(array))
         case .indefiniteList(let array):
@@ -90,7 +99,7 @@ public enum PlutusData: Serializable, Sendable {
     @inline(never)
     private static func fromTagged(_ cborTag: CBORTag, _ primitive: Primitive) throws -> PlutusData {
         if cborTag.tag == 2 || cborTag.tag == 3 {
-            return .bigInt(try BigInteger(from: primitive))
+            return .bigInt(try BigInteger(from: primitive.normalized()))
         } else if cborTag.tag == 102 || (121..<128).contains(cborTag.tag)
             || (1280..<1536).contains(cborTag.tag)
         {
@@ -173,12 +182,10 @@ public enum PlutusData: Serializable, Sendable {
             // `serialiseData` returns to a script. The ledger writes its own
             // maps in list order, and the script context's redeemer map is one
             // that is genuinely not sorted.
-            var primitiveDict = OrderedDictionary<Primitive, Primitive>()
-            for (key, value) in dict {
-                primitiveDict[try key.toPrimitive(isRoot: false)] =
-                    try value.toPrimitive(isRoot: false)
-            }
-            return .orderedDict(primitiveDict)
+            return .orderedDict(try PlutusData.toEntries(dict))
+
+        case .indefiniteMap(let dict):
+            return .indefiniteDictionary(try PlutusData.toEntries(dict))
 
         case .bigInt(let bigInt):
             return try bigInt.toPrimitive()
@@ -188,13 +195,24 @@ public enum PlutusData: Serializable, Sendable {
         }
     }
 
+    @inline(never)
+    private static func toEntries(
+        _ dict: OrderedDictionary<PlutusData, PlutusData>
+    ) throws -> OrderedDictionary<Primitive, Primitive> {
+        var primitiveDict = OrderedDictionary<Primitive, Primitive>()
+        for (key, value) in dict {
+            primitiveDict[try key.toPrimitive(isRoot: false)] = try value.toPrimitive(isRoot: false)
+        }
+        return primitiveDict
+    }
+
     // MARK: - JSONSerializable
 
     public func toDict() throws -> Primitive {
         switch self {
         case .constructor(let constr):
             return try constr.toDict()
-        case .map(let dict):
+        case .map(let dict), .indefiniteMap(let dict):
             // Build an array of {"k": ..., "v": ...} objects
             let pairs: [Primitive] = try dict.map { (kv) -> Primitive in
                 let keyPrimitive = try Primitive.fromAny(kv.key.toDict())

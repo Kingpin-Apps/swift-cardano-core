@@ -1,12 +1,14 @@
 @preconcurrency import BigInt
 import Foundation
+import OrderedCollections
 
 // `PlutusData` and its parts carry representation detail that carries no
 // meaning on chain: a byte string is held as `.boundedBytes` or `.byteString`
 // depending on its length, an integer as `.int`, `.bigUInt` or `.bigNInt`
-// depending on its magnitude, a list as `.array` or `.indefiniteArray`
-// depending on how it was written, and a ``Constr`` remembers whether its
-// fields were encoded with an indefinite-length array.
+// depending on its magnitude, a list as `.array` or `.indefiniteArray` and a
+// map as `.map` or `.indefiniteMap` depending on how they were written, a byte
+// string remembers the chunks it was read in, and a ``Constr`` remembers
+// whether its fields were encoded with an indefinite-length array.
 //
 // Swift's synthesised `==` compares all of that, so two values that encode to
 // byte-identical CBOR could compare unequal — a datum read off the chain and
@@ -59,12 +61,23 @@ extension PlutusData {
         }
     }
 
+    /// The pairs of a map, whichever of the two cases holds it, or `nil`
+    /// when this is not a map.
+    public var mapEntries: OrderedDictionary<PlutusData, PlutusData>? {
+        switch self {
+            case .map(let pairs), .indefiniteMap(let pairs): return pairs
+            default: return nil
+        }
+    }
+
     public static func == (lhs: PlutusData, rhs: PlutusData) -> Bool {
         switch (lhs, rhs) {
             case (.constructor(let lhs), .constructor(let rhs)):
                 return lhs == rhs
 
-            case (.map(let lhs), .map(let rhs)):
+            case (.map(let lhs), .map(let rhs)), (.map(let lhs), .indefiniteMap(let rhs)),
+                (.indefiniteMap(let lhs), .map(let rhs)),
+                (.indefiniteMap(let lhs), .indefiniteMap(let rhs)):
                 // A Plutus map is a list of pairs on chain, so its order is
                 // part of its value. The pairs are walked here rather than
                 // deferring to `OrderedDictionary`'s own `==` so that each
@@ -89,7 +102,8 @@ extension PlutusData {
             case .constructor(let constr):
                 hasher.combine(0)
                 hasher.combine(constr)
-            case .map(let pairs):
+            // The two map cases hold the same value, so they hash alike.
+            case .map(let pairs), .indefiniteMap(let pairs):
                 hasher.combine(1)
                 hasher.combine(pairs.count)
                 for (key, value) in pairs {

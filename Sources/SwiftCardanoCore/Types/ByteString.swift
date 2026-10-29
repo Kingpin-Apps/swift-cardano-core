@@ -1,9 +1,21 @@
 import Foundation
+import CBORCodable
 
 
 // MARK: - ByteString
 public struct ByteString: CBORSerializable, CustomStringConvertible, Sendable {
+    public static var preservesEncoding: Bool { true }
+
     public let bytes: Data
+    /// The widths of the chunks this was read with, when it was written as an
+    /// indefinite-length string; nil when it was written definite or built in
+    /// code.
+    ///
+    /// The chunking is part of the encoding, and so of any hash taken over
+    /// it. Plutus data caps each chunk at 64 bytes, not at exactly 64, so a
+    /// value another tool chunked at 60/60/62 is valid and has to be written
+    /// back the way it was read.
+    public let chunks: [Int]?
     
     public var toHex: String {
         return self.bytes.toHex
@@ -15,17 +27,42 @@ public struct ByteString: CBORSerializable, CustomStringConvertible, Sendable {
 
     public init(bytes: Data) {
         self.bytes = bytes
+        self.chunks = nil
+    }
+
+    /// A byte string written as an indefinite-length string of `chunks`.
+    public init(chunks: [Data]) {
+        var bytes = Data()
+        for chunk in chunks { bytes.append(chunk) }
+        self.bytes = bytes
+        self.chunks = chunks.map(\.count)
     }
     
     public init(from primitive: Primitive) throws {
-        guard case let .bytes(data) = primitive else {
+        switch primitive {
+        case .bytes(let data):
+            self.init(bytes: data)
+        case .byteString(let byteString):
+            self = byteString
+        default:
             throw CardanoCoreError.valueError("Invalid ByteString type")
         }
-        self.init(bytes: data)
     }
 
+    /// Plain bytes when written definite, otherwise the byte string itself,
+    /// which encodes in the chunks it was read with.
     public func toPrimitive() throws -> Primitive {
-        return .bytes(self.bytes)
+        return chunks == nil ? .bytes(self.bytes) : .byteString(self)
+    }
+
+    /// The CBOR for these bytes: definite, or in the chunks they were read with.
+    func toCBOR() -> CBOR {
+        guard let chunks else { return .byteString(bytes) }
+        var start = bytes.startIndex
+        return .indefiniteByteString(chunks.map { width in
+            defer { start += width }
+            return Data(bytes[start..<start + width])
+        })
     }
 
     public static func == (lhs: ByteString, rhs: ByteString) -> Bool {

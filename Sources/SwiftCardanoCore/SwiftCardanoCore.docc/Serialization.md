@@ -99,6 +99,17 @@ Four things make this hold:
 - **Plutus maps** keep their order too, because a Plutus map is an ordered list of
   pairs rather than a dictionary: sorting one changes the value, and with it the
   datum's hash and whatever `serialiseData` returns to a script.
+- **Plutus data and redeemers** are written back as they were read: an
+  indefinite-length map keeps its header, and a byte string read in chunks keeps
+  those chunks, since the ledger allows any chunk up to 64 bytes. Byte strings
+  over 64 bytes built in code are written in 64-byte chunks, as the ledger
+  requires. Adding a witness re-encodes the witness set, and `script_data_hash`
+  is taken over these bytes.
+- **A decoded ``Primitive``** keeps indefinite-length byte strings, text strings
+  and maps as such. A type that does not care how its value was written reads it
+  through ``Primitive/normalized()``.
+- **A map that repeats a key** fails to decode, because the repeated entry would
+  be lost and the map would no longer re-encode to its bytes.
 
 > Note: `toCBORData(deterministic:)` accepts a flag that is currently ignored.
 > Cardano's notion of deterministic encoding (CIP-21) is not RFC 8949 §4.2 — it

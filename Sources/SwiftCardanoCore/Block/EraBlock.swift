@@ -77,7 +77,7 @@ public enum EraBlock: Sendable {
 
     /// Decode from the full NtN/NtC outer wrapper: `[era_id, #6.24(block_cbor)]`.
     public static func fromNetworkCBOR(data: Data) throws -> EraBlock {
-        let primitive = try CBORDecoder().decode(Primitive.self, from: data)
+        let primitive = try Primitive.from(cbor: CBORDecoder().decode(CBOR.self, from: data))
 
         guard case .list(let elements) = primitive, elements.count == 2 else {
             throw CardanoCoreError.deserializeError(
@@ -134,7 +134,7 @@ public enum EraBlock: Sendable {
     /// - **`.uint`** → NtC: `[discriminant, block_content]` (both EBB and BFT are 2-element)
     /// - **`.list`** → NtN: `[[discriminant, epochOrSlot], #6.24(head)]`
     private static func parseByronBlock(data: Data) throws -> ByronBlock {
-        let primitive = try CBORDecoder().decode(Primitive.self, from: data)
+        let primitive = try Primitive.from(cbor: CBORDecoder().decode(CBOR.self, from: data))
 
         guard case .list(let elements) = primitive, elements.count == 2 else {
             throw CardanoCoreError.deserializeError(
@@ -171,7 +171,7 @@ public enum EraBlock: Sendable {
         let epochOrSlot = try requireUInt(framingElements[1])
 
         let headData = try unwrapEmbeddedCBOR(elements[1])
-        let headPrimitive = try CBORDecoder().decode(Primitive.self, from: headData)
+        let headPrimitive = try Primitive.from(cbor: CBORDecoder().decode(CBOR.self, from: headData))
 
         guard case .list(let headElements) = headPrimitive else {
             throw CardanoCoreError.deserializeError(

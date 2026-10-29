@@ -104,6 +104,8 @@ extension RedeemerProtocol {
 
     // MARK: - CBORSerializable
 
+    public static var preservesEncoding: Bool { true }
+
     public init(from primitive: Primitive) throws {
         guard case .list(let primitive) = primitive,
             primitive.count == 4
@@ -288,6 +290,8 @@ public struct RedeemerValue: Serializable {
 
     // Codable goes through `toPrimitive()` / `init(from primitive:)`.
 
+    public static var preservesEncoding: Bool { true }
+
     public init(from primitive: Primitive) throws {
         guard case .list(let primitive) = primitive,
             primitive.count == 2
@@ -340,6 +344,11 @@ public struct RedeemerValue: Serializable {
 /// produce a hash that does not match the transaction being validated.
 public struct RedeemerMap: Serializable {
     private var storage: OrderedDictionary<RedeemerKey, RedeemerValue>
+
+    /// Whether the map is written with an indefinite-length header, as it was
+    /// read. The header is part of the bytes `script_data_hash` is taken over,
+    /// so a decoded map has to keep it to be re-encoded unchanged.
+    public var isIndefinite: Bool = false
 
     public init() {
         self.storage = [:]
@@ -404,21 +413,26 @@ public struct RedeemerMap: Serializable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
-        let cborMap = CBOR.map(
-            OrderedDictionary(
-                uniqueKeysWithValues: try storage.map { (key, value) in
-                    let cborKey = try key.toCBORData().toCBOR
-                    let cborValue = try value.toCBORData().toCBOR
-                    return (cborKey, cborValue)
-                })
-        )
-        try container.encode(cborMap)
+        let entries = OrderedDictionary(
+            uniqueKeysWithValues: try storage.map { (key, value) in
+                let cborKey = try key.toCBORData().toCBOR
+                let cborValue = try value.toCBORData().toCBOR
+                return (cborKey, cborValue)
+            })
+        try container.encode(isIndefinite ? CBOR.indefiniteMap(entries) : CBOR.map(entries))
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let cbor = try container.decode(CBOR.self)
-        guard case .map(let cborMap) = cbor else {
+        let cborMap: OrderedDictionary<CBOR, CBOR>
+        switch cbor {
+        case .map(let map):
+            cborMap = map
+        case .indefiniteMap(let map):
+            cborMap = map
+            isIndefinite = true
+        default:
             throw CardanoCoreError.deserializeError("Invalid RedeemerMap type")
         }
 
@@ -460,6 +474,9 @@ public struct RedeemerMap: Serializable {
             pairs = dict.map { ($0.key, $0.value) }
         case .orderedDict(let orderedDict):
             pairs = orderedDict.map { ($0.key, $0.value) }
+        case .indefiniteDictionary(let orderedDict):
+            pairs = orderedDict.map { ($0.key, $0.value) }
+            isIndefinite = true
         default:
             throw CardanoCoreError.deserializeError("Invalid RedeemerMap primitive: \(primitive)")
         }
@@ -485,7 +502,7 @@ public struct RedeemerMap: Serializable {
             dict[try key.toPrimitive()] = try value.toPrimitive()
         }
 
-        return .orderedDict(dict)
+        return isIndefinite ? .indefiniteDictionary(dict) : .orderedDict(dict)
     }
 
     // MARK: - JSONSerializable
@@ -539,21 +556,22 @@ public enum Redeemers: Serializable {
 
     // MARK: - CBORSerializable
 
+    public static var preservesEncoding: Bool { true }
+
     public init(from primitive: Primitive) throws {
         switch primitive {
         case .list(let list):
-            var redeemers: [Redeemer] = []
-            for item in list {
-                let redeemer = try Redeemer(from: item)
-                redeemers.append(redeemer)
-            }
-            self = .list(redeemers)
+            self = .list(try list.map { try Redeemer(from: $0) })
+
+        case .indefiniteList(let list):
+            // Written definite again on re-encoding.
+            self = .list(try list.getAll().map { try Redeemer(from: $0) })
 
         case .dict(_):
             let redeemerMap = try RedeemerMap(from: primitive)
             self = .map(redeemerMap)
 
-        case .orderedDict(_):
+        case .orderedDict(_), .indefiniteDictionary(_):
             let redeemerMap = try RedeemerMap(from: primitive)
             self = .map(redeemerMap)
 

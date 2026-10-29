@@ -7,12 +7,21 @@ public protocol CBORSerializable: Codable, Equatable, Hashable {
     func toCBORData(deterministic: Bool) throws -> Data
     func toCBORHex(deterministic: Bool) throws -> String
     static func fromCBOR(data: Data) throws -> Self
+    /// Whether ``init(from:)`` is given the primitive as it was written —
+    /// indefinite-length byte strings, text strings and maps kept as such —
+    /// rather than the form most types read.
+    ///
+    /// A type that sets this re-encodes to the bytes it was read from, and
+    /// passes ``Primitive/normalized()`` to any part of it that does not.
+    static var preservesEncoding: Bool { get }
 }
 
 extension CBORSerializable {
+    public static var preservesEncoding: Bool { false }
+
     public init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        let primitive = try container.decode(Primitive.self)
+        let primitive = try Primitive.decode(
+            from: decoder, preservingEncoding: Self.preservesEncoding)
         try self.init(from: primitive)
     }
     

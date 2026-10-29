@@ -313,8 +313,7 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
         } else {
             // CBOR path: decode via Primitive so init(from primitive:) handles both
             // the map format (protocol_param_update) and the n2c 31-element array.
-            let container = try decoder.singleValueContainer()
-            let primitive = try container.decode(Primitive.self)
+            let primitive = try Primitive.decode(from: decoder, preservingEncoding: false)
             try self.init(from: primitive)
         }
     }
@@ -841,7 +840,7 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
             items = indef.getAll()
         case .bytes(let data):
             // PlutusV1 in n2c is wrapped in a byte string containing nested CBOR.
-            let nested = try CBORDecoder().decode(Primitive.self, from: data)
+            let nested = try Primitive.from(cbor: CBORDecoder().decode(CBOR.self, from: data))
             return try costModelInts(nested)
         default:
             throw CardanoCoreError.deserializeError("Invalid cost model value: \(primitive)")

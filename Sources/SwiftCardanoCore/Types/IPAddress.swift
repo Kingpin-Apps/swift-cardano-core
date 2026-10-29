@@ -94,8 +94,7 @@ public struct IPv4Address: CBORSerializable, LosslessStringConvertible, Sendable
             let addressString = try container.decode(String.self)
             try self.init(address: addressString)
         } else {
-            let container = try decoder.singleValueContainer()
-            let primitive = try container.decode(Primitive.self)
+            let primitive = try Primitive.decode(from: decoder, preservingEncoding: false)
             try self.init(from: primitive)
         }
     }
@@ -229,8 +228,7 @@ public struct  IPv6Address: CBORSerializable, LosslessStringConvertible, Sendabl
             let addressString = try container.decode(String.self)
             try self.init(address: addressString)
         } else {
-            let container = try decoder.singleValueContainer()
-            let primitive = try container.decode(Primitive.self)
+            let primitive = try Primitive.decode(from: decoder, preservingEncoding: false)
             try self.init(from: primitive)
         }
     }

@@ -70,7 +70,7 @@ public enum EraBlockHeader: Sendable {
     /// - Returns: `.byron(.ebb(_))` or `.byron(.bft(_))`
     /// - Throws: `CardanoCoreError.deserializeError` if the bytes are malformed.
     public static func fromByronNtNData(_ data: Data) throws -> EraBlockHeader {
-        let primitive = try CBORDecoder().decode(Primitive.self, from: data)
+        let primitive = try Primitive.from(cbor: CBORDecoder().decode(CBOR.self, from: data))
 
         guard case .list(let elements) = primitive, elements.count == 2 else {
             throw CardanoCoreError.deserializeError(
@@ -87,7 +87,7 @@ public enum EraBlockHeader: Sendable {
         let epochOrSlot = try requireUInt(framingElements[1])
 
         let headData = try unwrapEmbeddedCBOR(elements[1])
-        let headPrimitive = try CBORDecoder().decode(Primitive.self, from: headData)
+        let headPrimitive = try Primitive.from(cbor: CBORDecoder().decode(CBOR.self, from: headData))
 
         guard case .list(let headElements) = headPrimitive, headElements.count >= 5 else {
             throw CardanoCoreError.deserializeError(
@@ -425,7 +425,7 @@ extension EraBlockHeader: Serializable {
         let headerBytes = try Self.unwrapEmbeddedCBOR(elements[1])
         switch eraId {
         case 0:
-            let primitive = try CBORDecoder().decode(Primitive.self, from: headerBytes)
+            let primitive = try Primitive.from(cbor: CBORDecoder().decode(CBOR.self, from: headerBytes))
             self = .byron(try ByronBlockHeader(from: primitive))
         case 1: self = .shelley(try Header.fromCBOR(data: headerBytes))
         case 2: self = .allegra(try Header.fromCBOR(data: headerBytes))

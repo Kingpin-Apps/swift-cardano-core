@@ -146,8 +146,7 @@ public struct Value: CBORSerializable, Comparable, Sendable {
             let multiAsset = try container.decodeIfPresent(MultiAsset.self, forKey: .multiAsset) ?? MultiAsset([:])
             self.init(coin: coin, multiAsset: multiAsset)
         } else {
-            let container = try decoder.singleValueContainer()
-            let primitive = try container.decode(Primitive.self)
+            let primitive = try Primitive.decode(from: decoder, preservingEncoding: false)
             try self.init(from: primitive)
         }
     }

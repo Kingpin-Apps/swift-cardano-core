@@ -364,7 +364,13 @@ public enum RawDatum: PlutusDataProtocol {
         }
     }
 
+    /// Long byte strings are written in 64-byte chunks, as Plutus data
+    /// requires; see ``Primitive/chunkingLongBytes()``.
     public func toPrimitive() throws -> Primitive {
+        try unchunkedPrimitive().chunkingLongBytes()
+    }
+
+    private func unchunkedPrimitive() throws -> Primitive {
         switch self {
         case .plutusData(let data):
             return try data.toPrimitive()
@@ -403,6 +409,8 @@ public enum Datum: PlutusDataProtocol {
     public init(from plutusData: PlutusData) throws {
         self = try Datum(from: plutusData.toPrimitive())
     }
+
+    public static var preservesEncoding: Bool { true }
 
     public func toPlutusData() throws -> PlutusData {
         switch self {
@@ -460,12 +468,20 @@ public enum Datum: PlutusDataProtocol {
             )
         case .cborSimpleValue(let cbor):
             self = .cbor(cbor)
+        case .byteString(_), .indefiniteDictionary(_), .cborTag(_):
+            self = .plutusData(try PlutusData(from: primitive))
         default:
             throw CardanoCoreError.deserializeError("Invalid Datum")
         }
     }
 
+    /// Long byte strings are written in 64-byte chunks, as Plutus data
+    /// requires; see ``Primitive/chunkingLongBytes()``.
     public func toPrimitive() throws -> Primitive {
+        try unchunkedPrimitive().chunkingLongBytes()
+    }
+
+    private func unchunkedPrimitive() throws -> Primitive {
         switch self {
         case .plutusData(let data):
             return try data.toPrimitive()

@@ -27,7 +27,7 @@ public struct RawPlutusData: PlutusDataProtocol {
                 let anyValueList = IndefiniteList<AnyValue>(
                     array.map { try! RawPlutusData(from: $0).toAnyValue() })
                 self.data = .indefiniteList(anyValueList)
-            case .map(let dict):
+            case .map(let dict), .indefiniteMap(let dict):
                 var resultDict = OrderedDictionary<AnyValue, AnyValue>()
                 for (key, value) in dict {
                     let keyRawPlutusData = try RawPlutusData(from: key).toAnyValue()
@@ -64,6 +64,13 @@ public struct RawPlutusData: PlutusDataProtocol {
                 }
                 return .array(plutusDataList)
             case let .cbor(cbor):
+                // Lists, maps and chunked byte strings are held as the CBOR they were
+                // read from, to keep their encoding.
+                if let plutusData = try? PlutusData(
+                    from: Primitive.from(cbor: cbor, preservingEncoding: true))
+                {
+                    return plutusData
+                }
                 return .bytes(
                     try Bytes(from: try CBORSerialization.data(from: cbor))
                 )
@@ -77,8 +84,7 @@ public struct RawPlutusData: PlutusDataProtocol {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             self.data = try container.decode(RawDatum.self, forKey: .data)
         } else {
-            let container = try decoder.singleValueContainer()
-            let primitive = try container.decode(Primitive.self)
+            let primitive = try Primitive.decode(from: decoder, preservingEncoding: true)
             self = try RawPlutusData(from: primitive)
         }
     }
@@ -93,6 +99,8 @@ public struct RawPlutusData: PlutusDataProtocol {
         }
     }
     
+    public static var preservesEncoding: Bool { true }
+
     public init(from primitive: Primitive) throws {
         if case let .plutusData(plutusData) = primitive {
             self.data = .plutusData(plutusData)
@@ -106,12 +114,21 @@ public struct RawPlutusData: PlutusDataProtocol {
             self.data = .int(Int(uintValue))
         } else if case let .bytes(data) = primitive {
             self.data = .bytes(data)
-        } else if case let .indefiniteList(list) = primitive {
-            self.data =
-                .indefiniteList(IndefiniteList(list.map { $0.toAnyValue() }))
-        } else if case let .list(list) = primitive {
-            self.data =
-                .indefiniteList(IndefiniteList(list.map { $0.toAnyValue() }))
+        } else if case .byteString(_) = primitive {
+            // Bytes read in chunks; kept as CBOR so they keep the chunks.
+            self.data = .cbor(try primitive.toCBOR())
+        } else if case .orderedDict(_) = primitive {
+            // A Plutus map is an ordered list of pairs. ``RawDatum/dict(_:)``
+            // has no order, so the map is kept as the CBOR it was read from.
+            self.data = .cbor(try primitive.toCBOR())
+        } else if case .indefiniteDictionary(_) = primitive {
+            self.data = .cbor(try primitive.toCBOR())
+        } else if case .indefiniteList(_) = primitive {
+            // Kept as CBOR: ``AnyValue`` would drop the encoding of anything
+            // inside, and the definite and indefinite headers are told apart.
+            self.data = .cbor(try primitive.toCBOR())
+        } else if case .list(_) = primitive {
+            self.data = .cbor(try primitive.toCBOR())
         } else if case let .cborSimpleValue(cbor) = primitive {
             self.data = .cbor(cbor)
         } else if case let .cborTag(tag) = primitive {
@@ -220,6 +237,9 @@ public struct RawPlutusData: PlutusDataProtocol {
             return RawPlutusData(data: .int(int))
         } else if let bytes = value as? Data {
             return RawPlutusData(data: .bytes(bytes))
+        } else if let list = value as? [Any] {
+            return RawPlutusData(
+                data: .cbor(try Primitive.list(list.map { try Primitive.fromAny($0) }).toCBOR()))
         } else if let list = value as? IndefiniteList<AnyValue> {
             return RawPlutusData(data: .indefiniteList(list))
         } else if let cbor = value as? CBOR {
@@ -268,7 +288,7 @@ public struct RawPlutusData: PlutusDataProtocol {
                     guard let bytes = Data(hexString: bytesHex) else {
                         throw CardanoCoreError.deserializeError("Invalid hex string")
                     }
-                    return try Bytes(from: bytes)
+                    return bytes
                 } else if let list = dict["list"] as? [Any] {
                     return try list.map { try dfs($0) }
                 }

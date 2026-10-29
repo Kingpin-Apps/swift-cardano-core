@@ -110,8 +110,7 @@ extension ConwayGenesis: CBORSerializable {
                 committee:                  try c.decode(Committee.self, forKey: .committee)
             )
         } else {
-            let container = try decoder.singleValueContainer()
-            let primitive = try container.decode(Primitive.self)
+            let primitive = try Primitive.decode(from: decoder, preservingEncoding: false)
             try self.init(from: primitive)
         }
     }

@@ -201,6 +201,11 @@ public struct TransactionWitnessSet: Serializable, Equatable {
     }
     
     // MARK: - CBORSerializable
+
+    /// Plutus data and redeemers are read as written, because adding a
+    /// witness re-encodes the witness set and `script_data_hash` is taken over
+    /// their bytes. Everything else is read in the usual form.
+    public static var preservesEncoding: Bool { true }
     
     public init(from primitive: Primitive) throws {
         guard case let .orderedDict(dict) = primitive else {
@@ -213,7 +218,7 @@ public struct TransactionWitnessSet: Serializable, Equatable {
         
         // vkeyWitnesses (key 0)
         if let vkeyWitnessesPrimitive = dict[key(CodingKeys.vkeyWitnesses)] {
-            vkeyWitnesses = try ListOrNonEmptyOrderedSet<VerificationKeyWitness>(from: vkeyWitnessesPrimitive)
+            vkeyWitnesses = try ListOrNonEmptyOrderedSet<VerificationKeyWitness>(from: vkeyWitnessesPrimitive.normalized())
         } else {
             self.vkeyWitnesses = nil
         }
@@ -221,21 +226,21 @@ public struct TransactionWitnessSet: Serializable, Equatable {
         
         // nativeScripts (key 1)
         if let nativeScriptsPrimitive = dict[key(CodingKeys.nativeScripts)] {
-            nativeScripts = try ListOrNonEmptyOrderedSet<NativeScript>(from: nativeScriptsPrimitive)
+            nativeScripts = try ListOrNonEmptyOrderedSet<NativeScript>(from: nativeScriptsPrimitive.normalized())
         } else {
             self.nativeScripts = nil
         }
         
         // bootstrapWitness (key 2)
         if let bootstrapWitnessPrimitive = dict[key(CodingKeys.bootstrapWitness)] {
-            bootstrapWitness = try ListOrNonEmptyOrderedSet<BootstrapWitness>(from: bootstrapWitnessPrimitive)
+            bootstrapWitness = try ListOrNonEmptyOrderedSet<BootstrapWitness>(from: bootstrapWitnessPrimitive.normalized())
         } else {
             self.bootstrapWitness = nil
         }
         
         // plutusV1Script (key 3)
         if let plutusV1ScriptPrimitive = dict[key(CodingKeys.plutusV1Script)] {
-            plutusV1Script = try ListOrNonEmptyOrderedSet<PlutusV1Script>(from: plutusV1ScriptPrimitive)
+            plutusV1Script = try ListOrNonEmptyOrderedSet<PlutusV1Script>(from: plutusV1ScriptPrimitive.normalized())
         } else {
             self.plutusV1Script = nil
         }
@@ -256,14 +261,14 @@ public struct TransactionWitnessSet: Serializable, Equatable {
         
         // plutusV2Script (key 6)
         if let plutusV2ScriptPrimitive = dict[key(CodingKeys.plutusV2Script)] {
-            plutusV2Script = try ListOrNonEmptyOrderedSet<PlutusV2Script>(from: plutusV2ScriptPrimitive)
+            plutusV2Script = try ListOrNonEmptyOrderedSet<PlutusV2Script>(from: plutusV2ScriptPrimitive.normalized())
         } else {
             self.plutusV2Script = nil
         }
         
         // plutusV3Script (key 7)
         if let plutusV3ScriptPrimitive = dict[key(CodingKeys.plutusV3Script)] {
-            plutusV3Script = try ListOrNonEmptyOrderedSet<PlutusV3Script>(from: plutusV3ScriptPrimitive)
+            plutusV3Script = try ListOrNonEmptyOrderedSet<PlutusV3Script>(from: plutusV3ScriptPrimitive.normalized())
         } else {
             self.plutusV3Script = nil
         }

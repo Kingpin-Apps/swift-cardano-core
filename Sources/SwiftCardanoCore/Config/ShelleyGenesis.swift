@@ -120,8 +120,7 @@ extension ShelleyGenesis: CBORSerializable {
                 securityParam:     try c.decode(UInt32.self, forKey: .securityParam)
             )
         } else {
-            let container = try decoder.singleValueContainer()
-            let primitive = try container.decode(Primitive.self)
+            let primitive = try Primitive.decode(from: decoder, preservingEncoding: false)
             try self.init(from: primitive)
         }
     }

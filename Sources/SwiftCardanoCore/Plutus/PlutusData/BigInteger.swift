@@ -60,6 +60,8 @@ public enum BigInteger: Serializable, CustomStringConvertible, Sendable {
     }
     
     // MARK: - CBORSerializable
+
+    public static var preservesEncoding: Bool { true }
     
     public init(from primitive: Primitive) throws {
         switch primitive {

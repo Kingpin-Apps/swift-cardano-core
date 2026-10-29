@@ -168,6 +168,11 @@ public struct Transaction: Serializable, TextEnvelopable {
     
     // MARK: - CBORSerializable
     
+    /// The witness set is read as written (see
+    /// ``TransactionWitnessSet/preservesEncoding``); the body and auxiliary
+    /// data keep their bytes by other means.
+    public static var preservesEncoding: Bool { true }
+
     public init(from primitive: Primitive) throws {
         guard case let .list(elements) = primitive else {
             throw CardanoCoreError.deserializeError("Invalid Transaction primitive: \(primitive)")
@@ -178,7 +183,7 @@ public struct Transaction: Serializable, TextEnvelopable {
         }
         
         // transactionBody (required)
-        let transactionBody = try TransactionBody(from: elements[0])
+        let transactionBody = try TransactionBody(from: elements[0].normalized())
         
         // transactionWitnessSet (required) - may be wrapped in a CBOR tag
         let transactionWitnessSet: TransactionWitnessSet
@@ -215,7 +220,7 @@ public struct Transaction: Serializable, TextEnvelopable {
 
         var auxiliaryData: AuxiliaryData? = nil
         if let auxiliaryElement, auxiliaryElement != .null {
-            auxiliaryData = try AuxiliaryData(from: auxiliaryElement)
+            auxiliaryData = try AuxiliaryData(from: auxiliaryElement.normalized())
         }
         
         self.init(

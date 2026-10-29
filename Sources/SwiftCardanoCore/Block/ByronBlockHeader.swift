@@ -634,7 +634,7 @@ extension ByronBlockHeader: Serializable {
     /// Falls back to `.list([])` for empty data and `.bytes` for opaque blobs.
     private static func dataToBodyProofPrimitive(_ d: Data) -> Primitive {
         if d.isEmpty { return .list([]) }
-        return (try? CBORDecoder().decode(Primitive.self, from: d)) ?? .bytes(d)
+        return (try? Primitive.from(cbor: CBORDecoder().decode(CBOR.self, from: d))) ?? .bytes(d)
     }
 
     private static func difficultyFrom(_ p: Primitive) throws -> UInt64 {

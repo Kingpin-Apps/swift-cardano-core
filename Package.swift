@@ -26,7 +26,7 @@ let package = Package(
         .package(url: "https://github.com/attaswift/BigInt.git", "5.7.0"..<"7.0.0"),
         .package(url: "https://github.com/Frizlab/swift-fraction-number.git", from: "0.1.0"),
         .package(url: "https://github.com/Kingpin-Apps/swift-base58.git", from: "0.1.4"),
-        .package(url: "https://github.com/Kingpin-Apps/swift-cbor-codable.git", .upToNextMinor(from: "0.3.2")),
+        .package(url: "https://github.com/Kingpin-Apps/swift-cbor-codable.git", .upToNextMinor(from: "0.3.5")),
         .package(url: "https://github.com/Kingpin-Apps/swift-kes.git", .upToNextMinor(from: "1.0.1")),
         .package(url: "https://github.com/Kingpin-Apps/swift-mnemonic.git", .upToNextMinor(from: "0.2.5")),
         .package(url: "https://github.com/Kingpin-Apps/swift-nacl.git", .upToNextMinor(from: "1.0.1")),

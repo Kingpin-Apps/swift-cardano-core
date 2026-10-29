@@ -44,6 +44,8 @@ public struct Constr: Serializable, CustomStringConvertible, Sendable {
 
     // MARK: - CBORSerializable
 
+    public static var preservesEncoding: Bool { true }
+
     public init(from primitive: Primitive) throws {
         guard case .cborTag(let cborTag) = primitive else {
             throw CardanoCoreError.deserializeError("Invalid Constr type")

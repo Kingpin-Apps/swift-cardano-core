@@ -44,8 +44,7 @@ public extension Serializable {
             let json = try container.decode(String.self)
             self = try Self.fromJSON(json)
         } else {
-            let container = try decoder.singleValueContainer()
-            let primitive = try container.decode(Primitive.self)
+            let primitive = try Primitive.decode(from: decoder, preservingEncoding: Self.preservesEncoding)
             try self.init(from: primitive)
         }
     }

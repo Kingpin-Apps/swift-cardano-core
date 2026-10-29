@@ -148,9 +148,10 @@ let redeemer = Redeemer(
 #### Two values are equal when they describe the same data
 
 ``PlutusData`` carries representation detail that has no meaning on chain: a byte
-string is held as `.boundedBytes` or `.byteString` depending on its length, an
-integer as `.int`, `.bigUInt` or `.bigNInt` depending on its magnitude, a list as
-`.array` or `.indefiniteArray` depending on how it was written, and a ``Constr``
+string is held as `.boundedBytes` or `.byteString` depending on its length and
+remembers the chunks it was read in, an integer as `.int`, `.bigUInt` or `.bigNInt`
+depending on its magnitude, a list as `.array` or `.indefiniteArray` and a map as
+`.map` or `.indefiniteMap` depending on how they were written, and a ``Constr``
 remembers whether its fields were written with an indefinite-length array.
 
 `==` ignores all of it and compares structure and content, which is what the

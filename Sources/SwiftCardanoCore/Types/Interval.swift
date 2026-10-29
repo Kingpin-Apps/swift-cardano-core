@@ -93,8 +93,7 @@ public struct UnitInterval: Serializable {
             let den = try container.decode(UInt64.self, forKey: .denominator)
             self.init(numerator: num, denominator: den)
         } else {
-            let container = try decoder.singleValueContainer()
-            let primitive = try container.decode(Primitive.self)
+            let primitive = try Primitive.decode(from: decoder, preservingEncoding: false)
             try self.init(from: primitive)
         }
     }
