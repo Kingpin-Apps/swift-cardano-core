@@ -252,6 +252,14 @@ public struct OperationalCertificate: TextEnvelopable, JSONSerializable, Sendabl
     ///   - kesPeriod: The KES period at which the certificate becomes valid.
     /// - Returns: The issued `OperationalCertificate` with the cold verification key set.
     /// - Throws: If CBOR encoding or signing fails.
+    /// The bytes a cold key signs for an operational certificate.
+    static func signable(kesVerificationKey: Data, sequenceNumber: UInt64, kesPeriod: UInt64) -> Data {
+        var data = kesVerificationKey
+        withUnsafeBytes(of: sequenceNumber.bigEndian) { data.append(contentsOf: $0) }
+        withUnsafeBytes(of: kesPeriod.bigEndian) { data.append(contentsOf: $0) }
+        return data
+    }
+
     public static func issue(
         kesVerificationKey: KESVerificationKey,
         coldSigningKey: StakePoolSigningKey,
@@ -260,16 +268,14 @@ public struct OperationalCertificate: TextEnvelopable, JSONSerializable, Sendabl
     ) throws -> OperationalCertificate {
         let sequenceNumber = UInt64(operationalCertificateIssueCounter.counterValue)
 
-        // Construct the certificate body to sign: [kes_vkey, sequence_number, kes_period]
-        let certBody: Primitive = .list([
-            .bytes(kesVerificationKey.payload),
-            .uint(sequenceNumber),
-            .uint(kesPeriod)
-        ])
-        let certBodyBytes = try CBOREncoder().encode(certBody)
-
-        // Sign the CBOR-encoded body with the cold signing key
-        let sigma = try coldSigningKey.sign(data: certBodyBytes)
+        // The cold key signs the raw KES key, then the counter and the KES
+        // period as big-endian 64-bit words — not their CBOR (`OCertSignable`
+        // in cardano-ledger's Cardano.Protocol.TPraos.OCert).
+        let sigma = try coldSigningKey.sign(
+            data: Self.signable(
+                kesVerificationKey: kesVerificationKey.payload,
+                sequenceNumber: sequenceNumber,
+                kesPeriod: kesPeriod))
 
         // Derive the cold verification key
         let coldVerificationKey: StakePoolVerificationKey = try coldSigningKey.toVerificationKey()

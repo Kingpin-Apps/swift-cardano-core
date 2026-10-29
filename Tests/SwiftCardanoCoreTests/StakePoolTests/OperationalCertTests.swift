@@ -493,7 +493,7 @@ func makeOperationalCertWithColdKey() throws -> OperationalCertificate {
         #expect(cert2.sequenceNumber == 2)
     }
 
-    @Test("Test issue sigma is a valid Ed25519 signature over the certificate body")
+    @Test("Test issue sigma is a valid Ed25519 signature over the ledger's signable bytes")
     func testIssueSigmaIsValid() async throws {
         let kesKeyPair = try KESKeyPair.generate()
         let coldKeyPair = try StakePoolKeyPair.generate()
@@ -508,13 +508,11 @@ func makeOperationalCertWithColdKey() throws -> OperationalCertificate {
             kesPeriod: 100
         )
 
-        // Reconstruct the certificate body that was signed
-        let certBody: Primitive = .list([
-            .bytes(kesKeyPair.verificationKey.payload),
-            .uint(UInt64(0)),   // sequenceNumber was 0
-            .uint(UInt64(100))  // kesPeriod
-        ])
-        let certBodyBytes = try CBOREncoder().encode(certBody)
+        // The ledger's signable bytes: the raw KES key, then the sequence
+        // number and KES period as big-endian 64-bit words.
+        let certBodyBytes = kesKeyPair.verificationKey.payload
+            + Data([0, 0, 0, 0, 0, 0, 0, 0])
+            + Data([0, 0, 0, 0, 0, 0, 0, 100])
 
         // Verify the sigma using the cold verification key
         // When smessage contains signature + message concatenated, verify returns the original message
@@ -680,5 +678,28 @@ func makeOperationalCertWithColdKey() throws -> OperationalCertificate {
 
         // Different KES vkeys mean different cert bodies, so different sigmas
         #expect(cert1.sigma != cert2.sigma)
+    }
+}
+
+@Suite("An issued operational certificate matches cardano-cli's")
+struct OperationalCertCLITests {
+    func path(_ name: String) throws -> String {
+        try #require(Bundle.module.resourceURL?.appendingPathComponent("data/\(name)").path)
+    }
+
+    @Test("Re-issuing the fixture with its keys gives cardano-cli's signature")
+    func matchesCLI() throws {
+        let expected = try OperationalCertificate.load(from: path("certs/test.node.cert"))
+        let kes = try KESVerificationKey.load(from: path("keys/test.kes.vkey"))
+        let cold = try StakePoolSigningKey.load(from: path("keys/test.cold.skey"))
+        var counter = try OperationalCertificateIssueCounter(
+            counterValue: 0, coldVerificationKey: try cold.toVerificationKey())
+
+        let issued = try OperationalCertificate.issue(
+            kesVerificationKey: kes, coldSigningKey: cold,
+            operationalCertificateIssueCounter: &counter, kesPeriod: 129_600)
+
+        #expect(issued.hotVKey == expected.hotVKey)
+        #expect(issued.sigma == expected.sigma)
     }
 }

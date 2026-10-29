@@ -168,7 +168,8 @@ public struct ByronAddress: CBORSerializable, CustomStringConvertible, Equatable
 
         // ── CRC32 verification ────────────────────────────────────────────────────
         let computedCRC = Checksum.crc32(Array(payloadBytes))
-        guard computedCRC == UInt32(storedCRC) else {
+        // The CRC is a u32; a larger value cannot match.
+        guard UInt64(computedCRC) == storedCRC else {
             throw CardanoCoreError.deserializeError(
                 "Byron address CRC32 mismatch: stored \(storedCRC), computed \(computedCRC)"
             )
@@ -217,10 +218,12 @@ public struct ByronAddress: CBORSerializable, CustomStringConvertible, Equatable
                 derivationPath = v
             case 2:
                 // Protocol magic — stored as bytes containing a CBOR-encoded uint
-                if let magicCBOR = try? CBORDecoder().decode(CBOR.self, from: v),
-                   case .unsignedInt(let magic) = magicCBOR {
-                    protocolMagic = UInt32(magic)
+                // — a Word32, as the Byron ledger reads it.
+                guard case .unsignedInt(let magic) = try CBORDecoder().decode(CBOR.self, from: v),
+                      let narrowed = UInt32(exactly: magic) else {
+                    throw CardanoCoreError.deserializeError("Invalid Byron address protocol magic")
                 }
+                protocolMagic = narrowed
             default:
                 // Unknown attributes are silently ignored per CIP-0019
                 break
@@ -229,7 +232,8 @@ public struct ByronAddress: CBORSerializable, CustomStringConvertible, Equatable
 
         // Address sub-type
         guard case .unsignedInt(let typeInt) = inner[2],
-              let byronType = ByronAddressType(rawValue: Int(typeInt)) else {
+              let typeValue = Int(exactly: typeInt),
+              let byronType = ByronAddressType(rawValue: typeValue) else {
             throw CardanoCoreError.deserializeError(
                 "Byron address type must be 0 (pubKey), 1 (script), or 2 (redeem)"
             )
