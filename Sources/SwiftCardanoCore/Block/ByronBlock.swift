@@ -61,7 +61,7 @@ public enum ByronBlock: Sendable {
         }
 
         /// The block hash: the hash of its header.
-        public func hash() -> Data { header.hash() }
+        public func hash() throws -> Data { try header.hash() }
 
         /// Network protocol magic.
         public var protocolMagic: UInt32 { header.protocolMagic }
@@ -126,7 +126,7 @@ public enum ByronBlock: Sendable {
         }
 
         /// The block hash: the hash of its header.
-        public func hash() -> Data { header.hash() }
+        public func hash() throws -> Data { try header.hash() }
 
         /// Network protocol magic.
         public var protocolMagic: UInt32 { header.protocolMagic }
@@ -193,10 +193,10 @@ public enum ByronBlock: Sendable {
     }
 
     /// The block hash: Blake2b-256 of `[discriminant, header]`.
-    public func hash() -> Data {
+    public func hash() throws -> Data {
         switch self {
-        case .ebb(let e): return e.hash()
-        case .bft(let b): return b.hash()
+        case .ebb(let e): return try e.hash()
+        case .bft(let b): return try b.hash()
         }
     }
 
@@ -388,7 +388,7 @@ extension ByronBlock: Serializable {
 
     public func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
-        dict[.string("hash")] = .string(hash().toHex)
+        dict[.string("hash")] = .string(try hash().toHex)
         dict[.string("protocolMagic")] = .uint(UInt64(header.protocolMagic))
         dict[.string("prevHash")] = prevHash.map { .string($0.toHex) } ?? .null
         switch self {
@@ -416,7 +416,7 @@ extension ByronBlock: Serializable {
 
             dict[.string("transactionCount")] = .uint(UInt64(bft.transactionCount))
             dict[.string("transactionIds")] = .list(
-                bft.transactions.map { .string($0.id.payload.toHex) })
+                try bft.transactions.map { .string(try $0.id.payload.toHex) })
         }
         dict[.string("cbor")] = .string(try toCBORData().toHex)
         return .orderedDict(dict)

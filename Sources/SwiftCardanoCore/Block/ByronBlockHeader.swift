@@ -80,8 +80,8 @@ public enum ByronBlockHeader: Sendable {
         }
 
         /// The block hash: Blake2b-256 of `[0, ebbhead]`.
-        public func hash() -> Data {
-            ByronHash.header(discriminant: 0, headerCBOR: try! toCBORData())
+        public func hash() throws -> Data {
+            try ByronHash.header(discriminant: 0, headerCBOR: toCBORData())
         }
 
         /// The bytes this header was decoded from while it is unchanged,
@@ -196,8 +196,8 @@ public enum ByronBlockHeader: Sendable {
         }
 
         /// The block hash: Blake2b-256 of `[1, blockhead]`.
-        public func hash() -> Data {
-            ByronHash.header(discriminant: 1, headerCBOR: try! toCBORData())
+        public func hash() throws -> Data {
+            try ByronHash.header(discriminant: 1, headerCBOR: toCBORData())
         }
 
         /// The absolute slot, given the number of slots in a Byron epoch
@@ -844,7 +844,7 @@ extension ByronBlockHeader: Serializable {
     public func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
         dict[.string("type")] = .string(discriminant == 0 ? "ebb" : "bft")
-        dict[.string("hash")] = .string(hash().toHex)
+        dict[.string("hash")] = .string(try hash().toHex)
         dict[.string("protocolMagic")] = .uint(UInt64(protocolMagic))
         dict[.string("prevBlock")] = .string(prevBlock.toHex)
         dict[.string("epoch")] = .uint(epoch)
@@ -860,10 +860,10 @@ extension ByronBlockHeader: Serializable {
     // MARK: - Hashing
 
     /// The block hash: Blake2b-256 of `[discriminant, header]`.
-    public func hash() -> Data {
+    public func hash() throws -> Data {
         switch self {
-        case .ebb(let h): return h.hash()
-        case .bft(let h): return h.hash()
+        case .ebb(let h): return try h.hash()
+        case .bft(let h): return try h.hash()
         }
     }
 }

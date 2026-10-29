@@ -94,12 +94,15 @@ public func getConstructorIDAndFields(value: CBOR) throws -> (Int, [AnyValue]) {
                     "Expect the length of value to be exactly 2, got \(String(describing: innerValue.count)) instead."
                 )
         }
-        return (
-            Int(innerValue.arrayValue![0].unwrapped as! UInt64),
-            try (innerValue.arrayValue![1].unwrapped as! [Any]).map {
-                try AnyValue.wrapped($0)
-            }
-        )
+        guard let parts = innerValue.arrayValue,
+              let alternative = parts[0].unwrapped as? UInt64,
+              let constr = Int(exactly: alternative),
+              let fields = parts[1].unwrapped as? [Any]
+        else {
+            throw CardanoCoreError.decodingError(
+                "A #6.102 constructor must be [alternative, [fields]], got \(innerValue)")
+        }
+        return (constr, try fields.map { try AnyValue.wrapped($0) })
     } else {
         var constr: Int
         if 121 <= tag && tag < 128 {

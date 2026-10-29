@@ -37,11 +37,11 @@ public struct ByronTransaction: Sendable, Equatable, Hashable {
 
     /// The transaction id: Blake2b-256 of the transaction's bytes.
     public var id: TransactionId {
-        TransactionId(payload: hash())
+        get throws { TransactionId(payload: try hash()) }
     }
 
-    public func hash() -> Data {
-        ByronHash.blake2b256(try! toCBORData())
+    public func hash() throws -> Data {
+        try ByronHash.blake2b256(toCBORData())
     }
 
     /// Decodes a transaction, keeping the bytes it was read from.
@@ -280,7 +280,7 @@ public struct ByronTransactionAux: Sendable, Equatable, Hashable {
     }
 
     /// The id of the transaction.
-    public var id: TransactionId { transaction.id }
+    public var id: TransactionId { get throws { try transaction.id } }
 
     /// Decodes an entry, keeping its bytes and those of its transaction.
     public static func fromCBOR(data: Data) throws -> ByronTransactionAux {

@@ -466,7 +466,7 @@ public struct ByronUpdateProposal: Sendable, Equatable, Hashable {
 
     /// The proposal id that votes refer to: Blake2b-256 of the proposal's bytes.
     public var id: Data {
-        ByronHash.blake2b256(try! toCBORData())
+        get throws { try ByronHash.blake2b256(toCBORData()) }
     }
 
     public func toCBORData() throws -> Data {

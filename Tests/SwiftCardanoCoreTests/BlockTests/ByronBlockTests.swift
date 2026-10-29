@@ -116,7 +116,7 @@ struct ByronBlockTests {
             return
         }
         #expect(try block.toCBORData() == bytes)
-        #expect(block.hash().toHex == vector.hash)
+        #expect(try block.hash().toHex == vector.hash)
 
         var wrapper = ByronCBORWriter()
         wrapper.array(2)
@@ -148,7 +148,7 @@ struct ByronBlockTests {
         }
         #expect(rebuilt.originalCBOR == nil)
         #expect(try rebuilt.toCBORData() == bytes)
-        #expect(rebuilt.hash().toHex == vector.hash)
+        #expect(try rebuilt.hash().toHex == vector.hash)
     }
 
     // MARK: - Hashes
@@ -156,14 +156,14 @@ struct ByronBlockTests {
     @Test("Block hashes and transaction ids match mainnet", arguments: vectors)
     func hashesMatchMainnet(_ vector: Vector) throws {
         let block = try ByronBlock.fromCBOR(data: try vector.bytes())
-        #expect(block.hash().toHex == vector.hash)
-        #expect(block.header.hash().toHex == vector.hash)
+        #expect(try block.hash().toHex == vector.hash)
+        #expect(try block.header.hash().toHex == vector.hash)
         guard case .bft(let bft) = block else {
             #expect(vector.transactionIds.isEmpty)
             return
         }
-        #expect(bft.transactions.map { $0.id.payload.toHex } == vector.transactionIds)
-        #expect(bft.transactions.map { $0.transaction.hash().toHex } == vector.transactionIds)
+        #expect(try bft.transactions.map { try $0.id.payload.toHex } == vector.transactionIds)
+        #expect(try bft.transactions.map { try $0.transaction.hash().toHex } == vector.transactionIds)
     }
 
     @Test("The next block's header points back at byron1")
@@ -175,11 +175,11 @@ struct ByronBlockTests {
             return
         }
         #expect(try header.toCBORData() == headerBytes)
-        #expect(head.prevBlock == (try Self.block("byron1.block")).hash())
+        #expect(try head.prevBlock == (try Self.block("byron1.block")).hash())
         #expect(head.slotId == ByronBlockHeader.SlotId(epoch: 207, slot: 21595))
         #expect(head.difficulty == 4_490_506)
         // Mainnet block 4490506.
-        #expect(header.hash().toHex == "2548ad5d0d9d33d50ab43151f574474454017a733e307229fa509c4987ca9782")
+        #expect(try header.hash().toHex == "2548ad5d0d9d33d50ab43151f574474454017a733e307229fa509c4987ca9782")
     }
 
     @Test("Body proofs commit to the payload bytes", arguments: vectors)
@@ -189,7 +189,7 @@ struct ByronBlockTests {
             let body = ByronCBORWriter.encode { writer in
                 writer.indefiniteArray(ebb.body ?? []) { $0.bytes($1) }
             }
-            #expect(ByronHash.blake2b256(body) == ebb.header.bodyProof)
+            #expect(try ByronHash.blake2b256(body) == ebb.header.bodyProof)
         case .bft(let bft):
             let body = try #require(bft.body)
             let delegation = ByronCBORWriter.encode { writer in
@@ -199,9 +199,9 @@ struct ByronBlockTests {
                 writer.array(bft.extra.count)
                 for attributes in bft.extra { writer.raw(try attributes.toCBORData()) }
             }
-            #expect(ByronHash.blake2b256(delegation) == bft.header.bodyProof.dlgProof)
-            #expect(ByronHash.blake2b256(try body.updatePayload.toCBORData()) == bft.header.bodyProof.updProof)
-            #expect(ByronHash.blake2b256(extra) == bft.header.extraProof)
+            #expect(try ByronHash.blake2b256(delegation) == bft.header.bodyProof.dlgProof)
+            #expect(try ByronHash.blake2b256(try body.updatePayload.toCBORData()) == bft.header.bodyProof.updProof)
+            #expect(try ByronHash.blake2b256(extra) == bft.header.extraProof)
             #expect(Int(bft.header.bodyProof.txProof.transactionCount) == bft.transactionCount)
         }
     }
@@ -312,11 +312,11 @@ struct ByronBlockTests {
         let bytes = try Self.load("byron1.tx")
         let aux = try ByronTransactionAux.fromCBOR(data: bytes)
         #expect(try aux.toCBORData() == bytes)
-        #expect(aux.id.payload.toHex == "a06e5a0150e09f8983be2deafab9e04afc60d92e7110999eb672c903343f1e26")
+        #expect(try aux.id.payload.toHex == "a06e5a0150e09f8983be2deafab9e04afc60d92e7110999eb672c903343f1e26")
         #expect(aux == (try Self.bft("byron2.block")).transactions[0])
 
         let transaction = try ByronTransaction.fromCBOR(data: try aux.transaction.toCBORData())
-        #expect(transaction.id == aux.id)
+        #expect(try transaction.id == aux.id)
     }
 
     @Test("SSC commitments and certificates decode")
@@ -367,11 +367,12 @@ struct ByronBlockTests {
         #expect(bft.slotWithinEpoch == 8686)
         let update = try #require(bft.body).updatePayload
         let proposal = try #require(update.proposal)
-        #expect(proposal.id.toHex == "0d7d3b53a0ef9ce40fa9222cfc2b725f52c0136c01ad366115b48f94d8ef2c6d")
+        #expect(try proposal.id.toHex == "0d7d3b53a0ef9ce40fa9222cfc2b725f52c0136c01ad366115b48f94d8ef2c6d")
         // The proposer votes for its own proposal in the same block.
+        let proposalId = try proposal.id
         #expect(update.votes == [
             ByronUpdateVote(
-                voter: proposal.from, proposalId: proposal.id, vote: true,
+                voter: proposal.from, proposalId: proposalId, vote: true,
                 signature: try #require(Data(hexString:
                     "d723f2794e5206c38b9ed6433190cd75e89ab1e3d9324c89fe0925b924c81b2fadbf83f3e232f583efcb1eae345e3149073e2d85c0eb85324874f13118ce340d"))),
         ])
@@ -425,14 +426,14 @@ struct ByronBlockTests {
         // The header is untouched, so the block hash is too; the changed
         // transaction has a new id, and decoding the new bytes gives it back.
         let decoded = try ByronBlock.fromCBOR(data: changed)
-        #expect(decoded.hash() == ByronBlock.bft(bft).hash())
+        #expect(try decoded.hash() == ByronBlock.bft(bft).hash())
         guard case .bft(let decodedBFT) = decoded else {
             Issue.record("expected a regular block")
             return
         }
         #expect(decodedBFT == bft)
-        #expect(decodedBFT.transactions[0].id != (try Self.bft("byron2.block")).transactions[0].id)
-        #expect(decodedBFT.transactions[1].id.payload.toHex
+        #expect(try decodedBFT.transactions[0].id != (try Self.bft("byron2.block")).transactions[0].id)
+        #expect(try decodedBFT.transactions[1].id.payload.toHex
             == "f736d55633782151cd528f9918c3587155cbd59c46b6ca839e5b4860a780f379")
     }
 
@@ -446,7 +447,7 @@ struct ByronBlockTests {
         #expect(changed.range(of: bodyBytes) != nil)
         let decoded = try ByronBlock.fromCBOR(data: changed)
         #expect(decoded.difficulty == 4_490_506)
-        #expect(decoded.hash().toHex != Self.vectors[1].hash)
+        #expect(try decoded.hash().toHex != Self.vectors[1].hash)
     }
 
     /// No vector carries a delegation certificate in its body, so this checks
@@ -496,7 +497,7 @@ struct ByronBlockTests {
         #expect(headerOnly.blockSizeHint == UInt32(blockBytes.count))
         #expect(headerOnly.header == bft.header)
         #expect(headerOnly.transactionCount == 0)
-        #expect(block.hash() == bft.hash())
+        #expect(try block.hash() == bft.hash())
         #expect(try block.toCBORData() == ntn)
 
         var changed = headerOnly
@@ -507,7 +508,7 @@ struct ByronBlockTests {
 
         let eraHeader = try EraBlockHeader.fromByronNtNData(ntn)
         #expect(eraHeader.byronHeader == .bft(bft.header))
-        #expect(eraHeader.byronHeader?.hash() == bft.hash())
+        #expect(try eraHeader.byronHeader?.hash() == bft.hash())
     }
 
     @Test("EraBlockHeader era 0 keeps the header bytes")

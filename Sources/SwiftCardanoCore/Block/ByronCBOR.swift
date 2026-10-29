@@ -321,15 +321,15 @@ struct ByronOriginalBytes: Hashable, Sendable {
 
 enum ByronHash {
     /// Blake2b-256 of `data`.
-    static func blake2b256(_ data: Data) -> Data {
-        try! Hash().blake2b(data: data, digestSize: 32, encoder: RawEncoder.self)
+    static func blake2b256(_ data: Data) throws -> Data {
+        try Hash().blake2b(data: data, digestSize: 32, encoder: RawEncoder.self)
     }
 
     /// The hash of a Byron block header: Blake2b-256 of `[discriminant, header]`,
     /// where the discriminant is 0 for an epoch boundary block and 1 for a
     /// regular block. Both the block hash and a block's `prevBlock` use it.
-    static func header(discriminant: UInt8, headerCBOR: Data) -> Data {
-        blake2b256(Data([0x82, discriminant]) + headerCBOR)
+    static func header(discriminant: UInt8, headerCBOR: Data) throws -> Data {
+        try blake2b256(Data([0x82, discriminant]) + headerCBOR)
     }
 }
 
