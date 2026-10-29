@@ -22,12 +22,12 @@ public struct VerificationKeyWitness: Serializable, TextEnvelopable {
         case signature
     }
     
-    public init(payload: Data, type: String?, description: String?) {
+    public init(payload: Data, type: String?, description: String?) throws {
         self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
         
-        let cbor = try! CBORDecoder().decode(Self.self, from: payload)
+        let cbor = try CBORDecoder().decode(Self.self, from: payload)
         self.vkey = cbor.vkey
         self.signature = cbor.signature
     }
@@ -69,11 +69,11 @@ public struct VerificationKeyWitness: Serializable, TextEnvelopable {
         self.signature = signatureData
         
         // Initialize the PayloadCBORSerializable properties
-        self._payload = try! CBORSerialization.data(from:
+        self._payload = try CBORSerialization.data(from:
                 .array(
                     [
-                        try! CBOREncoder().encode(vkey).toCBOR,
-                        try! CBOREncoder().encode(signature).toCBOR
+                        try CBOREncoder().encode(vkey).toCBOR,
+                        try CBOREncoder().encode(signature).toCBOR
                     ]
                 )
         )

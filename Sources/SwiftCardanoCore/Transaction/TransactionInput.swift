@@ -35,14 +35,18 @@ public struct TransactionInput: Serializable {
             throw CardanoCoreError.deserializeError("Invalid TransactionInput type")
         }
         
+        guard primitive.count == 2 else {
+            throw CardanoCoreError.deserializeError(
+                "Invalid TransactionInput: expected 2 elements, got \(primitive.count)")
+        }
+        
         self.transactionId = try TransactionId(from: primitive[0])
         
-        switch primitive[1] {
-            case let .uint(intValue):
-                self.index = UInt16(intValue)
-            default:
-                throw CardanoCoreError.deserializeError("Invalid TransactionInput type")
+        // transaction_input = [transaction_id, index : uint .size 2]
+        guard case .uint = primitive[1] else {
+            throw CardanoCoreError.deserializeError("Invalid TransactionInput type")
         }
+        self.index = try primitive[1].integer("TransactionInput index", as: UInt16.self)
     }
     
     public func toPrimitive() throws -> Primitive {
@@ -68,15 +72,7 @@ public struct TransactionInput: Serializable {
             throw CardanoCoreError.deserializeError("Missing index in TransactionInput")
         }
         
-        let indexValue: UInt16
-        switch indexPrimitive {
-        case let .uint(uintValue):
-            indexValue = UInt16(uintValue)
-        case let .int(intValue):
-            indexValue = UInt16(intValue)
-        default:
-            throw CardanoCoreError.deserializeError("Invalid index type in TransactionInput")
-        }
+        let indexValue = try indexPrimitive.integer("TransactionInput index", as: UInt16.self)
         
         let transactionId = try TransactionId.fromDict(.string(txIdData))
         

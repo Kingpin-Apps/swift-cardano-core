@@ -14,9 +14,9 @@ public struct IndefiniteList<T: Sendable>: CBORSerializable, Sendable where T: H
 
         switch cborData {
             case .array(let arrayData):
-                self.items = arrayData.map { $0.unwrapped as! T }
+                self.items = try arrayData.map { try Self.cast($0.unwrapped as Any) }
             case .indefiniteArray(let arrayData):
-                self.items = arrayData.map { $0.unwrapped as! T }
+                self.items = try arrayData.map { try Self.cast($0.unwrapped as Any) }
             default:
                 throw CardanoCoreError.valueError("IndefiniteList must be an array")
         }
@@ -33,12 +33,21 @@ public struct IndefiniteList<T: Sendable>: CBORSerializable, Sendable where T: H
     public init(from primitive: Primitive) throws {
         switch primitive {
             case .list(let elements):
-                self.items = elements.map { $0 as! T }
+                self.items = try elements.map { try Self.cast($0) }
             case .indefiniteList(let elements):
-                self.items = elements.map { $0 as! T }
+                self.items = try elements.map { try Self.cast($0) }
             default:
                 throw CardanoCoreError.valueError("IndefiniteList must be an array")
         }
+    }
+
+    /// An element as a `T`, or a decoding error when it is not one.
+    private static func cast(_ element: Any) throws -> T {
+        guard let item = element as? T else {
+            throw CardanoCoreError.deserializeError(
+                "IndefiniteList element \(element) is not a \(T.self)")
+        }
+        return item
     }
  
     public func toPrimitive() throws -> Primitive {

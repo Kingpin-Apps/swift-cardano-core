@@ -44,17 +44,14 @@ public struct BabbageTransactionOutput: Serializable {
                 throw CardanoCoreError.deserializeError("Invalid TransactionOutputLegacy type")
         }
         
-        guard primitiveDict.count >= 2 else {
-            throw CardanoCoreError.deserializeError("Invalid TransactionOutputLegacy type")
+        guard let address = primitiveDict[.uint(UInt64(CodingKeys.address.rawValue))],
+              let amount = primitiveDict[.uint(UInt64(CodingKeys.amount.rawValue))] else {
+            throw CardanoCoreError.deserializeError(
+                "Invalid TransactionOutput: missing address (0) or amount (1)")
         }
         
-        
-        self.address = try Address(
-            from: primitiveDict[.uint(UInt64(CodingKeys.address.rawValue))]!
-        )
-        self.amount = try Value(
-            from: primitiveDict[.uint(UInt64(CodingKeys.amount.rawValue))]!
-        )
+        self.address = try Address(from: address)
+        self.amount = try Value(from: amount)
 
         if let datum = primitiveDict[.uint(UInt64(CodingKeys.datum.rawValue))] {
             self.datumOption = try DatumOption(from: datum)
@@ -100,10 +97,9 @@ public struct BabbageTransactionOutput: Serializable {
 
         // Handle both int and uint for amount
         let amountValue: Int64
-        if case let .int(amountInt) = orderedDict[.string("amount")] {
-            amountValue = amountInt
-        } else if case let .uint(amountUInt) = orderedDict[.string("amount")] {
-            amountValue = Int64(amountUInt)
+        if let amountPrimitive = orderedDict[.string("amount")],
+           amountPrimitive.integerValue != nil {
+            amountValue = try Value.coin(from: amountPrimitive)
         } else {
             throw CardanoCoreError.deserializeError("Invalid TransactionOutputPostAlonzo JSON format: invalid amount: \(String(describing: orderedDict[.string("amount")]))")
         }
@@ -132,7 +128,7 @@ public struct BabbageTransactionOutput: Serializable {
     public func toDict() throws -> Primitive {
         var dict: OrderedDictionary<Primitive, Primitive> = [
             .string("address"): .string(try address.toBech32()),
-            .string("amount"): .uint(UInt64(amount.coin))
+            .string("amount"): .integer(amount.coin)
         ]
         if let datumOption = datumOption {
             dict[.string("datum")] = try datumOption.toDict()

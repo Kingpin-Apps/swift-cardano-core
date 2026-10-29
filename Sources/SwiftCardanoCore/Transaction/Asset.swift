@@ -94,16 +94,10 @@ public struct Asset: Serializable, Comparable, AdditiveArithmetic {
                     throw CardanoCoreError.deserializeError("Invalid AssetName type: \(key)")
             }
             
-            // Extract coin from first element which can be .int or .uint
-            let coinValue: Int64
-            switch value {
-                case .int(let v):
-                    coinValue = Int64(v)
-                case .uint(let v):
-                    coinValue = Int64(v)
-                default:
-                    throw CardanoCoreError.deserializeError("Invalid Asset amount type: \(value)")
+            guard value.integerValue != nil else {
+                throw CardanoCoreError.deserializeError("Invalid Asset amount type: \(value)")
             }
+            let coinValue = try value.integer("Asset amount", as: Int64.self)
 
             self.data[AssetName(from: assetName)] = coinValue
         }
@@ -139,16 +133,10 @@ public struct Asset: Serializable, Comparable, AdditiveArithmetic {
                 default:
                     throw CardanoCoreError.deserializeError("Invalid AssetName type: \(key)")
             }
-            // Extract coin from first element which can be .int or .uint
-            let coinValue: Int64
-            switch value {
-                case .int(let v):
-                    coinValue = v
-                case .uint(let v):
-                    coinValue = Int64(v)
-                default:
-                    throw CardanoCoreError.deserializeError("Invalid Asset amount type: \(value)")
+            guard value.integerValue != nil else {
+                throw CardanoCoreError.deserializeError("Invalid Asset amount type: \(value)")
             }
+            let coinValue = try value.integer("Asset amount", as: Int64.self)
             assetData[AssetName(from: assetName)] = coinValue
         }
         return Asset(assetData)

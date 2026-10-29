@@ -70,7 +70,7 @@ public struct StakeAddressInfo: Codable, Equatable, Sendable {
             .decodeIfPresent(EpochNumber.self, forKey: .activeEpoch)
 
         self.address = try container
-            .decodeIfPresent(String.self, forKey: .address)!
+            .decode(String.self, forKey: .address)
         self.govActionDeposits = try container
             .decodeIfPresent(
                 [String:UInt64].self,

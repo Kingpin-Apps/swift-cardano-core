@@ -20,8 +20,8 @@ public struct ShelleyTransactionOutput: Serializable {
             throw CardanoCoreError.deserializeError("Invalid TransactionOutputLegacy type")
         }
         
-        self.address = try Address(from: primitive[0])
-        self.amount = try Value(from: primitive[1])
+        self.address = try Address(from: primitive.element(0, "TransactionOutput address"))
+        self.amount = try Value(from: primitive.element(1, "TransactionOutput amount"))
         
         if primitive.count > 2 {
             self.datumHash = try DatumHash(from: primitive[2])
@@ -57,17 +57,15 @@ public struct ShelleyTransactionOutput: Serializable {
         let amount: Value
         if let amountPrimitive = orderedDict[.string("amount")] {
             switch amountPrimitive {
-            case .int(let amountInt):
+            case .int, .uint:
                 // Simple coin-only value
-                amount = Value(coin: amountInt)
-            case .uint(let amountUInt):
-                // Simple coin-only value
-                amount = Value(coin: Int64(amountUInt))
+                amount = Value(coin: try Value.coin(from: amountPrimitive))
             case .orderedDict(let amountDict):
                 // Complex Value with multiAsset - deserialize from {coin, multiAsset} format
-                guard case let .int(coinValue) = amountDict[.string("coin")] else {
+                guard let coinPrimitive = amountDict[.string("coin")] else {
                     throw CardanoCoreError.deserializeError("Invalid Value format: missing coin")
                 }
+                let coinValue = try Value.coin(from: coinPrimitive)
                 let multiAsset: MultiAsset
                 if let multiAssetPrimitive = amountDict[.string("multiAsset")] {
                     multiAsset = try MultiAsset.fromDict(multiAssetPrimitive)
@@ -110,11 +108,11 @@ public struct ShelleyTransactionOutput: Serializable {
         // to avoid data loss during JSON round-tripping
         if amount.multiAsset.isEmpty {
             // Simple case: just coin
-            dict[.string("amount")] = .uint(UInt64(amount.coin))
+            dict[.string("amount")] = .integer(amount.coin)
         } else {
             // Complex case: coin + multiAsset - serialize as array [coin, multiAsset]
             var amountDict = OrderedDictionary<Primitive, Primitive>()
-            amountDict[.string("coin")] = .int(amount.coin)
+            amountDict[.string("coin")] = .integer(amount.coin)
             amountDict[.string("multiAsset")] = try amount.multiAsset.toDict()
             dict[.string("amount")] = .orderedDict(amountDict)
         }

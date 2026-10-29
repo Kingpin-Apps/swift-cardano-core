@@ -39,10 +39,10 @@ public struct Withdrawals: Serializable {
         
         for (key, value) in primitiveDict {
             guard case let .bytes(keyValue) = key,
-                  case let .uint(intValue) = value else {
+                  case .uint = value else {
                 throw CardanoCoreError.deserializeError("Invalid Withdrawals type: \(primitiveDict)")
             }
-            self._data[RewardAccount(keyValue)] = Coin(intValue)
+            self._data[RewardAccount(keyValue)] = try value.integer("Withdrawal amount", as: Coin.self)
         }
     }
     
@@ -63,11 +63,11 @@ public struct Withdrawals: Serializable {
         var data: OrderedDictionary<RewardAccount, Coin> = [:]
         for (key, value) in dictValue {
             guard case let .string(keyHex) = key,
-                  case let .int(intValue) = value else {
+                  value.integerValue != nil else {
                 throw CardanoCoreError.deserializeError("Invalid Withdrawals dict")
             }
             let keyData = Data(hex: keyHex)
-            data[RewardAccount(keyData)] = Coin(intValue)
+            data[RewardAccount(keyData)] = try value.integer("Withdrawal amount", as: Coin.self)
         }
         return Withdrawals(data)
     }
@@ -75,7 +75,7 @@ public struct Withdrawals: Serializable {
     public func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
         for (key, value) in _data {
-            dict[.string(key.toHexString())] = .int(Int64(value))
+            dict[.string(key.toHexString())] = .integer(value)
         }
         return .orderedDict(dict)
     }

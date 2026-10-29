@@ -211,6 +211,10 @@ public struct DatumOption: Serializable {
         guard case .list(let primitive) = primitive else {
             throw CardanoCoreError.deserializeError("Invalid DatumOption type")
         }
+        guard primitive.count == 2 else {
+            throw CardanoCoreError.deserializeError(
+                "Invalid DatumOption: expected 2 elements, got \(primitive.count)")
+        }
 
         if primitive[0] == .uint(0) {
             type = 0
@@ -250,7 +254,7 @@ public struct DatumOption: Serializable {
 
     public func toDict() throws -> Primitive {
         var dict = OrderedCollections.OrderedDictionary<Primitive, Primitive>()
-        dict[.string("_TYPE")] = .uint(UInt64(type))
+        dict[.string("_TYPE")] = .integer(type)
         dict[.string("datum")] = try datum.toDict()
         return .orderedDict(dict)
     }
@@ -410,10 +414,13 @@ public enum RawDatum: PlutusDataProtocol {
                 result[entry.key.toAnyValue()] = entry.value.toAnyValue()
             }
             self = .dict(convertedDict)
-        case .int(let int):
+        case .int(let int) where Int(exactly: int) != nil:
             self = .int(Int(int))
-        case .uint(let uint):
+        case .uint(let uint) where Int(exactly: uint) != nil:
             self = .int(Int(uint))
+        case .int, .uint, .bigInt, .bigUInt:
+            // An integer too big for `Int` is still valid Plutus data.
+            self = .plutusData(try PlutusData(from: primitive))
         case .bytes(let bytes):
             self = .bytes(bytes)
         case .indefiniteList(let list):

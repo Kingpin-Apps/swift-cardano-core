@@ -104,6 +104,10 @@ public struct ScriptRef: CBORTaggable, Serializable {
     public var script: Script
     
     public init(tag: UInt64 = 24, value: Primitive) throws {
+        // script_ref = #6.24(bytes .cbor script)
+        guard tag == 24 else {
+            throw CardanoCoreError.valueError("Invalid ScriptRef tag: \(tag)")
+        }
         if case let .string(script) = value {
             self.script = try CBORDecoder().decode(Script.self, from: script.toData)
         } else if case let .bytes(script) = value {
@@ -159,9 +163,11 @@ public struct ScriptRef: CBORTaggable, Serializable {
     
     public static func fromDict(_ dict: Primitive) throws -> ScriptRef {
         guard case let .orderedDict(dictValue) = dict,
-              case let .int(tagValue) = dictValue[Primitive.string("tag")] else {
+              let tagPrimitive = dictValue[Primitive.string("tag")],
+              tagPrimitive.integerValue != nil else {
             throw CardanoCoreError.deserializeError("Invalid ScriptRef JSON: missing tag")
         }
+        let tagValue = try tagPrimitive.integer("ScriptRef tag", as: UInt64.self)
         
         guard case let .string(valueStr) = dictValue[Primitive.string("value")] else {
             throw CardanoCoreError.deserializeError("Invalid ScriptRef JSON: missing value")
@@ -172,12 +178,12 @@ public struct ScriptRef: CBORTaggable, Serializable {
             throw CardanoCoreError.deserializeError("Invalid ScriptRef JSON: invalid base64 value")
         }
         
-        return try ScriptRef(tag: UInt64(tagValue), value: .bytes(valueData))
+        return try ScriptRef(tag: tagValue, value: .bytes(valueData))
     }
     
     public func toDict() throws -> Primitive {
         var dict: OrderedDictionary<Primitive, Primitive> = [:]
-        dict[Primitive.string("tag")] = Primitive.int(Int64(tag))
+        dict[Primitive.string("tag")] = Primitive.integer(tag)
         
         // Encode value as base64 string
         let valueBytes: Data

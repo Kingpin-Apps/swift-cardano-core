@@ -35,29 +35,32 @@ public struct Value: CBORSerializable, Comparable, Sendable {
         self.multiAsset = try MultiAsset(from: dictValue)
     }
 
+    /// Reads a decoded coin into the `Int64` that `Value` holds.
+    ///
+    /// A negative coin is kept, as `Value` also holds differences; an
+    /// output's ``TransactionOutput/validate()`` rejects one.
+    ///
+    /// - Throws: When the value is not an integer or is outside `Int64`. The
+    ///   total ADA supply is far below `Int64.max`, so no real amount is
+    ///   refused.
+    static func coin(from primitive: Primitive) throws -> Int64 {
+        guard primitive.integerValue != nil else {
+            throw CardanoCoreError.deserializeError("Invalid Value coin: \(primitive)")
+        }
+        return try primitive.integer("Value coin", as: Int64.self)
+    }
+
     public init(from primitive: Primitive) throws {
         switch primitive {
-            case .uint(let coinValue):
-                self.coin = Int64(coinValue)
+            case .uint, .int, .bigInt, .bigUInt:
+                self.coin = try Value.coin(from: primitive)
                 self.multiAsset = MultiAsset([:])
             case .list(let listValue):
                 guard listValue.count == 2 else {
                     throw CardanoCoreError.deserializeError("Invalid Value data: \(primitive)")
                 }
 
-                // Extract coin from first element which can be .int or .uint
-                let coinPrimitive = listValue[0]
-                let coinValue: Int64
-                switch coinPrimitive {
-                    case .int(let v):
-                        coinValue = Int64(v)
-                    case .uint(let v):
-                        coinValue = Int64(v)
-                    default:
-                        throw CardanoCoreError.deserializeError("Invalid Value data: \(primitive)")
-                }
-
-                self.coin = coinValue
+                self.coin = try Value.coin(from: listValue[0])
                 self.multiAsset = try MultiAsset(from: listValue[1])
             default:
                 throw CardanoCoreError.deserializeError("Invalid Value type")

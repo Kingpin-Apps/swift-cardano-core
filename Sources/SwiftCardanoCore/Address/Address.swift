@@ -115,8 +115,9 @@ public struct Address: CBORSerializable, CustomStringConvertible, Equatable, Sen
             throw CardanoCoreError.decodingError("Address byte data is empty")
         }
 
-        let header = data[0]
-        let payload = data.dropFirst()
+        let header = data[data.startIndex]
+        // Re-based so that offsets into it start at 0.
+        let payload = Data(data.dropFirst())
 
         let addrBits = (UInt8(header) & 0xF0) >> 4
         let networkBits = UInt8(header & 0x0F)
@@ -134,6 +135,27 @@ public struct Address: CBORSerializable, CustomStringConvertible, Equatable, Sen
         }
         guard let network = NetworkId(rawValue: Int(networkBits)) else {
             throw CardanoCoreError.invalidAddressInputError("Invalid network in header: \(header)")
+        }
+
+        // Each part is a 28-byte hash; a pointer is at least three bytes. The
+        // ledger reads exactly these, so a payload of any other length is not
+        // an address.
+        let minimumPayload: Int
+        let exactPayload: Int?
+        switch addrType {
+            case .keyKey, .keyScript, .scriptKey, .scriptScript:
+                minimumPayload = 2 * VERIFICATION_KEY_HASH_SIZE
+                exactPayload = minimumPayload
+            case .keyPointer, .scriptPointer:
+                minimumPayload = VERIFICATION_KEY_HASH_SIZE + 3
+                exactPayload = nil
+            default:
+                minimumPayload = VERIFICATION_KEY_HASH_SIZE
+                exactPayload = minimumPayload
+        }
+        guard payload.count >= minimumPayload, exactPayload.map({ payload.count == $0 }) ?? true else {
+            throw CardanoCoreError.invalidAddressInputError(
+                "Invalid \(addrType) address: \(payload.count) bytes after the header")
         }
         
         switch addrType {
@@ -166,7 +188,7 @@ public struct Address: CBORSerializable, CustomStringConvertible, Equatable, Sen
                 let paymentPart = VerificationKeyHash(
                     payload: payload.prefix(VERIFICATION_KEY_HASH_SIZE)
                 )
-                    let pointerAddr = try PointerAddress.decode(payload.suffix(from: VERIFICATION_KEY_HASH_SIZE + 1))
+                    let pointerAddr = try PointerAddress.decode(payload.dropFirst(VERIFICATION_KEY_HASH_SIZE))
                     
                 try self.init(
                     paymentPart: PaymentPart.verificationKeyHash(paymentPart),
@@ -212,7 +234,7 @@ public struct Address: CBORSerializable, CustomStringConvertible, Equatable, Sen
                     payload: payload.prefix(VERIFICATION_KEY_HASH_SIZE)
                 )
                     
-                let pointerAddr = try PointerAddress.decode(payload.suffix(from: VERIFICATION_KEY_HASH_SIZE + 1))
+                let pointerAddr = try PointerAddress.decode(payload.dropFirst(VERIFICATION_KEY_HASH_SIZE))
                     
                 try self.init(
                     paymentPart: PaymentPart.scriptHash(paymentPart),
