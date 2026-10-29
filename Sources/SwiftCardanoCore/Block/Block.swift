@@ -130,8 +130,10 @@ public struct Block: Serializable {
 
     /// The block's hash: the hash of its header as written, which the next
     /// block names as its predecessor.
-    public func hash() -> Data {
-        header.hash()
+    ///
+    /// - Throws: When the header has changed and cannot be encoded.
+    public func hash() throws -> Data {
+        try header.hash()
     }
 
     /// The hash of the block body, which the header commits to as its
@@ -184,6 +186,12 @@ public struct Block: Serializable {
     public static var preservesEncoding: Bool { true }
 
     public init(from primitive: Primitive) throws {
+        // Bytes kept as written, from this type's own `toPrimitive()`: read
+        // them again, keeping them.
+        if case .cborSimpleValue(.encoded(let bytes)) = primitive {
+            self = try Self.fromCBOR(data: bytes)
+            return
+        }
         let elements: [Primitive]
         switch primitive {
         case .list(let l): elements = l
@@ -285,7 +293,13 @@ public struct Block: Serializable {
         }
     }
 
+    /// The bytes this block was decoded from while it is unchanged — so that
+    /// encoding it, alone or inside another value, gives what was written —
+    /// otherwise its parts, each of which keeps its own bytes while unchanged.
     public func toPrimitive() throws -> Primitive {
+        if let originalCBOR {
+            return .cborSimpleValue(.encoded(originalCBOR))
+        }
         // transaction_bodies
         let txBodies: [Primitive] = try transactionBodies.map { try $0.toPrimitive() }
 

@@ -744,6 +744,28 @@ public indirect enum Primitive: CBORSerializable, Sendable {
         return value
     }
 
+    /// This primitive, with bytes kept as written —
+    /// `.cborSimpleValue(.encoded(_:))`, as a type that keeps its bytes puts
+    /// them in its `toPrimitive()` — read back into a primitive that keeps
+    /// how they were written.
+    func expandingEncoded() throws -> Primitive {
+        guard case .cborSimpleValue(.encoded(let bytes)) = self else { return self }
+        return try Primitive.from(cbor: CBORSerialization.cbor(from: bytes), preservingEncoding: true)
+    }
+
+    /// The elements of an array, definite- or indefinite-length.
+    ///
+    /// The ledger reads its records with `decodeRecordNamed` and
+    /// `decodeRecordSum`, which take either length encoding, so a record's
+    /// decoder reads its fields from here.
+    var arrayElements: [Primitive]? {
+        switch self {
+        case .list(let elements): return elements
+        case .indefiniteList(let elements): return elements.getAll()
+        default: return nil
+        }
+    }
+
     public var indefiniteListValue: IndefiniteList<Primitive>? {
         guard case .indefiniteList(let value) = self else { return nil }
         return value

@@ -52,7 +52,7 @@ struct TransactionCorpusTests {
     func idMatchesChain(_ entry: Entry) throws {
         let tx = try Transaction.fromCBOR(data: try entry.bytes())
         #expect(tx.id?.payload.toHex == entry.hash)
-        #expect(tx.transactionBody.hash().toHex == entry.hash)
+        #expect(try tx.transactionBody.hash().toHex == entry.hash)
     }
 
     @Test("Re-serializing an untouched transaction gives back its bytes", arguments: corpus)

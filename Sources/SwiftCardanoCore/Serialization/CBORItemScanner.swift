@@ -163,8 +163,13 @@ struct CBORItemScanner {
     /// The header of a definite-length array (major type 4) or map (major
     /// type 5) of `count` items or entries, in its shortest form.
     static func definiteHeader(major: UInt8, count: Int) -> Data {
+        head(major: major, argument: UInt64(count))
+    }
+
+    /// The header of an item of major type `major` with `argument` — a
+    /// value, length, count or tag — in its shortest form.
+    static func head(major: UInt8, argument count: UInt64) -> Data {
         let initial = major << 5
-        let count = UInt64(count)
         switch count {
         case 0..<24: return Data([initial | UInt8(count)])
         case 24...0xFF: return Data([initial | 24, UInt8(count)])

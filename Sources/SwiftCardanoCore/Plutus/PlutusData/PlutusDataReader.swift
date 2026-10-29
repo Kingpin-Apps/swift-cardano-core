@@ -13,7 +13,18 @@ import Foundation
 struct PlutusDataReader {
     let scanner: CBORItemScanner
 
-    /// The deepest nesting read, as for the generic decoder.
+    /// The deepest nesting read: each list, map and constructor is one level
+    /// (a constructor's tag and its fields array are one Plutus level).
+    ///
+    /// The ledger sets no depth limit of its own on Plutus data — only the
+    /// size of the transaction bounds it. Reading here is iterative, and so
+    /// are encoding (``PlutusDataWriter``), hashing and `==`, but a decoded
+    /// value is still released, described and turned into a primitive or
+    /// JSON by code that recurses once per level, on threads whose stacks
+    /// may be as small as a Swift concurrency cooperative thread's 512 KB.
+    /// Measured there in an unoptimised build, release overflows past about
+    /// 1,600 levels, `debugDescription` past about 210 constructors and
+    /// `toDict()` past about 220; this keeps every one of them in reach.
     static let maxDepth = 128
 
     init(_ bytes: Data) {
@@ -30,30 +41,163 @@ struct PlutusDataReader {
         return value
     }
 
-    /// The datum that starts at `offset`, and the offset just past it.
-    func read(at offset: Int, depth: Int) throws -> (PlutusData, end: Int) {
-        guard depth < Self.maxDepth else {
-            throw CardanoCoreError.deserializeError("PlutusData nested deeper than \(Self.maxDepth)")
+    /// A list, map or constructor whose items are still being read.
+    private struct Frame {
+        enum Kind {
+            case list
+            case map
+            /// A constructor; `closesOuter` when it is a `#6.102` whose
+            /// `[alternative, fields]` array was written indefinite, so a
+            /// break follows the fields.
+            case constructor(alternative: UInt64, general: Bool, closesOuter: Bool)
         }
-        let header = try scanner.header(at: offset)
-        switch (header.major, header.argument) {
-        case (0, let value?):
-            return (.bigInt(Self.integer(BigInt(value))), header.end)
-        case (1, let value?):
-            return (.bigInt(Self.integer(-1 - BigInt(value))), header.end)
-        case (2, _):
-            let (bytes, end) = try byteString(at: offset)
-            return (.bytes(bytes), end)
-        case (4, _):
-            let (elements, end, indefinite) = try list(at: offset, depth: depth)
-            return (indefinite ? .indefiniteArray(IndefiniteList(elements)) : .array(elements), end)
-        case (5, _):
-            return try map(at: offset, depth: depth)
-        case (6, let tag?):
-            return try tagged(tag, contentAt: header.end, depth: depth)
-        default:
-            throw CardanoCoreError.deserializeError(
-                "Not Plutus data: CBOR major type \(header.major) at byte \(offset)")
+        var kind: Kind
+        var items: [PlutusData] = []
+        /// How many items are left to read, or `nil` until a break.
+        var remaining: UInt64?
+        /// Whether it was written with an indefinite length.
+        let indefinite: Bool
+        /// Where it starts, for errors.
+        let offset: Int
+
+        init(_ kind: Kind, remaining: UInt64?, offset: Int) {
+            self.kind = kind
+            self.remaining = remaining
+            self.indefinite = remaining == nil
+            self.offset = offset
+        }
+
+        mutating func add(_ item: PlutusData) {
+            items.append(item)
+            if let remaining { self.remaining = remaining - 1 }
+        }
+    }
+
+    /// The datum that starts at `offset`, `depth` levels down, and the
+    /// offset just past it.
+    ///
+    /// Iterative, with the containers being read kept in an array, so that
+    /// how deep the datum is costs no stack.
+    func read(at offset: Int, depth: Int) throws -> (PlutusData, end: Int) {
+        var stack: [Frame] = []
+        var position = offset
+        while true {
+            var value: PlutusData
+            if let top = stack.last, try isComplete(top, at: &position) {
+                stack.removeLast()
+                value = try finish(top, at: &position)
+            } else {
+                guard depth + stack.count < Self.maxDepth else {
+                    throw CardanoCoreError.deserializeError(
+                        "PlutusData nested deeper than \(Self.maxDepth)")
+                }
+                let header = try scanner.header(at: position)
+                switch (header.major, header.argument) {
+                case (0, let argument?):
+                    value = .bigInt(Self.integer(BigInt(argument)))
+                    position = header.end
+                case (1, let argument?):
+                    value = .bigInt(Self.integer(-1 - BigInt(argument)))
+                    position = header.end
+                case (2, _):
+                    let (bytes, end) = try byteString(at: position)
+                    value = .bytes(bytes)
+                    position = end
+                case (4, let count):
+                    stack.append(Frame(.list, remaining: count, offset: position))
+                    position = header.end
+                    continue
+                case (5, let count):
+                    // Every item takes at least a byte, so a count beyond the
+                    // bytes is truncated; checking first keeps the doubling in range.
+                    if let count, count > UInt64(scanner.bytes.count) {
+                        throw CardanoCoreError.deserializeError("Truncated PlutusData map at byte \(position)")
+                    }
+                    stack.append(Frame(.map, remaining: count.map { $0 * 2 }, offset: position))
+                    position = header.end
+                    continue
+                case (6, 2?), (6, 3?):
+                    let (magnitude, end) = try byteString(at: header.end)
+                    let magnitudeValue = BigInt(BigUInt(magnitude.data))
+                    value = .bigInt(Self.integer(header.argument == 2 ? magnitudeValue : -1 - magnitudeValue))
+                    position = end
+                case (6, let tag?) where (121...127).contains(tag) || (1280...1400).contains(tag):
+                    let alternative = tag < 1280 ? tag - 121 : tag - 1280 + 7
+                    let fields = try scanner.header(at: header.end)
+                    guard fields.major == 4 else {
+                        throw CardanoCoreError.deserializeError(
+                            "A constructor's fields must be an array, at byte \(header.end)")
+                    }
+                    stack.append(Frame(
+                        .constructor(alternative: alternative, general: false, closesOuter: false),
+                        remaining: fields.argument, offset: position))
+                    position = fields.end
+                    continue
+                case (6, 102?):
+                    // #6.102([alternative, [* plutus_data]])
+                    let outer = try scanner.header(at: header.end)
+                    let alternative = try scanner.header(at: outer.end)
+                    guard outer.major == 4, outer.argument == nil || outer.argument == 2,
+                        alternative.major == 0, let alternativeValue = alternative.argument
+                    else {
+                        throw CardanoCoreError.deserializeError(
+                            "A #6.102 constructor must be [alternative, fields], at byte \(position)")
+                    }
+                    let fields = try scanner.header(at: alternative.end)
+                    guard fields.major == 4 else {
+                        throw CardanoCoreError.deserializeError("Malformed #6.102 constructor at byte \(position)")
+                    }
+                    stack.append(Frame(
+                        .constructor(alternative: alternativeValue, general: true, closesOuter: outer.argument == nil),
+                        remaining: fields.argument, offset: position))
+                    position = fields.end
+                    continue
+                case (6, let tag?):
+                    throw CardanoCoreError.deserializeError("Not Plutus data: CBOR tag \(tag) at byte \(position)")
+                default:
+                    throw CardanoCoreError.deserializeError(
+                        "Not Plutus data: CBOR major type \(header.major) at byte \(position)")
+                }
+            }
+            guard !stack.isEmpty else { return (value, position) }
+            stack[stack.count - 1].add(value)
+        }
+    }
+
+    /// Whether every item of `frame` has been read; past the break, if it
+    /// ends with one.
+    private func isComplete(_ frame: Frame, at position: inout Int) throws -> Bool {
+        if let remaining = frame.remaining { return remaining == 0 }
+        guard try byte(at: position) == 0xFF else { return false }
+        position += 1
+        return true
+    }
+
+    /// The value of a container whose items have all been read.
+    private func finish(_ frame: Frame, at position: inout Int) throws -> PlutusData {
+        switch frame.kind {
+        case .list:
+            return frame.indefinite ? .indefiniteArray(IndefiniteList(frame.items)) : .array(frame.items)
+        case .map:
+            guard frame.items.count % 2 == 0 else {
+                throw CardanoCoreError.deserializeError("A map key without a value, in the map at byte \(frame.offset)")
+            }
+            var pairs = MapPairs<PlutusData, PlutusData>()
+            for index in stride(from: 0, to: frame.items.count, by: 2) {
+                pairs.append(key: frame.items[index], value: frame.items[index + 1])
+            }
+            return frame.indefinite ? .indefiniteMap(pairs) : .map(pairs)
+        case .constructor(let alternative, let general, let closesOuter):
+            if closesOuter {
+                guard try byte(at: position) == 0xFF else {
+                    throw CardanoCoreError.deserializeError(
+                        "A #6.102 constructor must be [alternative, fields], at byte \(frame.offset)")
+                }
+                position += 1
+            }
+            var constr = Self.constr(alternative, frame.items, indefinite: frame.indefinite, general: general)
+            constr.writtenGeneralIndefinite = closesOuter
+            return .constructor(constr)
         }
     }
 
@@ -90,79 +234,6 @@ struct PlutusDataReader {
             throw CardanoCoreError.deserializeError("Truncated byte string at byte \(offset)")
         }
         return (.byteString(ByteString(chunks: chunks)), position + 1)
-    }
-
-    /// The elements of a list, and whether it was written indefinite.
-    private func list(at offset: Int, depth: Int) throws -> ([PlutusData], end: Int, indefinite: Bool) {
-        let header = try scanner.header(at: offset)
-        guard header.major == 4 else {
-            throw CardanoCoreError.deserializeError("Expected an array at byte \(offset)")
-        }
-        var elements: [PlutusData] = []
-        var position = header.end
-        if let count = header.argument {
-            for _ in 0..<count {
-                let (element, end) = try read(at: position, depth: depth + 1)
-                elements.append(element)
-                position = end
-            }
-            return (elements, position, false)
-        }
-        while try byte(at: position) != 0xFF {
-            let (element, end) = try read(at: position, depth: depth + 1)
-            elements.append(element)
-            position = end
-        }
-        return (elements, position + 1, true)
-    }
-
-    /// A map, every pair kept in order.
-    private func map(at offset: Int, depth: Int) throws -> (PlutusData, end: Int) {
-        let header = try scanner.header(at: offset)
-        var pairs = MapPairs<PlutusData, PlutusData>()
-        var position = header.end
-        func next() throws {
-            let (key, keyEnd) = try read(at: position, depth: depth + 1)
-            let (value, valueEnd) = try read(at: keyEnd, depth: depth + 1)
-            pairs.append(key: key, value: value)
-            position = valueEnd
-        }
-        if let count = header.argument {
-            for _ in 0..<count { try next() }
-            return (.map(pairs), position)
-        }
-        while try byte(at: position) != 0xFF { try next() }
-        return (.indefiniteMap(pairs), position + 1)
-    }
-
-    /// A constructor or a bignum.
-    private func tagged(_ tag: UInt64, contentAt offset: Int, depth: Int) throws -> (PlutusData, end: Int) {
-        switch tag {
-        case 2, 3:
-            let (magnitude, end) = try byteString(at: offset)
-            let value = BigInt(BigUInt(magnitude.data))
-            return (.bigInt(Self.integer(tag == 2 ? value : -1 - value)), end)
-        case 121...127, 1280...1400:
-            let alternative = tag < 1280 ? tag - 121 : tag - 1280 + 7
-            let (fields, end, indefinite) = try list(at: offset, depth: depth + 1)
-            return (.constructor(Self.constr(alternative, fields, indefinite: indefinite, general: false)), end)
-        case 102:
-            // #6.102([alternative, [* plutus_data]])
-            let spans = try scanner.elements(ofArrayAt: offset)
-            guard spans.count == 2, let alternative = try scanner.unsignedInteger(at: spans[0].lowerBound)
-            else {
-                throw CardanoCoreError.deserializeError(
-                    "A #6.102 constructor must be [alternative, fields], at byte \(offset)")
-            }
-            let (fields, fieldsEnd, indefinite) = try list(at: spans[1].lowerBound, depth: depth + 1)
-            let end = try scanner.end(ofItemAt: offset)
-            guard fieldsEnd == spans[1].upperBound else {
-                throw CardanoCoreError.deserializeError("Malformed #6.102 constructor at byte \(offset)")
-            }
-            return (.constructor(Self.constr(alternative, fields, indefinite: indefinite, general: true)), end)
-        default:
-            throw CardanoCoreError.deserializeError("Not Plutus data: CBOR tag \(tag) at byte \(offset)")
-        }
     }
 
     private static func constr(

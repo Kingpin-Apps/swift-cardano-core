@@ -35,14 +35,14 @@ extension SetTaggable {
     /// differs from the body that is finally submitted, and the ledger rejects
     /// the transaction with `InvalidWitnessesUTXOW`.
     public var canonicalElements: [Element] {
-        guard let sorted = try? elements.sorted(by: {
-            try $0.toCBORData().lexicographicallyPrecedes($1.toCBORData())
-        }) else {
-            return Array(elements)
-        }
-        return sorted
+        Self.canonicallySorted(elements)
     }
 
+    /// The elements, in order, as the list inside the `#6.258` tag.
+    ///
+    /// Setting it replaces the elements with those the list holds, in its
+    /// order and without duplicates. A value that is not a list of elements
+    /// is a programming error and traps, as the setter cannot throw.
     public var value: Primitive {
         get {
             return .list(
@@ -52,10 +52,36 @@ extension SetTaggable {
             )
         }
         set(newValue) {
-            guard case .list(_) = newValue else {
-                fatalError("SetWrapper must contain an array")
+            let list: [Primitive]
+            switch newValue {
+                case .list(let elements): list = elements
+                case .indefiniteList(let elements): list = elements.getAll()
+                default: preconditionFailure("A set's value must be a list, not \(newValue)")
+            }
+            do {
+                elementsOrdered = try list.map { try Element(from: $0) }
+            } catch {
+                preconditionFailure("A set's value must be a list of its elements: \(error)")
             }
         }
+    }
+
+    /// `newElements` in order: those already in `current` keep their place,
+    /// and the rest follow in canonical order, as a Swift `Set` has none.
+    static func ordering(_ newElements: Set<Element>, keeping current: [Element]) -> [Element] {
+        let kept = current.filter { newElements.contains($0) }
+        return kept + canonicallySorted(newElements.subtracting(kept))
+    }
+
+    /// The elements sorted by their CBOR encoding, bytewise.
+    static func canonicallySorted<S: Sequence>(_ elements: S) -> [Element] where S.Element == Element {
+        let array = Array(elements)
+        guard let sorted = try? array.sorted(by: {
+            try $0.toCBORData().lexicographicallyPrecedes($1.toCBORData())
+        }) else {
+            return array
+        }
+        return sorted
     }
 
     public static var TAG: UInt64 { 258 }
@@ -98,24 +124,18 @@ extension SetTaggable {
                 )
                 return element
             }
-            let ordered = Self.deduplicated(decodedElements)
             try self.init(
                 tag: tag,
-                value: .list(try ordered.map { try Primitive.fromAny($0) })
+                value: .list(try decodedElements.map { try Primitive.fromAny($0) })
             )
-            self.elements = Set(ordered)
-            self.elementsOrdered = ordered
         } else if case let .array(arrayData) = cborData {
             let decodedElements = try arrayData.map {
                 try CBORDecoder().decode(Element.self, from: CBORSerialization.data(from: $0))
             }
-            let ordered = Self.deduplicated(decodedElements)
             try self.init(
                 tag: Self.TAG,
-                value: .list(try ordered.map { try Primitive.fromAny($0) })
+                value: .list(try decodedElements.map { try Primitive.fromAny($0) })
             )
-            self.elements = Set(ordered)
-            self.elementsOrdered = ordered
         } else {
             throw CardanoCoreError.valueError("Invalid CBOR format for SetWrapper")
         }
@@ -135,19 +155,44 @@ extension SetTaggable {
 
 public struct OrderedSet<T: CBORSerializable & Hashable & Sendable>: SetTaggable {
     public typealias Element = T
-    public var elements: Set<Element> = Set()
-    public var elementsOrdered: [Element] = []
+
+    /// The elements in order, each once: what is encoded.
+    private var ordered: [Element] = []
+    /// The same elements, for membership tests.
+    private var members: Set<Element> = []
+
+    /// The elements, unordered.
+    ///
+    /// Setting it keeps the place of every element that stays; elements that
+    /// are new follow in canonical order.
+    public var elements: Set<Element> {
+        get { members }
+        set { assign(Self.ordering(newValue, keeping: ordered)) }
+    }
+
+    /// The elements in order. Setting it drops the later of any duplicates.
+    public var elementsOrdered: [Element] {
+        get { ordered }
+        set { assign(Self.deduplicated(newValue)) }
+    }
+
+    /// Replaces the elements with `unique`, which holds no duplicates.
+    private mutating func assign(_ unique: [Element]) {
+        ordered = unique
+        members = Set(unique)
+    }
 
     public init(tag: UInt64 = 258, value: Primitive) throws {
         guard tag == Self.TAG else {
-            fatalError("Invalid CBOR tag: expected \(Self.TAG) but found \(tag)")
+            throw CardanoCoreError.valueError("Invalid CBOR tag: expected \(Self.TAG) but found \(tag)")
         }
-        self.value = value
-        let ordered = Self.deduplicated(
-            try value.listValue!.map { try T.init(from: $0.toPrimitive()) }
-        )
-        self.elements = Set(ordered)
-        self.elementsOrdered = ordered
+        let list: [Primitive]
+        switch value {
+            case .list(let elements): list = elements
+            case .indefiniteList(let elements): list = elements.getAll()
+            default: throw CardanoCoreError.valueError("OrderedSet must contain an array, not \(value)")
+        }
+        assign(Self.deduplicated(try list.map { try T.init(from: $0.toPrimitive()) }))
     }
 
     /// A set has no order of its own, so the elements are put in canonical
@@ -160,37 +205,28 @@ public struct OrderedSet<T: CBORSerializable & Hashable & Sendable>: SetTaggable
 
     /// Keeps the order the elements are given in, dropping later duplicates.
     public init(_ elements: [Element]) throws {
-        let ordered = Self.deduplicated(elements)
-        try self.init(
-            tag: Self.TAG,
-            value: .list(try ordered.map { try $0.toPrimitive() })
-        )
-        self.elements = Set(ordered)
-        self.elementsOrdered = ordered
+        assign(Self.deduplicated(elements))
     }
     
     // MARK: - Convenience Methods
     
-    /// Adds an element to the set if it's not already present
+    /// Adds an element at the end, unless it is already in the set.
     /// - Parameter element: The element to add
-    /// - Returns: A tuple containing a boolean indicating whether the element was inserted,
-    ///            and the element itself
+    /// - Returns: Whether the element was inserted, and the member equal to
+    ///   it after the call
     @discardableResult
     public mutating func append(_ element: Element) -> (inserted: Bool, memberAfterInsert: Element) {
-        let result = elements.insert(element)
-        // Update the value to reflect the new elements
-        self.value = .list(
-            elements.map {
-                try! Primitive.fromAny($0)
-            }
-        )
+        let result = members.insert(element)
+        if result.inserted {
+            ordered.append(element)
+        }
         return result
     }
     
-    /// Adds an element to the set if it's not already present (alias for append)
+    /// Adds an element at the end, unless it is already in the set (alias for append)
     /// - Parameter element: The element to add
-    /// - Returns: A tuple containing a boolean indicating whether the element was inserted,
-    ///            and the element itself
+    /// - Returns: Whether the element was inserted, and the member equal to
+    ///   it after the call
     @discardableResult
     public mutating func insert(_ element: Element) -> (inserted: Bool, memberAfterInsert: Element) {
         return append(element)
@@ -201,39 +237,29 @@ public struct OrderedSet<T: CBORSerializable & Hashable & Sendable>: SetTaggable
     /// - Returns: The removed element if it was in the set, nil otherwise
     @discardableResult
     public mutating func remove(_ element: Element) -> Element? {
-        let removed = elements.remove(element)
-        // Update the value to reflect the new elements
-        self.value = .list(
-            elements.map {
-                try! Primitive.fromAny($0)
-            }
-        )
+        guard let removed = members.remove(element) else {
+            return nil
+        }
+        ordered.removeAll { $0 == element }
         return removed
     }
     
     /// Removes all elements from the set
     public mutating func removeAll() {
-        elements.removeAll()
-        self.value = .list([])
+        assign([])
     }
     
     /// Returns true if the set is empty
     public var isEmpty: Bool {
-        return elements.isEmpty
+        return ordered.isEmpty
     }
     
-    /// Adds multiple elements to the set
+    /// Adds the elements not already in the set at the end, in order
     /// - Parameter elements: The elements to add
     public mutating func append<S: Sequence>(contentsOf newElements: S) where S.Element == Element {
         for element in newElements {
-            elements.insert(element)
+            append(element)
         }
-        // Update the value to reflect the new elements
-        self.value = .list(
-            elements.map {
-                try! Primitive.fromAny($0)
-            }
-        )
     }
     
     /// Creates a new OrderedSet containing the union of this set and another set
@@ -257,7 +283,7 @@ public struct OrderedSet<T: CBORSerializable & Hashable & Sendable>: SetTaggable
         return try OrderedSet(elements.subtracting(other.elements))
     }
     
-    /// Returns the first element in canonical order, or nil if the set is empty.
+    /// The first element in order, or nil if the set is empty.
     public var first: Element? {
         return elementsOrdered.first
     }
@@ -335,8 +361,37 @@ public struct OrderedSet<T: CBORSerializable & Hashable & Sendable>: SetTaggable
 
 public struct NonEmptyOrderedSet<T: CBORSerializable & Hashable & Sendable>: SetTaggable {
     public typealias Element = T
-    public var elements: Set<Element> = Set()
-    public var elementsOrdered: [Element] = []
+
+    /// The elements in order, each once and never none: what is encoded.
+    private var ordered: [Element] = []
+    /// The same elements, for membership tests.
+    private var members: Set<Element> = []
+
+    /// The elements, unordered.
+    ///
+    /// Setting it keeps the place of every element that stays; elements that
+    /// are new follow in canonical order.
+    ///
+    /// - Precondition: The new value is not empty.
+    public var elements: Set<Element> {
+        get { members }
+        set { assign(Self.ordering(newValue, keeping: ordered)) }
+    }
+
+    /// The elements in order. Setting it drops the later of any duplicates.
+    ///
+    /// - Precondition: The new value is not empty.
+    public var elementsOrdered: [Element] {
+        get { ordered }
+        set { assign(Self.deduplicated(newValue)) }
+    }
+
+    /// Replaces the elements with `unique`, which holds no duplicates.
+    private mutating func assign(_ unique: [Element]) {
+        precondition(!unique.isEmpty, "NonEmptyOrderedSet must contain at least one element")
+        ordered = unique
+        members = Set(unique)
+    }
 
     public init(tag: UInt64 = Self.TAG, value: Primitive) throws {
         let list: [Primitive]
@@ -351,18 +406,15 @@ public struct NonEmptyOrderedSet<T: CBORSerializable & Hashable & Sendable>: Set
         guard tag == Self.TAG else {
             throw CardanoCoreError.valueError("Invalid CBOR tag: expected \(Self.TAG) but found \(tag)")
         }
-        self.value = value
-        let ordered = Self.deduplicated(try list.map { try T.init(from: $0) })
-        self.elements = Set(ordered)
-        self.elementsOrdered = ordered
+        assign(Self.deduplicated(try list.map { try T.init(from: $0) }))
     }
 
     /// Keeps the order the elements are given in, dropping later duplicates.
+    ///
+    /// - Precondition: `elements` is not empty. Use ``init(nonEmpty:)`` for
+    ///   elements that come from input.
     public init(_ elements: [Element]) {
-        precondition(!elements.isEmpty, "NonEmptyOrderedSet must contain at least one element")
-        let ordered = Self.deduplicated(elements)
-        self.elements = Set(ordered)
-        self.elementsOrdered = ordered
+        assign(Self.deduplicated(elements))
     }
 
     /// Keeps the order the elements are given in, dropping later duplicates.
@@ -394,116 +446,93 @@ public struct NonEmptyOrderedSet<T: CBORSerializable & Hashable & Sendable>: Set
             try CBORDecoder().decode(Element.self, from: CBORSerialization.data(from: $0))
         }
         try self.init(nonEmpty: elements)
-        self.value = .list(try elementsOrdered.map { try $0.toPrimitive() })
     }
     
     // MARK: - Convenience Methods
     
-    /// Adds an element to the set if it's not already present
+    /// Adds an element at the end, unless it is already in the set.
     /// - Parameter element: The element to add
-    /// - Returns: A tuple containing a boolean indicating whether the element was inserted,
-    ///            and the element itself
+    /// - Returns: Whether the element was inserted, and the member equal to
+    ///   it after the call
     @discardableResult
     public mutating func append(_ element: Element) -> (inserted: Bool, memberAfterInsert: Element) {
-        let result = elements.insert(element)
-        // Update the value to reflect the new elements
-        self.value = .list(
-            elements.map {
-                try! Primitive.fromAny($0)
-            }
-        )
+        let result = members.insert(element)
+        if result.inserted {
+            ordered.append(element)
+        }
         return result
     }
     
-    /// Adds an element to the set if it's not already present (alias for append)
+    /// Adds an element at the end, unless it is already in the set (alias for append)
     /// - Parameter element: The element to add
-    /// - Returns: A tuple containing a boolean indicating whether the element was inserted,
-    ///            and the element itself
+    /// - Returns: Whether the element was inserted, and the member equal to
+    ///   it after the call
     @discardableResult
     public mutating func insert(_ element: Element) -> (inserted: Bool, memberAfterInsert: Element) {
         return append(element)
     }
     
-    /// Removes an element from the set if it exists and the set would not become empty
+    /// Removes an element, unless it is the last one left.
     /// - Parameter element: The element to remove
-    /// - Returns: The removed element if it was in the set and could be safely removed, nil otherwise
-    /// - Note: This method will not remove an element if it would result in an empty set
+    /// - Returns: The removed element; nil when it is not in the set, or when
+    ///   it is the only element, which stays — see ``safeRemove(_:)`` to tell
+    ///   the two apart
     @discardableResult
     public mutating func remove(_ element: Element) -> Element? {
-        // Prevent removing the last element to maintain non-empty constraint
-        guard elements.count > 1 else {
+        // Never remove the last element: the set is never empty.
+        guard members.count > 1, let removed = members.remove(element) else {
             return nil
         }
-        
-        let removed = elements.remove(element)
-        // Update the value to reflect the new elements
-        self.value = .list(
-            elements.map {
-                try! Primitive.fromAny($0)
-            }
-        )
+        ordered.removeAll { $0 == element }
         return removed
     }
     
-    /// Attempts to remove an element, throwing an error if it would result in an empty set
+    /// Removes an element, throwing when it is not in the set or is the last one left.
     /// - Parameter element: The element to remove
     /// - Returns: The removed element
-    /// - Throws: CardanoCoreError if removing the element would make the set empty
+    /// - Throws: CardanoCoreError when the element is not in the set, or when
+    ///   removing it would make the set empty
     @discardableResult
     public mutating func safeRemove(_ element: Element) throws -> Element {
-        guard elements.count > 1 else {
-            throw CardanoCoreError.valueError("Cannot remove element: NonEmptyOrderedSet must contain at least one element")
-        }
-        
-        guard let removed = elements.remove(element) else {
+        guard members.contains(element) else {
             throw CardanoCoreError.valueError("Element not found in set")
         }
-        
-        // Update the value to reflect the new elements
-        self.value = .list(
-            elements.map {
-                try! Primitive.fromAny($0)
-            }
-        )
-        return removed
+        guard members.count > 1 else {
+            throw CardanoCoreError.valueError("Cannot remove element: NonEmptyOrderedSet must contain at least one element")
+        }
+        return remove(element)!
     }
     
     /// Returns true if the set contains only one element (minimum size)
     public var isMinimal: Bool {
-        return elements.count == 1
+        return members.count == 1
     }
     
     /// Returns the number of elements that can be safely removed (total count - 1)
     public var removableCount: Int {
-        return max(0, elements.count - 1)
+        return max(0, members.count - 1)
     }
     
-    /// Adds multiple elements to the set
+    /// Adds the elements not already in the set at the end, in order
     /// - Parameter elements: The elements to add
     public mutating func append<S: Sequence>(contentsOf newElements: S) where S.Element == Element {
         for element in newElements {
-            elements.insert(element)
+            append(element)
         }
-        // Update the value to reflect the new elements
-        self.value = .list(
-            elements.map {
-                try! Primitive.fromAny($0)
-            }
-        )
     }
     
     /// Creates a new NonEmptyOrderedSet containing the union of this set and another set
     /// - Parameter other: The other set to union with
-    /// - Returns: A new NonEmptyOrderedSet containing the union
+    /// - Returns: This set's elements in order, then the other's that are new
     public func union(_ other: NonEmptyOrderedSet<Element>) -> NonEmptyOrderedSet<Element> {
-        return NonEmptyOrderedSet(Array(elements.union(other.elements)))
+        return NonEmptyOrderedSet(ordered + other.elementsOrdered)
     }
     
     /// Creates a new OrderedSet containing the union of this set and a regular OrderedSet
     /// - Parameter other: The OrderedSet to union with
-    /// - Returns: A new NonEmptyOrderedSet containing the union
+    /// - Returns: This set's elements in order, then the other's that are new
     public func union(_ other: OrderedSet<Element>) -> NonEmptyOrderedSet<Element> {
-        return NonEmptyOrderedSet(Array(elements.union(other.elements)))
+        return NonEmptyOrderedSet(ordered + other.elementsOrdered)
     }
     
     /// Creates a new OrderedSet containing the intersection of this set and another set
@@ -522,9 +551,9 @@ public struct NonEmptyOrderedSet<T: CBORSerializable & Hashable & Sendable>: Set
         return try OrderedSet(elements.subtracting(other.elements))
     }
     
-    /// Gets the first element in canonical order.
+    /// The first element in order.
     public var first: Element {
-        return canonicalElements.first!
+        return ordered[0]
     }
     
     /// Creates a new NonEmptyOrderedSet by filtering elements that satisfy the predicate
@@ -562,25 +591,20 @@ public struct NonEmptyOrderedSet<T: CBORSerializable & Hashable & Sendable>: Set
     /// - Note: If newElement already exists and is different from oldElement, the set remains unchanged and returns false
     @discardableResult
     public mutating func replace(_ oldElement: Element, with newElement: Element) -> Bool {
-        guard elements.contains(oldElement) else {
+        guard let index = ordered.firstIndex(of: oldElement) else {
             return false
         }
-        
+        if oldElement == newElement {
+            return true
+        }
         // If newElement already exists and is different from oldElement, don't allow replacement
-        if elements.contains(newElement) && oldElement != newElement {
+        if members.contains(newElement) {
             return false
         }
-        
-        elements.remove(oldElement)
-        elements.insert(newElement)
-        
-        // Update the value to reflect the new elements
-        self.value = .list(
-            elements.map {
-                try! Primitive.fromAny($0)
-            }
-        )
-        
+        // In the old element's place.
+        ordered[index] = newElement
+        members.remove(oldElement)
+        members.insert(newElement)
         return true
     }
     

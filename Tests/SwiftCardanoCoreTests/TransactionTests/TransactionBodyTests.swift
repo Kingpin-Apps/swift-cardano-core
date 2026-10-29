@@ -283,7 +283,7 @@ struct TransactionBodyTests {
             fee: fee
         )
         
-        let id = body.id
+        let id = try body.id
         #expect(id.payload.count == TRANSACTION_HASH_SIZE)
     }
     
@@ -299,7 +299,7 @@ struct TransactionBodyTests {
             fee: fee
         )
         
-        let hash = body.hash()
+        let hash = try body.hash()
         #expect(hash.count == TRANSACTION_HASH_SIZE)
     }
     

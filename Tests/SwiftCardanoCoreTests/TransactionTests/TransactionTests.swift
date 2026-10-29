@@ -57,7 +57,7 @@ struct TransactionTests {
         #expect(transaction.transactionWitnessSet == witnessSet)
         #expect(transaction.valid == true)
         #expect(transaction.auxiliaryData == nil)
-        #expect(transaction.id == body.id)
+        #expect(try transaction.id == body.id)
     }
     
     @Test("Test initialization with all parameters")
@@ -102,7 +102,7 @@ struct TransactionTests {
         #expect(transaction.transactionWitnessSet == witnessSet)
         #expect(transaction.valid == false)
         #expect(transaction.auxiliaryData == auxiliaryData)
-        #expect(transaction.id == body.id)
+        #expect(try transaction.id == body.id)
     }
     
     @Test("Test Codable conformance")
@@ -193,7 +193,7 @@ struct TransactionTests {
         
         let id = transaction.id
         #expect(id?.payload.count == TRANSACTION_HASH_SIZE)
-        #expect(id == body.id)
+        #expect(try id == body.id)
     }
     
     // MARK: - PyCardano Converted Tests

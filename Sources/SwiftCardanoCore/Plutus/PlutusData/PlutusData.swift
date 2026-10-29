@@ -14,6 +14,7 @@ import BigInt
 import Foundation
 import OrderedCollections
 import CBORCodable
+import SwiftNaCl
 
 /// Represents a Plutus data value (the algebraic sum from the CDDL).
 /// - constructor: the "constr<plutus_data>" form: a constructor tag and zero-or-more fields
@@ -47,8 +48,30 @@ public enum PlutusData: Serializable, Sendable {
         }
     }
 
+    /// The datum hash: Blake2b-256 of the encoding.
     public func hash() throws -> DatumHash {
-        return try datumHash(datum: .plutusData(self))
+        return DatumHash(
+            payload: try Hash().blake2b(
+                data: try toCBORData(), digestSize: DATUM_HASH_SIZE, encoder: RawEncoder.self))
+    }
+
+    /// The CBOR encoding, written without recursing, so that deeply nested
+    /// data encodes and hashes on a small thread stack. The same bytes as
+    /// encoding ``toPrimitive()``.
+    public func toCBORData(deterministic: Bool = false) throws -> Data {
+        _ = deterministic
+        return try PlutusDataWriter.encode(self)
+    }
+
+    /// CBOR as ``toCBORData(deterministic:)`` writes it; JSON through
+    /// ``toPrimitive()``.
+    public func encode(to encoder: Swift.Encoder) throws {
+        var container = encoder.singleValueContainer()
+        if String(describing: type(of: encoder)).contains("JSONEncoder") {
+            try container.encode(try toPrimitive())
+        } else {
+            try container.encode(Primitive.cborSimpleValue(.encoded(try toCBORData())))
+        }
     }
 
     // MARK: - CBORSerializable
@@ -110,7 +133,7 @@ public enum PlutusData: Serializable, Sendable {
         if cborTag.tag == 2 || cborTag.tag == 3 {
             return .bigInt(try BigInteger(from: primitive.normalized()))
         } else if cborTag.tag == 102 || (121..<128).contains(cborTag.tag)
-            || (1280..<1536).contains(cborTag.tag)
+            || (1280...1400).contains(cborTag.tag)
         {
             // A constructor tag must hold a valid Constr. Retrying a failed
             // Constr as an untagged value re-decodes the subtree, which is

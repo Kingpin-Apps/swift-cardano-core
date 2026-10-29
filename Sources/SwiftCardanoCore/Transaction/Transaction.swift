@@ -48,8 +48,10 @@ public struct Transaction: Serializable, TextEnvelopable {
         case auxiliaryData
     }
     
+    /// The transaction id, or `nil` when the body has changed and cannot be
+    /// encoded; ``TransactionBody/id`` throws instead.
     public var id: TransactionId? {
-        return transactionBody.id
+        return try? transactionBody.id
     }
     
     public init(
@@ -187,7 +189,13 @@ public struct Transaction: Serializable, TextEnvelopable {
     public static var preservesEncoding: Bool { true }
 
     public init(from primitive: Primitive) throws {
-        guard case let .list(elements) = primitive else {
+        // Bytes kept as written, from this type's own `toPrimitive()`: read
+        // them again, keeping them.
+        if case .cborSimpleValue(.encoded(let bytes)) = primitive {
+            self = try Self.fromCBOR(data: bytes)
+            return
+        }
+        guard let elements = primitive.arrayElements else {
             throw CardanoCoreError.deserializeError("Invalid Transaction primitive: \(primitive)")
         }
         
@@ -246,7 +254,14 @@ public struct Transaction: Serializable, TextEnvelopable {
     }
     
     
+    /// The bytes this transaction was decoded from while it is unchanged — so
+    /// that encoding it, alone or inside another value, gives what was
+    /// written — otherwise its parts, each of which keeps its own bytes while
+    /// unchanged.
     public func toPrimitive() throws -> Primitive {
+        if let originalCBOR {
+            return .cborSimpleValue(.encoded(originalCBOR))
+        }
         if isPreAlonzo {
             return .list([
                 try transactionBody.toPrimitive(),

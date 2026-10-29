@@ -124,7 +124,7 @@ struct PlutusEncodingInTransactionTests {
 
         let tx = try Transaction.fromCBORHex(unsigned)
         #expect(try tx.toCBORHex() == unsigned)
-        #expect(tx.transactionBody.id.payload == (try Hash().blake2b(
+        #expect(try tx.transactionBody.id.payload == (try Hash().blake2b(
             data: body.hexStringToData, digestSize: TRANSACTION_HASH_SIZE, encoder: RawEncoder.self)))
     }
 
@@ -138,6 +138,6 @@ struct PlutusEncodingInTransactionTests {
         #expect(unsigned.contains("5f5840"))
         let restored = try Transaction.fromCBORHex(unsigned)
         #expect(try restored.toCBORHex() == unsigned)
-        #expect(restored.transactionBody.hash() == body.hash())
+        #expect(try restored.transactionBody.hash() == body.hash())
     }
 }

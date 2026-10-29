@@ -56,7 +56,13 @@ public struct Header: Serializable {
     // MARK: - CBORSerializable
 
     public init(from primitive: Primitive) throws {
-        guard case let .list(elements) = primitive else {
+        // Bytes kept as written, from this type's own `toPrimitive()`: read
+        // them again, keeping them.
+        if case .cborSimpleValue(.encoded(let bytes)) = primitive {
+            self = try Self.fromCBOR(data: bytes)
+            return
+        }
+        guard let elements = primitive.arrayElements else {
             throw CardanoCoreError.deserializeError("Invalid Header primitive: expected list")
         }
 
@@ -70,7 +76,13 @@ public struct Header: Serializable {
         self.bodySignature = try SwiftKES.KESSignature(from: elements[1])
     }
 
+    /// The bytes this header was decoded from while it is unchanged — so
+    /// that encoding it, alone or inside another value, gives what was
+    /// written — otherwise its fields.
     public func toPrimitive() throws -> Primitive {
+        if let originalCBOR {
+            return .cborSimpleValue(.encoded(originalCBOR))
+        }
         return .list([
             try headerBody.toPrimitive(),
             bodySignature.toPrimitive()
@@ -118,8 +130,12 @@ public struct Header: Serializable {
         hasher.combine(headerBody)
     }
 
-    public func hash() -> Data {
-        return try! Hash().blake2b(
+    /// The block hash: Blake2b-256 of this header as written while it is
+    /// unchanged, otherwise of its encoding.
+    ///
+    /// - Throws: When it has changed and cannot be encoded.
+    public func hash() throws -> Data {
+        return try Hash().blake2b(
             data: try self.toCBORData(),
             digestSize: BLOCK_HEADER_HASH_SIZE,
             encoder: RawEncoder.self

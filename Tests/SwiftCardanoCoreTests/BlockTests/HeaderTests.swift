@@ -38,13 +38,13 @@ func makeHeader() throws -> Header {
 
         #expect(elements.count == 2)
 
-        // headerBody (list with 14 flat elements for Alonzo/Babbage/Conway
-        // wire format — operational_cert and protocol_version groups inlined)
+        // headerBody (list with 10 elements for the Babbage/Conway wire
+        // format — operational_cert and protocol_version nested)
         guard case let .list(headerBodyElements) = elements[0] else {
             Issue.record("Expected .list for headerBody")
             return
         }
-        #expect(headerBodyElements.count == 14)
+        #expect(headerBodyElements.count == 10)
 
         // bodySignature (bytes of 448)
         guard case let .bytes(sigData) = elements[1] else {

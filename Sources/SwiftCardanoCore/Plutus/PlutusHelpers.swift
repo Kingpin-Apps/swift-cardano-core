@@ -104,7 +104,7 @@ public func getConstructorIDAndFields(value: CBOR) throws -> (Int, [AnyValue]) {
         var constr: Int
         if 121 <= tag && tag < 128 {
             constr = Int(tag - 121)
-        } else if 1280 <= tag && tag < 1536 {
+        } else if 1280 <= tag && tag <= 1400 {
             constr = Int(tag - 1280 + 7)
         } else {
             throw

@@ -156,6 +156,8 @@ public enum ListOrOrderedSet<T: Serializable>: Serializable {
         }
     }
 
+    /// Adds `element` at the end. A set, unlike a list, gains it only when
+    /// it does not already hold it.
     public mutating func append(_ element: Element) throws {
         switch self {
             case .list(var array):
@@ -168,6 +170,8 @@ public enum ListOrOrderedSet<T: Serializable>: Serializable {
                 indefiniteList.add(element)
                 self = .indefiniteList(indefiniteList)
             case .indefiniteOrderedSet(var indefiniteList):
+                // A set holds each element once.
+                guard !indefiniteList.contains(element) else { return }
                 indefiniteList.add(element)
                 self = .indefiniteOrderedSet(indefiniteList)
         }
@@ -282,6 +286,11 @@ public enum ListOrNonEmptyOrderedSet<T: Serializable>: Serializable {
                             try NonEmptyOrderedSet(nonEmpty: try elements.map { try T.init(from: $0) })
                         )
                     case .indefiniteList(let elements):
+                        // nonempty_set, however its length is written.
+                        guard !elements.isEmpty else {
+                            throw CardanoCoreError.deserializeError(
+                                "A nonempty_set must hold at least one element")
+                        }
                         self = .indefiniteNonEmptyOrderedSet(
                             IndefiniteList(try elements.getAll().map { try T.init(from: $0) })
                         )
@@ -347,6 +356,8 @@ public enum ListOrNonEmptyOrderedSet<T: Serializable>: Serializable {
         }
     }
 
+    /// Adds `element` at the end. A set, unlike a list, gains it only when
+    /// it does not already hold it.
     public mutating func append(_ element: Element) throws {
         switch self {
             case .list(var array):
@@ -359,6 +370,8 @@ public enum ListOrNonEmptyOrderedSet<T: Serializable>: Serializable {
                 indefiniteList.add(element)
                 self = .indefiniteList(indefiniteList)
             case .indefiniteNonEmptyOrderedSet(var indefiniteList):
+                // A set holds each element once.
+                guard !indefiniteList.contains(element) else { return }
                 indefiniteList.add(element)
                 self = .indefiniteNonEmptyOrderedSet(indefiniteList)
         }

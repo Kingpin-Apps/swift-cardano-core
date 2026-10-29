@@ -51,7 +51,7 @@ public struct VerificationKeyWitness: Serializable, TextEnvelopable {
     // MARK: - CBORSerializable
     
     public init(from primitive: Primitive) throws {
-        guard case let .list(elements) = primitive else {
+        guard let elements = primitive.arrayElements else {
             throw CardanoCoreError.deserializeError("Invalid VerificationKeyWitness primitive")
         }
         
@@ -186,7 +186,30 @@ public struct TransactionWitnessSet: Serializable, Equatable {
     /// they are unchanged, otherwise freshly encoded; `nil` when there are none.
     public func plutusDataCBOR() throws -> Data? {
         guard let plutusData else { return nil }
-        return try originalPlutusDataCBOR ?? CBOREncoder().encode(plutusData.toPrimitive())
+        return try originalPlutusDataCBOR ?? Self.encoded(plutusData)
+    }
+
+    /// The witness datums as `plutusData` holds them — a list or a `#6.258`
+    /// set, definite or indefinite — each datum written by
+    /// ``PlutusData/toCBORData(deterministic:)``, which does not recurse.
+    /// The same bytes as encoding their primitive.
+    static func encoded(_ datums: ListOrNonEmptyOrderedSet<PlutusData>) throws -> Data {
+        let tagged: Bool
+        let indefinite: Bool
+        let elements: [PlutusData]
+        switch datums {
+            case .list(let list): (tagged, indefinite, elements) = (false, false, list)
+            case .indefiniteList(let list): (tagged, indefinite, elements) = (false, true, list.map { $0 })
+            case .nonEmptyOrderedSet(let set): (tagged, indefinite, elements) = (true, false, set.elementsOrdered)
+            case .indefiniteNonEmptyOrderedSet(let list): (tagged, indefinite, elements) = (true, true, list.map { $0 })
+        }
+        var data = tagged ? CBORItemScanner.head(major: 6, argument: 258) : Data()
+        data.append(indefinite ? Data([0x9F]) : CBORItemScanner.definiteHeader(major: 4, count: elements.count))
+        for datum in elements {
+            data.append(try datum.toCBORData())
+        }
+        if indefinite { data.append(0xFF) }
+        return data
     }
 
     /// The redeemers as `script_data_hash` takes them: as written while they
@@ -311,18 +334,13 @@ public struct TransactionWitnessSet: Serializable, Equatable {
         guard case let .orderedDict(fields) = try toPrimitive() else {
             return try CBOREncoder().encode(self)
         }
+        // The datums and redeemers come out of `toPrimitive()` as written
+        // while they are unchanged.
         let encoder = CBOREncoder()
         var data = CBORItemScanner.definiteHeader(major: 5, count: fields.count)
         for (key, value) in fields {
             data.append(try encoder.encode(key))
-            switch key {
-                case .uint(UInt64(CodingKeys.plutusData.rawValue)) where originalPlutusDataCBOR != nil:
-                    data.append(originalPlutusDataCBOR!)
-                case .uint(UInt64(CodingKeys.redeemers.rawValue)) where originalRedeemersCBOR != nil:
-                    data.append(originalRedeemersCBOR!)
-                default:
-                    data.append(try encoder.encode(value))
-            }
+            data.append(try encoder.encode(value))
         }
         return data
     }
@@ -383,6 +401,12 @@ public struct TransactionWitnessSet: Serializable, Equatable {
     public static var preservesEncoding: Bool { true }
     
     public init(from primitive: Primitive) throws {
+        // Bytes kept as written, from this type's own `toPrimitive()`: read
+        // them again, keeping them.
+        if case .cborSimpleValue(.encoded(let bytes)) = primitive {
+            self = try Self.fromCBOR(data: bytes)
+            return
+        }
         let dict: OrderedDictionary<Primitive, Primitive>
         switch primitive {
             case .orderedDict(let entries), .indefiniteDictionary(let entries):
@@ -426,14 +450,14 @@ public struct TransactionWitnessSet: Serializable, Equatable {
         
         // plutusData (key 4)
         if let plutusDataPrimitive = dict[key(CodingKeys.plutusData)] {
-            plutusData = try ListOrNonEmptyOrderedSet<PlutusData>(from: plutusDataPrimitive)
+            plutusData = try ListOrNonEmptyOrderedSet<PlutusData>(from: plutusDataPrimitive.expandingEncoded())
         } else {
             self.plutusData = nil
         }
         
         // redeemers (key 5)
         if let redeemersPrimitive = dict[key(CodingKeys.redeemers)] {
-            self.redeemers = try Redeemers(from: redeemersPrimitive)
+            self.redeemers = try Redeemers(from: redeemersPrimitive.expandingEncoded())
         } else {
             self.redeemers = nil
         }
@@ -453,18 +477,27 @@ public struct TransactionWitnessSet: Serializable, Equatable {
         }
     }
     
+    /// The bytes this witness set was decoded from while it is unchanged — so
+    /// that encoding it, alone or inside a transaction, gives what was
+    /// written — otherwise its fields, the datums and redeemers as written
+    /// while they are unchanged.
     public func toPrimitive() throws -> Primitive {
+        if let originalCBOR {
+            return .cborSimpleValue(.encoded(originalCBOR))
+        }
         // In ascending key order, so a witness set always encodes the same way.
         var dict = OrderedDictionary<Primitive, Primitive>()
-        func put<T: CBORSerializable>(_ key: CodingKeys, _ value: T?) throws {
-            if let value { dict[.uint(UInt64(key.rawValue))] = try value.toPrimitive() }
+        func put<T: CBORSerializable>(_ key: CodingKeys, _ value: T?, written: Data? = nil) throws {
+            guard let value else { return }
+            dict[.uint(UInt64(key.rawValue))] = try written.map { .cborSimpleValue(.encoded($0)) }
+                ?? value.toPrimitive()
         }
         try put(.vkeyWitnesses, vkeyWitnesses)
         try put(.nativeScripts, nativeScripts)
         try put(.bootstrapWitness, bootstrapWitness)
         try put(.plutusV1Script, plutusV1Script)
-        try put(.plutusData, plutusData)
-        try put(.redeemers, redeemers)
+        try put(.plutusData, plutusData, written: originalPlutusDataCBOR ?? plutusData.map(Self.encoded))
+        try put(.redeemers, redeemers, written: originalRedeemersCBOR)
         try put(.plutusV2Script, plutusV2Script)
         try put(.plutusV3Script, plutusV3Script)
         return .orderedDict(dict)

@@ -4,35 +4,45 @@ import SwiftNaCl
 
 /// Block header body as defined in the Cardano CDDL.
 ///
-/// The wire format inlines the `operational_cert` group and `protocol_version` group
-/// directly into the parent array, so the actual element count differs from the logical
-/// CDDL field count:
+/// Each era writes it in one of two layouts, and which one follows from
+/// whether there is a ``nonceVrf``:
 ///
-/// **Alonzo / Babbage / Conway (eras 4–6) — 14 flat elements:**
+/// **Shelley to Alonzo (TPraos) — 15 elements, `operational_cert` and
+/// `protocol_version` inlined as groups** (shelley.cddl to alonzo.cddl):
 /// ```
 ///  [0]  block_number    : uint
 ///  [1]  slot            : uint
 ///  [2]  prev_hash       : hash32 / nil
 ///  [3]  issuer_vkey     : bytes (32)
 ///  [4]  vrf_vkey        : bytes (32)
-///  [5]  vrf_result      : vrf_cert [output, proof(80)]
-///  [6]  block_body_size : uint
-///  [7]  block_body_hash : bytes (32)
-///  [8]  hot_vkey        : bytes (32)   ← operational_cert inlined
-///  [9]  sequence_number : uint
-/// [10]  kes_period      : uint
-/// [11]  sigma           : bytes (64)
-/// [12]  major           : uint          ← protocol_version inlined
-/// [13]  minor           : uint
-/// ```
-///
-/// **Shelley / Allegra / Mary (eras 1–3) — 15 flat elements:**
-/// Same layout but with two VRF fields instead of one:
-/// ```
 ///  [5]  nonce_vrf       : vrf_cert
 ///  [6]  leader_vrf      : vrf_cert
-///  [7]  block_body_size  …
+///  [7]  block_body_size : uint
+///  [8]  block_body_hash : bytes (32)
+///  [9]  hot_vkey        : bytes (32)   ← operational_cert inlined
+/// [10]  sequence_number : uint
+/// [11]  kes_period      : uint
+/// [12]  sigma           : bytes (64)
+/// [13]  major           : uint          ← protocol_version inlined
+/// [14]  minor           : uint
 /// ```
+///
+/// **Babbage and Conway (Praos) — 10 elements, `operational_cert` and
+/// `protocol_version` nested as arrays** (babbage.cddl, conway.cddl):
+/// ```
+///  [0]  block_number    : uint
+///  [1]  slot            : uint
+///  [2]  prev_hash       : hash32 / nil
+///  [3]  issuer_vkey     : bytes (32)
+///  [4]  vrf_vkey        : bytes (32)
+///  [5]  vrf_result      : vrf_cert
+///  [6]  block_body_size : uint
+///  [7]  block_body_hash : bytes (32)
+///  [8]  operational_cert: [hot_vkey, sequence_number, kes_period, sigma]
+///  [9]  protocol_version: [major, minor]
+/// ```
+///
+/// No era writes 11 or 14 elements, and the ledger reads neither.
 public struct HeaderBody: Serializable {
     /// Block number (height)
     public var blockNumber: BlockNumber
@@ -103,27 +113,21 @@ public struct HeaderBody: Serializable {
     // MARK: - CBORSerializable
 
     public init(from primitive: Primitive) throws {
-        guard case .list(let elements) = primitive else {
+        guard let elements = primitive.arrayElements else {
             throw CardanoCoreError.deserializeError(
                 "Invalid HeaderBody primitive: expected list"
             )
         }
 
-        // 14 elements: Alonzo / Babbage / Conway (single vrf_result, flat op_cert + protocol_version)
-        // 15 elements: Shelley / Allegra / Mary (nonce_vrf + leader_vrf, flat op_cert + protocol_version)
-        // 10 elements: Alonzo / Babbage / Conway (single vrf_result, nested op_cert + protocol_version)
-        // 11 elements: Shelley / Allegra / Mary (nonce_vrf + leader_vrf, nested op_cert + protocol_version)
-        guard
-            elements.count == 10 || elements.count == 11 || elements.count == 14
-                || elements.count == 15
-        else {
+        // 15 elements: Shelley to Alonzo (nonce_vrf + leader_vrf, flat op_cert + protocol_version)
+        // 10 elements: Babbage and Conway (vrf_result, nested op_cert + protocol_version)
+        guard elements.count == 10 || elements.count == 15 else {
             throw CardanoCoreError.deserializeError(
-                "HeaderBody requires 14 or 15 elements on the wire, got \(elements.count)"
+                "HeaderBody requires 10 or 15 elements on the wire, got \(elements.count)"
             )
         }
 
-        let hasSplitVrf = elements.count == 15 || elements.count == 11
-        let nestedCert = elements.count == 10 || elements.count == 11
+        let isTPraos = elements.count == 15
 
         // [0] block_number
         self.blockNumber = try elements[0].integer("HeaderBody block_number", as: BlockNumber.self)
@@ -151,92 +155,63 @@ public struct HeaderBody: Serializable {
         }
         self.vrfVKey = vrfVKey
 
-        // [5] nonce_vrf (Shelley–Mary) or vrf_result (Alonzo+)
-        // [6] leader_vrf (Shelley–Mary only)
-        let vrfOffset: Int
-        if hasSplitVrf {
+        // [5] nonce_vrf and [6] leader_vrf (TPraos), or [5] vrf_result (Praos)
+        let rest: ArraySlice<Primitive>
+        if isTPraos {
             self.nonceVrf = try VRFCert(from: elements[5])
             self.vrfResult = try VRFCert(from: elements[6])
-            vrfOffset = 1
+            rest = elements[7...]
         } else {
             self.nonceVrf = nil
             self.vrfResult = try VRFCert(from: elements[5])
-            vrfOffset = 0
+            rest = elements[6...]
         }
 
-        // block_body_size — index shifts by 1 for split-VRF eras
-        self.blockBodySize = try elements[6 + vrfOffset].integer(
+        // block_body_size, block_body_hash
+        self.blockBodySize = try rest[rest.startIndex].integer(
             "HeaderBody block_body_size", as: UInt32.self)
+        self.blockBodyHash = try BlockBodyHash(from: rest[rest.startIndex + 1])
 
-        // block_body_hash
-        self.blockBodyHash = try BlockBodyHash(from: elements[7 + vrfOffset])
-
-        if nestedCert {
-            // operational_cert encoded as a nested 4-element array
-            guard case .list(let certElems) = elements[8 + vrfOffset], certElems.count == 4 else {
+        // operational_cert and protocol_version: inlined in TPraos, nested in Praos
+        let certElems: [Primitive]
+        let pvElems: [Primitive]
+        if isTPraos {
+            certElems = Array(rest[(rest.startIndex + 2)..<(rest.startIndex + 6)])
+            pvElems = Array(rest[(rest.startIndex + 6)...])
+        } else {
+            guard let cert = rest[rest.startIndex + 2].arrayElements, cert.count == 4 else {
                 throw CardanoCoreError.deserializeError(
                     "Invalid HeaderBody operational_cert: expected 4-element array")
             }
-            guard case .bytes(let hotVKeyBytes) = certElems[0] else {
-                throw CardanoCoreError.deserializeError(
-                    "Invalid HeaderBody hot_vkey: expected bytes")
-            }
-            let hotVKey = KESVerificationKey(payload: hotVKeyBytes, type: nil, description: nil)
-
-            let sequenceNumber = try certElems[1].integer(
-                "HeaderBody sequence_number", as: UInt64.self)
-
-            let kesPeriod = try certElems[2].integer("HeaderBody kes_period", as: UInt64.self)
-
-            guard case .bytes(let sigma) = certElems[3] else {
-                throw CardanoCoreError.deserializeError("Invalid HeaderBody sigma: expected bytes")
-            }
-
-            self.operationalCert = try OperationalCertificate(
-                hotVKey: hotVKey,
-                sequenceNumber: sequenceNumber,
-                kesPeriod: kesPeriod,
-                sigma: sigma
-            )
-
-            // protocol_version encoded as a nested 2-element array
-            guard case .list(let pvElems) = elements[9 + vrfOffset], pvElems.count == 2 else {
+            guard let version = rest[rest.startIndex + 3].arrayElements, version.count == 2 else {
                 throw CardanoCoreError.deserializeError(
                     "Invalid HeaderBody protocol_version: expected 2-element array")
             }
-            let major = try Self.versionNumber(pvElems[0], "HeaderBody protocol major")
-            let minor = try Self.versionNumber(pvElems[1], "HeaderBody protocol minor")
-            self.protocolVersion = ProtocolVersion(major: major, minor: minor)
-        } else {
-            // operational_cert — 4 fields inlined flat
-            guard case .bytes(let hotVKeyBytes) = elements[8 + vrfOffset] else {
-                throw CardanoCoreError.deserializeError(
-                    "Invalid HeaderBody hot_vkey: expected bytes")
-            }
-            let hotVKey = KESVerificationKey(payload: hotVKeyBytes, type: nil, description: nil)
-
-            let sequenceNumber = try elements[9 + vrfOffset].integer(
-                "HeaderBody sequence_number", as: UInt64.self)
-
-            let kesPeriod = try elements[10 + vrfOffset].integer("HeaderBody kes_period", as: UInt64.self)
-
-            guard case .bytes(let sigma) = elements[11 + vrfOffset] else {
-                throw CardanoCoreError.deserializeError("Invalid HeaderBody sigma: expected bytes")
-            }
-
-            self.operationalCert = try OperationalCertificate(
-                hotVKey: hotVKey,
-                sequenceNumber: sequenceNumber,
-                kesPeriod: kesPeriod,
-                sigma: sigma
-            )
-
-            // protocol_version — 2 fields inlined flat
-            let major = try Self.versionNumber(elements[12 + vrfOffset], "HeaderBody protocol major")
-            let minor = try Self.versionNumber(elements[13 + vrfOffset], "HeaderBody protocol minor")
-
-            self.protocolVersion = ProtocolVersion(major: major, minor: minor)
+            certElems = cert
+            pvElems = version
         }
+
+        guard case .bytes(let hotVKeyBytes) = certElems[0] else {
+            throw CardanoCoreError.deserializeError(
+                "Invalid HeaderBody hot_vkey: expected bytes")
+        }
+        let hotVKey = KESVerificationKey(payload: hotVKeyBytes, type: nil, description: nil)
+        let sequenceNumber = try certElems[1].integer(
+            "HeaderBody sequence_number", as: UInt64.self)
+        let kesPeriod = try certElems[2].integer("HeaderBody kes_period", as: UInt64.self)
+        guard case .bytes(let sigma) = certElems[3] else {
+            throw CardanoCoreError.deserializeError("Invalid HeaderBody sigma: expected bytes")
+        }
+        self.operationalCert = try OperationalCertificate(
+            hotVKey: hotVKey,
+            sequenceNumber: sequenceNumber,
+            kesPeriod: kesPeriod,
+            sigma: sigma
+        )
+
+        let major = try Self.versionNumber(pvElems[0], "HeaderBody protocol major")
+        let minor = try Self.versionNumber(pvElems[1], "HeaderBody protocol minor")
+        self.protocolVersion = ProtocolVersion(major: major, minor: minor)
     }
 
     /// A protocol version number: a `uint` on the wire, held as a non-negative `Int`.
@@ -248,6 +223,9 @@ public struct HeaderBody: Serializable {
         return number
     }
 
+    /// The layout of the era: 15 flat elements with a ``nonceVrf``
+    /// (Shelley to Alonzo), 10 with the operational certificate and protocol
+    /// version nested without one (Babbage and Conway).
     public func toPrimitive() throws -> Primitive {
         var fields: [Primitive] = [
             .uint(UInt64(blockNumber)),
@@ -259,23 +237,28 @@ public struct HeaderBody: Serializable {
 
         if let nonceVrf {
             fields.append(try nonceVrf.toPrimitive())
-            fields.append(try vrfResult.toPrimitive())
-        } else {
-            fields.append(try vrfResult.toPrimitive())
         }
-
         fields += [
+            try vrfResult.toPrimitive(),
             .uint(UInt64(blockBodySize)),
             blockBodyHash.toPrimitive(),
-            // operational_cert inlined
+        ]
+
+        let operationalCert: [Primitive] = [
             .bytes(operationalCert.hotVKey.payload),
             .uint(UInt64(operationalCert.sequenceNumber)),
             .uint(UInt64(operationalCert.kesPeriod)),
             .bytes(operationalCert.sigma),
-            // protocol_version inlined
+        ]
+        let protocolVersion: [Primitive] = [
             .integer(protocolVersion.major ?? 0),
             .integer(protocolVersion.minor ?? 0),
         ]
+        if nonceVrf != nil {
+            fields += operationalCert + protocolVersion
+        } else {
+            fields += [.list(operationalCert), .list(protocolVersion)]
+        }
 
         return .list(fields)
     }
@@ -402,8 +385,11 @@ public struct HeaderBody: Serializable {
 
     // MARK: - Hashable
     
-    public func hash() -> Data {
-        return try! Hash().blake2b(
+    /// The Blake2b-256 hash of this header body's encoding.
+    ///
+    /// - Throws: When it cannot be encoded.
+    public func hash() throws -> Data {
+        return try Hash().blake2b(
             data: try self.toCBORData(),
             digestSize: BLOCK_HEADER_HASH_SIZE,
             encoder: RawEncoder.self

@@ -33,10 +33,15 @@ struct MetadatumReader {
     }
 
     /// The metadatum that starts at `offset`, and the offset just past it.
+    /// The deepest nesting read. Reading recurses once per level, so this
+    /// keeps it within a small thread stack; metadata sits inside the
+    /// transaction's own CBOR, which the generic decoder reads no deeper.
+    static let maxDepth = 128
+
     func read(at offset: Int, depth: Int) throws -> (TransactionMetadatum, end: Int) {
-        guard depth < PlutusDataReader.maxDepth else {
+        guard depth < Self.maxDepth else {
             throw CardanoCoreError.deserializeError(
-                "Metadata nested deeper than \(PlutusDataReader.maxDepth)")
+                "Metadata nested deeper than \(Self.maxDepth)")
         }
         let header = try scanner.header(at: offset)
         let end = try scanner.end(ofItemAt: offset)

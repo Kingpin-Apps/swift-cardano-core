@@ -113,7 +113,7 @@ extension RedeemerProtocol {
     public static var preservesEncoding: Bool { true }
 
     public init(from primitive: Primitive) throws {
-        guard case .list(let primitive) = primitive,
+        guard let primitive = primitive.arrayElements,
             primitive.count == 4
         else {
             throw CardanoCoreError.deserializeError("Invalid Redeemer primitive")
@@ -236,7 +236,7 @@ public struct RedeemerKey: Serializable {
     }
 
     public init(from primitive: Primitive) throws {
-        guard case .list(let primitive) = primitive,
+        guard let primitive = primitive.arrayElements,
             primitive.count == 2
         else {
             throw CardanoCoreError.deserializeError("Invalid RedeemerKey primitive")
@@ -290,7 +290,7 @@ public struct RedeemerValue: Serializable {
     public static var preservesEncoding: Bool { true }
 
     public init(from primitive: Primitive) throws {
-        guard case .list(let primitive) = primitive,
+        guard let primitive = primitive.arrayElements,
             primitive.count == 2
         else {
             throw CardanoCoreError.deserializeError("Invalid RedeemerValue primitive")
@@ -627,13 +627,10 @@ public enum Redeemers: Serializable {
                 if l.tag?.rawValue != r.tag?.rawValue { return false }
                 if l.index != r.index { return false }
                 if l.exUnits != r.exUnits { return false }
-                // Compare data via its Serializable equality semantics; fallback to primitive representation
-                if l.data != r.data {
-                    // As a safety, compare by primitive if direct equality differs in semantics
-                    let lPrim = try? l.data.toPrimitive()
-                    let rPrim = try? r.data.toPrimitive()
-                    if String(describing: lPrim) != String(describing: rPrim) { return false }
-                }
+                // What the ledger compares: a list written definite or
+                // indefinite holds the same value. `hash(into:)` hashes the
+                // same fields.
+                if l.data != r.data { return false }
             }
             return true
         case (.map(let lhsMap), .map(let rhsMap)):
@@ -650,14 +647,14 @@ public enum Redeemers: Serializable {
         case .list(let redeemers):
             hasher.combine(0)  // tag for list case
             hasher.combine(redeemers.count)
-            // Hash each element using its primitive representation to avoid protocol existential hashing issues
+            // The fields `==` compares, each hashed as its own type hashes it:
+            // `PlutusData` hashes the definite and indefinite forms of a list
+            // or map alike, as its `==` holds them equal.
             for r in redeemers {
-                // Best-effort: hash by CBOR primitive if available; fall back to index
-                if let primitive = try? r.toPrimitive() {
-                    hasher.combine(String(describing: primitive))
-                } else if let dict = try? r.toDict() {
-                    hasher.combine(String(describing: dict))
-                }
+                hasher.combine(r.tag)
+                hasher.combine(r.index)
+                hasher.combine(r.data)
+                hasher.combine(r.exUnits)
             }
         case .map(let map):
             hasher.combine(1)  // tag for map case

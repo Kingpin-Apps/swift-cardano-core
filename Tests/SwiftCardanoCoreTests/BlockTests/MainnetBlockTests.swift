@@ -51,10 +51,10 @@ struct MainnetBlockTests {
         let scanner = CBORItemScanner(bytes)
         let spans = try scanner.elements(ofArrayAt: 0)
 
-        #expect(block.hash() == (try Hash().blake2b(
+        #expect(try block.hash() == (try Hash().blake2b(
             data: bytes.subdata(in: spans[0]), digestSize: 32, encoder: RawEncoder.self)))
         for (body, span) in zip(block.transactionBodies, try scanner.elements(ofArrayAt: spans[1].lowerBound)) {
-            #expect(body.id.payload == (try Hash().blake2b(
+            #expect(try body.id.payload == (try Hash().blake2b(
                 data: bytes.subdata(in: span), digestSize: 32, encoder: RawEncoder.self)))
         }
     }

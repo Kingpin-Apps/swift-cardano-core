@@ -35,7 +35,7 @@ public struct BootstrapWitness: Serializable {
     // MARK: - CBORSerializable
     
     public init(from primitive: Primitive) throws {
-        guard case let .list(elements) = primitive else {
+        guard let elements = primitive.arrayElements else {
             throw CardanoCoreError.deserializeError("Invalid BootstrapWitness primitive")
         }
         

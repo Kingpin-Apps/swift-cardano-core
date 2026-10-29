@@ -32,8 +32,8 @@ struct BlockEncodingTests {
         let decoded = try Block.fromCBORHex(hex)
 
         #expect(try decoded.toCBORHex() == hex)
-        #expect(decoded.header.hash() == (try blake2b(header)))
-        #expect(decoded.transactionBodies[0].id.payload == (try blake2b(body)))
+        #expect(try decoded.header.hash() == (try blake2b(header)))
+        #expect(try decoded.transactionBodies[0].id.payload == (try blake2b(body)))
         #expect(try decoded.auxiliaryDataSet[0]?.hash().payload == blake2b(auxiliaryData))
         #expect(try EraBlock.fromBlockCBOR(data: hex.hexStringToData, era: 6).block?.toCBORHex() == hex)
     }
