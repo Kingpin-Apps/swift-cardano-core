@@ -1,18 +1,19 @@
 import Foundation
-import OrderedCollections
 import CBORCodable
+import OrderedCollections
 
+/// DRep retirement: `drep_unregistration_cert = (17, drep_credential, coin)`.
 public struct UnregisterDRep: CertificateSerializable {
     public var _payload: Data
     public var _type: String
     public var _description: String
 
-    public var type: String { return UnregisterDRep.TYPE }
-    public var description: String { return UnregisterDRep.DESCRIPTION }
+    public var type: String { UnregisterDRep.TYPE }
+    public var description: String { UnregisterDRep.DESCRIPTION }
 
     public static var TYPE: String { CertificateType.conway.rawValue }
     public static var DESCRIPTION: String { CertificateDescription.unRegisterDRep.rawValue }
-    public static var CODE: CertificateCode { return .unRegisterDRep }
+    public static var CODE: CertificateCode { .unRegisterDRep }
 
     public let drepCredential: DRepCredential
     public let coin: Coin
@@ -22,91 +23,56 @@ public struct UnregisterDRep: CertificateSerializable {
         case coin
     }
 
-    /// Initialize a new `UnregisterDRep` certificate
-    /// - Parameters:
-    ///  - drepCredential: The DRep credential
-    ///  - coin: The coin
-    public init(drepCredential: DRepCredential, coin: Coin) {
+    /// Creates the certificate.
+    ///
+    /// - Throws: When the certificate cannot be encoded for its payload.
+    public init(drepCredential: DRepCredential, coin: Coin) throws {
         self.drepCredential = drepCredential
         self.coin = coin
-
-        self._payload = try! CBORSerialization.data(
-            from:
-                .array(
-                    [
-                        CBOR(Self.CODE.rawValue),
-                        try! CBOREncoder().encode(drepCredential).toCBOR,
-                        try! CBOREncoder().encode(coin).toCBOR,
-                    ]
-                )
-        )
+        self._payload = Data()
         self._type = Self.TYPE
         self._description = Self.DESCRIPTION
+        self._payload = try encodedPayload()
     }
 
-    /// Initialize a new `UnregisterDRep` certificate from its Text Envelope representation
+    /// Initialize the certificate from its text-envelope payload.
     /// - Parameters:
-    ///  - payload: The CBOR representation of the certificate
-    ///  - type: The type of the certificate
-    ///  - description: The description of the certificate
+    ///   - payload: The CBOR of the certificate
+    ///   - type: The text-envelope type
+    ///   - description: The text-envelope description
     public init(payload: Data, type: String?, description: String?) throws {
+        let decoded = try CBORDecoder().decode(Self.self, from: payload)
+        self = decoded
         self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
-
-        let cbor = try CBORDecoder().decode(UnregisterDRep.self, from: payload)
-
-        self.drepCredential = cbor.drepCredential
-        self.coin = cbor.coin
     }
-    
+
     // MARK: - CBORSerializable
 
     public init(from primitive: Primitive) throws {
-        guard case .list(let primitive) = primitive,
-            primitive.count == 3,
-            case .uint(let code) = primitive[0],
-            case .uint(let coin) = primitive[2],
-            code == Self.CODE.rawValue
-        else {
-            throw CardanoCoreError.deserializeError("Invalid UnregisterDRep type")
-        }
-
-        let drepCredential = try DRepCredential(from: primitive[1])
-
-        self.init(drepCredential: drepCredential, coin: Coin(coin))
+        let fields = try Self.certificateFields(primitive, count: 3)
+        try self.init(
+            drepCredential: try DRepCredential(from: fields[0]),
+            coin: try fields[1].integer("UnregisterDRep coin", as: Coin.self)
+        )
     }
 
     public func toPrimitive() throws -> Primitive {
         return .list([
-            .uint(UInt64(Self.CODE.rawValue)),
+            Self.codePrimitive,
             try drepCredential.toPrimitive(),
-            .integer(coin),
+            .integer(coin)
         ])
     }
 
     // MARK: - JSONSerializable
 
-    public static func fromDict(_ dict: Primitive) throws
-        -> UnregisterDRep
-    {
-        guard case let .orderedDict(dictValue) = dict,
-              let drepCredentialPrimitive = dictValue[.string(CodingKeys.drepCredential.rawValue)],
-              let coinPrimitive = dictValue[.string(CodingKeys.coin.rawValue)]
-        else {
-            throw CardanoCoreError.deserializeError(
-                "Missing required fields in UnregisterDRep dictionary")
-        }
-
-        guard case .string(let drepCredentialId) = drepCredentialPrimitive else {
-            throw CardanoCoreError.deserializeError(
-                "Invalid field types in UnregisterDRep dictionary")
-        }
-
-        let drepCredential = try DRepCredential(from: drepCredentialId)
-        let coin = try coinPrimitive.integer("UnregisterDRep coin", as: Coin.self)
-
-        return UnregisterDRep(drepCredential: drepCredential, coin: coin)
+    public static func fromDict(_ dict: Primitive) throws -> UnregisterDRep {
+        return try UnregisterDRep(
+            drepCredential: try DRepCredential(from: try dictString(dict, CodingKeys.drepCredential.rawValue, in: "UnregisterDRep")),
+            coin: try dictField(dict, CodingKeys.coin.rawValue, in: "UnregisterDRep").integer("UnregisterDRep coin", as: Coin.self)
+        )
     }
 
     public func toDict() throws -> Primitive {

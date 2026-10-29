@@ -9,7 +9,7 @@ struct StakeRegistrationTests {
     )
     
     @Test func testInitialization() async throws {
-        let stakeRegistration = StakeRegistration(stakeCredential: stakeCredential)
+        let stakeRegistration = try StakeRegistration(stakeCredential: stakeCredential)
         
         #expect(StakeRegistration.CODE.rawValue == 0)
         #expect(stakeRegistration.stakeCredential == stakeCredential)
@@ -27,7 +27,7 @@ struct StakeRegistrationTests {
     @Test func testToFromCBOR() async throws {
         let excpectedCBOR = stakeRegistrationCertificate?.payload.toHex
         
-        let cert = StakeRegistration(stakeCredential: stakeCredential)
+        let cert = try StakeRegistration(stakeCredential: stakeCredential)
         
         let cborData = try CBOREncoder().encode(cert)
         let cborHex = cborData.toHex

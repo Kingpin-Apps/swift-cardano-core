@@ -21,6 +21,10 @@ public struct SingleHostAddr: Serializable, Sendable {
         guard case let .list(elements) = primitive else {
             throw CardanoCoreError.deserializeError("Invalid SingleHostAddr primitive")
         }
+        // single_host_addr = (0, port / nil, ipv4 / nil, ipv6 / nil)
+        guard elements.count == 4 else {
+            throw CardanoCoreError.deserializeError("SingleHostAddr requires 4 elements, got \(elements.count)")
+        }
         var iterator = elements.makeIterator()
         guard let codeElement = iterator.next(),
               case let .uint(code) = codeElement,

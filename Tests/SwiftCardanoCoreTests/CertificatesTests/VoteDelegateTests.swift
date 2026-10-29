@@ -27,7 +27,7 @@ let voteDelegCerts =  [
     
     @Test("Test Initialization", arguments: dreps)
     func testInitialization(drep: DRep) async throws {
-        let voteDelegate = VoteDelegate(
+        let voteDelegate = try VoteDelegate(
             stakeCredential: stakeCredential,
             drep: drep
         )
@@ -49,7 +49,7 @@ let voteDelegCerts =  [
     func testToFromCBOR(voteDelegate: VoteDelegate, drep: DRep) async throws {
         let excpectedCBOR = voteDelegate.payload.toHex
         
-        let cert = VoteDelegate(
+        let cert = try VoteDelegate(
             stakeCredential: stakeCredential,
             drep: drep
         )

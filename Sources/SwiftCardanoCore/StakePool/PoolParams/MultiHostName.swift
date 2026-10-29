@@ -33,6 +33,10 @@ public struct MultiHostName: Serializable, Sendable {
         guard case let .list(elements) = primitive else {
             throw CardanoCoreError.deserializeError("Invalid MultiHostName primitive")
         }
+        // multi_host_name = (2, dns_name)
+        guard elements.count == 2 else {
+            throw CardanoCoreError.deserializeError("MultiHostName requires 2 elements, got \(elements.count)")
+        }
         var iterator = elements.makeIterator()
         guard let codeElement = iterator.next(),
               case let .uint(code) = codeElement,
@@ -43,9 +47,8 @@ public struct MultiHostName: Serializable, Sendable {
             switch dnsNameElement {
                 case .string(let dnsNameValue):
                     self.dnsName = dnsNameValue
-                case .null:
-                    self.dnsName = nil
                 default:
+                    // dns_name is text: it has no null.
                     throw CardanoCoreError.deserializeError("Invalid dnsName value in MultiHostName")
             }
         } else {
@@ -57,11 +60,11 @@ public struct MultiHostName: Serializable, Sendable {
         var elements: [Primitive] = []
         elements.append(.uint(UInt64(Self.code)))
         
-        if let dnsName = self.dnsName {
-            elements.append(.string(dnsName))
-        } else {
-            elements.append(.null)
+        // dns_name is text, which has no null.
+        guard let dnsName = self.dnsName else {
+            throw CardanoCoreError.serializeError("MultiHostName requires a dnsName")
         }
+        elements.append(.string(dnsName))
         
         return .list(elements)
         

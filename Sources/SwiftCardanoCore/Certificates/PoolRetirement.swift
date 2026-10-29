@@ -2,19 +2,19 @@ import Foundation
 import CBORCodable
 import OrderedCollections
 
-/// Stake Pool Retirement Certificate
+/// Stake pool retirement certificate: `pool_retirement_cert = (4, pool_keyhash, epoch)`.
 public struct PoolRetirement: CertificateSerializable {
     public var _payload: Data
     public var _type: String
     public var _description: String
 
-    public var type: String { get { return PoolRetirement.TYPE } }
-    public var description: String { get { return PoolRetirement.DESCRIPTION } }
+    public var type: String { PoolRetirement.TYPE }
+    public var description: String { PoolRetirement.DESCRIPTION }
 
     public static var TYPE: String { CertificateType.conway.rawValue }
     public static var DESCRIPTION: String { CertificateDescription.poolRetirement.rawValue }
-    public static var CODE: CertificateCode { get { return .poolRetirement } }
-    
+    public static var CODE: CertificateCode { .poolRetirement }
+
     public let poolKeyHash: PoolKeyHash
     public let epoch: EpochNumber
 
@@ -23,90 +23,62 @@ public struct PoolRetirement: CertificateSerializable {
         case epoch
     }
 
-    /// Initialize a new PoolRetirement certificate
-    /// - Parameters:
-    ///   - poolKeyHash: The pool key hash
-    ///   - epoch: The epoch
-    public init(poolKeyHash: PoolKeyHash, epoch: EpochNumber) {
+    /// Creates the certificate.
+    ///
+    /// - Throws: When the certificate cannot be encoded for its payload.
+    public init(poolKeyHash: PoolKeyHash, epoch: EpochNumber) throws {
         self.poolKeyHash = poolKeyHash
         self.epoch = epoch
-        
-        self._payload =  try! CBORSerialization.data(from:
-                .array(
-                    [
-                        CBOR(Self.CODE.rawValue),
-                        try! CBOREncoder().encode(poolKeyHash).toCBOR,
-                        try! CBOREncoder().encode(epoch).toCBOR,
-                    ]
-                )
-        )
+        self._payload = Data()
         self._type = Self.TYPE
         self._description = Self.DESCRIPTION
+        self._payload = try encodedPayload()
     }
-    
-    /// Initialize a new PoolRetirement certificate from a CBOR payload
+
+    /// Initialize the certificate from its text-envelope payload.
     /// - Parameters:
-    ///   - payload: The payload of the certificate
-    ///   - type: The type of the certificate
-    ///   - description: The description of the certificate
+    ///   - payload: The CBOR of the certificate
+    ///   - type: The text-envelope type
+    ///   - description: The text-envelope description
     public init(payload: Data, type: String?, description: String?) throws {
+        let decoded = try CBORDecoder().decode(Self.self, from: payload)
+        self = decoded
         self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
-        
-        let cbor = try CBORDecoder().decode(Self.self, from: payload)
-        
-        self.poolKeyHash = cbor.poolKeyHash
-        self.epoch = cbor.epoch
     }
-    
+
     // MARK: - CBORSerializable
-    
+
     public init(from primitive: Primitive) throws {
-        guard case let .list(primitive) = primitive,
-                primitive.count == 3,
-                case let .uint(code) = primitive[0],
-              case let .uint(epoch) = primitive[2] else {
-            throw CardanoCoreError.deserializeError("Invalid PoolRetirement type")
-        }
-        guard case UInt64(Self.CODE.rawValue) = code else {
-            throw CardanoCoreError.deserializeError("Invalid PoolRetirement type: \(code)")
-        }
-        let poolKeyHash = try PoolKeyHash(from: primitive[1])
-        self.init(poolKeyHash: poolKeyHash, epoch: EpochNumber(epoch))
+        let fields = try Self.certificateFields(primitive, count: 3)
+        try self.init(
+            poolKeyHash: try PoolKeyHash(from: fields[0]),
+            epoch: try fields[1].integer("PoolRetirement epoch", as: EpochNumber.self)
+        )
     }
 
     public func toPrimitive() throws -> Primitive {
         return .list([
-            .uint(UInt64(Self.CODE.rawValue)),
+            Self.codePrimitive,
             poolKeyHash.toPrimitive(),
-            .uint(epoch)
+            .integer(epoch)
         ])
     }
-    
-    // MARK: - JSONSerializable
-    
-    public static func fromDict(_ dict: Primitive) throws -> PoolRetirement {
-        guard case let .orderedDict(dictValue) = dict,
-              case let .string(poolId) = dictValue[.string(CodingKeys.poolKeyHash.rawValue)],
-              let epochPrimitive = dictValue[.string(CodingKeys.epoch.rawValue)] else {
-            throw CardanoCoreError.deserializeError("Missing keys in PoolRetirement dictionary")
-        }
-        
-        let poolOperator = try PoolOperator(from: poolId)
-        
-        let epoch = try epochPrimitive.integer("PoolRetirement epoch", as: EpochNumber.self)
 
-        return PoolRetirement(poolKeyHash: poolOperator.poolKeyHash, epoch: epoch)
+    // MARK: - JSONSerializable
+
+    public static func fromDict(_ dict: Primitive) throws -> PoolRetirement {
+        return try PoolRetirement(
+            poolKeyHash: try PoolOperator(from: try dictString(dict, CodingKeys.poolKeyHash.rawValue, in: "PoolRetirement")).poolKeyHash,
+            epoch: try dictField(dict, CodingKeys.epoch.rawValue, in: "PoolRetirement").integer("PoolRetirement epoch", as: EpochNumber.self)
+        )
     }
 
     public func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
-        let poolOperator = PoolOperator(poolKeyHash: poolKeyHash)
-
-        dict[.string(CodingKeys.poolKeyHash.rawValue)] = .string(try poolOperator.id())
-        dict[.string(CodingKeys.epoch.rawValue)] = .uint(epoch)
-
+        dict[.string(CodingKeys.poolKeyHash.rawValue)] = .string(try PoolOperator(poolKeyHash: poolKeyHash).id())
+        dict[.string(CodingKeys.epoch.rawValue)] = .integer(epoch)
         return .orderedDict(dict)
     }
 }

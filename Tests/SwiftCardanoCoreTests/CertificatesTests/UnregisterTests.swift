@@ -11,7 +11,7 @@ struct UnregisterTests {
     let coin: Coin = 2000000
     
     @Test func testInitialization() async throws {
-        let stakeRegistration = Unregister(
+        let stakeRegistration = try Unregister(
             stakeCredential: stakeCredential,
             coin: coin
         )
@@ -32,7 +32,7 @@ struct UnregisterTests {
     @Test func testToFromCBOR() async throws {
         let excpectedCBOR = stakeUnregisterCertificate?.payload.toHex
         
-        let cert = Unregister(
+        let cert = try Unregister(
             stakeCredential: stakeCredential,
             coin: coin
         )

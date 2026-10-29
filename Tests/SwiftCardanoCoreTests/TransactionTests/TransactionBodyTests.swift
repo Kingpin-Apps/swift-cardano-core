@@ -175,7 +175,7 @@ struct TransactionBodyTests {
         ])
         let proposalProcedures: ProposalProcedures = NonEmptyOrderedSet(
             [
-                ProposalProcedure(
+                try ProposalProcedure(
                     deposit: deposit,
                     rewardAccount: rewardAccount,
                     govAction: govAction,

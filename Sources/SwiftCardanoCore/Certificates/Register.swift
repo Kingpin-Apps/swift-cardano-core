@@ -2,118 +2,83 @@ import Foundation
 import CBORCodable
 import OrderedCollections
 
-/// Register a stake credential with an optional deposit amount.
+/// Stake registration with a deposit: `account_registration_deposit_cert = (7, stake_credential, coin)`.
 public struct Register: CertificateSerializable {
     public var _payload: Data
     public var _type: String
     public var _description: String
 
-    public var type: String { get { return Register.TYPE } }
-    public var description: String { get { return Register.DESCRIPTION } }
+    public var type: String { Register.TYPE }
+    public var description: String { Register.DESCRIPTION }
 
     public static var TYPE: String { CertificateType.conway.rawValue }
     public static var DESCRIPTION: String { CertificateDescription.stakeRegistration.rawValue }
-    public static var CODE: CertificateCode { get { return .register } }
-    
+    public static var CODE: CertificateCode { .register }
+
     public let stakeCredential: StakeCredential
     public let coin: Coin
-    
+
     public enum CodingKeys: String, CodingKey {
         case stakeCredential
         case coin
     }
-    
-    /// Initialize Register certificate
-    /// - Parameters:
-    ///   - stakeCredential: The stake credential to register
-    ///   - coin: The coin to deposit
-    public init(stakeCredential: StakeCredential, coin: Coin) {
+
+    /// Creates the certificate.
+    ///
+    /// - Throws: When the certificate cannot be encoded for its payload.
+    public init(stakeCredential: StakeCredential, coin: Coin) throws {
         self.stakeCredential = stakeCredential
         self.coin = coin
-        
-        self._payload =  try! CBORSerialization.data(from:
-                .array(
-                    [
-                        CBOR(Self.CODE.rawValue),
-                        try! CBOREncoder().encode(stakeCredential).toCBOR,
-                        try! CBOREncoder().encode(coin).toCBOR
-                    ]
-                )
-        )
+        self._payload = Data()
         self._type = Self.TYPE
         self._description = Self.DESCRIPTION
+        self._payload = try encodedPayload()
     }
-    
-    /// Initialize Register certificate from payload, type, and description
+
+    /// Initialize the certificate from its text-envelope payload.
     /// - Parameters:
-    ///   - payload: The payload of the certificate
-    ///   - type: The type of the certificate
-    ///   - description: The description of the certificate
+    ///   - payload: The CBOR of the certificate
+    ///   - type: The text-envelope type
+    ///   - description: The text-envelope description
     public init(payload: Data, type: String?, description: String?) throws {
+        let decoded = try CBORDecoder().decode(Self.self, from: payload)
+        self = decoded
         self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
-        
-        let cbor = try CBORDecoder().decode(Register.self, from: payload)
-        
-        self.stakeCredential = cbor.stakeCredential
-        self.coin = cbor.coin
     }
-    
+
     // MARK: - CBORSerializable
-    
+
     public init(from primitive: Primitive) throws {
-        guard case let .list(primitive) = primitive,
-              primitive.count == 3 else {
-            throw CardanoCoreError.deserializeError("Invalid Register type")
-        }
-        
-        guard case let .uint(code) = primitive[0],
-              case let .uint(coin) = primitive[2],
-              code == Self.CODE.rawValue else {
-            throw CardanoCoreError.deserializeError("Invalid Register type: \(primitive[0])")
-        }
-        
-        let stakeCredential = try StakeCredential(from: primitive[1])
-        
-        self.init(stakeCredential: stakeCredential, coin: Coin(coin))
+        let fields = try Self.certificateFields(primitive, count: 3)
+        try self.init(
+            stakeCredential: try StakeCredential(from: fields[0]),
+            coin: try fields[1].integer("Register coin", as: Coin.self)
+        )
     }
 
     public func toPrimitive() throws -> Primitive {
         return .list([
-            .uint(UInt64(Self.CODE.rawValue)),
+            Self.codePrimitive,
             try stakeCredential.toPrimitive(),
             .integer(coin)
         ])
     }
-    
+
     // MARK: - JSONSerializable
-    
+
     public static func fromDict(_ dict: Primitive) throws -> Register {
-        guard case let .orderedDict(orderedDict) = dict else {
-            throw CardanoCoreError.deserializeError("Invalid Register dict format")
-        }
-        guard let stakeCredentialPrimitive = orderedDict[.string(CodingKeys.stakeCredential.rawValue)],
-              let coinPrimitive = orderedDict[.string(CodingKeys.coin.rawValue)] else {
-            throw CardanoCoreError.deserializeError("Missing required fields in Register dictionary")
-        }
-         
-        guard case let .string(stakeCredentialHex) = stakeCredentialPrimitive else {
-            throw CardanoCoreError.deserializeError("Invalid field types in Register dictionary")
-        }
-        
-        let stakeCredentialData = Data(hex: stakeCredentialHex)
-        let stakeCredential = try StakeCredential(from: .bytes(stakeCredentialData))
-        let coin = try coinPrimitive.integer("Register coin", as: Coin.self)
-        
-        return Register(stakeCredential: stakeCredential, coin: coin)
+        return try Register(
+            stakeCredential: try StakeCredential.fromCertificateDict(try dictField(dict, CodingKeys.stakeCredential.rawValue, in: "Register")),
+            coin: try dictField(dict, CodingKeys.coin.rawValue, in: "Register").integer("Register coin", as: Coin.self)
+        )
     }
-    
+
     public func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
-        dict[.string(CodingKeys.stakeCredential.rawValue)] = .string(stakeCredential.credential.payload.toHex)
+        dict[.string(CodingKeys.stakeCredential.rawValue)] = stakeCredential.certificateDict()
         dict[.string(CodingKeys.coin.rawValue)] = .integer(coin)
         return .orderedDict(dict)
     }
-
 }

@@ -2,159 +2,97 @@ import Foundation
 import CBORCodable
 import OrderedCollections
 
+/// Stake registration with pool and vote delegation: `account_registration_delegation_to_stake_pool_and_drep_cert = (13, stake_credential, pool_keyhash, drep, coin)`.
 public struct StakeVoteRegisterDelegate: CertificateSerializable {
     public var _payload: Data
     public var _type: String
     public var _description: String
-    
-    public var type: String { get { return StakeVoteRegisterDelegate.TYPE } }
-    public var description: String { get { return StakeVoteRegisterDelegate.DESCRIPTION } }
+
+    public var type: String { StakeVoteRegisterDelegate.TYPE }
+    public var description: String { StakeVoteRegisterDelegate.DESCRIPTION }
 
     public static var TYPE: String { CertificateType.conway.rawValue }
     public static var DESCRIPTION: String { CertificateDescription.voteRegisterDelegate.rawValue }
-    public static var CODE: CertificateCode { get { return .stakeVoteRegisterDelegate } }
-    
+    public static var CODE: CertificateCode { .stakeVoteRegisterDelegate }
+
     public let stakeCredential: StakeCredential
     public let poolKeyHash: PoolKeyHash
     public let drep: DRep
     public let coin: Coin
-    
+
     public enum CodingKeys: String, CodingKey {
         case stakeCredential
         case poolKeyHash
         case drep
         case coin
     }
-    
-    /// Initialize a new `StakeVoteRegisterDelegate` certificate
-    /// - Parameters:
-    ///   - stakeCredential: The stake credential
-    ///   - poolKeyHash: The pool key hash
-    ///   - drep: The DRep
-    ///   - coin: The coin
-    public init(
-        stakeCredential: StakeCredential,
-        poolKeyHash: PoolKeyHash,
-        drep: DRep,
-        coin: Coin
-    ) {
+
+    /// Creates the certificate.
+    ///
+    /// - Throws: When the certificate cannot be encoded for its payload.
+    public init(stakeCredential: StakeCredential, poolKeyHash: PoolKeyHash, drep: DRep, coin: Coin) throws {
         self.stakeCredential = stakeCredential
         self.poolKeyHash = poolKeyHash
         self.drep = drep
         self.coin = coin
-        
-        self._payload =  try! CBORSerialization.data(from:
-                .array(
-                    [
-                        CBOR(Self.CODE.rawValue),
-                        try! CBOREncoder().encode(stakeCredential).toCBOR,
-                        try! CBOREncoder().encode(poolKeyHash).toCBOR,
-                        try! CBOREncoder().encode(drep).toCBOR,
-                        try! CBOREncoder().encode(coin).toCBOR
-                    ]
-                )
-        )
-        
+        self._payload = Data()
         self._type = Self.TYPE
         self._description = Self.DESCRIPTION
+        self._payload = try encodedPayload()
     }
-    
-    /// Initialize StakeVoteRegisterDelegate certificate from payload, type, and description
+
+    /// Initialize the certificate from its text-envelope payload.
     /// - Parameters:
-    ///   - payload: The payload of the certificate
-    ///   - type: The type of the certificate
-    ///   - description: The description of the certificate
+    ///   - payload: The CBOR of the certificate
+    ///   - type: The text-envelope type
+    ///   - description: The text-envelope description
     public init(payload: Data, type: String?, description: String?) throws {
+        let decoded = try CBORDecoder().decode(Self.self, from: payload)
+        self = decoded
         self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
-        
-        let cbor = try CBORDecoder().decode(StakeVoteRegisterDelegate.self, from: payload)
-        
-        self.stakeCredential = cbor.stakeCredential
-        self.poolKeyHash = cbor.poolKeyHash
-        self.drep = cbor.drep
-        self.coin = cbor.coin
     }
-    
+
     // MARK: - CBORSerializable
-    
+
     public init(from primitive: Primitive) throws {
-        guard case let .list(primitive) = primitive,
-              primitive.count == 5,
-              case let .uint(code) = primitive[0],
-              case let .uint(coin) = primitive[4],
-              code == Self.CODE.rawValue else {
-            throw CardanoCoreError.deserializeError("Invalid StakeVoteRegisterDelegate type")
-        }
-        
-        let stakeCredential = try StakeCredential(from: primitive[1])
-        let poolKeyHash = try PoolKeyHash(from: primitive[2])
-        let drep = try DRep(from: primitive[3])
-        
-        self.init(
-            stakeCredential: stakeCredential,
-            poolKeyHash: poolKeyHash,
-            drep: drep,
-            coin: Coin(coin)
+        let fields = try Self.certificateFields(primitive, count: 5)
+        try self.init(
+            stakeCredential: try StakeCredential(from: fields[0]),
+            poolKeyHash: try PoolKeyHash(from: fields[1]),
+            drep: try DRep(from: fields[2]),
+            coin: try fields[3].integer("StakeVoteRegisterDelegate coin", as: Coin.self)
         )
     }
-    
+
     public func toPrimitive() throws -> Primitive {
         return .list([
-            .uint(UInt64(Self.CODE.rawValue)),
+            Self.codePrimitive,
             try stakeCredential.toPrimitive(),
             poolKeyHash.toPrimitive(),
             try drep.toPrimitive(),
             .integer(coin)
         ])
     }
-    
+
     // MARK: - JSONSerializable
-    
+
     public static func fromDict(_ dict: Primitive) throws -> StakeVoteRegisterDelegate {
-        guard case let .orderedDict(dictValue) = dict,
-              let stakeCredentialPrimitive = dictValue[.string(CodingKeys.stakeCredential.rawValue)],
-              case let .string(stakeCredentialHex) = stakeCredentialPrimitive else {
-            throw CardanoCoreError.deserializeError("Invalid or missing stakeCredential in StakeVoteRegisterDelegate dict")
-        }
-        
-        let stakeCredentialData = Data(hex: stakeCredentialHex)
-        let stakeCredential = try StakeCredential(from: .bytes(stakeCredentialData))
-        
-        guard case let .string(poolId) = dictValue[.string(CodingKeys.poolKeyHash.rawValue)] else {
-            throw CardanoCoreError.deserializeError("Missing poolKeyHash in StakeVoteRegisterDelegate dict")
-        }
-        
-        let poolOperator = try PoolOperator(from: poolId)
-        
-        guard case let .string(drepPrimitive) = dictValue[.string(CodingKeys.drep.rawValue)] else {
-            throw CardanoCoreError.deserializeError("Missing drep in StakeVoteRegisterDelegate dict")
-        }
-        let drep = try DRep(from: drepPrimitive)
-        
-        guard let coinPrimitive = dictValue[.string(CodingKeys.coin.rawValue)] else {
-            throw CardanoCoreError.deserializeError("Invalid or missing coin in StakeVoteRegisterDelegate dict")
-        }
-        let coin = try coinPrimitive.integer("StakeVoteRegisterDelegate coin", as: Coin.self)
-        
-        return StakeVoteRegisterDelegate(
-            stakeCredential: stakeCredential,
-            poolKeyHash: poolOperator.poolKeyHash,
-            drep: drep,
-            coin: coin
+        return try StakeVoteRegisterDelegate(
+            stakeCredential: try StakeCredential.fromCertificateDict(try dictField(dict, CodingKeys.stakeCredential.rawValue, in: "StakeVoteRegisterDelegate")),
+            poolKeyHash: try PoolOperator(from: try dictString(dict, CodingKeys.poolKeyHash.rawValue, in: "StakeVoteRegisterDelegate")).poolKeyHash,
+            drep: try DRep(from: try dictString(dict, CodingKeys.drep.rawValue, in: "StakeVoteRegisterDelegate")),
+            coin: try dictField(dict, CodingKeys.coin.rawValue, in: "StakeVoteRegisterDelegate").integer("StakeVoteRegisterDelegate coin", as: Coin.self)
         )
     }
-    
+
     public func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
-        let poolOperator = PoolOperator(poolKeyHash: poolKeyHash)
-        
-        dict[.string(CodingKeys.stakeCredential.rawValue)] = .string(stakeCredential.credential.payload.toHex)
-        dict[.string(CodingKeys.poolKeyHash.rawValue)] = .string(try poolOperator.id())
-        dict[.string(CodingKeys.drep.rawValue)] = .string(try drep.id())
+        dict[.string(CodingKeys.stakeCredential.rawValue)] = stakeCredential.certificateDict()
+        dict[.string(CodingKeys.poolKeyHash.rawValue)] = .string(try PoolOperator(poolKeyHash: poolKeyHash).id())
+        dict[.string(CodingKeys.drep.rawValue)] = .string(try drep.id((.bech32, .cip129)))
         dict[.string(CodingKeys.coin.rawValue)] = .integer(coin)
-        
         return .orderedDict(dict)
     }
 }

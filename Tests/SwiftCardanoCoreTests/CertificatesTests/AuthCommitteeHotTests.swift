@@ -16,7 +16,7 @@ struct AuthCommitteeHotTests {
             credential: .verificationKeyHash(verificationKeyHash)
         )
 
-        let authCommitteeHot = AuthCommitteeHot(
+        let authCommitteeHot = try AuthCommitteeHot(
             committeeColdCredential: committeeColdCredential,
             committeeHotCredential: committeeHotCredential
         )
@@ -57,7 +57,7 @@ struct AuthCommitteeHotTests {
             credential: .verificationKeyHash(try hotVKey!.hash())
         )
 
-        let authCommitteeHot = AuthCommitteeHot(
+        let authCommitteeHot = try AuthCommitteeHot(
             committeeColdCredential: committeeColdCredential,
             committeeHotCredential: committeeHotCredential
         )

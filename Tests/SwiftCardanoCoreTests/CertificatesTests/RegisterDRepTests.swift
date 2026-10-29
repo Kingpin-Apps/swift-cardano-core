@@ -20,7 +20,7 @@ import CBORCodable
     @Test func testInitialization() async throws {
         let drepCredential = DRepCredential(credential: drepType)
         
-        let registerDRep = RegisterDRep(
+        let registerDRep = try RegisterDRep(
             drepCredential: drepCredential,
             coin: coin,
             anchor: anchor
@@ -46,7 +46,7 @@ import CBORCodable
         
         let drepCredential = DRepCredential(credential: drepType)
         
-        let cert = RegisterDRep(
+        let cert = try RegisterDRep(
             drepCredential: drepCredential,
             coin: coin,
             anchor: anchor

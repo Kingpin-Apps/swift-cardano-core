@@ -10,7 +10,7 @@ struct StakeDelegationTests {
     let poolKeyHash = try! stakePoolVerificationKey!.poolKeyHash()
     
     @Test func testInitialization() async throws {
-        let stakeDelegation = StakeDelegation(
+        let stakeDelegation = try StakeDelegation(
             stakeCredential: stakeCredential,
             poolKeyHash: poolKeyHash
         )
@@ -32,7 +32,7 @@ struct StakeDelegationTests {
     @Test func testToFromCBOR() async throws {
         let excpectedCBOR = stakeDelegationCertificate?.payload.toHex
         
-        let cert = StakeDelegation(
+        let cert = try StakeDelegation(
             stakeCredential: stakeCredential,
             poolKeyHash: poolKeyHash
         )

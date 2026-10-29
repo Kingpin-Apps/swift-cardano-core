@@ -7,11 +7,13 @@ import OrderedCollections
 public struct PoolParams: Serializable {
     public let poolOperator: PoolKeyHash
     public let vrfKeyHash: VrfKeyHash
-    public let pledge: Int
-    public let cost: Int
+    public let pledge: Coin
+    public let cost: Coin
     public let margin: UnitInterval
     public let rewardAccount: RewardAccountHash
     public let poolOwners: ListOrOrderedSet<VerificationKeyHash>
+    /// The pool's relays. The CDDL field is `[* relay]`, which has no null, so
+    /// `nil` encodes as an empty array and a decoded pool always has an array.
     public let relays: [Relay]?
     public let poolMetadata: PoolMetadata?
     
@@ -30,8 +32,8 @@ public struct PoolParams: Serializable {
     public init(
         poolOperator: PoolKeyHash,
         vrfKeyHash: VrfKeyHash,
-        pledge: Int,
-        cost: Int,
+        pledge: Coin,
+        cost: Coin,
         margin: UnitInterval,
         rewardAccount: RewardAccountHash,
         poolOwners: ListOrOrderedSet<VerificationKeyHash>,
@@ -56,8 +58,9 @@ public struct PoolParams: Serializable {
             throw CardanoCoreError.deserializeError("Invalid PoolParams primitive")
         }
         
-        guard elements.count >= 8 else {
-            throw CardanoCoreError.deserializeError("PoolParams requires at least 8 elements")
+        // pool_params is a group of exactly nine fields.
+        guard elements.count == 9 else {
+            throw CardanoCoreError.deserializeError("PoolParams requires 9 elements, got \(elements.count)")
         }
         
         // poolOperator (PoolKeyHash)
@@ -66,11 +69,11 @@ public struct PoolParams: Serializable {
         // vrfKeyHash (VrfKeyHash) 
         self.vrfKeyHash = try VrfKeyHash(from: elements[1])
         
-        // pledge (Int)
-        self.pledge = try Self.coin(elements[2], "PoolParams pledge")
+        // pledge (coin)
+        self.pledge = try elements[2].integer("PoolParams pledge", as: Coin.self)
         
-        // cost (Int)
-        self.cost = try Self.coin(elements[3], "PoolParams cost")
+        // cost (coin)
+        self.cost = try elements[3].integer("PoolParams cost", as: Coin.self)
         
         // margin (UnitInterval)
         self.margin = try UnitInterval(from: elements[4])
@@ -81,24 +84,21 @@ public struct PoolParams: Serializable {
         // poolOwners (OrderedSet<VerificationKeyHash>)
         self.poolOwners = try ListOrOrderedSet<VerificationKeyHash>(from: elements[6])
         
-        // relays ([Relay]?)
-        if case let .list(relayElements) = elements[7] {
+        // relays: [* relay]
+        switch elements[7] {
+        case .list(let relayElements):
             self.relays = try relayElements.map { try Relay(from: $0) }
-        } else if case .null = elements[7] {
-            self.relays = nil
-        } else {
-            self.relays = []
+        case .indefiniteList(let relayElements):
+            self.relays = try relayElements.map { try Relay(from: $0) }
+        default:
+            throw CardanoCoreError.deserializeError("PoolParams relays must be an array, got \(elements[7])")
         }
         
-        // poolMetadata (PoolMetadata?)
-        if elements.count > 8 {
-            if case .null = elements[8] {
-                self.poolMetadata = nil
-            } else {
-                self.poolMetadata = try PoolMetadata(from: elements[8])
-            }
-        } else {
+        // pool_metadata / nil
+        if case .null = elements[8] {
             self.poolMetadata = nil
+        } else {
+            self.poolMetadata = try PoolMetadata(from: elements[8])
         }
     }
 
@@ -111,11 +111,11 @@ public struct PoolParams: Serializable {
         // vrfKeyHash (VrfKeyHash)
         elements.append(vrfKeyHash.toPrimitive())
         
-        // pledge (Int)
-        elements.append(.int(Int64(pledge)))
+        // pledge (coin)
+        elements.append(.integer(pledge))
 
-        // cost (Int)
-        elements.append(.int(Int64(cost)))
+        // cost (coin)
+        elements.append(.integer(cost))
         
         // margin (UnitInterval)
         elements.append(try margin.toPrimitive())
@@ -126,13 +126,8 @@ public struct PoolParams: Serializable {
         // poolOwners (ListOrOrderedSet<VerificationKeyHash>)
         elements.append( try poolOwners.toPrimitive())
         
-        // relays ([Relay]?)
-        if let relays = relays {
-            let relaysArray = try relays.map { try $0.toPrimitive() }
-            elements.append(.list(relaysArray))
-        } else {
-            elements.append(.null)
-        }
+        // relays: [* relay], which has no null
+        elements.append(.list(try (relays ?? []).map { try $0.toPrimitive() }))
         
         // poolMetadata (PoolMetadata?)
         if let poolMetadata = poolMetadata {
@@ -142,19 +137,6 @@ public struct PoolParams: Serializable {
         }
         
         return .list(elements)
-    }
-    
-    /// A `coin` (`uint`, up to 2^64 - 1 in the CDDL) read into the `Int`
-    /// that `pledge` and `cost` are stored as.
-    ///
-    /// - Throws: When the value is negative or above `Int.max`. No real pool
-    ///   can pledge or charge that much: it is over 200 times the total ADA supply.
-    private static func coin(_ primitive: Primitive, _ what: String) throws -> Int {
-        let value = try primitive.integer(what, as: Coin.self)
-        guard let narrowed = Int(exactly: value) else {
-            throw CardanoCoreError.deserializeError("\(what): \(value) is out of range for Int")
-        }
-        return narrowed
     }
     
     // MARK: - JSONSerializable
@@ -170,19 +152,17 @@ public struct PoolParams: Serializable {
         guard case let .string(vrfKeyHashHex) = dictValue[.string(CodingKeys.vrfKeyHash.rawValue)] else {
             throw CardanoCoreError.deserializeError("Invalid or missing vrfKeyHash in PoolParams")
         }
-        let vrfKeyHash = VrfKeyHash(
-            payload: Data(hexString: vrfKeyHashHex) ?? Data()
-        )
+        let vrfKeyHash = try VrfKeyHash(from: .string(vrfKeyHashHex))
         
         guard let pledgePrimitive = dictValue[.string(CodingKeys.pledge.rawValue)] else {
             throw CardanoCoreError.deserializeError("Invalid or missing pledge in PoolParams")
         }
-        let pledge = try coin(pledgePrimitive, "PoolParams pledge")
+        let pledge = try pledgePrimitive.integer("PoolParams pledge", as: Coin.self)
         
         guard let costPrimitive = dictValue[.string(CodingKeys.cost.rawValue)] else {
             throw CardanoCoreError.deserializeError("Invalid or missing cost in PoolParams")
         }
-        let cost = try coin(costPrimitive, "PoolParams cost")
+        let cost = try costPrimitive.integer("PoolParams cost", as: Coin.self)
         
         guard let marginPrimitive = dictValue[.string(CodingKeys.margin.rawValue)] else {
             throw CardanoCoreError.deserializeError("Missing margin in PoolParams")
@@ -204,9 +184,10 @@ public struct PoolParams: Serializable {
         guard case let .string(rewardAccountHex) = dictValue[.string(CodingKeys.rewardAccount.rawValue)] else {
             throw CardanoCoreError.deserializeError("Invalid or missing rewardAccount in PoolParams")
         }
-        let rewardAccount = RewardAccountHash(
-            payload: Data(hexString: rewardAccountHex) ?? Data()
-        )
+        guard let rewardAccountData = Data(hexString: rewardAccountHex) else {
+            throw CardanoCoreError.deserializeError("Invalid rewardAccount hex in PoolParams")
+        }
+        let rewardAccount = try RewardAccountHash(from: .bytes(rewardAccountData))
         
         guard let poolOwnersPrimitive = dictValue[.string(CodingKeys.poolOwners.rawValue)] else {
             throw CardanoCoreError.deserializeError("Missing poolOwners in PoolParams")
@@ -252,8 +233,8 @@ public struct PoolParams: Serializable {
         
         dict[.string(CodingKeys.poolOperator.rawValue)] = .string(try poolOperator.id())
         dict[.string(CodingKeys.vrfKeyHash.rawValue)] = .string(vrfKeyHash.payload.toHex)
-        dict[.string(CodingKeys.pledge.rawValue)] = .int(Int64(pledge))
-        dict[.string(CodingKeys.cost.rawValue)] = .int(Int64(cost))
+        dict[.string(CodingKeys.pledge.rawValue)] = .integer(pledge)
+        dict[.string(CodingKeys.cost.rawValue)] = .integer(cost)
         dict[.string(CodingKeys.margin.rawValue)] = .list([.uint(UInt64(margin.numerator)), .uint(UInt64(margin.denominator))])
         dict[.string(CodingKeys.rewardAccount.rawValue)] = .string(rewardAccount.payload.toHex)
         dict[.string(CodingKeys.poolOwners.rawValue)] = .list(poolOwners.asArray.map { .string($0.payload.toHex) })

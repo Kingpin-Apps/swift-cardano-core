@@ -29,23 +29,15 @@ public struct GenesisKeyDelegation: CertificateSerializable {
     ///  - genesisHash: The genesis hash
     ///  - genesisDelegateHash: The genesis delegate hash
     ///  - vrfKeyHash: The verification key hash of the VRF key associated with the genesis delegate
-    public init(genesisHash: GenesisHash, genesisDelegateHash: GenesisDelegateHash, vrfKeyHash: VrfKeyHash) {
+    /// - Throws: When the certificate cannot be encoded for its payload.
+    public init(genesisHash: GenesisHash, genesisDelegateHash: GenesisDelegateHash, vrfKeyHash: VrfKeyHash) throws {
         self.genesisHash = genesisHash
         self.genesisDelegateHash = genesisDelegateHash
         self.vrfKeyHash = vrfKeyHash
-        
-        self._payload =  try! CBORSerialization.data(from:
-                .array(
-                    [
-                        CBOR(Self.CODE.rawValue),
-                        try! CBOREncoder().encode(genesisHash).toCBOR,
-                        try! CBOREncoder().encode(genesisDelegateHash).toCBOR,
-                        try! CBOREncoder().encode(vrfKeyHash).toCBOR
-                    ]
-                )
-        )
+        self._payload = Data()
         self._type = Self.TYPE
         self._description = Self.DESCRIPTION
+        self._payload = try encodedPayload()
     }
     
     /// Initialize a new `GenesisKeyDelegation` certificate from its Text Envelope representation
@@ -54,75 +46,47 @@ public struct GenesisKeyDelegation: CertificateSerializable {
     ///  - type: The type of the certificate
     ///  - description: The description of the certificate
     public init(payload: Data, type: String?, description: String?) throws {
+        let decoded = try CBORDecoder().decode(Self.self, from: payload)
+        self = decoded
         self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
-        
-        let cbor = try CBORDecoder().decode(GenesisKeyDelegation.self, from: payload)
-        
-        self.genesisHash = cbor.genesisHash
-        self.genesisDelegateHash = cbor.genesisDelegateHash
-        self.vrfKeyHash = cbor.vrfKeyHash
     }
     
     // MARK: - CBORSerializable
     
+    /// `genesis_delegation_cert = (5, genesis_hash, genesis_delegate_hash, vrf_keyhash)`,
+    /// with `genesis_hash` and `genesis_delegate_hash` 28 bytes and
+    /// `vrf_keyhash` 32.
     public init(from primitive: Primitive) throws {
-        guard case let .list(primitive) = primitive,
-                primitive.count == 4,
-                case let .int(code) = primitive[0],
-                code == Self.CODE.rawValue,
-              case .byteString(_) = primitive[1],
-              case .byteString(_) = primitive[2],
-              case .byteString(_) = primitive[3]
-        else {
-            throw CardanoCoreError.deserializeError("Invalid GenesisKeyDelegation type")
-        }
-        let genesisHash = try GenesisHash(from: primitive[1])
-        let genesisDelegateHash = try GenesisDelegateHash(from: primitive[2])
-        let vrfKeyHash = try VrfKeyHash(from: primitive[3])
-        
-        self.init(
-            genesisHash: genesisHash,
-            genesisDelegateHash: genesisDelegateHash,
-            vrfKeyHash: vrfKeyHash
+        let fields = try Self.certificateFields(primitive, count: 4)
+        try self.init(
+            genesisHash: try GenesisHash(from: fields[0]),
+            genesisDelegateHash: try GenesisDelegateHash(from: fields[1]),
+            vrfKeyHash: try VrfKeyHash(from: fields[2])
         )
     }
 
     public func toPrimitive() throws -> Primitive {
         return .list([
-            .int(Int64(Self.CODE.rawValue)),
-            .bytes(genesisHash.payload),
-            .bytes(genesisDelegateHash.payload),
-            .bytes(vrfKeyHash.payload)
+            Self.codePrimitive,
+            genesisHash.toPrimitive(),
+            genesisDelegateHash.toPrimitive(),
+            vrfKeyHash.toPrimitive()
         ])
     }
     
     // MARK: - JSONSerializable
     
     public static func fromDict(_ dict: Primitive) throws -> GenesisKeyDelegation {
-        guard case let .orderedDict(orderedDict) = dict else {
-            throw CardanoCoreError.deserializeError("Invalid GenesisKeyDelegation dict format")
-        }
-        guard let genesisHashPrimitive = orderedDict[.string(CodingKeys.genesisHash.rawValue)],
-              let genesisDelegateHashPrimitive = orderedDict[.string(CodingKeys.genesisDelegateHash.rawValue)],
-              let vrfKeyHashPrimitive = orderedDict[.string(CodingKeys.vrfKeyHash.rawValue)],
-              case let .string(genesisHashHex) = genesisHashPrimitive,
-              case let .string(genesisDelegateHashHex) = genesisDelegateHashPrimitive,
-              case let .string(vrfKeyHashHex) = vrfKeyHashPrimitive else {
-            throw CardanoCoreError.deserializeError("Invalid GenesisKeyDelegation dictionary")
-        }
-        let genesisHashData = Data(hex: genesisHashHex)
-        let genesisDelegateHashData = Data(hex: genesisDelegateHashHex)
-        let vrfKeyHashData = Data(hex: vrfKeyHashHex)
-        let genesisHash = GenesisHash(payload: genesisHashData)
-        let genesisDelegateHash = GenesisDelegateHash(payload: genesisDelegateHashData)
-        let vrfKeyHash = VrfKeyHash(payload: vrfKeyHashData)
-        
-        return GenesisKeyDelegation(
-            genesisHash: genesisHash,
-            genesisDelegateHash: genesisDelegateHash,
-            vrfKeyHash: vrfKeyHash
+        let type = "GenesisKeyDelegation"
+        return try GenesisKeyDelegation(
+            genesisHash: try GenesisHash(
+                from: .string(try dictString(dict, CodingKeys.genesisHash.rawValue, in: type))),
+            genesisDelegateHash: try GenesisDelegateHash(
+                from: .string(try dictString(dict, CodingKeys.genesisDelegateHash.rawValue, in: type))),
+            vrfKeyHash: try VrfKeyHash(
+                from: .string(try dictString(dict, CodingKeys.vrfKeyHash.rawValue, in: type)))
         )
     }
     
@@ -133,6 +97,4 @@ public struct GenesisKeyDelegation: CertificateSerializable {
         dict[.string(CodingKeys.vrfKeyHash.rawValue)] = .string(vrfKeyHash.payload.toHex)
         return .orderedDict(dict)
     }
-
-
 }

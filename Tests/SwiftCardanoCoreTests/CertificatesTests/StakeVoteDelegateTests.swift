@@ -13,7 +13,7 @@ struct StakeVoteDelegateTests {
     let drep = DRep(credential: .verificationKeyHash(try! drepVerificationKey!.hash()))
     
     @Test func testInitialization() async throws {
-        let stakeRegistration = StakeVoteDelegate(
+        let stakeRegistration = try StakeVoteDelegate(
             stakeCredential: stakeCredential,
             poolKeyHash: poolKeyHash,
             drep: drep
@@ -37,7 +37,7 @@ struct StakeVoteDelegateTests {
     @Test func testToFromCBOR() async throws {
         let excpectedCBOR = stakeVoteDelegateCertificate?.payload.toHex
         
-        let cert = StakeVoteDelegate(
+        let cert = try StakeVoteDelegate(
             stakeCredential: stakeCredential,
             poolKeyHash: poolKeyHash,
             drep: drep

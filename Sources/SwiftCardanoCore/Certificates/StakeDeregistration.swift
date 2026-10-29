@@ -2,99 +2,76 @@ import Foundation
 import CBORCodable
 import OrderedCollections
 
-/// Stake Address Deregistration Certificate
+/// Stake address deregistration certificate: `account_unregistration_cert = (1, stake_credential)`.
 public struct StakeDeregistration: CertificateSerializable {
     public var _payload: Data
     public var _type: String
     public var _description: String
-    
-    public var type: String { get { return StakeDeregistration.TYPE } }
-    public var description: String { get { return StakeDeregistration.DESCRIPTION } }
+
+    public var type: String { StakeDeregistration.TYPE }
+    public var description: String { StakeDeregistration.DESCRIPTION }
 
     public static var TYPE: String { CertificateType.shelley.rawValue }
     public static var DESCRIPTION: String { CertificateDescription.stakeDeregistration.rawValue }
-    public static var CODE: CertificateCode { get { return .stakeDeregistration } }
-    
+    public static var CODE: CertificateCode { .stakeDeregistration }
+
     public let stakeCredential: StakeCredential
-    
+
     public enum CodingKeys: String, CodingKey {
         case stakeCredential
     }
-    
-    /// Initialize StakeDeregistration from stake credential
-    /// - Parameters:
-    ///  - stakeCredential: The stake credential
-    public init(stakeCredential: StakeCredential) {
+
+    /// Creates the certificate.
+    ///
+    /// - Throws: When the certificate cannot be encoded for its payload.
+    public init(stakeCredential: StakeCredential) throws {
         self.stakeCredential = stakeCredential
-        
-        self._payload =  try! CBORSerialization.data(from:
-                .array(
-                    [
-                        CBOR(Self.CODE.rawValue),
-                        try! CBOREncoder().encode(stakeCredential).toCBOR
-                    ]
-                )
-        )
+        self._payload = Data()
         self._type = Self.TYPE
         self._description = Self.DESCRIPTION
+        self._payload = try encodedPayload()
     }
-    
-    /// Initialize StakeDelegation certificate from payload, type, and description
+
+    /// Initialize the certificate from its text-envelope payload.
     /// - Parameters:
-    ///   - payload: The payload of the certificate
-    ///   - type: The type of the certificate
-    ///   - description: The description of the certificate
+    ///   - payload: The CBOR of the certificate
+    ///   - type: The text-envelope type
+    ///   - description: The text-envelope description
     public init(payload: Data, type: String?, description: String?) throws {
+        let decoded = try CBORDecoder().decode(Self.self, from: payload)
+        self = decoded
         self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
-        
-        let cbor = try CBORDecoder().decode(StakeDeregistration.self, from: payload)
-        
-        self.stakeCredential = cbor.stakeCredential
     }
-    
+
     // MARK: - CBORSerializable
-    
+
     public init(from primitive: Primitive) throws {
-        guard case let .list(primitive) = primitive,
-              primitive.count == 2,
-              case let .uint(code) = primitive[0],
-              code == Self.CODE.rawValue else {
-            throw CardanoCoreError.deserializeError("Invalid StakeDeregistration type")
-        }
-        
-        let stakeCredential = try StakeCredential(from: primitive[1])
-        self.init(stakeCredential: stakeCredential)
+        let fields = try Self.certificateFields(primitive, count: 2)
+        try self.init(
+            stakeCredential: try StakeCredential(from: fields[0])
+        )
     }
-    
+
     public func toPrimitive() throws -> Primitive {
         return .list([
-            .uint(UInt64(Self.CODE.rawValue)),
+            Self.codePrimitive,
             try stakeCredential.toPrimitive()
         ])
     }
-    
+
     // MARK: - JSONSerializable
-    
+
     public static func fromDict(_ dict: Primitive) throws -> StakeDeregistration {
-        guard case let .orderedDict(orderedDict) = dict else {
-            throw CardanoCoreError.deserializeError("Invalid StakeDeregistration dict format")
-        }
-        guard let stakeCredentialPrimitive = orderedDict[.string(CodingKeys.stakeCredential.rawValue)],
-              case let .string(stakeCredentialHex) = stakeCredentialPrimitive else {
-            throw CardanoCoreError.deserializeError("Invalid stakeCredential in StakeDeregistration dict")
-        }
-        
-        let stakeCredentialData = Data(hex: stakeCredentialHex)
-        let stakeCredential = try StakeCredential(from: .bytes(stakeCredentialData))
-        
-        return StakeDeregistration(stakeCredential: stakeCredential)
+        return try StakeDeregistration(
+            stakeCredential: try StakeCredential.fromCertificateDict(try dictField(dict, CodingKeys.stakeCredential.rawValue, in: "StakeDeregistration"))
+        )
     }
 
     public func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
-        dict[.string(CodingKeys.stakeCredential.rawValue)] = .string(stakeCredential.credential.payload.toHex)
+        dict[.string(CodingKeys.stakeCredential.rawValue)] = stakeCredential.certificateDict()
         return .orderedDict(dict)
     }
 }

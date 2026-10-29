@@ -8,7 +8,7 @@ import CBORCodable
     let epoch: EpochNumber = 540
     
     @Test func testInitialization() async throws {
-        let poolRetirement = PoolRetirement(
+        let poolRetirement = try PoolRetirement(
             poolKeyHash: poolKeyHash,
             epoch: epoch
         )
@@ -30,7 +30,7 @@ import CBORCodable
     @Test func testToFromCBOR() async throws {
         let excpectedCBOR = poolRetirementCertificate?.payload.toHex
         
-        let cert = PoolRetirement(
+        let cert = try PoolRetirement(
             poolKeyHash: poolKeyHash,
             epoch: epoch
         )
