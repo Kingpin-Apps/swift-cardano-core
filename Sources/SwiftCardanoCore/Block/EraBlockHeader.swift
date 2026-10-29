@@ -118,13 +118,7 @@ extension EraBlockHeader: Serializable {
                 "EraBlockHeader: expected [era_id, #6.24(header)] 2-element array"
             )
         }
-        let eraId: UInt64
-        switch elements[0] {
-        case .uint(let v): eraId = UInt64(v)
-        case .int(let v): eraId = UInt64(v)
-        default:
-            throw CardanoCoreError.deserializeError("EraBlockHeader: era_id must be uint")
-        }
+        let eraId = try elements[0].integer("EraBlockHeader era_id", as: UInt64.self)
         let headerBytes = try Self.unwrapEmbeddedCBOR(elements[1])
         switch eraId {
         case 0:
@@ -168,13 +162,7 @@ extension EraBlockHeader: Serializable {
         guard let eraP = dict[.string("era")] else {
             throw CardanoCoreError.deserializeError("EraBlockHeader.fromDict: missing 'era' field")
         }
-        let eraId: UInt64
-        switch eraP {
-        case .uint(let v): eraId = UInt64(v)
-        case .int(let v): eraId = UInt64(v)
-        default:
-            throw CardanoCoreError.deserializeError("EraBlockHeader.fromDict: 'era' must be uint")
-        }
+        let eraId = try eraP.integer("EraBlockHeader era_id", as: UInt64.self)
         guard let headerP = dict[.string("header")] else {
             throw CardanoCoreError.deserializeError(
                 "EraBlockHeader.fromDict: missing 'header' field")

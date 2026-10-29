@@ -374,14 +374,7 @@ public struct Block: Serializable {
             case .list(let invalidTxList) = invalidTxPrimitive
         {
             invalidTransactions = try invalidTxList.map { element in
-                switch element {
-                case .uint(let val): return TransactionIndex(val)
-                case .int(let val): return TransactionIndex(val)
-                default:
-                    throw CardanoCoreError.deserializeError(
-                        "Invalid transaction_index type in dict"
-                    )
-                }
+                try element.integer("Block invalidTransactions", as: TransactionIndex.self)
             }
         }
 

@@ -69,24 +69,11 @@ public struct RawPlutusData: PlutusDataProtocol {
                 self.data = Int(exactly: bigInt.value).map { .int($0) } ?? .plutusData(plutusData)
             case .bytes(let bytes):
                 self.data = .bytes(bytes.data)
-            case .array(let array):
-                let anyValueList = IndefiniteList<AnyValue>(
-                    array.map { try! RawPlutusData(from: $0).toAnyValue() })
-                self.data = .indefiniteList(anyValueList)
-            case .indefiniteArray(let array):
-                let anyValueList = IndefiniteList<AnyValue>(
-                    array.map { try! RawPlutusData(from: $0).toAnyValue() })
-                self.data = .indefiniteList(anyValueList)
-            case .map(let dict), .indefiniteMap(let dict):
-                var resultDict = OrderedDictionary<AnyValue, AnyValue>()
-                for (key, value) in dict {
-                    let keyRawPlutusData = try RawPlutusData(from: key).toAnyValue()
-                    let valueRawPlutusData = try RawPlutusData(from: value).toAnyValue()
-                    resultDict[keyRawPlutusData] = valueRawPlutusData
-                }
-                self.data = .dict(resultDict.reduce(into: [:]) { result, entry in
-                    result[entry.key] = entry.value
-                })
+            case .array, .indefiniteArray, .map, .indefiniteMap:
+                // Kept as the Plutus data it is: ``RawDatum/indefiniteList(_:)``
+                // and ``RawDatum/dict(_:)`` would drop the encoding of the
+                // elements, and a map's order.
+                self.data = .plutusData(plutusData)
             case .constructor(_):
                 throw CardanoCoreError.typeError("Constructor PlutusData is not supported in RawPlutusData")
         }
@@ -205,32 +192,22 @@ public struct RawPlutusData: PlutusDataProtocol {
         return try self.data.toPrimitive()
     }
     
-    public func toAnyValue() -> AnyValue {
-        func dfs(_ obj: Any) -> AnyValue {
-            if let list = obj as? [Any] {
-                return .array(list.map { dfs($0) })
-            } else if let dict = obj as? [AnyValue: AnyValue] {
-                return .dictionary(
-                    OrderedDictionary(
-                        uniqueKeysWithValues: dict.map { (dfs($0.key), dfs($0.value)) }))
-            } else if let tag = obj as? CBORTag {
-                if tag.tag != 102 {
-                    let value = tag.value.listValue!.map { dfs($0) }
-                    return try! AnyValue.wrapped(
-                        CBOR.tagged(
-                            UInt64(tag.tag),
-                            CBOR.array(value.map { try! CBOREncoder().encode($0).toCBOR })))
-                } else {
-                    return try! AnyValue.wrapped(
-                        CBOR.tagged(
-                            UInt64(tag.tag), try! CBOREncoder().encode(tag.value).toCBOR
-                        ))
-                }
-            }
-            return try! AnyValue.wrapped(obj)
+    /// This datum as an ``AnyValue``.
+    ///
+    /// - Throws: When the datum cannot be written as a primitive.
+    public func toAnyValue() throws -> AnyValue {
+        switch data {
+            case .int(let int):
+                return .int(int)
+            case .bytes(let bytes):
+                return .data(bytes)
+            case .dict(let dict):
+                return .dictionary(AnyValue.AnyDictionary(uniqueKeysWithValues: dict.map { ($0.key, $0.value) }))
+            case .indefiniteList(let list):
+                return .indefiniteArray(list.getAll())
+            case .plutusData, .cbor, .cborTag:
+                return try data.toPrimitive().toAnyValue()
         }
-
-        return dfs(self.data)
     }
 
     // Convert to dictionary format

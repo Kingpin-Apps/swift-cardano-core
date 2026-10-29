@@ -154,15 +154,19 @@ extension ShelleyGenesis: CBORSerializable {
                 "ShelleyGenesis: expected list of 14+ elements, got \(primitive)")
         }
         systemStart   = try Self.readString(f[0], label: "systemStart")
-        networkMagic  = UInt32(try Self.readUInt(f[1], label: "networkMagic"))
+        networkMagic  = try f[1].integer("ShelleyGenesis networkMagic", as: UInt32.self)
         networkId     = Self.decodeNetworkId(f[2])
+        // A PositiveUnitInterval in the ledger.
         activeSlotsCoeff = try Self.readFraction(f[3], label: "activeSlotsCoeff")
-        securityParam = UInt32(try Self.readUInt(f[4], label: "securityParam"))
-        epochLength   = UInt32(try Self.readUInt(f[5], label: "epochLength"))
-        slotsPerKESPeriod = UInt32(try Self.readUInt(f[6], label: "slotsPerKESPeriod"))
-        maxKESEvolutions  = UInt32(try Self.readUInt(f[7], label: "maxKESEvolutions"))
+        guard activeSlotsCoeff > 0 else {
+            throw CardanoCoreError.deserializeError("ShelleyGenesis: activeSlotsCoeff must be above zero")
+        }
+        securityParam = try f[4].integer("ShelleyGenesis securityParam", as: UInt32.self)
+        epochLength   = try f[5].integer("ShelleyGenesis epochLength", as: UInt32.self)
+        slotsPerKESPeriod = try f[6].integer("ShelleyGenesis slotsPerKESPeriod", as: UInt32.self)
+        maxKESEvolutions  = try f[7].integer("ShelleyGenesis maxKESEvolutions", as: UInt32.self)
         slotLength    = try Self.readSlotLength(f[8])
-        updateQuorum  = Int(try Self.readUInt(f[9], label: "updateQuorum"))
+        updateQuorum  = try Self.natural(f[9], label: "updateQuorum")
         maxLovelaceSupply = try Self.readUInt(f[10], label: "maxLovelaceSupply")
         protocolParams = try ProtocolParams(from: f[11])
         genDelegs     = try Self.readGenDelegs(f[12])
@@ -175,19 +179,19 @@ extension ShelleyGenesis: CBORSerializable {
             .list([.string(k), .list([.string(v.delegate), .string(v.vrf)])])
         })
         let initialFundsList: Primitive = .list(initialFunds.map { k, v in
-            .list([.string(k), .int(Int64(v))])
+            .list([.string(k), .integer(v)])
         })
         var elements: [Primitive] = []
         elements.append(.string(systemStart))
         elements.append(.uint(UInt64(networkMagic)))
         elements.append(networkIdPrim)
-        elements.append(Self.fractionPrimitive(activeSlotsCoeff))
+        elements.append(try Self.fractionPrimitive(activeSlotsCoeff, label: "activeSlotsCoeff"))
         elements.append(.uint(UInt64(securityParam)))
         elements.append(.uint(UInt64(epochLength)))
         elements.append(.uint(UInt64(slotsPerKESPeriod)))
         elements.append(.uint(UInt64(maxKESEvolutions)))
         elements.append(.uint(UInt64(slotLength)))
-        elements.append(.uint(UInt64(updateQuorum)))
+        elements.append(.integer(updateQuorum))
         elements.append(.uint(maxLovelaceSupply))
         elements.append(try protocolParams.toPrimitive())
         elements.append(genDelegsList)
@@ -211,9 +215,15 @@ extension ShelleyGenesis: CBORSerializable {
     }
 
     private static func formatUTCTime(_ elems: [Primitive]) throws -> String {
-        let year = try readUInt(elems[0], label: "systemStart.year")
-        let dayOfYear = try readUInt(elems[1], label: "systemStart.dayOfYear")
+        // Calendar arithmetic is only meaningful, and only safe, for years
+        // a calendar can hold; a day of the year runs 1 ... 366.
+        let year = try elems[0].integer("ShelleyGenesis systemStart.year", as: UInt16.self)
+        let dayOfYear = try elems[1].integer("ShelleyGenesis systemStart.dayOfYear", as: UInt16.self)
         let picosOfDay = try readUInt(elems[2], label: "systemStart.picosOfDay")
+        guard (1 ... 366).contains(dayOfYear) else {
+            throw CardanoCoreError.deserializeError(
+                "ShelleyGenesis: systemStart day of year \(dayOfYear) is not in 1 ... 366")
+        }
         var components = DateComponents()
         components.year = Int(year)
         components.day = Int(dayOfYear)
@@ -231,56 +241,35 @@ extension ShelleyGenesis: CBORSerializable {
     }
 
     private static func readUInt(_ p: Primitive, label: String) throws -> UInt64 {
-        switch p {
-        case .uint(let u): return UInt64(u)
-        case .int(let i) where i >= 0: return UInt64(i)
-        default:
-            throw CardanoCoreError.deserializeError("ShelleyGenesis: expected uint for \(label)")
-        }
+        try p.integer("ShelleyGenesis \(label)", as: UInt64.self)
     }
 
+    /// A non-negative integer held as `Int`.
+    static func natural(_ p: Primitive, label: String) throws -> Int {
+        let value = try readUInt2(p, label: label)
+        guard let narrowed = Int(exactly: value) else {
+            throw CardanoCoreError.deserializeError("ShelleyGenesis \(label): \(value) is out of range for Int")
+        }
+        return narrowed
+    }
+
+    /// A unit interval: the active slot coefficient.
     private static func readFraction(_ p: Primitive, label: String) throws -> Double {
-        switch p {
-        case .cborTag(let t) where t.tag == 30:
-            guard case .list(let arr) = t.value, arr.count == 2 else {
-                throw CardanoCoreError.deserializeError("ShelleyGenesis: malformed tag-30 for \(label)")
-            }
-            return try fractionToDouble(arr[0], arr[1], label: label)
-        case .unitInterval(let ui):
-            return Double(ui.numerator) / Double(ui.denominator)
-        case .list(let arr) where arr.count == 2:
-            return try fractionToDouble(arr[0], arr[1], label: label)
-        case .float(let f): return f
-        default:
-            throw CardanoCoreError.deserializeError("ShelleyGenesis: expected tag-30 rational for \(label)")
-        }
-    }
-
-    private static func fractionToDouble(_ num: Primitive, _ den: Primitive, label: String) throws -> Double {
-        let n: Double
-        let d: Double
-        switch num {
-        case .int(let i): n = Double(i)
-        case .uint(let u): n = Double(u)
-        default: throw CardanoCoreError.deserializeError("ShelleyGenesis: non-numeric numerator for \(label)")
-        }
-        switch den {
-        case .int(let i): d = Double(i)
-        case .uint(let u): d = Double(u)
-        default: throw CardanoCoreError.deserializeError("ShelleyGenesis: non-numeric denominator for \(label)")
-        }
-        return n / d
+        try readFraction2(p, label: label, atMostOne: true)
     }
 
     // NominalDiffTime from Haskell encodes as tag-30 rational in seconds; fall back to uint.
     private static func readSlotLength(_ p: Primitive) throws -> UInt32 {
         switch p {
-        case .uint(let u): return UInt32(u)
-        case .int(let i) where i >= 0: return UInt32(i)
+        case .uint, .int, .bigInt, .bigUInt:
+            return try p.integer("ShelleyGenesis slotLength", as: UInt32.self)
         case .cborTag(let t) where t.tag == 30:
             guard case .list(let arr) = t.value, arr.count == 2 else { return 1 }
-            let v = try fractionToDouble(arr[0], arr[1], label: "slotLength")
-            return UInt32(v)
+            let v = try fractionPairToDouble(arr[0], arr[1], label: "slotLength")
+            guard let seconds = UInt32(exactly: v.rounded(.towardZero)) else {
+                throw CardanoCoreError.deserializeError("ShelleyGenesis: slotLength \(v) is out of range for UInt32")
+            }
+            return seconds
         default:
             throw CardanoCoreError.deserializeError("ShelleyGenesis: cannot decode slotLength")
         }
@@ -337,8 +326,7 @@ extension ShelleyGenesis: CBORSerializable {
                 guard case .list(let kv) = pair, kv.count >= 2 else { continue }
                 let key = try readHexOrString(kv[0])
                 switch kv[1] {
-                case .uint(let u): result[key] = Int(u)
-                case .int(let i): result[key] = Int(i)
+                case .uint, .int, .bigInt, .bigUInt: result[key] = try natural(kv[1], label: "initialFunds")
                 default: break
                 }
             }
@@ -346,8 +334,7 @@ extension ShelleyGenesis: CBORSerializable {
             for (k, v) in d {
                 let key = try readHexOrString(k)
                 switch v {
-                case .uint(let u): result[key] = Int(u)
-                case .int(let i): result[key] = Int(i)
+                case .uint, .int, .bigInt, .bigUInt: result[key] = try natural(v, label: "initialFunds")
                 default: break
                 }
             }
@@ -366,15 +353,9 @@ extension ShelleyGenesis: CBORSerializable {
         }
     }
 
-    private static func fractionPrimitive(_ d: Double) -> Primitive {
-        let precision = 10_000_000
-        let numerator = Int(d * Double(precision))
-        let g = gcd(abs(numerator), precision)
-        let tag = CBORTag(tag: 30, value: .list([.int(Int64(numerator / g)), .int(Int64(precision / g))]))
-        return .cborTag(tag)
+    private static func fractionPrimitive(_ d: Double, label: String) throws -> Primitive {
+        try fractionPrimitive2(d, label: label)
     }
-
-    private static func gcd(_ a: Int, _ b: Int) -> Int { b == 0 ? a : gcd(b, a % b) }
 }
 
 // MARK: - ProtocolParams CBOR
@@ -391,19 +372,24 @@ extension ProtocolParams {
             throw CardanoCoreError.deserializeError(
                 "ProtocolParams: expected list of 17+ elements, got \(primitive)")
         }
-        minFeeA            = UInt32(try ShelleyGenesis.readUInt2(f[0], label: "minFeeA"))
-        minFeeB            = UInt32(try ShelleyGenesis.readUInt2(f[1], label: "minFeeB"))
-        maxBlockBodySize   = UInt32(try ShelleyGenesis.readUInt2(f[2], label: "maxBlockBodySize"))
-        maxTxSize          = UInt32(try ShelleyGenesis.readUInt2(f[3], label: "maxTxSize"))
-        maxBlockHeaderSize = UInt32(try ShelleyGenesis.readUInt2(f[4], label: "maxBlockHeaderSize"))
+        // Ranges as the ledger's ShelleyPParams hold them (the fees as this
+        // type holds them): Word32 sizes, a Word16 header size and nOpt, an
+        // EpochInterval (Word32) eMax.
+        minFeeA            = try f[0].integer("ProtocolParams minFeeA", as: UInt32.self)
+        minFeeB            = try f[1].integer("ProtocolParams minFeeB", as: UInt32.self)
+        maxBlockBodySize   = try f[2].integer("ProtocolParams maxBlockBodySize", as: UInt32.self)
+        maxTxSize          = try f[3].integer("ProtocolParams maxTxSize", as: UInt32.self)
+        maxBlockHeaderSize = UInt32(try f[4].integer("ProtocolParams maxBlockHeaderSize", as: UInt16.self))
         keyDeposit         = try ShelleyGenesis.readUInt2(f[5], label: "keyDeposit")
         poolDeposit        = try ShelleyGenesis.readUInt2(f[6], label: "poolDeposit")
-        eMax               = Int(try ShelleyGenesis.readUInt2(f[7], label: "eMax"))
-        nOpt               = Int(try ShelleyGenesis.readUInt2(f[8], label: "nOpt"))
+        eMax               = Int(try f[7].integer("ProtocolParams eMax", as: UInt32.self))
+        nOpt               = Int(try f[8].integer("ProtocolParams nOpt", as: UInt16.self))
+        // a0 is a NonNegativeInterval; rho, tau and d are UnitIntervals.
         a0                 = try ShelleyGenesis.readFraction2(f[9], label: "a0")
-        rho                = try ShelleyGenesis.readFraction2(f[10], label: "rho")
-        tau                = try ShelleyGenesis.readFraction2(f[11], label: "tau")
-        decentralisationParam = try ShelleyGenesis.readFraction2(f[12], label: "decentralisationParam")
+        rho                = try ShelleyGenesis.readFraction2(f[10], label: "rho", atMostOne: true)
+        tau                = try ShelleyGenesis.readFraction2(f[11], label: "tau", atMostOne: true)
+        decentralisationParam = try ShelleyGenesis.readFraction2(
+            f[12], label: "decentralisationParam", atMostOne: true)
         extraEntropy       = Self.readExtraEntropy(f[13])
 
         // ShelleyGenesis CBOR may encode protocolVersion either as a [major, minor]
@@ -417,8 +403,8 @@ extension ProtocolParams {
                 throw CardanoCoreError.deserializeError(
                     "ProtocolParams: flat protocolVersion layout requires 18+ elements, got \(f.count)")
             }
-            let major = Int(try ShelleyGenesis.readUInt2(f[14], label: "protocolVersion.major"))
-            let minor = Int(try ShelleyGenesis.readUInt2(f[15], label: "protocolVersion.minor"))
+            let major = try ShelleyGenesis.natural(f[14], label: "protocolVersion.major")
+            let minor = try ShelleyGenesis.natural(f[15], label: "protocolVersion.minor")
             protocolVersion = ProtocolVersion(minor: minor, major: major)
             trailingOffset = 16
         }
@@ -431,8 +417,8 @@ extension ProtocolParams {
             ? .list([.uint(0)])
             : .list([.uint(1)])
         let protocolVersionPrim: Primitive = .list([
-            .uint(UInt64(protocolVersion.major)),
-            .uint(UInt64(protocolVersion.minor))
+            .integer(protocolVersion.major),
+            .integer(protocolVersion.minor)
         ])
         var elements: [Primitive] = []
         elements.append(.uint(UInt64(minFeeA)))
@@ -442,12 +428,12 @@ extension ProtocolParams {
         elements.append(.uint(UInt64(maxBlockHeaderSize)))
         elements.append(.uint(keyDeposit))
         elements.append(.uint(poolDeposit))
-        elements.append(.uint(UInt64(eMax)))
-        elements.append(.uint(UInt64(nOpt)))
-        elements.append(ShelleyGenesis.fractionPrimitive2(a0))
-        elements.append(ShelleyGenesis.fractionPrimitive2(rho))
-        elements.append(ShelleyGenesis.fractionPrimitive2(tau))
-        elements.append(ShelleyGenesis.fractionPrimitive2(decentralisationParam))
+        elements.append(.integer(eMax))
+        elements.append(.integer(nOpt))
+        elements.append(try ShelleyGenesis.fractionPrimitive2(a0, label: "a0"))
+        elements.append(try ShelleyGenesis.fractionPrimitive2(rho, label: "rho"))
+        elements.append(try ShelleyGenesis.fractionPrimitive2(tau, label: "tau"))
+        elements.append(try ShelleyGenesis.fractionPrimitive2(decentralisationParam, label: "decentralisationParam"))
         elements.append(extraEntropyPrim)
         elements.append(protocolVersionPrim)
         elements.append(.uint(minUTxOValue))
@@ -466,8 +452,8 @@ extension ProtocolParams {
         guard case .list(let items) = p, items.count >= 2 else {
             throw CardanoCoreError.deserializeError("ProtocolParams: expected [major, minor] for protocolVersion")
         }
-        let major = Int(try ShelleyGenesis.readUInt2(items[0], label: "major"))
-        let minor = Int(try ShelleyGenesis.readUInt2(items[1], label: "minor"))
+        let major = try ShelleyGenesis.natural(items[0], label: "protocolVersion.major")
+        let minor = try ShelleyGenesis.natural(items[1], label: "protocolVersion.minor")
         return ProtocolVersion(minor: minor, major: major)
     }
 }
@@ -475,52 +461,61 @@ extension ProtocolParams {
 // Internal helpers accessible to ProtocolParams (same module)
 extension ShelleyGenesis {
     static func readUInt2(_ p: Primitive, label: String) throws -> UInt64 {
-        switch p {
-        case .uint(let u): return UInt64(u)
-        case .int(let i) where i >= 0: return UInt64(i)
-        default:
-            throw CardanoCoreError.deserializeError("ShelleyGenesis: expected uint for \(label), got \(p)")
-        }
+        try p.integer("ShelleyGenesis \(label)", as: UInt64.self)
     }
 
-    static func readFraction2(_ p: Primitive, label: String) throws -> Double {
+    /// A non-negative rational, as a tag-30 rational, a `[num, den]` pair or a
+    /// float; at most one when `atMostOne`.
+    static func readFraction2(_ p: Primitive, label: String, atMostOne: Bool = false) throws -> Double {
+        let value: Double
         switch p {
         case .cborTag(let t) where t.tag == 30:
             guard case .list(let arr) = t.value, arr.count == 2 else {
                 throw CardanoCoreError.deserializeError("ShelleyGenesis: malformed tag-30 for \(label)")
             }
-            return try fractionPairToDouble(arr[0], arr[1], label: label)
+            value = try fractionPairToDouble(arr[0], arr[1], label: label)
         case .unitInterval(let ui):
-            return Double(ui.numerator) / Double(ui.denominator)
+            guard ui.denominator > 0 else {
+                throw CardanoCoreError.deserializeError("ShelleyGenesis: zero denominator for \(label)")
+            }
+            value = Double(ui.numerator) / Double(ui.denominator)
         case .list(let arr) where arr.count == 2:
-            return try fractionPairToDouble(arr[0], arr[1], label: label)
-        case .float(let f): return f
+            value = try fractionPairToDouble(arr[0], arr[1], label: label)
+        case .float(let f):
+            guard f.isFinite, f >= 0 else {
+                throw CardanoCoreError.deserializeError("ShelleyGenesis: \(label) \(f) is not a non-negative number")
+            }
+            value = f
         default:
             throw CardanoCoreError.deserializeError("ShelleyGenesis: expected tag-30 rational for \(label), got \(p)")
         }
+        if atMostOne && value > 1 {
+            throw CardanoCoreError.deserializeError("ShelleyGenesis: \(label) \(value) is above one")
+        }
+        return value
     }
 
     private static func fractionPairToDouble(_ num: Primitive, _ den: Primitive, label: String) throws -> Double {
-        let n: Double
-        let d: Double
-        switch num {
-        case .int(let i): n = Double(i)
-        case .uint(let u): n = Double(u)
-        default: throw CardanoCoreError.deserializeError("ShelleyGenesis: non-numeric numerator for \(label)")
+        let n = try num.integer("ShelleyGenesis \(label) numerator", as: UInt64.self)
+        let d = try den.integer("ShelleyGenesis \(label) denominator", as: UInt64.self)
+        guard d > 0 else {
+            throw CardanoCoreError.deserializeError("ShelleyGenesis: zero denominator for \(label)")
         }
-        switch den {
-        case .int(let i): d = Double(i)
-        case .uint(let u): d = Double(u)
-        default: throw CardanoCoreError.deserializeError("ShelleyGenesis: non-numeric denominator for \(label)")
-        }
-        return n / d
+        return Double(n) / Double(d)
     }
 
-    static func fractionPrimitive2(_ d: Double) -> Primitive {
+    /// `d` as a tag-30 rational over 10^7.
+    ///
+    /// - Throws: When `d` is negative, not finite, or too large to write.
+    static func fractionPrimitive2(_ d: Double, label: String) throws -> Primitive {
         let precision = 10_000_000
-        let numerator = Int(d * Double(precision))
-        let g = gcd2(abs(numerator), precision)
-        let tag = CBORTag(tag: 30, value: .list([.int(Int64(numerator / g)), .int(Int64(precision / g))]))
+        guard d.isFinite, d >= 0,
+            let numerator = Int(exactly: (d * Double(precision)).rounded(.towardZero))
+        else {
+            throw CardanoCoreError.valueError("ShelleyGenesis: \(label) \(d) cannot be written as a rational")
+        }
+        let g = gcd2(numerator, precision)
+        let tag = CBORTag(tag: 30, value: .list([.integer(numerator / g), .integer(precision / g)]))
         return .cborTag(tag)
     }
 

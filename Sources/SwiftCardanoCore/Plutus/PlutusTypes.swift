@@ -24,7 +24,8 @@ public enum PlutusScript: Serializable {
         }
     }
     
-    public static func fromVersion(_ version: Int, data: Data) -> PlutusScript {
+    /// - Throws: When `version` is not 1, 2 or 3.
+    public static func fromVersion(_ version: Int, data: Data) throws -> PlutusScript {
         switch version {
             case 1:
                 return .plutusV1Script(PlutusV1Script(data: data))
@@ -33,7 +34,7 @@ public enum PlutusScript: Serializable {
             case 3:
                 return .plutusV3Script(PlutusV3Script(data: data))
             default:
-                fatalError("Invalid PlutusScript version: \(version)")
+                throw CardanoCoreError.deserializeError("Invalid PlutusScript version: \(version)")
         }
     }
     
@@ -42,12 +43,12 @@ public enum PlutusScript: Serializable {
     public init(from primitive: Primitive) throws {
         guard case let .list(elements) = primitive,
               elements.count == 2,
-              case let .uint(version) = elements[0],
               case let .bytes(data) = elements[1] else {
             throw CardanoCoreError.deserializeError("Invalid PlutusScript primitive")
         }
+        let version = try elements[0].integer("PlutusScript version", as: Int.self)
         
-        self = Self.fromVersion(Int(version), data: data)
+        self = try Self.fromVersion(version, data: data)
     }
     
     public func toPrimitive() throws -> Primitive {
@@ -68,11 +69,11 @@ public enum PlutusScript: Serializable {
         switch primitive {
         case .list(let elements):
             guard elements.count == 2,
-                  case let .uint(version) = elements[0],
                   case let .bytes(data) = elements[1] else {
                 throw CardanoCoreError.deserializeError("Invalid PlutusScript list dictionary")
             }
-            return Self.fromVersion(Int(version), data: data)
+            let version = try elements[0].integer("PlutusScript version", as: Int.self)
+            return try Self.fromVersion(version, data: data)
             
         case .orderedDict(let dict):
             guard let typeValue = dict[.string("type")],
@@ -92,7 +93,7 @@ public enum PlutusScript: Serializable {
                 throw CardanoCoreError.deserializeError("Unknown PlutusScript type: \(typeStr)")
             }
             
-            return Self.fromVersion(version, data: data)
+            return try Self.fromVersion(version, data: data)
             
         default:
             throw CardanoCoreError.deserializeError("Invalid PlutusScript dictionary")
@@ -158,7 +159,7 @@ public struct PlutusV1Script: PlutusScriptable {
     public func toDict() throws -> Primitive {
         return .orderedDict([
             .string("type"): .string("PlutusV1Script"),
-            .string("version"): .uint(UInt64(version)),
+            .string("version"): .integer(version),
             .string("data"): .string(data.base64EncodedString())
         ])
     }
@@ -211,7 +212,7 @@ public struct PlutusV2Script: PlutusScriptable {
     public func toDict() throws -> Primitive {
         return .orderedDict([
             .string("type"): .string("PlutusV2Script"),
-            .string("version"): .uint(UInt64(version)),
+            .string("version"): .integer(version),
             .string("data"): .string(data.base64EncodedString())
         ])
     }
@@ -264,7 +265,7 @@ public struct PlutusV3Script: PlutusScriptable {
     public func toDict() throws -> Primitive {
         return .orderedDict([
             .string("type"): .string("PlutusV3Script"),
-            .string("version"): .uint(UInt64(version)),
+            .string("version"): .integer(version),
             .string("data"): .string(data.base64EncodedString())
         ])
     }

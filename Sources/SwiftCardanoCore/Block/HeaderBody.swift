@@ -126,18 +126,10 @@ public struct HeaderBody: Serializable {
         let nestedCert = elements.count == 10 || elements.count == 11
 
         // [0] block_number
-        switch elements[0] {
-        case .uint(let val): self.blockNumber = BlockNumber(val)
-        case .int(let val): self.blockNumber = BlockNumber(val)
-        default: throw CardanoCoreError.deserializeError("Invalid HeaderBody block_number type")
-        }
+        self.blockNumber = try elements[0].integer("HeaderBody block_number", as: BlockNumber.self)
 
         // [1] slot
-        switch elements[1] {
-        case .uint(let val): self.slot = SlotNumber(val)
-        case .int(let val): self.slot = SlotNumber(val)
-        default: throw CardanoCoreError.deserializeError("Invalid HeaderBody slot type")
-        }
+        self.slot = try elements[1].integer("HeaderBody slot", as: SlotNumber.self)
 
         // [2] prev_hash (hash32 / nil)
         if case .null = elements[2] {
@@ -173,11 +165,8 @@ public struct HeaderBody: Serializable {
         }
 
         // block_body_size — index shifts by 1 for split-VRF eras
-        switch elements[6 + vrfOffset] {
-        case .uint(let val): self.blockBodySize = UInt32(val)
-        case .int(let val): self.blockBodySize = UInt32(val)
-        default: throw CardanoCoreError.deserializeError("Invalid HeaderBody block_body_size type")
-        }
+        self.blockBodySize = try elements[6 + vrfOffset].integer(
+            "HeaderBody block_body_size", as: UInt32.self)
 
         // block_body_hash
         self.blockBodyHash = try BlockBodyHash(from: elements[7 + vrfOffset])
@@ -194,20 +183,10 @@ public struct HeaderBody: Serializable {
             }
             let hotVKey = KESVerificationKey(payload: hotVKeyBytes, type: nil, description: nil)
 
-            let sequenceNumber: UInt64
-            switch certElems[1] {
-            case .uint(let val): sequenceNumber = UInt64(val)
-            case .int(let val): sequenceNumber = UInt64(val)
-            default:
-                throw CardanoCoreError.deserializeError("Invalid HeaderBody sequence_number type")
-            }
+            let sequenceNumber = try certElems[1].integer(
+                "HeaderBody sequence_number", as: UInt64.self)
 
-            let kesPeriod: UInt64
-            switch certElems[2] {
-            case .uint(let val): kesPeriod = UInt64(val)
-            case .int(let val): kesPeriod = UInt64(val)
-            default: throw CardanoCoreError.deserializeError("Invalid HeaderBody kes_period type")
-            }
+            let kesPeriod = try certElems[2].integer("HeaderBody kes_period", as: UInt64.self)
 
             guard case .bytes(let sigma) = certElems[3] else {
                 throw CardanoCoreError.deserializeError("Invalid HeaderBody sigma: expected bytes")
@@ -225,20 +204,8 @@ public struct HeaderBody: Serializable {
                 throw CardanoCoreError.deserializeError(
                     "Invalid HeaderBody protocol_version: expected 2-element array")
             }
-            let major: Int
-            switch pvElems[0] {
-            case .uint(let val): major = Int(val)
-            case .int(let val): major = Int(val)
-            default:
-                throw CardanoCoreError.deserializeError("Invalid HeaderBody protocol major type")
-            }
-            let minor: Int
-            switch pvElems[1] {
-            case .uint(let val): minor = Int(val)
-            case .int(let val): minor = Int(val)
-            default:
-                throw CardanoCoreError.deserializeError("Invalid HeaderBody protocol minor type")
-            }
+            let major = try Self.versionNumber(pvElems[0], "HeaderBody protocol major")
+            let minor = try Self.versionNumber(pvElems[1], "HeaderBody protocol minor")
             self.protocolVersion = ProtocolVersion(major: major, minor: minor)
         } else {
             // operational_cert — 4 fields inlined flat
@@ -248,20 +215,10 @@ public struct HeaderBody: Serializable {
             }
             let hotVKey = KESVerificationKey(payload: hotVKeyBytes, type: nil, description: nil)
 
-            let sequenceNumber: UInt64
-            switch elements[9 + vrfOffset] {
-            case .uint(let val): sequenceNumber = UInt64(val)
-            case .int(let val): sequenceNumber = UInt64(val)
-            default:
-                throw CardanoCoreError.deserializeError("Invalid HeaderBody sequence_number type")
-            }
+            let sequenceNumber = try elements[9 + vrfOffset].integer(
+                "HeaderBody sequence_number", as: UInt64.self)
 
-            let kesPeriod: UInt64
-            switch elements[10 + vrfOffset] {
-            case .uint(let val): kesPeriod = UInt64(val)
-            case .int(let val): kesPeriod = UInt64(val)
-            default: throw CardanoCoreError.deserializeError("Invalid HeaderBody kes_period type")
-            }
+            let kesPeriod = try elements[10 + vrfOffset].integer("HeaderBody kes_period", as: UInt64.self)
 
             guard case .bytes(let sigma) = elements[11 + vrfOffset] else {
                 throw CardanoCoreError.deserializeError("Invalid HeaderBody sigma: expected bytes")
@@ -275,24 +232,20 @@ public struct HeaderBody: Serializable {
             )
 
             // protocol_version — 2 fields inlined flat
-            let major: Int
-            switch elements[12 + vrfOffset] {
-            case .uint(let val): major = Int(val)
-            case .int(let val): major = Int(val)
-            default:
-                throw CardanoCoreError.deserializeError("Invalid HeaderBody protocol major type")
-            }
-
-            let minor: Int
-            switch elements[13 + vrfOffset] {
-            case .uint(let val): minor = Int(val)
-            case .int(let val): minor = Int(val)
-            default:
-                throw CardanoCoreError.deserializeError("Invalid HeaderBody protocol minor type")
-            }
+            let major = try Self.versionNumber(elements[12 + vrfOffset], "HeaderBody protocol major")
+            let minor = try Self.versionNumber(elements[13 + vrfOffset], "HeaderBody protocol minor")
 
             self.protocolVersion = ProtocolVersion(major: major, minor: minor)
         }
+    }
+
+    /// A protocol version number: a `uint` on the wire, held as a non-negative `Int`.
+    private static func versionNumber(_ primitive: Primitive, _ what: String) throws -> Int {
+        let value = try primitive.integer(what, as: UInt64.self)
+        guard let number = Int(exactly: value) else {
+            throw CardanoCoreError.deserializeError("\(what): \(value) is out of range for Int")
+        }
+        return number
     }
 
     public func toPrimitive() throws -> Primitive {
@@ -320,8 +273,8 @@ public struct HeaderBody: Serializable {
             .uint(UInt64(operationalCert.kesPeriod)),
             .bytes(operationalCert.sigma),
             // protocol_version inlined
-            .uint(UInt64(protocolVersion.major ?? 0)),
-            .uint(UInt64(protocolVersion.minor ?? 0)),
+            .integer(protocolVersion.major ?? 0),
+            .integer(protocolVersion.minor ?? 0),
         ]
 
         return .list(fields)
@@ -337,22 +290,13 @@ public struct HeaderBody: Serializable {
         guard let blockNumberPrimitive = dict[.string(CodingKeys.blockNumber.rawValue)] else {
             throw CardanoCoreError.deserializeError("Missing blockNumber in HeaderBody")
         }
-        let blockNumber: BlockNumber
-        switch blockNumberPrimitive {
-        case .uint(let val): blockNumber = BlockNumber(val)
-        case .int(let val): blockNumber = BlockNumber(val)
-        default: throw CardanoCoreError.deserializeError("Invalid blockNumber type in HeaderBody")
-        }
+        let blockNumber = try blockNumberPrimitive.integer(
+            "HeaderBody blockNumber", as: BlockNumber.self)
 
         guard let slotPrimitive = dict[.string(CodingKeys.slot.rawValue)] else {
             throw CardanoCoreError.deserializeError("Missing slot in HeaderBody")
         }
-        let slot: SlotNumber
-        switch slotPrimitive {
-        case .uint(let val): slot = SlotNumber(val)
-        case .int(let val): slot = SlotNumber(val)
-        default: throw CardanoCoreError.deserializeError("Invalid slot type in HeaderBody")
-        }
+        let slot = try slotPrimitive.integer("HeaderBody slot", as: SlotNumber.self)
 
         var prevHash: BlockHeaderHash? = nil
         if let prevHashPrimitive = dict[.string(CodingKeys.prevHash.rawValue)] {
@@ -388,12 +332,8 @@ public struct HeaderBody: Serializable {
         guard let blockBodySizePrimitive = dict[.string(CodingKeys.blockBodySize.rawValue)] else {
             throw CardanoCoreError.deserializeError("Missing blockBodySize in HeaderBody")
         }
-        let blockBodySize: UInt32
-        switch blockBodySizePrimitive {
-        case .uint(let val): blockBodySize = UInt32(val)
-        case .int(let val): blockBodySize = UInt32(val)
-        default: throw CardanoCoreError.deserializeError("Invalid blockBodySize type in HeaderBody")
-        }
+        let blockBodySize = try blockBodySizePrimitive.integer(
+            "HeaderBody blockBodySize", as: UInt32.self)
 
         guard let blockBodyHashPrimitive = dict[.string(CodingKeys.blockBodyHash.rawValue)] else {
             throw CardanoCoreError.deserializeError("Missing blockBodyHash in HeaderBody")

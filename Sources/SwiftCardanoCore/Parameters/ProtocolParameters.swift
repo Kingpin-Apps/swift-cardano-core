@@ -11,17 +11,42 @@ private func gcd(_ a: UInt64, _ b: UInt64) -> UInt64 {
 }
 
 internal func doubleToUnitInterval(_ value: Double, precision: UInt64 = 1_000_000_000) -> UnitInterval? {
-    guard value >= 0, value <= 1 else { return nil }
-    let num = UInt64((value * Double(precision)).rounded())
+    guard value >= 0, value <= 1,
+        let num = UInt64(exactly: (value * Double(precision)).rounded())
+    else { return nil }
     let g = gcd(num, precision)
     return UnitInterval(numerator: num / g, denominator: precision / g)
 }
 
+/// `nil` when `value` is negative, not finite, or too large to write with
+/// this precision.
 internal func doubleToNonNegativeInterval(_ value: Double, precision: UInt64 = 1_000_000_000) -> NonNegativeInterval? {
-    guard value >= 0 else { return nil }
-    let num = UInt64((value * Double(precision)).rounded())
+    guard value >= 0,
+        let num = UInt64(exactly: (value * Double(precision)).rounded())
+    else { return nil }
     let g = gcd(num, precision)
     return NonNegativeInterval(lowerBound: num / g, upperBound: precision / g)
+}
+
+/// A non-negative integer read from a protocol parameter: range-checked as
+/// the ledger's `T`, and held as the `Int64` the parameters store.
+private func naturalParameter<T: FixedWidthInteger & UnsignedInteger>(
+    _ primitive: Primitive, _ what: @autoclosure () -> String, as type: T.Type
+) throws -> Int64 {
+    let value = try primitive.integer(what(), as: T.self)
+    guard let narrowed = Int64(exactly: value) else {
+        throw CardanoCoreError.deserializeError("\(what()): \(value) is out of range for Int64")
+    }
+    return narrowed
+}
+
+/// A whole number of lovelace, or the like, held as `Int64`; throws when
+/// `value` is not finite or out of range.
+private func int64Parameter(_ value: Double, _ what: String) throws -> Int64 {
+    guard let truncated = Int64(exactly: value.rounded(.towardZero)) else {
+        throw CardanoCoreError.deserializeError("\(what): \(value) is out of range for Int64")
+    }
+    return truncated
 }
 
 extension UnitInterval {
@@ -405,24 +430,18 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
 
         var map = [Int64: Primitive]()
         for (k, v) in pairs {
-            switch k {
-            case .int(let n):  map[n] = v
-            case .uint(let n): map[Int64(n)] = v
-            default:
-                throw CardanoCoreError.deserializeError("ProtocolParameters CBOR key must be integer")
-            }
+            map[try k.integer("ProtocolParameters CBOR key", as: Int64.self)] = v
         }
 
-        func intVal(_ key: CBORKey) throws -> Int64 {
+        /// The parameter at `key`, read as the ledger's `T` (`coin` is a
+        /// `UInt64`, `uint .size 4` a `UInt32`, and so on).
+        func intVal<T: FixedWidthInteger & UnsignedInteger>(
+            _ key: CBORKey, as type: T.Type = UInt64.self
+        ) throws -> Int64 {
             guard let p = map[key.rawValue] else {
                 throw CardanoCoreError.deserializeError("Missing CBOR key \(key.rawValue)")
             }
-            switch p {
-            case .int(let v):  return v
-            case .uint(let v): return Int64(v)
-            default:
-                throw CardanoCoreError.deserializeError("Expected int at CBOR key \(key.rawValue)")
-            }
+            return try naturalParameter(p, "ProtocolParameters CBOR key \(key.rawValue)", as: T.self)
         }
 
         func require(_ key: CBORKey) throws -> Primitive {
@@ -434,13 +453,13 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
 
         let txFeePerByte        = try intVal(.minFeeA)
         let txFeeFixed          = try intVal(.minFeeB)
-        let maxBlockBodySize    = try intVal(.maxBlockBodySize)
-        let maxTxSize           = try intVal(.maxTxSize)
-        let maxBlockHeaderSize  = try intVal(.maxBlockHeaderSize)
+        let maxBlockBodySize    = try intVal(.maxBlockBodySize, as: UInt32.self)
+        let maxTxSize           = try intVal(.maxTxSize, as: UInt32.self)
+        let maxBlockHeaderSize  = try intVal(.maxBlockHeaderSize, as: UInt16.self)
         let stakeAddressDeposit = try intVal(.keyDeposit)
         let stakePoolDeposit    = try intVal(.poolDeposit)
-        let poolRetireMaxEpoch  = try intVal(.maximumEpoch)
-        let stakePoolTargetNum  = try intVal(.nOpt)
+        let poolRetireMaxEpoch  = try intVal(.maximumEpoch, as: UInt32.self)
+        let stakePoolTargetNum  = try intVal(.nOpt, as: UInt16.self)
 
         let poolPledgeInfluence = try NonNegativeInterval(from: require(.poolPledgeInfluence)).toDouble
         let monetaryExpansion   = try UnitInterval(from: require(.expansionRate)).toDouble
@@ -467,16 +486,18 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
 
         let txU = try ExUnits(from: require(.maxTxExUnits))
         let maxTxExecutionUnits = ProtocolParametersExecutionUnits(
-            memory: Int64(txU.mem), steps: Int64(txU.steps)
+            memory: try naturalParameter(.uint(txU.mem), "maxTxExUnits mem", as: UInt64.self),
+            steps: try naturalParameter(.uint(txU.steps), "maxTxExUnits steps", as: UInt64.self)
         )
         let blkU = try ExUnits(from: require(.maxBlockExUnits))
         let maxBlockExecutionUnits = ProtocolParametersExecutionUnits(
-            memory: Int64(blkU.mem), steps: Int64(blkU.steps)
+            memory: try naturalParameter(.uint(blkU.mem), "maxBlockExUnits mem", as: UInt64.self),
+            steps: try naturalParameter(.uint(blkU.steps), "maxBlockExUnits steps", as: UInt64.self)
         )
 
-        let maxValueSize         = try intVal(.maxValueSize)
-        let collateralPercentage = try intVal(.collateralPercentage)
-        let maxCollateralInputs  = try intVal(.maxCollateralInputs)
+        let maxValueSize         = try intVal(.maxValueSize, as: UInt32.self)
+        let collateralPercentage = try intVal(.collateralPercentage, as: UInt16.self)
+        let maxCollateralInputs  = try intVal(.maxCollateralInputs, as: UInt16.self)
 
         let pvtCBOR = try PoolVotingThresholds(from: require(.poolVotingThresholds))
         let poolVotingThresholds = ProtocolParametersPoolVotingThresholds(
@@ -504,16 +525,18 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
             updateToConstitution:  dvtCBOR.thresholds[3].toDouble
         )
 
-        let committeeMinSize       = try intVal(.minCommitteeSize)
-        let committeeMaxTermLength = try intVal(.committeeTermLimit)
-        let govActionLifetime      = try intVal(.govActionValidityPeriod)
+        let committeeMinSize       = try intVal(.minCommitteeSize, as: UInt16.self)
+        let committeeMaxTermLength = try intVal(.committeeTermLimit, as: UInt32.self)
+        let govActionLifetime      = try intVal(.govActionValidityPeriod, as: UInt32.self)
         let govActionDeposit       = try intVal(.govActionDeposit)
         let dRepDeposit            = try intVal(.drepDeposit)
-        let dRepActivity           = try intVal(.drepInactivityPeriod)
+        let dRepActivity           = try intVal(.drepInactivityPeriod, as: UInt32.self)
 
         let minFeeRefScriptCostPerByte: Int64?
         if let p = map[CBORKey.minFeeRefScriptCoinsPerByte.rawValue] {
-            minFeeRefScriptCostPerByte = Int64((try NonNegativeInterval(from: p)).lowerBound)
+            minFeeRefScriptCostPerByte = try naturalParameter(
+                .uint(try NonNegativeInterval(from: p).lowerBound),
+                "ProtocolParameters CBOR key 33", as: UInt64.self)
         } else {
             minFeeRefScriptCostPerByte = nil
         }
@@ -566,15 +589,34 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
         dict[.int(CBORKey.maximumEpoch.rawValue)]      = .int(poolRetireMaxEpoch)
         dict[.int(CBORKey.nOpt.rawValue)]              = .int(stakePoolTargetNum)
 
-        if let v = doubleToNonNegativeInterval(poolPledgeInfluence) {
-            dict[.int(CBORKey.poolPledgeInfluence.rawValue)] = try v.toPrimitive()
+        // A rate that cannot be written as an interval — negative, above one
+        // where it must be at most one, not finite, or too large — would
+        // leave out a parameter the decoder requires.
+        func nonNegative(_ value: Double, _ what: String) throws -> NonNegativeInterval {
+            guard let interval = doubleToNonNegativeInterval(value) else {
+                throw CardanoCoreError.valueError("\(what): \(value) is not a non-negative interval")
+            }
+            return interval
         }
-        if let v = doubleToUnitInterval(monetaryExpansion) {
-            dict[.int(CBORKey.expansionRate.rawValue)] = try v.toPrimitive()
+        func unit(_ value: Double, _ what: String) throws -> UnitInterval {
+            guard let interval = doubleToUnitInterval(value) else {
+                throw CardanoCoreError.valueError("\(what): \(value) is not a unit interval")
+            }
+            return interval
         }
-        if let v = doubleToUnitInterval(treasuryCut) {
-            dict[.int(CBORKey.treasuryGrowthRate.rawValue)] = try v.toPrimitive()
+        func exUnit(_ value: Int64, _ what: String) throws -> UInt64 {
+            guard let unsigned = UInt64(exactly: value) else {
+                throw CardanoCoreError.valueError("\(what): \(value) is negative")
+            }
+            return unsigned
         }
+
+        dict[.int(CBORKey.poolPledgeInfluence.rawValue)] =
+            try nonNegative(poolPledgeInfluence, "poolPledgeInfluence").toPrimitive()
+        dict[.int(CBORKey.expansionRate.rawValue)] =
+            try unit(monetaryExpansion, "monetaryExpansion").toPrimitive()
+        dict[.int(CBORKey.treasuryGrowthRate.rawValue)] =
+            try unit(treasuryCut, "treasuryCut").toPrimitive()
 
         dict[.int(CBORKey.protocolVersion.rawValue)] = try ProtocolVersion(
             major: protocolVersion.major, minor: protocolVersion.minor
@@ -600,18 +642,18 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
         }
         dict[.int(CBORKey.costModels.rawValue)] = .dict(cmDict)
 
-        if let mem  = doubleToNonNegativeInterval(executionUnitPrices.priceMemory),
-           let step = doubleToNonNegativeInterval(executionUnitPrices.priceSteps) {
-            dict[.int(CBORKey.executionCosts.rawValue)] = try ExUnitPrices(
-                memPrice: mem, stepPrice: step
-            ).toPrimitive()
-        }
+        dict[.int(CBORKey.executionCosts.rawValue)] = try ExUnitPrices(
+            memPrice: try nonNegative(executionUnitPrices.priceMemory, "priceMemory"),
+            stepPrice: try nonNegative(executionUnitPrices.priceSteps, "priceSteps")
+        ).toPrimitive()
 
         dict[.int(CBORKey.maxTxExUnits.rawValue)] = try ExUnits(
-            mem: UInt64(maxTxExecutionUnits.memory), steps: UInt64(maxTxExecutionUnits.steps)
+            mem: try exUnit(maxTxExecutionUnits.memory, "maxTxExecutionUnits memory"),
+            steps: try exUnit(maxTxExecutionUnits.steps, "maxTxExecutionUnits steps")
         ).toPrimitive()
         dict[.int(CBORKey.maxBlockExUnits.rawValue)] = try ExUnits(
-            mem: UInt64(maxBlockExecutionUnits.memory), steps: UInt64(maxBlockExecutionUnits.steps)
+            mem: try exUnit(maxBlockExecutionUnits.memory, "maxBlockExecutionUnits memory"),
+            steps: try exUnit(maxBlockExecutionUnits.steps, "maxBlockExecutionUnits steps")
         ).toPrimitive()
 
         dict[.int(CBORKey.maxValueSize.rawValue)]         = .int(maxValueSize)
@@ -619,28 +661,23 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
         dict[.int(CBORKey.maxCollateralInputs.rawValue)]   = .int(maxCollateralInputs)
 
         let pvt = poolVotingThresholds
-        if let cnc = doubleToUnitInterval(pvt.committeeNoConfidence),
-           let cn  = doubleToUnitInterval(pvt.committeeNormal),
-           let hfi = doubleToUnitInterval(pvt.hardForkInitiation),
-           let mnc = doubleToUnitInterval(pvt.motionNoConfidence),
-           let psg = doubleToUnitInterval(pvt.ppSecurityGroup) {
-            dict[.int(CBORKey.poolVotingThresholds.rawValue)] = try PoolVotingThresholds(
-                committeeNoConfidence: cnc, committeeNormal: cn,
-                hardForkInitiation: hfi, motionNoConfidence: mnc, ppSecurityGroup: psg
-            ).toPrimitive()
-        }
+        dict[.int(CBORKey.poolVotingThresholds.rawValue)] = try PoolVotingThresholds(
+            committeeNoConfidence: try unit(pvt.committeeNoConfidence, "poolVotingThresholds"),
+            committeeNormal: try unit(pvt.committeeNormal, "poolVotingThresholds"),
+            hardForkInitiation: try unit(pvt.hardForkInitiation, "poolVotingThresholds"),
+            motionNoConfidence: try unit(pvt.motionNoConfidence, "poolVotingThresholds"),
+            ppSecurityGroup: try unit(pvt.ppSecurityGroup, "poolVotingThresholds")
+        ).toPrimitive()
 
         let dvt = dRepVotingThresholds
-        let dvtIntervals = [
+        let dvtIntervals = try [
             dvt.motionNoConfidence,  dvt.committeeNormal,  dvt.committeeNoConfidence,
             dvt.updateToConstitution, dvt.hardForkInitiation, dvt.ppNetworkGroup,
             dvt.ppEconomicGroup, dvt.ppTechnicalGroup, dvt.ppGovGroup, dvt.treasuryWithdrawal
-        ].compactMap { doubleToUnitInterval($0) }
-        if dvtIntervals.count == 10 {
-            dict[.int(CBORKey.drepVotingThresholds.rawValue)] = try DrepVotingThresholds(
-                thresholds: dvtIntervals
-            ).toPrimitive()
-        }
+        ].map { try unit($0, "dRepVotingThresholds") }
+        dict[.int(CBORKey.drepVotingThresholds.rawValue)] = try DrepVotingThresholds(
+            thresholds: dvtIntervals
+        ).toPrimitive()
 
         dict[.int(CBORKey.minCommitteeSize.rawValue)]       = .int(committeeMinSize)
         dict[.int(CBORKey.committeeTermLimit.rawValue)]     = .int(committeeMaxTermLength)
@@ -657,24 +694,22 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
     /// Decode from the 31-element positional CBOR array emitted by the n2c protocol.
     /// Conway CDDL positional order matches CBORKey assignments, with gaps at 12, 13, 15.
     private init(fromN2CArray elements: [Primitive]) throws {
-        func uint(_ idx: Int) throws -> Int64 {
-            switch elements[idx] {
-            case .uint(let v): return Int64(v)
-            case .int(let v):  return v
-            default: throw CardanoCoreError.deserializeError(
-                "Expected integer at n2c pparams position \(idx)")
-            }
+        /// The parameter at `idx`, read as the ledger's `T`.
+        func uint<T: FixedWidthInteger & UnsignedInteger>(
+            _ idx: Int, as type: T.Type = UInt64.self
+        ) throws -> Int64 {
+            try naturalParameter(elements[idx], "n2c pparams position \(idx)", as: T.self)
         }
 
         let txFeePerByte        = try uint(0)
         let txFeeFixed          = try uint(1)
-        let maxBlockBodySize    = try uint(2)
-        let maxTxSize           = try uint(3)
-        let maxBlockHeaderSize  = try uint(4)
+        let maxBlockBodySize    = try uint(2, as: UInt32.self)
+        let maxTxSize           = try uint(3, as: UInt32.self)
+        let maxBlockHeaderSize  = try uint(4, as: UInt16.self)
         let stakeAddressDeposit = try uint(5)
         let stakePoolDeposit    = try uint(6)
-        let poolRetireMaxEpoch  = try uint(7)
-        let stakePoolTargetNum  = try uint(8)
+        let poolRetireMaxEpoch  = try uint(7, as: UInt32.self)
+        let stakePoolTargetNum  = try uint(8, as: UInt16.self)
 
         let poolPledgeInfluence = try ProtocolParameters.rationalToDouble(elements[9])
         let monetaryExpansion   = try ProtocolParameters.rationalToDouble(elements[10])
@@ -683,8 +718,8 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
         guard case .list(let pvArr) = elements[12], pvArr.count == 2 else {
             throw CardanoCoreError.deserializeError("Invalid protocolVersion at n2c position 12")
         }
-        let pvMajor = Int(try ProtocolParameters.uintFromPrimitive(pvArr[0]))
-        let pvMinor = Int(try ProtocolParameters.uintFromPrimitive(pvArr[1]))
+        let pvMajor = Int(try naturalParameter(pvArr[0], "n2c protocol major", as: UInt64.self))
+        let pvMinor = Int(try naturalParameter(pvArr[1], "n2c protocol minor", as: UInt64.self))
         let protocolVersion = ProtocolParametersProtocolVersion(major: pvMajor, minor: pvMinor)
 
         let minPoolCost     = try uint(13)
@@ -704,21 +739,21 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
             throw CardanoCoreError.deserializeError("Invalid maxTxExUnits at n2c position 17")
         }
         let maxTxExecutionUnits = ProtocolParametersExecutionUnits(
-            memory: Int64(try ProtocolParameters.uintFromPrimitive(txExArr[0])),
-            steps:  Int64(try ProtocolParameters.uintFromPrimitive(txExArr[1]))
+            memory: try naturalParameter(txExArr[0], "n2c maxTxExUnits mem", as: UInt64.self),
+            steps:  try naturalParameter(txExArr[1], "n2c maxTxExUnits steps", as: UInt64.self)
         )
 
         guard case .list(let blkExArr) = elements[18], blkExArr.count == 2 else {
             throw CardanoCoreError.deserializeError("Invalid maxBlockExUnits at n2c position 18")
         }
         let maxBlockExecutionUnits = ProtocolParametersExecutionUnits(
-            memory: Int64(try ProtocolParameters.uintFromPrimitive(blkExArr[0])),
-            steps:  Int64(try ProtocolParameters.uintFromPrimitive(blkExArr[1]))
+            memory: try naturalParameter(blkExArr[0], "n2c maxBlockExUnits mem", as: UInt64.self),
+            steps:  try naturalParameter(blkExArr[1], "n2c maxBlockExUnits steps", as: UInt64.self)
         )
 
-        let maxValueSize         = try uint(19)
-        let collateralPercentage = try uint(20)
-        let maxCollateralInputs  = try uint(21)
+        let maxValueSize         = try uint(19, as: UInt32.self)
+        let collateralPercentage = try uint(20, as: UInt16.self)
+        let maxCollateralInputs  = try uint(21, as: UInt16.self)
 
         guard case .list(let pvtArr) = elements[22], pvtArr.count == 5 else {
             throw CardanoCoreError.deserializeError("Invalid poolVotingThresholds at n2c position 22")
@@ -747,13 +782,14 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
             updateToConstitution:  try ProtocolParameters.rationalToDouble(dvtArr[3])
         )
 
-        let committeeMinSize       = try uint(24)
-        let committeeMaxTermLength = try uint(25)
-        let govActionLifetime      = try uint(26)
+        let committeeMinSize       = try uint(24, as: UInt16.self)
+        let committeeMaxTermLength = try uint(25, as: UInt32.self)
+        let govActionLifetime      = try uint(26, as: UInt32.self)
         let govActionDeposit       = try uint(27)
         let dRepDeposit            = try uint(28)
-        let dRepActivity           = try uint(29)
-        let minFeeRefScriptCostPerByte = Int64(try ProtocolParameters.rationalToDouble(elements[30]))
+        let dRepActivity           = try uint(29, as: UInt32.self)
+        let minFeeRefScriptCostPerByte = try int64Parameter(
+            try ProtocolParameters.rationalToDouble(elements[30]), "n2c minFeeRefScriptCostPerByte")
 
         self.init(
             collateralPercentage: collateralPercentage,
@@ -819,12 +855,8 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
         }
         var raw = [Int: [Int64]]()
         for (k, v) in pairs {
-            let key: Int
-            switch k {
-            case .int(let n):  key = Int(n)
-            case .uint(let n): key = Int(n)
-            default: continue
-            }
+            // The CDDL keys cost models by language, `0 .. 255`.
+            let key = Int(try k.integer("cost model language", as: UInt8.self))
             raw[key] = try costModelInts(v)
         }
         return ProtocolParametersCostModels(
@@ -846,11 +878,7 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
             throw CardanoCoreError.deserializeError("Invalid cost model value: \(primitive)")
         }
         return try items.map { p throws -> Int64 in
-            switch p {
-            case .int(let v):  return v
-            case .uint(let v): return Int64(v)
-            default: throw CardanoCoreError.deserializeError("Non-integer in cost model: \(p)")
-            }
+            try p.integer("cost model value", as: Int64.self)
         }
     }
 
@@ -895,7 +923,7 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
         switch primitive {
         case .string(let s):   return s
         case .int(let i):      return i
-        case .uint(let u):     return Int64(u)
+        case .uint(let u):     return Int64(exactly: u).map { $0 as Any } ?? u
         case .float(let f):    return f
         case .bool(let b):     return b
         case .null:            return NSNull()

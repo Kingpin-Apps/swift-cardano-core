@@ -79,6 +79,12 @@ public enum RedeemerTag: Int, Serializable {
     }
 }
 
+/// A redeemer index: `uint .size 4` in the CDDL, which the ledger reads as a
+/// `Word32`.
+fileprivate func redeemerIndex(_ primitive: Primitive) throws -> Int {
+    Int(try primitive.integer("Redeemer index", as: UInt32.self))
+}
+
 public enum RedeemerCodingKeys: String, CodingKey {
     case tag
     case index
@@ -115,9 +121,7 @@ extension RedeemerProtocol {
 
         let tag = try RedeemerTag(from: primitive[0])
 
-        guard let index = primitive[1].intValue else {
-            throw CardanoCoreError.deserializeError("Invalid Redeemer index")
-        }
+        let index = try redeemerIndex(primitive[1])
 
         let exUnits = try ExecutionUnits(from: primitive[3])
         let data = try PlutusData.init(from: primitive[2])
@@ -150,11 +154,10 @@ extension RedeemerProtocol {
             tag = try RedeemerTag(from: tagPrimitive)
         }
 
-        guard let indexPrimitive = dictValue[.string(RedeemerCodingKeys.index.rawValue)],
-            case .int(let index) = indexPrimitive
-        else {
+        guard let indexPrimitive = dictValue[.string(RedeemerCodingKeys.index.rawValue)] else {
             throw CardanoCoreError.deserializeError("Missing or invalid index in Redeemer dict")
         }
+        let index = try redeemerIndex(indexPrimitive)
 
         guard let dataPrimitive = dictValue[.string(RedeemerCodingKeys.data.rawValue)] else {
             throw CardanoCoreError.deserializeError("Missing data in Redeemer dict")
@@ -173,7 +176,7 @@ extension RedeemerProtocol {
 
         return Self(
             tag: tag,
-            index: Int(index),
+            index: index,
             data: data,
             exUnits: exUnits
         )
@@ -238,12 +241,7 @@ public struct RedeemerKey: Serializable {
         else {
             throw CardanoCoreError.deserializeError("Invalid RedeemerKey primitive")
         }
-        let index: Int
-        switch primitive[1] {
-        case .int(let v): index = Int(v)
-        case .uint(let v): index = Int(v)
-        default: throw CardanoCoreError.deserializeError("Invalid RedeemerKey primitive")
-        }
+        let index = try redeemerIndex(primitive[1])
         let tag = try RedeemerTag(from: primitive[0])
         self.tag = tag
         self.index = index
@@ -260,14 +258,13 @@ public struct RedeemerKey: Serializable {
 
     public static func fromDict(_ primitive: Primitive) throws -> RedeemerKey {
         guard case .list(let elements) = primitive,
-            elements.count == 2,
-            case .int(let index) = elements[1]
+            elements.count == 2
         else {
             throw CardanoCoreError.deserializeError("Invalid RedeemerKey dict: \(primitive)")
         }
 
         let tag = try RedeemerTag.fromDict(elements[0])
-        return RedeemerKey(tag: tag, index: Int(index))
+        return RedeemerKey(tag: tag, index: try redeemerIndex(elements[1]))
     }
 
     public func toDict() throws -> Primitive {
