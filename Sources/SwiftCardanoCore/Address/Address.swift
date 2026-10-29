@@ -39,6 +39,18 @@ public struct Address: CBORSerializable, CustomStringConvertible, Equatable, Sen
     public var byronAddress: ByronAddress? { get { return _byronAddress } }
     private let _byronAddress: ByronAddress?
 
+    /// Bytes that followed the address where it was read, which the ledger
+    /// before Babbage did not check for and ignored (`fromCborBackwardsBothAddr`,
+    /// `libs/cardano-ledger-core/src/Cardano/Ledger/Address.hs`).
+    ///
+    /// They are not part of the address the ledger holds — ``ledgerBytes``,
+    /// ``toBech32()``, `==` and hashing leave them out — but ``toBytes()``
+    /// keeps them, so the address is written again exactly as it was read.
+    /// Empty for every address read under Babbage or later rules, and for
+    /// every address built from its parts.
+    public var trailingBytes: Data { _trailingBytes }
+    private var _trailingBytes = Data()
+
     /// Initialize a shelley address from its parts.
     ///
     /// The address type is inferred from the payment part and staking part. If the address type cannot be inferred, an error is thrown.
@@ -122,158 +134,123 @@ public struct Address: CBORSerializable, CustomStringConvertible, Equatable, Sen
         let addrBits = (UInt8(header) & 0xF0) >> 4
         let networkBits = UInt8(header & 0x0F)
 
-        // Byron addresses are detected by address-type nibble == 0b1000 (= 8).
-        // Their raw CBOR starts with 0x82 (2-element array), so addrBits == 8.
-        if addrBits == 0b1000 {
+        // A Byron address is CBOR `[payload, crc]`, whose first byte is 0x82
+        // (`headerByron`, `isByronAddress`, `Address.hs`).
+        if header == 0x82 {
             let byronAddr = try ByronAddress(from: .bytes(data))
             self.init(byronAddress: byronAddr)
             return
         }
 
-        guard let addrType = AddressType(rawValue: Int(addrBits)) else {
+        guard addrBits != 0b1000, let addrType = AddressType(rawValue: Int(addrBits)) else {
             throw CardanoCoreError.invalidAddressInputError("Invalid address type in header: \(header)")
         }
+        // Bits 1 to 3 of the header are unused (`headerNonShelleyBits`), so
+        // the network is 0 or 1.
         guard let network = NetworkId(rawValue: Int(networkBits)) else {
             throw CardanoCoreError.invalidAddressInputError("Invalid network in header: \(header)")
         }
 
-        // Each part is a 28-byte hash; a pointer is at least three bytes. The
-        // ledger reads exactly these, so a payload of any other length is not
-        // an address.
-        let minimumPayload: Int
-        let exactPayload: Int?
-        switch addrType {
-            case .keyKey, .keyScript, .scriptKey, .scriptScript:
-                minimumPayload = 2 * VERIFICATION_KEY_HASH_SIZE
-                exactPayload = minimumPayload
-            case .keyPointer, .scriptPointer:
-                minimumPayload = VERIFICATION_KEY_HASH_SIZE + 3
-                exactPayload = nil
-            default:
-                minimumPayload = VERIFICATION_KEY_HASH_SIZE
-                exactPayload = minimumPayload
-        }
-        guard payload.count >= minimumPayload, exactPayload.map({ payload.count == $0 }) ?? true else {
-            throw CardanoCoreError.invalidAddressInputError(
-                "Invalid \(addrType) address: \(payload.count) bytes after the header")
-        }
-        
-        switch addrType {
-            case .keyKey:
-                let paymentPart = VerificationKeyHash(
-                    payload: payload.prefix(VERIFICATION_KEY_HASH_SIZE)
-                )
-                let stakingPart = VerificationKeyHash(
-                    payload: payload.suffix(VERIFICATION_KEY_HASH_SIZE)
-                )
-                try self.init(
-                    paymentPart: PaymentPart.verificationKeyHash(paymentPart),
-                    stakingPart: StakingPart.verificationKeyHash(stakingPart),
-                    network: network
-                )
-            case .keyScript:
-                let paymentPart = VerificationKeyHash(
-                    payload: payload.prefix(VERIFICATION_KEY_HASH_SIZE)
-                )
-                let stakingPart = ScriptHash(
-                    payload: payload.suffix( VERIFICATION_KEY_HASH_SIZE)
-                )
-                    
-                try self.init(
-                    paymentPart: PaymentPart.verificationKeyHash(paymentPart),
-                    stakingPart: StakingPart.scriptHash(stakingPart),
-                    network: network
-                )
-            case .keyPointer:
-                let paymentPart = VerificationKeyHash(
-                    payload: payload.prefix(VERIFICATION_KEY_HASH_SIZE)
-                )
-                    let pointerAddr = try PointerAddress.decode(payload.dropFirst(VERIFICATION_KEY_HASH_SIZE))
-                    
-                try self.init(
-                    paymentPart: PaymentPart.verificationKeyHash(paymentPart),
-                    stakingPart: StakingPart.pointerAddress(pointerAddr),
-                    network: network
-                )
-            case .keyNone:
-                let paymentPart = VerificationKeyHash(
-                    payload: payload
-                )
-                    
-                try self.init(
-                    paymentPart: PaymentPart.verificationKeyHash(paymentPart),
-                    stakingPart: nil, network: network
-                )
-            case .scriptKey:
-                let paymentPart = ScriptHash(
-                    payload: payload.prefix(VERIFICATION_KEY_HASH_SIZE)
-                )
-                let stakingPart = VerificationKeyHash(
-                    payload: payload.suffix( VERIFICATION_KEY_HASH_SIZE)
-                )
-                    
-                try self.init(
-                    paymentPart: PaymentPart.scriptHash(paymentPart),
-                    stakingPart: StakingPart.verificationKeyHash(stakingPart),
-                    network: network
-                )
-            case .scriptScript:
-                let paymentPart = ScriptHash(
-                    payload: payload.prefix(VERIFICATION_KEY_HASH_SIZE)
-                )
-                let stakingPart = ScriptHash(
-                    payload: payload.suffix( VERIFICATION_KEY_HASH_SIZE)
-                )
-                try self.init(
-                    paymentPart: PaymentPart.scriptHash(paymentPart),
-                    stakingPart: StakingPart.scriptHash(stakingPart),
-                    network: network
-                )
-            case .scriptPointer:
-                let paymentPart = ScriptHash(
-                    payload: payload.prefix(VERIFICATION_KEY_HASH_SIZE)
-                )
-                    
-                let pointerAddr = try PointerAddress.decode(payload.dropFirst(VERIFICATION_KEY_HASH_SIZE))
-                    
-                try self.init(
-                    paymentPart: PaymentPart.scriptHash(paymentPart),
-                    stakingPart: StakingPart.pointerAddress(pointerAddr),
-                    network: network
-                )
-            case .scriptNone:
-                let paymentPart = ScriptHash(
-                    payload: payload
-                )
-                    
-                try self.init(
-                    paymentPart: PaymentPart.scriptHash(paymentPart),
-                    stakingPart: nil,
-                    network: network
-                )
-            case .noneKey:
-                let stakingPart = VerificationKeyHash(
-                    payload: payload
-                )
-                try self.init(
-                    paymentPart: nil,
-                    stakingPart: StakingPart.verificationKeyHash(stakingPart),
-                    network: network
-                )
-            case .noneScript:
-                let stakingPart = ScriptHash(
-                    payload: payload
-                )
-                try self.init(
-                    paymentPart: nil,
-                    stakingPart: StakingPart.scriptHash(stakingPart),
-                    network: network
-                )
-            default:
-                throw CardanoCoreError.deserializeError("Error in deserializing bytes: \(data)")
+        let parts = try Address.readParts(addrType, payload)
+        try self.init(paymentPart: parts.payment, stakingPart: parts.staking, network: network)
+        _trailingBytes = parts.trailing
+    }
+
+    /// How the ledger reads the bytes of an address
+    /// (`decodeAddrStateLenientT`, `libs/cardano-ledger-core/src/Cardano/Ledger/Address.hs`).
+    enum DecodingRule {
+        /// Before Babbage (protocol version 7) the ledger did not check that
+        /// an address used every byte, and reads a pointer leniently
+        /// (`fromCborBackwardsBothAddr`: `decodeAddrStateLenientT True True`).
+        /// Mainnet has outputs with bytes after the address.
+        case backwards
+        /// Babbage (protocol versions 7 and 8): every byte must be used, and a
+        /// pointer is still read leniently (`fromCborRigorousBothAddr True`).
+        case rigorous
+        /// From Conway (protocol version 9): every byte must be used, and a
+        /// pointer is read strictly (`fromCborRigorousBothAddr False`). This
+        /// is also `decodeAddr`, the decoder for addresses placed on chain
+        /// today.
+        case strict
+
+        static var current: DecodingRule {
+            let era = Era.decodingRules
+            if era < .babbage { return .backwards }
+            if era < .conway { return .rigorous }
+            return .strict
         }
     }
-    
+
+    /// Reads the payment and staking parts after the header byte, by the
+    /// rule of the era decoding follows, returning the bytes after them that
+    /// the ledger ignored.
+    static func readParts(
+        _ addrType: AddressType, _ payload: Data
+    ) throws -> (payment: PaymentPart?, staking: StakingPart?, trailing: Data) {
+        let rule = DecodingRule.current
+        let size = VERIFICATION_KEY_HASH_SIZE
+
+        func hash(at offset: Int) throws -> Data {
+            // `decodeHash`: fewer than 28 bytes left fails in every era.
+            guard payload.count >= offset + size else {
+                throw CardanoCoreError.invalidAddressInputError(
+                    "Invalid \(addrType) address: \(payload.count) bytes after the header")
+            }
+            return payload.subdata(in: offset..<(offset + size))
+        }
+
+        let payment: PaymentPart?
+        let staking: StakingPart?
+        let used: Int
+        switch addrType {
+        case .keyKey, .keyScript, .scriptKey, .scriptScript:
+            let p = try hash(at: 0), s = try hash(at: size)
+            payment = addrType == .keyKey || addrType == .keyScript
+                ? .verificationKeyHash(VerificationKeyHash(payload: p)) : .scriptHash(ScriptHash(payload: p))
+            staking = addrType == .keyKey || addrType == .scriptKey
+                ? .verificationKeyHash(VerificationKeyHash(payload: s)) : .scriptHash(ScriptHash(payload: s))
+            used = 2 * size
+        case .keyPointer, .scriptPointer:
+            let p = try hash(at: 0)
+            payment = addrType == .keyPointer
+                ? .verificationKeyHash(VerificationKeyHash(payload: p)) : .scriptHash(ScriptHash(payload: p))
+            // `decodeStakeReference`: `decodePtrLenient` before protocol
+            // version 9, `decodePtr` from it.
+            let (pointer, consumed) = try PointerAddress.read(
+                payload.subdata(in: size..<payload.count),
+                rule: rule == .strict ? .strict : .lenient)
+            staking = .pointerAddress(pointer)
+            used = size + consumed
+        case .keyNone, .scriptNone:
+            let p = try hash(at: 0)
+            payment = addrType == .keyNone
+                ? .verificationKeyHash(VerificationKeyHash(payload: p)) : .scriptHash(ScriptHash(payload: p))
+            staking = nil
+            used = size
+        case .noneKey, .noneScript:
+            // An account (reward) address: the ledger decodes it with
+            // `decodeAccountAddressT`, which requires every byte in every era.
+            let s = try hash(at: 0)
+            guard payload.count == size else {
+                throw CardanoCoreError.invalidAddressInputError(
+                    "Invalid \(addrType) address: \(payload.count) bytes after the header")
+            }
+            payment = nil
+            staking = addrType == .noneKey
+                ? .verificationKeyHash(VerificationKeyHash(payload: s)) : .scriptHash(ScriptHash(payload: s))
+            used = size
+        case .byron:
+            throw CardanoCoreError.invalidAddressInputError("Invalid address type in header")
+        }
+
+        // `ensureBufIsConsumed`, skipped only before Babbage.
+        if used != payload.count, rule != .backwards {
+            throw CardanoCoreError.invalidAddressInputError(
+                "Invalid \(addrType) address: \(payload.count - used) bytes left over after the address")
+        }
+        return (payment, staking, payload.subdata(in: used..<payload.count))
+    }
+
     public func toPrimitive() -> Primitive {
         return .bytes(toBytes())
     }
@@ -376,12 +353,36 @@ public struct Address: CBORSerializable, CustomStringConvertible, Equatable, Sen
         }
     }
     
-    /// Convert the address to bytes.
+    /// Convert the address to bytes, exactly as it was read.
     ///
     /// For Byron addresses, returns the raw on-chain CBOR bytes (`CBOR([payload, crc32])`).
-    /// For Shelley addresses, returns `headerByte + paymentData + stakingData`.
+    /// For Shelley addresses, returns `headerByte + paymentData + stakingData`,
+    /// with a pointer as it was written and any ``trailingBytes`` after it.
+    /// ``ledgerBytes`` is the address as the ledger holds it.
     /// - Returns: The bytes of the address.
     public func toBytes() -> Data {
+        return shelleyBytes(asWritten: true)
+    }
+
+    /// The address as the ledger holds it once decoded: without
+    /// ``trailingBytes``, and with a pointer written canonically, values the
+    /// ledger replaced with `Ptr 0 0 0` included (`fromCborBothAddr`, which
+    /// writes a pointer address again, and `fromCborBackwardsBothAddr`, which
+    /// drops the bytes after the address; `Address.hs`).
+    ///
+    /// The same as ``toBytes()`` for every address that is canonical
+    /// (``isLedgerCanonical``).
+    public var ledgerBytes: Data {
+        return shelleyBytes(asWritten: false)
+    }
+
+    /// Whether ``toBytes()`` is the address as the ledger holds it, with no
+    /// trailing bytes and no pointer written other than canonically.
+    public var isLedgerCanonical: Bool {
+        return toBytes() == ledgerBytes
+    }
+
+    private func shelleyBytes(asWritten: Bool) -> Data {
         if let byronAddr = _byronAddress {
             return byronAddr.toBytes()
         }
@@ -406,16 +407,18 @@ public struct Address: CBORSerializable, CustomStringConvertible, Equatable, Sen
                 case .scriptHash(let scriptHash):
                     stakingData = scriptHash.payload
                 case .pointerAddress(let pointerAddress):
-                    stakingData = pointerAddress.encode()
+                    stakingData = asWritten ? pointerAddress.encode() : pointerAddress.ledgerBytes
             }
         } else {
             stakingData = Data()
         }
         
-        return headerByte + paymentData + stakingData
+        return headerByte + paymentData + stakingData + (asWritten ? _trailingBytes : Data())
     }
     
-    /// Equatable implementation for Address.
+    /// Equatable implementation for Address: whether the ledger holds the
+    /// two as the same address. ``trailingBytes`` and how a pointer was
+    /// written do not count; compare ``toBytes()`` for that.
     /// - Parameters:
     ///   - lhs: The left-hand side address.
     ///   - rhs: The right-hand side address.
@@ -467,11 +470,14 @@ public struct Address: CBORSerializable, CustomStringConvertible, Equatable, Sen
     /// Encode the address in Bech32 format.
     ///
     /// More info about Bech32 (here)[https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki#Bech32].
-
+    ///
+    /// This is the address the ledger holds, ``ledgerBytes``: an address
+    /// read with trailing bytes or an oddly written pointer shows as the
+    /// ledger, and chain indexers, show it.
     /// - Returns: Encoded address in Bech32.
     public func toBech32() throws -> String {
-        guard let encoded =  Bech32().encode(hrp: self.hrp, witprog: self.toBytes()) else {
-            throw CardanoCoreError.encodingError("Error encoding data: \(self.toBytes())")
+        guard let encoded =  Bech32().encode(hrp: self.hrp, witprog: self.ledgerBytes) else {
+            throw CardanoCoreError.encodingError("Error encoding data: \(self.ledgerBytes)")
         }
         return encoded
     }
@@ -484,10 +490,11 @@ public struct Address: CBORSerializable, CustomStringConvertible, Equatable, Sen
         return try Address(from: .string(data))
     }
     
-    /// Hashable implementation for Address.
+    /// Hashable implementation for Address: the address as the ledger
+    /// holds it, as `==` compares.
     /// - Parameter hasher: The hasher.
     public func hash(into hasher: inout Hasher) {
-        hasher.combine(toBytes())
+        hasher.combine(ledgerBytes)
     }
     
     /// Save the address to a file.

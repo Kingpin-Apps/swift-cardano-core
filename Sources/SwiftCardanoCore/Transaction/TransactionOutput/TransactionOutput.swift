@@ -1,4 +1,5 @@
 import Foundation
+@preconcurrency import BigInt
 import CBORCodable
 import OrderedCollections
 
@@ -28,8 +29,35 @@ public struct TransactionOutput: Serializable {
         return output
     }
 
+    /// Decodes an output as the ledger of `era` reads it, keeping the bytes
+    /// it was read from.
+    ///
+    /// Which addresses and values the ledger accepts depends on the era —
+    /// see ``Era/decoding`` — so an output from an earlier era should be read
+    /// with that era.
+    public static func fromCBOR(data: Data, era: Era) throws -> TransactionOutput {
+        try Era.$decoding.withValue(era) { try fromCBOR(data: data) }
+    }
+
     public init(from cbor: Data) throws {
         self = try Self.fromCBOR(data: cbor)
+    }
+
+    /// Reads the address of an output as the ledger does (`fromCborBothAddr`,
+    /// `libs/cardano-ledger-core/src/Cardano/Ledger/Address.hs`): a byte
+    /// string holding a Byron or Shelley payment address. An account (reward)
+    /// address fails there: its header has the high bit set, which only the
+    /// Byron header 0x82 may (`headerNonShelleyBits`).
+    static func address(from primitive: Primitive) throws -> Address {
+        guard case .bytes = primitive else {
+            throw CardanoCoreError.deserializeError("TransactionOutput address: expected bytes, got \(primitive)")
+        }
+        let address = try Address(from: primitive)
+        if address.addressType == .noneKey || address.addressType == .noneScript {
+            throw CardanoCoreError.deserializeError(
+                "TransactionOutput address: a reward address cannot receive an output")
+        }
+        return address
     }
 
     /// Records `bytes` as what this output was decoded from.
@@ -55,7 +83,7 @@ public struct TransactionOutput: Serializable {
         hasher.combine(amount)
     }
 
-    public var lovelace: Int64 {
+    public var lovelace: BigInt {
         return amount.coin
     }
 
@@ -75,16 +103,16 @@ public struct TransactionOutput: Serializable {
         self.postAlonzo = postAlonzo
     }
 
-    public init(from
+    public init<Amount: BinaryInteger>(from
                 address: String,
-                amount: Int64,
+                amount: Amount,
                 datumHash: String? = nil,
                 datumOption: DatumOption? = nil,
                 script: ScriptType? = nil,
                 postAlonzo: Bool = false
     ) throws {
         self.address = try Address(from: .string(address))
-        self.amount = Value(coin: amount)
+        self.amount = Value(coin: BigInt(amount))
         
         if let datumHash = datumHash {
             self.datumHash = try DatumHash(from: .bytes(datumHash.hexStringToData))
@@ -338,12 +366,23 @@ public struct TransactionOutput: Serializable {
 
     // MARK: - Validation
             
+    /// Checks that the amounts can be written in an output: the coin and
+    /// each asset amount an unsigned 64-bit integer (`coin`, `positive_coin`
+    /// in the CDDL; `decodeWord64` in `decodeMaryValue`,
+    /// `eras/mary/impl/src/Cardano/Ledger/Mary/Value.hs`). A zero asset
+    /// amount cannot occur: ``Asset`` drops it.
     public func validate() throws {
         if amount.coin < 0 {
             throw CardanoCoreError.invalidArgument("Transaction output cannot have negative amount of ADA: \(amount)")
         }
+        if UInt64(exactly: amount.coin) == nil {
+            throw CardanoCoreError.invalidArgument("Transaction output ADA amount does not fit an unsigned 64-bit integer: \(amount.coin)")
+        }
         if try amount.multiAsset.count(criteria: { _, _, v in v < 0 }) > 0 {
             throw CardanoCoreError.invalidArgument("Transaction output cannot have negative amount of tokens or native assets: \(amount)")
+        }
+        if try amount.multiAsset.count(criteria: { _, _, v in UInt64(exactly: v) == nil }) > 0 {
+            throw CardanoCoreError.invalidArgument("Transaction output token amount does not fit an unsigned 64-bit integer: \(amount)")
         }
     }
     

@@ -5,7 +5,7 @@ import CBORCodable
 
 struct TransactionOutputTests {
     @Test func testInitialization() throws {
-        let address = try Address(from: .string("stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n"))
+        let address = try Address(from: .string("addr_test1vr2p8st5t5cxqglyjky7vk98k7jtfhdpvhl4e97cezuhn0cqcexl7"))
         let amount = Value(coin: 1000000)
         
         let output = TransactionOutput(
@@ -25,11 +25,11 @@ struct TransactionOutputTests {
     @Test
     func testInitializationFromStrings() throws {
         let output = try TransactionOutput(
-            from: "stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n",
+            from: "addr_test1vr2p8st5t5cxqglyjky7vk98k7jtfhdpvhl4e97cezuhn0cqcexl7",
             amount: 1000000
         )
         
-        let address = try Address(from: .string("stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n"))
+        let address = try Address(from: .string("addr_test1vr2p8st5t5cxqglyjky7vk98k7jtfhdpvhl4e97cezuhn0cqcexl7"))
         
         #expect(output.address == address)
         #expect(output.lovelace == 1000000)
@@ -42,14 +42,14 @@ struct TransactionOutputTests {
     func testValidation() throws {
         // Test valid output
         let validOutput = try TransactionOutput(
-            from: "stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n",
+            from: "addr_test1vr2p8st5t5cxqglyjky7vk98k7jtfhdpvhl4e97cezuhn0cqcexl7",
             amount: 1000000
         )
         try validOutput.validate()
         
         // Test negative ADA amount
         let negativeOutput = try TransactionOutput(
-            from: "stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n",
+            from: "addr_test1vr2p8st5t5cxqglyjky7vk98k7jtfhdpvhl4e97cezuhn0cqcexl7",
             amount: -1000000
         )
         #expect(throws: CardanoCoreError.self) {
@@ -59,7 +59,7 @@ struct TransactionOutputTests {
     
     @Test
     func testEquality() throws {
-        let address = "stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n"
+        let address = "addr_test1vr2p8st5t5cxqglyjky7vk98k7jtfhdpvhl4e97cezuhn0cqcexl7"
         let output1 = try TransactionOutput(
             from: address,
             amount: 1000000
@@ -81,7 +81,7 @@ struct TransactionOutputTests {
     
     @Test
     func testCodingBabbage() throws {
-        let address = try Address(from: .string("stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n"))
+        let address = try Address(from: .string("addr_test1vr2p8st5t5cxqglyjky7vk98k7jtfhdpvhl4e97cezuhn0cqcexl7"))
         let amount = Value(coin: 1000000)
         
         let output = TransactionOutput(
@@ -98,7 +98,7 @@ struct TransactionOutputTests {
     
     @Test
     func testCodingPreBabbage() throws {
-        let address = try Address(from: .string("stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n"))
+        let address = try Address(from: .string("addr_test1vr2p8st5t5cxqglyjky7vk98k7jtfhdpvhl4e97cezuhn0cqcexl7"))
         let amount = Value(coin: 1000000)
         
         let output = TransactionOutput(
@@ -115,7 +115,7 @@ struct TransactionOutputTests {
     }
     
     @Test func testTransactionOutput() throws {
-        let address = try Address(from: .string("stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n"))
+        let address = try Address(from: .string("addr_test1vr2p8st5t5cxqglyjky7vk98k7jtfhdpvhl4e97cezuhn0cqcexl7"))
         let amount = Value(coin: 1000000)
         let datumHash = DatumHash(payload: Data(repeating: 0x01, count: 32))
         let datumOption = DatumOption(
@@ -170,7 +170,7 @@ struct TransactionOutputTests {
     
     @Test
     func testTransactionOutputLegacy() throws {
-        let address = try Address(from: .string("stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n"))
+        let address = try Address(from: .string("addr_test1vr2p8st5t5cxqglyjky7vk98k7jtfhdpvhl4e97cezuhn0cqcexl7"))
         let amount = Value(coin: 1000000)
         
         let output = ShelleyTransactionOutput(
@@ -189,7 +189,7 @@ struct TransactionOutputTests {
     
     @Test
     func testTransactionOutputPostAlonzo() throws {
-        let address = try Address(from: .string("stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n"))
+        let address = try Address(from: .string("addr_test1vr2p8st5t5cxqglyjky7vk98k7jtfhdpvhl4e97cezuhn0cqcexl7"))
         let amount = Value(coin: 1000000)
         
         let output = BabbageTransactionOutput(

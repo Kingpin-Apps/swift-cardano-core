@@ -20,8 +20,17 @@ public struct ShelleyTransactionOutput: Serializable {
             throw CardanoCoreError.deserializeError("Invalid TransactionOutputLegacy type")
         }
         
-        self.address = try Address(from: primitive.element(0, "TransactionOutput address"))
-        self.amount = try Value(from: primitive.element(1, "TransactionOutput amount"))
+        // Shelley to Mary: `[address, amount]` (`decodeRecordNamed
+        // "ShelleyTxOut" (const 2)`, `eras/shelley/impl/src/Cardano/Ledger/Shelley/TxOut.hs`).
+        // From Alonzo a datum hash may follow (`DecCBOR AlonzoTxOut`,
+        // `eras/alonzo/impl/src/Cardano/Ledger/Alonzo/TxOut.hs`).
+        let maxCount = Era.decodingRules >= .alonzo ? 3 : 2
+        guard (2...maxCount).contains(primitive.count) else {
+            throw CardanoCoreError.deserializeError(
+                "TransactionOutput: \(primitive.count) elements, expected 2\(maxCount == 3 ? " or 3" : "")")
+        }
+        self.address = try TransactionOutput.address(from: primitive[0])
+        self.amount = try Value(from: primitive[1])
         
         if primitive.count > 2 {
             self.datumHash = try DatumHash(from: primitive[2])

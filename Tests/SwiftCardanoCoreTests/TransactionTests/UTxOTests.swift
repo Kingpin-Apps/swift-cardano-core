@@ -10,7 +10,7 @@ struct UTxOTests {
         from: .string("732bfd67e66be8e8288349fcaaa2294973ef6271cc189a239bb431275401b8e5")
     )
     let index: UInt16 = 1
-    let address: Address = try! Address(from: .string("stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n"))
+    let address: Address = try! Address(from: .string("addr_test1vr2p8st5t5cxqglyjky7vk98k7jtfhdpvhl4e97cezuhn0cqcexl7"))
     let amount = Value(coin: 1000000)
     
     @Test("Initialize UTxO with valid parameters")
@@ -27,7 +27,7 @@ struct UTxOTests {
     func testInitializationFromPrimitives() throws {
         let inputPrimitives = ("732bfd67e66be8e8288349fcaaa2294973ef6271cc189a239bb431275401b8e5", index)
         let outputPrimitives: (String, Int, DatumOption?, ScriptType?, Bool?) = (
-            "stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n",
+            "addr_test1vr2p8st5t5cxqglyjky7vk98k7jtfhdpvhl4e97cezuhn0cqcexl7",
             1000000,
             DatumOption?.none,
             ScriptType?.none,

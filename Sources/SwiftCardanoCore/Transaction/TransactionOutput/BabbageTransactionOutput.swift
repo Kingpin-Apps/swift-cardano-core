@@ -1,3 +1,4 @@
+@preconcurrency import BigInt
 import OrderedCollections
 
 
@@ -33,6 +34,12 @@ public struct BabbageTransactionOutput: Serializable {
     // MARK: - CBORSerializable
     
     public init(from primitive: Primitive) throws {
+        // The map form arrived with Babbage (`decodeBabbageTxOut`,
+        // `eras/babbage/impl/src/Cardano/Ledger/Babbage/TxOut.hs`).
+        guard Era.decodingRules >= .babbage else {
+            throw CardanoCoreError.deserializeError(
+                "TransactionOutput: the map form of an output is not read before Babbage")
+        }
         var primitiveDict: OrderedDictionary<Primitive, Primitive> = [:]
         
         switch primitive {
@@ -50,7 +57,7 @@ public struct BabbageTransactionOutput: Serializable {
                 "Invalid TransactionOutput: missing address (0) or amount (1)")
         }
         
-        self.address = try Address(from: address)
+        self.address = try TransactionOutput.address(from: address)
         self.amount = try Value(from: amount)
 
         if let datum = primitiveDict[.uint(UInt64(CodingKeys.datum.rawValue))] {
@@ -96,7 +103,7 @@ public struct BabbageTransactionOutput: Serializable {
         }
 
         // Handle both int and uint for amount
-        let amountValue: Int64
+        let amountValue: BigInt
         if let amountPrimitive = orderedDict[.string("amount")],
            amountPrimitive.integerValue != nil {
             amountValue = try Value.coin(from: amountPrimitive)

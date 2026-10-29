@@ -97,7 +97,10 @@ public struct Transaction: Serializable, TextEnvelopable {
         }
         try LedgerDuplicateRules(scanner.bytes, era: era).checkTransaction()
         let spans = try scanner.elements(ofArrayAt: 0)
-        var tx = try decoder().decode(Transaction.self, from: data)
+        // Addresses and values are read by the rules of `era`.
+        var tx = try Era.$decoding.withValue(era) {
+            try decoder().decode(Transaction.self, from: data)
+        }
         guard spans.count >= 3 else { return tx }
         try tx.keepBytes(scanner.bytes, spans: spans)
         return tx
