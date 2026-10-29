@@ -27,17 +27,13 @@ public struct Update: Serializable {
 
         self.proposedprotocolParamUpdates = try ProposedProtocolParamUpdates(from: components[0])
 
-        switch components[1] {
-        case .int(let epoch): self.epoch = EpochNumber(epoch)
-        case .uint(let epoch): self.epoch = EpochNumber(epoch)
-        default: throw CardanoCoreError.deserializeError("Invalid EpochNumber")
-        }
+        self.epoch = try components[1].integer("Update epoch", as: EpochNumber.self)
     }
 
     public func toPrimitive() throws -> Primitive {
         return .list([
             try proposedprotocolParamUpdates.toPrimitive(),
-            .int(Int64(epoch)),
+            .integer(epoch),
         ])
     }
 
@@ -57,12 +53,10 @@ public struct Update: Serializable {
         let proposedprotocolParamUpdates = try ProposedProtocolParamUpdates(
             from: proposedprotocolParamUpdatesPrimitive)
 
-        guard let epochPrimitive = orderedDict[.string(CodingKeys.epoch.rawValue)],
-            case .int(let epochValue) = epochPrimitive
-        else {
+        guard let epochPrimitive = orderedDict[.string(CodingKeys.epoch.rawValue)] else {
             throw CardanoCoreError.deserializeError("Missing or invalid epoch in Update dict")
         }
-        let epoch = EpochNumber(epochValue)
+        let epoch = try epochPrimitive.integer("Update epoch", as: EpochNumber.self)
 
         return Update(
             proposedprotocolParamUpdates: proposedprotocolParamUpdates,
@@ -75,7 +69,7 @@ public struct Update: Serializable {
         dict[.string(CodingKeys.proposedprotocolParamUpdates.rawValue)] =
             try proposedprotocolParamUpdates
             .toPrimitive()
-        dict[.string(CodingKeys.epoch.rawValue)] = .int(Int64(epoch))
+        dict[.string(CodingKeys.epoch.rawValue)] = .integer(epoch)
         return .orderedDict(dict)
     }
 

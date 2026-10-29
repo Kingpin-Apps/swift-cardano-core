@@ -67,16 +67,10 @@ public struct PoolParams: Serializable {
         self.vrfKeyHash = try VrfKeyHash(from: elements[1])
         
         // pledge (Int)
-        guard case let .uint(pledge) = elements[2] else {
-            throw CardanoCoreError.deserializeError("Invalid pledge value in PoolParams")
-        }
-        self.pledge = Int(pledge)
+        self.pledge = try Self.coin(elements[2], "PoolParams pledge")
         
         // cost (Int)
-        guard case let .uint(cost) = elements[3] else {
-            throw CardanoCoreError.deserializeError("Invalid cost value in PoolParams")
-        }
-        self.cost = Int(cost)
+        self.cost = try Self.coin(elements[3], "PoolParams cost")
         
         // margin (UnitInterval)
         self.margin = try UnitInterval(from: elements[4])
@@ -150,6 +144,19 @@ public struct PoolParams: Serializable {
         return .list(elements)
     }
     
+    /// A `coin` (`uint`, up to 2^64 - 1 in the CDDL) read into the `Int`
+    /// that `pledge` and `cost` are stored as.
+    ///
+    /// - Throws: When the value is negative or above `Int.max`. No real pool
+    ///   can pledge or charge that much: it is over 200 times the total ADA supply.
+    private static func coin(_ primitive: Primitive, _ what: String) throws -> Int {
+        let value = try primitive.integer(what, as: Coin.self)
+        guard let narrowed = Int(exactly: value) else {
+            throw CardanoCoreError.deserializeError("\(what): \(value) is out of range for Int")
+        }
+        return narrowed
+    }
+    
     // MARK: - JSONSerializable
     
     public static func fromDict(_ dict: Primitive) throws -> PoolParams {
@@ -167,13 +174,15 @@ public struct PoolParams: Serializable {
             payload: Data(hexString: vrfKeyHashHex) ?? Data()
         )
         
-        guard case let .int(pledge) = dictValue[.string(CodingKeys.pledge.rawValue)] else {
+        guard let pledgePrimitive = dictValue[.string(CodingKeys.pledge.rawValue)] else {
             throw CardanoCoreError.deserializeError("Invalid or missing pledge in PoolParams")
         }
+        let pledge = try coin(pledgePrimitive, "PoolParams pledge")
         
-        guard case let .int(cost) = dictValue[.string(CodingKeys.cost.rawValue)] else {
+        guard let costPrimitive = dictValue[.string(CodingKeys.cost.rawValue)] else {
             throw CardanoCoreError.deserializeError("Invalid or missing cost in PoolParams")
         }
+        let cost = try coin(costPrimitive, "PoolParams cost")
         
         guard let marginPrimitive = dictValue[.string(CodingKeys.margin.rawValue)] else {
             throw CardanoCoreError.deserializeError("Missing margin in PoolParams")
@@ -183,6 +192,10 @@ public struct PoolParams: Serializable {
            marginElements.count == 2,
            let num = marginElements[0].uint64Value,
            let den = marginElements[1].uint64Value {
+            // unit_interval: the ledger rejects a zero denominator and a value above one.
+            guard den > 0, num <= den else {
+                throw CardanoCoreError.deserializeError("Invalid margin in PoolParams: \(num)/\(den)")
+            }
             margin = UnitInterval(numerator: num, denominator: den)
         } else {
             margin = try UnitInterval(from: marginPrimitive)
@@ -223,8 +236,8 @@ public struct PoolParams: Serializable {
         return PoolParams(
             poolOperator: poolOperator.poolKeyHash,
             vrfKeyHash: vrfKeyHash,
-            pledge: Int(pledge),
-            cost: Int(cost),
+            pledge: pledge,
+            cost: cost,
             margin: margin,
             rewardAccount: rewardAccount,
             poolOwners: poolOwners,

@@ -36,12 +36,7 @@ public struct NoConfidence: GovernanceAction {
         guard case let .list(elements) = primitive, elements.count == 2 else {
             throw CardanoCoreError.deserializeError("Invalid NoConfidence primitive")
         }
-        let code: Int
-        switch elements[0] {
-        case .int(let v): code = Int(v)
-        case .uint(let v): code = Int(v)
-        default: throw CardanoCoreError.deserializeError("Invalid NoConfidence primitive")
-        }
+        let code = try elements[0].integer("NoConfidence code", as: Int.self)
         guard code == Self.code.rawValue else {
             throw CardanoCoreError.deserializeError("Invalid NoConfidence primitive")
         }

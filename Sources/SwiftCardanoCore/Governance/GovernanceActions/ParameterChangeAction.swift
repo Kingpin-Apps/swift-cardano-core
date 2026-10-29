@@ -600,12 +600,10 @@ public struct ProtocolParamUpdate: CBORSerializable, Sendable {
         }
 
         if let governanceActionValidityPeriod = governanceActionValidityPeriod {
-            dict[.uint(UInt64(CodingKeys.governanceActionValidityPeriod.rawValue))] = .int(
-                Int64(governanceActionValidityPeriod))
+            dict[.uint(UInt64(CodingKeys.governanceActionValidityPeriod.rawValue))] = .integer(governanceActionValidityPeriod)
         }
         if let governanceActionDeposit = governanceActionDeposit {
-            dict[.uint(UInt64(CodingKeys.governanceActionDeposit.rawValue))] = .int(
-                Int64(governanceActionDeposit))
+            dict[.uint(UInt64(CodingKeys.governanceActionDeposit.rawValue))] = .integer(governanceActionDeposit)
         }
         if let drepDeposit = drepDeposit {
             dict[.uint(UInt64(CodingKeys.drepDeposit.rawValue))] = .uint(UInt64(drepDeposit))

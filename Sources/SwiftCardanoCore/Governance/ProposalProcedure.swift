@@ -26,26 +26,62 @@ public struct ProposalProcedure: TextEnvelopable, CBORSerializable, Sendable {
         self.govAction = govAction
         self.anchor = anchor
         
-        self._payload =  try! CBORSerialization.data(from:
-                .array(
-                    [
-                        try! CBOREncoder().encode(deposit).toCBOR,
-                        try! CBOREncoder().encode(rewardAccount).toCBOR,
-                        try! CBOREncoder().encode(govAction).toCBOR,
-                        try! CBOREncoder().encode(anchor).toCBOR
-                    ]
-                )
+        self._payload =  try! Self.payload(
+            deposit: deposit,
+            rewardAccount: rewardAccount,
+            govAction: govAction,
+            anchor: anchor
         )
         self._type = Self.TYPE
         self._description = Self.DESCRIPTION
     }
     
-    public init(payload: Data, type: String?, description: String?) {
+    /// The decode path: the payload is built with `try`, so a field that
+    /// fails to encode throws instead of trapping.
+    private init(
+        decodedDeposit deposit: Coin,
+        rewardAccount: RewardAccount,
+        govAction: GovAction,
+        anchor: Anchor
+    ) throws {
+        self.deposit = deposit
+        self.rewardAccount = rewardAccount
+        self.govAction = govAction
+        self.anchor = anchor
+        self._payload = try Self.payload(
+            deposit: deposit,
+            rewardAccount: rewardAccount,
+            govAction: govAction,
+            anchor: anchor
+        )
+        self._type = Self.TYPE
+        self._description = Self.DESCRIPTION
+    }
+    
+    private static func payload(
+        deposit: Coin,
+        rewardAccount: RewardAccount,
+        govAction: GovAction,
+        anchor: Anchor
+    ) throws -> Data {
+        return try CBORSerialization.data(from:
+                .array(
+                    [
+                        try CBOREncoder().encode(deposit).toCBOR,
+                        try CBOREncoder().encode(rewardAccount).toCBOR,
+                        try CBOREncoder().encode(govAction).toCBOR,
+                        try CBOREncoder().encode(anchor).toCBOR
+                    ]
+                )
+        )
+    }
+    
+    public init(payload: Data, type: String?, description: String?) throws {
         self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
         
-        let cbor = try! CBORDecoder().decode(ProposalProcedure.self, from: payload)
+        let cbor = try CBORDecoder().decode(ProposalProcedure.self, from: payload)
         
         self.deposit = cbor.deposit
         self.rewardAccount = cbor.rewardAccount
@@ -73,8 +109,8 @@ public struct ProposalProcedure: TextEnvelopable, CBORSerializable, Sendable {
         let govAction = try GovAction(from: primitiveArray[2])
         let anchor = try Anchor(from: primitiveArray[3])
         
-        self.init(
-            deposit: Coin(deposit),
+        try self.init(
+            decodedDeposit: deposit,
             rewardAccount: rewardAccount,
             govAction: govAction,
             anchor: anchor

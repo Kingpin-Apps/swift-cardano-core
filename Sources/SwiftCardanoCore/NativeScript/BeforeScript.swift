@@ -44,15 +44,7 @@ public struct BeforeScript: NativeScriptable {
             throw CardanoCoreError.decodingError("Missing slot in BeforeScript")
         }
 
-        let slot: SlotNumber
-        switch slotPrimitive {
-        case .int(let intValue):
-            slot = SlotNumber(intValue)
-        case .uint(let uintValue):
-            slot = uintValue
-        default:
-            throw CardanoCoreError.decodingError("Invalid BeforeScript slot type: \(slotPrimitive)")
-        }
+        let slot = try slotPrimitive.integer("BeforeScript slot", as: SlotNumber.self)
 
         return BeforeScript(slot: slot)
     }

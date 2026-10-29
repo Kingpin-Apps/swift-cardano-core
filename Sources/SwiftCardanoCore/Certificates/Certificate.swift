@@ -79,7 +79,8 @@ public enum Certificate: Serializable {
         
         guard let firstElement = elements.first,
                 case let .uint(code) = firstElement,
-              let certificateCode = CertificateCode(rawValue: Int(code)) else {
+              let intCode = Int(exactly: code),
+              let certificateCode = CertificateCode(rawValue: intCode) else {
             throw CardanoCoreError.deserializeError("Invalid Certificate code")
         }
         
@@ -196,7 +197,8 @@ public enum Certificate: Serializable {
         
         guard let firstElement = elements.first,
                 case let .uint(code) = firstElement,
-              let certificateCode = CertificateCode(rawValue: Int(code)) else {
+              let intCode = Int(exactly: code),
+              let certificateCode = CertificateCode(rawValue: intCode) else {
             throw CardanoCoreError.deserializeError("Invalid Certificate code")
         }
         
@@ -363,13 +365,15 @@ public enum Certificate: Serializable {
             throw CardanoCoreError.valueError("Invalid Dictionary")
         }
         
-        let cborData = Data(hexString: cborHex)
-        let cbor = try CBORSerialization.cbor(from: cborData!)
+        guard let cborData = Data(hexString: cborHex) else {
+            throw CardanoCoreError.valueError("Invalid Certificate cborHex")
+        }
+        let cbor = try CBORSerialization.cbor(from: cborData)
         
         if case let .array(cborArray) = cbor,
             case let .unsignedInt(code) = cborArray.first {
             
-            let certificateCode = CertificateCode(rawValue: Int(code))
+            let certificateCode = Int(exactly: code).flatMap { CertificateCode(rawValue: $0) }
             
             switch certificateCode {
                 case .stakeRegistration:

@@ -16,7 +16,7 @@ public struct ScriptAny: NativeScriptable {
             throw CardanoCoreError.deserializeError("Invalid ScriptAny type")
         }
         
-        guard !primitiveArray.isEmpty else {
+        guard primitiveArray.count == 2 else {
             throw CardanoCoreError.deserializeError("Invalid ScriptAny type")
         }
         

@@ -40,12 +40,7 @@ public struct NewConstitution: GovernanceAction {
         guard case let .list(elements) = primitive, elements.count == 3 else {
             throw CardanoCoreError.deserializeError("Invalid NewConstitution primitive")
         }
-        let code: Int
-        switch elements[0] {
-        case .int(let v): code = Int(v)
-        case .uint(let v): code = Int(v)
-        default: throw CardanoCoreError.deserializeError("Invalid NewConstitution primitive")
-        }
+        let code = try elements[0].integer("NewConstitution code", as: Int.self)
         guard code == Self.code.rawValue else {
             throw CardanoCoreError.deserializeError("Invalid NewConstitution primitive")
         }

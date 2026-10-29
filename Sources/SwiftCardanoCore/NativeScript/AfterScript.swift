@@ -13,7 +13,7 @@ public struct AfterScript: NativeScriptable {
     // MARK: - CBORSerializable
 
     public init(from primitive: Primitive) throws {
-        guard case let .list(primitiveArray) = primitive else {
+        guard case let .list(primitiveArray) = primitive, primitiveArray.count == 2 else {
             throw CardanoCoreError.deserializeError("Invalid AfterScript type: \(primitive)")
         }
 
@@ -53,15 +53,7 @@ public struct AfterScript: NativeScriptable {
             throw CardanoCoreError.decodingError("Missing slot in AfterScript")
         }
 
-        let slot: SlotNumber
-        switch slotPrimitive {
-        case .int(let intValue):
-            slot = SlotNumber(intValue)
-        case .uint(let uintValue):
-            slot = uintValue
-        default:
-            throw CardanoCoreError.decodingError("Invalid AfterScript slot type: \(slotPrimitive)")
-        }
+        let slot = try slotPrimitive.integer("AfterScript slot", as: SlotNumber.self)
 
         return AfterScript(slot: slot)
     }
