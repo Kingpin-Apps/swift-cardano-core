@@ -241,7 +241,7 @@ extension SlotTimeline {
         // A chain with a Byron era whose slots were a different length needs its
         // fork slot, which is not in genesis.
         if let byron = genesis.byronGenesis,
-           let byronMilliseconds = Int64(byron.blockVersionData.slotDuration),
+           let byronMilliseconds = Int64(exactly: byron.blockVersionData.slotDuration),
            byronMilliseconds != milliseconds {
             return nil
         }

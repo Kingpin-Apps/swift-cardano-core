@@ -12,6 +12,17 @@ public struct NonNegativeInterval: CBORSerializable, Sendable {
         self.upperBound = upperBound
     }
 
+    /// The numerator, which this type has long called ``lowerBound``.
+    public var numerator: UInt64 { lowerBound }
+    /// The denominator, which this type has long called ``upperBound``.
+    public var denominator: UInt64 { upperBound }
+
+    /// `numerator / denominator`, which the ledger's `NonNegativeInterval`
+    /// holds as a `Word64` over a `Word64`.
+    public init(numerator: UInt64, denominator: UInt64) {
+        self.init(lowerBound: numerator, upperBound: denominator)
+    }
+
     public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         lowerBound = try container.decode(UInt64.self)
@@ -45,14 +56,21 @@ public struct NonNegativeInterval: CBORSerializable, Sendable {
         guard elements.count == 2 else {
             throw CardanoCoreError.valueError("NonNegativeInterval must contain exactly 2 elements")
         }
+        // `#6.30([uint, positive_int])`: a negative part or a zero
+        // denominator is not a non-negative interval.
         func toUInt64(_ p: Primitive) throws -> UInt64 {
             switch p {
-            case .int(let v): return UInt64(max(0, v))
+            case .int(let v) where v >= 0: return UInt64(v)
             case .uint(let v): return v
-            default: throw CardanoCoreError.valueError("NonNegativeInterval element must be integer")
+            default:
+                throw CardanoCoreError.valueError("NonNegativeInterval element must be an unsigned integer: \(p)")
             }
         }
-        self.init(lowerBound: try toUInt64(elements[0]), upperBound: try toUInt64(elements[1]))
+        let denominator = try toUInt64(elements[1])
+        guard denominator > 0 else {
+            throw CardanoCoreError.valueError("NonNegativeInterval denominator must not be zero")
+        }
+        self.init(lowerBound: try toUInt64(elements[0]), upperBound: denominator)
     }
 
     public func toPrimitive() throws -> Primitive {

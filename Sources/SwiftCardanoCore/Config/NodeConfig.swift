@@ -8,10 +8,14 @@ public struct NodeConfig: JSONLoadable {
     public let conwayGenesisFile: String
     public let conwayGenesisHash: String?
     public let enableP2P: Bool?
-    public let lastKnownBlockVersionAlt: Int?
-    public let lastKnownBlockVersionMajor: Int?
-    public let lastKnownBlockVersionMinor: Int?
-    public let maxKnownMajorProtocolVersion: Int?
+    /// The Byron protocol version the node supports: `Word8` for the alt
+    /// version, `Word16` for the major and minor (cardano-node
+    /// `NodeByronProtocolConfiguration`).
+    public let lastKnownBlockVersionAlt: UInt8?
+    public let lastKnownBlockVersionMajor: UInt16?
+    public let lastKnownBlockVersionMinor: UInt16?
+    /// A legacy field the node no longer reads; it was a `Natural`.
+    public let maxKnownMajorProtocolVersion: UInt64?
     public let minNodeVersion: String?
     public let peerSharing: Bool?
     public let _protocol: String?
@@ -22,6 +26,25 @@ public struct NodeConfig: JSONLoadable {
     public let targetNumberOfEstablishedPeers: Int?
     public let targetNumberOfKnownPeers: Int?
     public let targetNumberOfRootPeers: Int?
+
+    /// Whether hard forks to unreleased eras are enabled.
+    public let experimentalHardForksEnabled: Bool?
+    /// Test hard-fork epochs: each an `EpochNo`, a `Word64`.
+    public let testShelleyHardForkAtEpoch: EpochNumber?
+    public let testAllegraHardForkAtEpoch: EpochNumber?
+    public let testMaryHardForkAtEpoch: EpochNumber?
+    public let testAlonzoHardForkAtEpoch: EpochNumber?
+    public let testBabbageHardForkAtEpoch: EpochNumber?
+    public let testConwayHardForkAtEpoch: EpochNumber?
+    public let testDijkstraHardForkAtEpoch: EpochNumber?
+    /// Test hard-fork protocol versions: each a `Word`.
+    public let testShelleyHardForkAtVersion: UInt64?
+    public let testAllegraHardForkAtVersion: UInt64?
+    public let testMaryHardForkAtVersion: UInt64?
+    public let testAlonzoHardForkAtVersion: UInt64?
+    public let testBabbageHardForkAtVersion: UInt64?
+    public let testConwayHardForkAtVersion: UInt64?
+    public let testDijkstraHardForkAtVersion: UInt64?
     
     // Tracing configurations
     public let traceAcceptPolicy: Bool?
@@ -97,6 +120,21 @@ public struct NodeConfig: JSONLoadable {
         case targetNumberOfEstablishedPeers = "TargetNumberOfEstablishedPeers"
         case targetNumberOfKnownPeers = "TargetNumberOfKnownPeers"
         case targetNumberOfRootPeers = "TargetNumberOfRootPeers"
+        case experimentalHardForksEnabled = "ExperimentalHardForksEnabled"
+        case testShelleyHardForkAtEpoch = "TestShelleyHardForkAtEpoch"
+        case testAllegraHardForkAtEpoch = "TestAllegraHardForkAtEpoch"
+        case testMaryHardForkAtEpoch = "TestMaryHardForkAtEpoch"
+        case testAlonzoHardForkAtEpoch = "TestAlonzoHardForkAtEpoch"
+        case testBabbageHardForkAtEpoch = "TestBabbageHardForkAtEpoch"
+        case testConwayHardForkAtEpoch = "TestConwayHardForkAtEpoch"
+        case testDijkstraHardForkAtEpoch = "TestDijkstraHardForkAtEpoch"
+        case testShelleyHardForkAtVersion = "TestShelleyHardForkAtVersion"
+        case testAllegraHardForkAtVersion = "TestAllegraHardForkAtVersion"
+        case testMaryHardForkAtVersion = "TestMaryHardForkAtVersion"
+        case testAlonzoHardForkAtVersion = "TestAlonzoHardForkAtVersion"
+        case testBabbageHardForkAtVersion = "TestBabbageHardForkAtVersion"
+        case testConwayHardForkAtVersion = "TestConwayHardForkAtVersion"
+        case testDijkstraHardForkAtVersion = "TestDijkstraHardForkAtVersion"
         case traceAcceptPolicy = "TraceAcceptPolicy"
         case traceBlockFetchClient = "TraceBlockFetchClient"
         case traceBlockFetchDecisions = "TraceBlockFetchDecisions"
@@ -177,10 +215,12 @@ public struct SubtraceConfig: Codable, Equatable, Hashable, Sendable {
     public let subtrace: String
 }
 
+/// iohk-monitoring's `RotationParameters`: `Word64` for the byte limit,
+/// `Word` for the others.
 public struct Rotation: Codable, Equatable, Hashable, Sendable {
-    public let rpKeepFilesNum: Int
-    public let rpLogLimitBytes: Int
-    public let rpMaxAgeHours: Int
+    public let rpKeepFilesNum: UInt64
+    public let rpLogLimitBytes: UInt64
+    public let rpMaxAgeHours: UInt64
 }
 
 public struct SetupScribe: Codable, Equatable, Hashable, Sendable {

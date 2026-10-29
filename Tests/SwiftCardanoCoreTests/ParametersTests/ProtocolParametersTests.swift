@@ -67,15 +67,13 @@ struct ProtocolParametersTests {
         #expect(decoded.protocolVersion.major   == params.protocolVersion.major)
         #expect(decoded.protocolVersion.minor   == params.protocolVersion.minor)
 
-        // Double fields are approximated as rationals — verify they round-trip to
-        // within a negligible tolerance.
-        let tolerance = 1e-6
-        #expect(abs(decoded.monetaryExpansion   - params.monetaryExpansion)   < tolerance)
-        #expect(abs(decoded.treasuryCut         - params.treasuryCut)         < tolerance)
-        #expect(abs(decoded.poolPledgeInfluence - params.poolPledgeInfluence) < tolerance)
+        // Rationals are held exactly, so they round-trip exactly.
+        #expect(decoded.monetaryExpansion == params.monetaryExpansion)
+        #expect(decoded.treasuryCut == params.treasuryCut)
+        #expect(decoded.poolPledgeInfluence == params.poolPledgeInfluence)
 
-        #expect(abs(decoded.executionUnitPrices.priceMemory - params.executionUnitPrices.priceMemory) < tolerance)
-        #expect(abs(decoded.executionUnitPrices.priceSteps  - params.executionUnitPrices.priceSteps)  < tolerance)
+        #expect(decoded.executionUnitPrices.priceMemory == params.executionUnitPrices.priceMemory)
+        #expect(decoded.executionUnitPrices.priceSteps == params.executionUnitPrices.priceSteps)
 
         #expect(decoded.maxTxExecutionUnits.memory   == params.maxTxExecutionUnits.memory)
         #expect(decoded.maxTxExecutionUnits.steps    == params.maxTxExecutionUnits.steps)
@@ -84,24 +82,24 @@ struct ProtocolParametersTests {
 
         let dvt  = params.dRepVotingThresholds
         let dvt2 = decoded.dRepVotingThresholds
-        #expect(abs(dvt2.motionNoConfidence   - dvt.motionNoConfidence)   < tolerance)
-        #expect(abs(dvt2.committeeNormal      - dvt.committeeNormal)      < tolerance)
-        #expect(abs(dvt2.committeeNoConfidence - dvt.committeeNoConfidence) < tolerance)
-        #expect(abs(dvt2.updateToConstitution - dvt.updateToConstitution) < tolerance)
-        #expect(abs(dvt2.hardForkInitiation   - dvt.hardForkInitiation)   < tolerance)
-        #expect(abs(dvt2.ppNetworkGroup       - dvt.ppNetworkGroup)       < tolerance)
-        #expect(abs(dvt2.ppEconomicGroup      - dvt.ppEconomicGroup)      < tolerance)
-        #expect(abs(dvt2.ppTechnicalGroup     - dvt.ppTechnicalGroup)     < tolerance)
-        #expect(abs(dvt2.ppGovGroup           - dvt.ppGovGroup)           < tolerance)
-        #expect(abs(dvt2.treasuryWithdrawal   - dvt.treasuryWithdrawal)   < tolerance)
+        #expect(dvt2.motionNoConfidence == dvt.motionNoConfidence)
+        #expect(dvt2.committeeNormal == dvt.committeeNormal)
+        #expect(dvt2.committeeNoConfidence == dvt.committeeNoConfidence)
+        #expect(dvt2.updateToConstitution == dvt.updateToConstitution)
+        #expect(dvt2.hardForkInitiation == dvt.hardForkInitiation)
+        #expect(dvt2.ppNetworkGroup == dvt.ppNetworkGroup)
+        #expect(dvt2.ppEconomicGroup == dvt.ppEconomicGroup)
+        #expect(dvt2.ppTechnicalGroup == dvt.ppTechnicalGroup)
+        #expect(dvt2.ppGovGroup == dvt.ppGovGroup)
+        #expect(dvt2.treasuryWithdrawal == dvt.treasuryWithdrawal)
 
         let pvt  = params.poolVotingThresholds
         let pvt2 = decoded.poolVotingThresholds
-        #expect(abs(pvt2.committeeNoConfidence - pvt.committeeNoConfidence) < tolerance)
-        #expect(abs(pvt2.committeeNormal       - pvt.committeeNormal)       < tolerance)
-        #expect(abs(pvt2.hardForkInitiation    - pvt.hardForkInitiation)    < tolerance)
-        #expect(abs(pvt2.motionNoConfidence    - pvt.motionNoConfidence)    < tolerance)
-        #expect(abs(pvt2.ppSecurityGroup       - pvt.ppSecurityGroup)       < tolerance)
+        #expect(pvt2.committeeNoConfidence == pvt.committeeNoConfidence)
+        #expect(pvt2.committeeNormal == pvt.committeeNormal)
+        #expect(pvt2.hardForkInitiation == pvt.hardForkInitiation)
+        #expect(pvt2.motionNoConfidence == pvt.motionNoConfidence)
+        #expect(pvt2.ppSecurityGroup == pvt.ppSecurityGroup)
     }
 
     @Test("CBOR toCBORData / fromCBOR helpers")
@@ -142,21 +140,16 @@ struct ProtocolParametersTests {
         #expect(update.drepInactivityPeriod   == EpochInterval(params.dRepActivity))
     }
 
-    @Test("Conversion to ProtocolParamUpdate approximates rate fields")
+    @Test("Conversion to ProtocolParamUpdate copies rate fields exactly")
     func testConversionRateFields() async throws {
         let params = try loadParams()
         let update = ProtocolParamUpdate(from: params)
-        let tolerance = 1e-6
 
-        if let rate = update.expansionRate {
-            #expect(abs(rate.toDouble - params.monetaryExpansion) < tolerance)
-        }
-        if let rate = update.treasuryGrowthRate {
-            #expect(abs(rate.toDouble - params.treasuryCut) < tolerance)
-        }
-        if let rate = update.poolPledgeInfluence {
-            #expect(abs(rate.toDouble - params.poolPledgeInfluence) < tolerance)
-        }
+        #expect(update.expansionRate == params.monetaryExpansion)
+        #expect(update.treasuryGrowthRate == params.treasuryCut)
+        #expect(update.poolPledgeInfluence == params.poolPledgeInfluence)
+        #expect(update.executionCosts?.memPrice == NonNegativeInterval(numerator: 577, denominator: 10_000))
+        #expect(update.executionCosts?.stepPrice == NonNegativeInterval(numerator: 721, denominator: 10_000_000))
     }
 
     @Test("Conversion to ProtocolParamUpdate includes execution units")

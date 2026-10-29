@@ -282,7 +282,7 @@ private func replacingKey(_ primitive: Primitive, _ key: String, with value: Pri
     func n2cForm() throws {
         let params = try ProtocolParameters(from: n2c())
         #expect(params.costModels.PlutusV1 == [1, -2])
-        #expect(params.minFeeRefScriptCostPerByte == 15)
+        #expect(params.minFeeRefScriptCostPerByte == NonNegativeInterval(numerator: 15, denominator: 1))
 
         #expect(throws: CardanoCoreError.self) { try ProtocolParameters(from: n2c(setting: 0, to: twoTo64)) }
         #expect(throws: CardanoCoreError.self) { try ProtocolParameters(from: n2c(setting: 0, to: .int(-1))) }
@@ -310,7 +310,7 @@ private func replacingKey(_ primitive: Primitive, _ key: String, with value: Pri
     func encode() throws {
         let p = try loadParams()
         func with(prices: ExecutionUnitPrices? = nil, tx: ProtocolParametersExecutionUnits? = nil,
-                  pledge: Double? = nil) -> ProtocolParameters {
+                  pledge: NonNegativeInterval? = nil) -> ProtocolParameters {
             ProtocolParameters(
                 collateralPercentage: p.collateralPercentage, committeeMaxTermLength: p.committeeMaxTermLength,
                 committeeMinSize: p.committeeMinSize, costModels: p.costModels, dRepActivity: p.dRepActivity,
@@ -328,13 +328,14 @@ private func replacingKey(_ primitive: Primitive, _ key: String, with value: Pri
                 utxoCostPerByte: p.utxoCostPerByte)
         }
         _ = try with().toPrimitive()
+        // Exact rationals cannot be infinite or NaN; a zero denominator is
+        // what cannot be written now.
+        let zero = NonNegativeInterval(numerator: 1, denominator: 0)
         #expect(throws: CardanoCoreError.self) {
-            try with(prices: ExecutionUnitPrices(priceMemory: 2e20, priceSteps: 0)).toPrimitive()
+            try with(prices: ExecutionUnitPrices(priceMemory: zero, priceSteps: p.executionUnitPrices.priceSteps))
+                .toPrimitive()
         }
-        #expect(throws: CardanoCoreError.self) {
-            try with(prices: ExecutionUnitPrices(priceMemory: .infinity, priceSteps: 0)).toPrimitive()
-        }
-        #expect(throws: CardanoCoreError.self) { try with(pledge: .nan).toPrimitive() }
+        #expect(throws: CardanoCoreError.self) { try with(pledge: zero).toPrimitive() }
         #expect(throws: CardanoCoreError.self) {
             try with(tx: ProtocolParametersExecutionUnits(memory: UInt64(Int64.max) + 1, steps: 0)).toPrimitive()
         }
@@ -346,27 +347,38 @@ private func replacingKey(_ primitive: Primitive, _ key: String, with value: Pri
 @Suite struct DecodeCrashGroupCGenesisTests {
     // Conway
 
+    /// The ledger's ConwayGenesis CBOR, with `index` of its
+    /// `UpgradeConwayPParams` (or, past 9, `index - 10` of the outer list)
+    /// replaced by `value`.
     func conway(setting index: Int? = nil, to value: Primitive = .null) -> Primitive {
         let half = rational(1, 2)
-        var e: [Primitive] = [
+        var upgrade: [Primitive] = [
             .list(Array(repeating: half, count: 5)),
             .list(Array(repeating: half, count: 10)),
             .uint(7), .uint(146), .uint(6), .uint(100_000_000_000), .uint(500_000_000), .uint(20),
             rational(15, 1),
             .list([.uint(1), .int(-2)]),
-            .list([.list([.string("https://example.com"), .string("00")]), .list([])]),
-            .list([.dict([.string("aa"): .uint(580)]), rational(2, 3)]),
         ]
-        if let index { e[index] = value }
-        return .list(e)
+        let credential: Primitive = .list([.uint(1), .bytes(Data(repeating: 0xaa, count: 28))])
+        var outer: [Primitive] = [
+            .null,
+            .list([.list([.string("https://example.com"), .bytes(Data(repeating: 0, count: 32))]), .null]),
+            .list([.orderedDict([credential: .uint(580)]), rational(2, 3)]),
+            .orderedDict([:]), .orderedDict([:]), .list([]),
+        ]
+        if let index {
+            if index < 10 { upgrade[index] = value } else { outer[index - 10] = value }
+        }
+        outer[0] = .list(upgrade)
+        return .list(outer)
     }
 
     @Test("ConwayGenesis decodes, and throws on out-of-range values")
     func conwayGenesis() throws {
         let genesis = try ConwayGenesis(from: conway())
         #expect(genesis.committeeMinSize == 7)
-        #expect(genesis.minFeeRefScriptCostPerByte == 15)
-        #expect(genesis.committee.members["aa"] == 580)
+        #expect(genesis.minFeeRefScriptCostPerByte == NonNegativeInterval(numerator: 15, denominator: 1))
+        #expect(genesis.committee.members["scriptHash-" + String(repeating: "aa", count: 28)] == 580)
         _ = try genesis.toPrimitive()
 
         #expect(throws: CardanoCoreError.self) { try ConwayGenesis(from: conway(setting: 2, to: maxU64)) }
@@ -382,25 +394,21 @@ private func replacingKey(_ primitive: Primitive, _ key: String, with value: Pri
         #expect(throws: CardanoCoreError.self) {
             try ConwayGenesis(from: conway(setting: 1, to: .list(Array(repeating: rational(3, 2), count: 10))))
         }
+        let credential: Primitive = .list([.uint(0), .bytes(Data(repeating: 0xaa, count: 28))])
         #expect(throws: CardanoCoreError.self) {
-            try ConwayGenesis(from: conway(setting: 11, to: .list([.dict([.string("aa"): twoTo64]), rational(2, 3)])))
+            try ConwayGenesis(from: conway(setting: 12, to: .list([.orderedDict([credential: twoTo64]), rational(2, 3)])))
         }
         #expect(throws: CardanoCoreError.self) {
-            try ConwayGenesis(from: conway(setting: 11, to: .list([.dict([:]), rational(UInt64.max, UInt64.max - 1)])))
+            try ConwayGenesis(from: conway(setting: 12, to: .list([.orderedDict([:]), rational(UInt64.max, UInt64.max - 1)])))
         }
     }
 
-    @Test("Conway thresholds that cannot be written throw, not trap")
+    @Test("Conway thresholds outside a unit interval throw, not trap")
     func conwayEncode() throws {
-        let bad = ConwayGenesisPoolVotingThresholds(
-            committeeNormal: .infinity, committeeNoConfidence: 0, hardForkInitiation: 0,
-            motionNoConfidence: 0, ppSecurityGroup: 0)
-        #expect(throws: CardanoCoreError.self) { try bad.toPrimitive() }
-        let huge = ConwayGenesisDRepVotingThresholds(
-            motionNoConfidence: 1e300, committeeNormal: 0, committeeNoConfidence: 0, updateToConstitution: 0,
-            hardForkInitiation: 0, ppNetworkGroup: 0, ppEconomicGroup: 0, ppTechnicalGroup: 0, ppGovGroup: 0,
-            treasuryWithdrawal: .nan)
-        #expect(throws: CardanoCoreError.self) { try huge.toPrimitive() }
+        let above = UnitInterval(numerator: 3, denominator: 2)
+        #expect(throws: CardanoCoreError.self) {
+            try ConwayGenesisPoolVotingThresholds(from: .list(Array(repeating: try above.toPrimitive(), count: 5)))
+        }
     }
 
     // Shelley
@@ -416,12 +424,15 @@ private func replacingKey(_ primitive: Primitive, _ key: String, with value: Pri
         return .list(e)
     }
 
+    /// The ledger's 16-field ShelleyGenesis CBOR, with `index` set to `value`.
     func shelley(setting index: Int? = nil, to value: Primitive = .null) -> Primitive {
         var e: [Primitive] = [
-            .string("2017-09-23T21:44:51Z"), .uint(764_824_073), .uint(1), rational(1, 20),
-            .uint(2160), .uint(432_000), .uint(129_600), .uint(62), .uint(1), .uint(5),
-            .uint(45_000_000_000_000_000), shelleyParams(), .list([]),
-            .list([.list([.string("addr"), .uint(1_000_000)])]),
+            .list([.uint(2017), .uint(266), .uint(78_291_000_000_000_000)]), .uint(764_824_073), .uint(1),
+            .list([.uint(1), .uint(20)]),
+            .uint(2160), .uint(432_000), .uint(129_600), .uint(62), .uint(1_000_000), .uint(5),
+            .uint(45_000_000_000_000_000), shelleyParams(), .orderedDict([:]),
+            .orderedDict([.bytes(Data([0x61] + [UInt8](repeating: 0xab, count: 28))): .uint(1_000_000)]),
+            .list([.orderedDict([:]), .orderedDict([:])]), .list([]),
         ]
         if let index { e[index] = value }
         return .list(e)
@@ -430,28 +441,32 @@ private func replacingKey(_ primitive: Primitive, _ key: String, with value: Pri
     @Test("ShelleyGenesis decodes, and throws on out-of-range values")
     func shelleyGenesis() throws {
         #expect(throws: CardanoCoreError.self) {
-            try ShelleyGenesis.fromCBOR(data: hex("8e 60 1b0000000100000000" + String(repeating: "00", count: 12)))
+            try ShelleyGenesis.fromCBOR(data: hex("90 60 1b0000000100000000" + String(repeating: "00", count: 14)))
         }
 
         let genesis = try ShelleyGenesis(from: shelley())
         #expect(genesis.networkMagic == 764_824_073)
-        #expect(genesis.initialFunds["addr"] == 1_000_000)
+        #expect(genesis.initialFunds["61" + String(repeating: "ab", count: 28)] == 1_000_000)
+        #expect(genesis.systemStart == "2017-09-23T21:44:51Z")
         _ = try genesis.toPrimitive()
 
-        #expect(throws: CardanoCoreError.self) { try ShelleyGenesis(from: shelley(setting: 3, to: rational(1, 0))) }
-        #expect(throws: CardanoCoreError.self) { try ShelleyGenesis(from: shelley(setting: 3, to: rational(0, 1))) }
-        #expect(throws: CardanoCoreError.self) { try ShelleyGenesis(from: shelley(setting: 3, to: rational(3, 2))) }
+        // activeSlotsCoeff is the untagged [n, d] the ledger writes.
+        #expect(throws: CardanoCoreError.self) { try ShelleyGenesis(from: shelley(setting: 3, to: .list([.uint(1), .uint(0)]))) }
+        #expect(throws: CardanoCoreError.self) { try ShelleyGenesis(from: shelley(setting: 3, to: .list([.uint(0), .uint(1)]))) }
+        #expect(throws: CardanoCoreError.self) { try ShelleyGenesis(from: shelley(setting: 3, to: .list([.uint(3), .uint(2)]))) }
+        #expect(throws: CardanoCoreError.self) { try ShelleyGenesis(from: shelley(setting: 3, to: rational(1, 20))) }
         #expect(throws: CardanoCoreError.self) { try ShelleyGenesis(from: shelley(setting: 4, to: twoTo64)) }
         #expect(throws: CardanoCoreError.self) {
             try ShelleyGenesis(from: shelley(setting: 8, to: rational(UInt64.max, 1)))
         }
         #expect(throws: CardanoCoreError.self) { try ShelleyGenesis(from: shelley(setting: 8, to: .string("1"))) }
         #expect(throws: CardanoCoreError.self) { try ShelleyGenesis(from: shelley(setting: 9, to: twoTo64)) }
+        let address = Primitive.bytes(Data([0x61] + [UInt8](repeating: 0xab, count: 28)))
         #expect(throws: CardanoCoreError.self) {
-            try ShelleyGenesis(from: shelley(setting: 13, to: .list([.list([.string("a"), twoTo64])])))
+            try ShelleyGenesis(from: shelley(setting: 13, to: .orderedDict([address: twoTo64])))
         }
         #expect(throws: CardanoCoreError.self) {
-            try ShelleyGenesis(from: shelley(setting: 13, to: .list([.list([.string("a"), .int(-1)])])))
+            try ShelleyGenesis(from: shelley(setting: 13, to: .orderedDict([address: .int(-1)])))
         }
         #expect(throws: CardanoCoreError.self) {
             try ShelleyGenesis(from: shelley(setting: 0, to: .list([maxU64, .uint(1), .uint(0)])))
@@ -479,33 +494,37 @@ private func replacingKey(_ primitive: Primitive, _ key: String, with value: Pri
     @Test("Shelley rationals that cannot be written throw, not trap")
     func shelleyEncode() throws {
         let params = try ProtocolParams(from: shelleyParams())
+        // Exact rationals cannot be infinite or NaN; one outside its type's
+        // range, or with a zero denominator, is what cannot be written now.
         let bad = ProtocolParams(
-            protocolVersion: params.protocolVersion, decentralisationParam: .nan, eMax: params.eMax,
-            extraEntropy: params.extraEntropy, maxTxSize: params.maxTxSize,
+            protocolVersion: params.protocolVersion, decentralisationParam: UnitInterval(numerator: 3, denominator: 2),
+            eMax: params.eMax, extraEntropy: params.extraEntropy, maxTxSize: params.maxTxSize,
             maxBlockBodySize: params.maxBlockBodySize, maxBlockHeaderSize: params.maxBlockHeaderSize,
             minFeeA: params.minFeeA, minFeeB: params.minFeeB, minUTxOValue: params.minUTxOValue,
             poolDeposit: params.poolDeposit, minPoolCost: params.minPoolCost, keyDeposit: params.keyDeposit,
-            nOpt: params.nOpt, rho: params.rho, tau: params.tau, a0: .infinity)
+            nOpt: params.nOpt, rho: params.rho, tau: params.tau, a0: NonNegativeInterval(numerator: 1, denominator: 0))
         #expect(throws: CardanoCoreError.self) { try bad.toPrimitive() }
 
         let genesis = try ShelleyGenesis(from: shelley())
-        let infinite = ShelleyGenesis(
-            activeSlotsCoeff: .infinity, protocolParams: genesis.protocolParams, genDelegs: [:],
-            updateQuorum: 1, networkId: "Mainnet", initialFunds: ["a": 5],
-            maxLovelaceSupply: 1, networkMagic: 1, epochLength: 1, systemStart: "x",
+        let zero = ShelleyGenesis(
+            activeSlotsCoeff: UnitInterval(numerator: 0, denominator: 1), protocolParams: genesis.protocolParams,
+            genDelegs: [:], updateQuorum: 1, networkId: "Mainnet", initialFunds: [:],
+            maxLovelaceSupply: 1, networkMagic: 1, epochLength: 1, systemStart: genesis.systemStart,
             slotsPerKESPeriod: 1, slotLength: 1, maxKESEvolutions: 1, securityParam: 1)
-        #expect(throws: CardanoCoreError.self) { try infinite.toPrimitive() }
+        #expect(throws: CardanoCoreError.self) { try zero.toPrimitive() }
     }
 
     // Alonzo
 
     func alonzo(setting index: Int? = nil, to value: Primitive = .null) -> Primitive {
+        // The ledger's 9 fields: the cost model a plain list, the prices
+        // [prMem, prSteps], and an empty extra config.
         var e: [Primitive] = [
-            .uint(34482), .dict([.uint(0): .list([.uint(1), .int(-2)])]),
-            .list([rational(721, 10_000_000), rational(577, 10_000)]),
+            .uint(34482), .list([.uint(1), .int(-2)] + Array(repeating: .uint(0), count: 164)),
+            .list([rational(577, 10_000), rational(721, 10_000_000)]),
             .list([.uint(10_000_000), .uint(10_000_000_000)]),
             .list([.uint(50_000_000), .uint(40_000_000_000)]),
-            .uint(5000), .uint(150), .uint(3),
+            .uint(5000), .uint(150), .uint(3), .list([]),
         ]
         if let index { e[index] = value }
         return .list(e)
@@ -514,17 +533,26 @@ private func replacingKey(_ primitive: Primitive, _ key: String, with value: Pri
     @Test("AlonzoGenesis decodes, and throws on out-of-range values")
     func alonzoGenesis() throws {
         #expect(throws: CardanoCoreError.self) {
-            try AlonzoGenesis.fromCBOR(data: hex("88 1bffffffffffffffff 00 00 00 00 00 00 00"))
+            try AlonzoGenesis.fromCBOR(data: hex("89 1bffffffffffffffff 00 00 00 00 00 00 00 80"))
         }
 
         let genesis = try AlonzoGenesis(from: alonzo())
-        #expect(genesis.costModels.plutusV1 == ["0": 1, "1": -2])
+        #expect(genesis.costModels.plutusV1 == [1, -2] + Array(repeating: 0, count: 164))
+        #expect(genesis.executionPrices.priceMemory == NonNegativeInterval(numerator: 577, denominator: 10_000))
+        #expect(genesis.executionPrices.priceSteps == NonNegativeInterval(numerator: 721, denominator: 10_000_000))
         _ = try genesis.toPrimitive()
 
         #expect(throws: CardanoCoreError.self) {
-            try AlonzoGenesis(from: alonzo(setting: 1, to: .dict([.uint(0): .list([maxU64])])))
+            try AlonzoGenesis(from: alonzo(setting: 1, to: .list(Array(repeating: maxU64, count: 166))))
         }
-        _ = try AlonzoGenesis(from: alonzo(setting: 1, to: .dict([maxU64: .list([])])))
+        // Exactly 166 PlutusV1 parameters, as decodeCostModelLegacy requires.
+        #expect(throws: CardanoCoreError.self) {
+            try AlonzoGenesis(from: alonzo(setting: 1, to: .list(Array(repeating: .uint(0), count: 165))))
+        }
+        // The genesis cost model is a list, not a language map.
+        #expect(throws: CardanoCoreError.self) {
+            try AlonzoGenesis(from: alonzo(setting: 1, to: .dict([.uint(0): .list([])])))
+        }
         #expect(throws: CardanoCoreError.self) {
             try AlonzoGenesis(from: alonzo(setting: 2, to: .list([rational(1, 0), rational(1, 1)])))
         }

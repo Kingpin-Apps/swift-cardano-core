@@ -1,37 +1,9 @@
 import Foundation
 import OrderedCollections
 import CBORCodable
+@preconcurrency import BigInt
 
 public let ALONZO_COINS_PER_UTXO_WORD = 34482
-
-// MARK: - Fraction helpers (Conway CBOR ↔ Double)
-
-private func gcd(_ a: UInt64, _ b: UInt64) -> UInt64 {
-    b == 0 ? a : gcd(b, a % b)
-}
-
-internal func doubleToUnitInterval(_ value: Double, precision: UInt64 = 1_000_000_000) -> UnitInterval? {
-    guard value >= 0, value <= 1,
-        let num = UInt64(exactly: (value * Double(precision)).rounded())
-    else { return nil }
-    let g = gcd(num, precision)
-    return UnitInterval(numerator: num / g, denominator: precision / g)
-}
-
-/// `nil` when `value` is negative, not finite, or too large to write with
-/// this precision.
-internal func doubleToNonNegativeInterval(_ value: Double, precision: UInt64 = 1_000_000_000) -> NonNegativeInterval? {
-    // A whole number is written exactly, over one, so any whole value up to
-    // the ledger's Word64 numerator can be written.
-    if value >= 0, value == value.rounded(.towardZero), let whole = UInt64(exactly: value) {
-        return NonNegativeInterval(lowerBound: whole, upperBound: 1)
-    }
-    guard value >= 0,
-        let num = UInt64(exactly: (value * Double(precision)).rounded())
-    else { return nil }
-    let g = gcd(num, precision)
-    return NonNegativeInterval(lowerBound: num / g, upperBound: precision / g)
-}
 
 /// An execution-unit count read from CBOR. The ledger holds it as a
 /// `Natural`, but its CBOR decoder reads a `Word64` and refuses anything above
@@ -42,27 +14,6 @@ internal func exUnitsParameter(_ primitive: Primitive, _ what: @autoclosure () -
         throw CardanoCoreError.deserializeError("\(what()): \(value) is above Int64.max")
     }
     return value
-}
-
-/// A rational parameter held as a `Double` must lie in the range of the
-/// ledger's type: `UnitInterval` in `0 ... 1`, `NonNegativeInterval` at or
-/// above zero.
-private func checkRational(_ value: Double, _ what: String, atMostOne: Bool) throws {
-    guard value.isFinite, value >= 0, !atMostOne || value <= 1 else {
-        throw CardanoCoreError.deserializeError(
-            "\(what): \(value) is not \(atMostOne ? "in 0 ... 1" : "a non-negative number")")
-    }
-}
-
-extension UnitInterval {
-    internal var toDouble: Double { Double(numerator) / Double(denominator) }
-}
-
-extension NonNegativeInterval {
-    internal var toDouble: Double {
-        guard upperBound > 0 else { return 0 }
-        return Double(lowerBound) / Double(upperBound)
-    }
 }
 
 // MARK: - ProtocolParameters
@@ -103,17 +54,21 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
     public let maxValueSize: UInt32
     public let maxReferenceScriptsSize: Int64?
     public let minFeeReferenceScripts: MinReferenceScriptsSize?
-    public let minFeeRefScriptCostPerByte: Double?
+    /// A `NonNegativeInterval`, held exactly.
+    public let minFeeRefScriptCostPerByte: NonNegativeInterval?
     public let minPoolCost: Coin
-    public let monetaryExpansion: Double
-    public let poolPledgeInfluence: Double
+    /// `rho`, a `UnitInterval`, held exactly.
+    public let monetaryExpansion: UnitInterval
+    /// `a0`, a `NonNegativeInterval`, held exactly.
+    public let poolPledgeInfluence: NonNegativeInterval
     public let poolRetireMaxEpoch: EpochInterval
     public let poolVotingThresholds: ProtocolParametersPoolVotingThresholds
     public let protocolVersion: ProtocolParametersProtocolVersion
     public let stakeAddressDeposit: Coin
     public let stakePoolDeposit: Coin
     public let stakePoolTargetNum: UInt16
-    public let treasuryCut: Double
+    /// `tau`, a `UnitInterval`, held exactly.
+    public let treasuryCut: UnitInterval
     public let txFeeFixed: Coin
     public let txFeePerByte: Coin
     public let utxoCostPerByte: Coin
@@ -213,17 +168,17 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
                 maxValueSize: UInt32,
                 maxReferenceScriptsSize: Int64? = nil,
                 minFeeReferenceScripts: MinReferenceScriptsSize? = nil,
-                minFeeRefScriptCostPerByte: Double? = nil,
+                minFeeRefScriptCostPerByte: NonNegativeInterval? = nil,
                 minPoolCost: Coin,
-                monetaryExpansion: Double,
-                poolPledgeInfluence: Double,
+                monetaryExpansion: UnitInterval,
+                poolPledgeInfluence: NonNegativeInterval,
                 poolRetireMaxEpoch: EpochInterval,
                 poolVotingThresholds: ProtocolParametersPoolVotingThresholds,
                 protocolVersion: ProtocolParametersProtocolVersion,
                 stakeAddressDeposit: Coin,
                 stakePoolDeposit: Coin,
                 stakePoolTargetNum: UInt16,
-                treasuryCut: Double,
+                treasuryCut: UnitInterval,
                 txFeeFixed: Coin,
                 txFeePerByte: Coin,
                 utxoCostPerByte: Coin
@@ -291,17 +246,19 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
             let maxValueSize            = try c.decode(UInt32.self, forKey: .maxValueSize)
             let maxReferenceScriptsSize     = try c.decodeIfPresent(Int64.self, forKey: .maxReferenceScriptsSize)
             let minFeeReferenceScripts      = try c.decodeIfPresent(MinReferenceScriptsSize.self, forKey: .minFeeReferenceScripts)
-            let minFeeRefScriptCostPerByte  = try c.decodeIfPresent(Double.self, forKey: .minFeeRefScriptCostPerByte)
+            let minFeeRefScriptCostPerByte  = try c.decodeNonNegativeIntervalIfPresent(forKey: .minFeeRefScriptCostPerByte)
             let minPoolCost             = try c.decode(Coin.self, forKey: .minPoolCost)
-            let monetaryExpansion       = try c.decode(Double.self, forKey: .monetaryExpansion)
-            let poolPledgeInfluence     = try c.decode(Double.self, forKey: .poolPledgeInfluence)
+            // Rationals are read from the number's text exactly, as the
+            // ledger reads a JSON number into a `BoundedRatio Word64`.
+            let monetaryExpansion       = try c.decodeUnitInterval(forKey: .monetaryExpansion)
+            let poolPledgeInfluence     = try c.decodeNonNegativeInterval(forKey: .poolPledgeInfluence)
             let poolRetireMaxEpoch      = try c.decode(EpochInterval.self, forKey: .poolRetireMaxEpoch)
             let poolVotingThresholds    = try c.decode(ProtocolParametersPoolVotingThresholds.self, forKey: .poolVotingThresholds)
             let protocolVersion         = try c.decode(ProtocolParametersProtocolVersion.self, forKey: .protocolVersion)
             let stakeAddressDeposit     = try c.decode(Coin.self, forKey: .stakeAddressDeposit)
             let stakePoolDeposit        = try c.decode(Coin.self, forKey: .stakePoolDeposit)
             let stakePoolTargetNum      = try c.decode(UInt16.self, forKey: .stakePoolTargetNum)
-            let treasuryCut             = try c.decode(Double.self, forKey: .treasuryCut)
+            let treasuryCut             = try c.decodeUnitInterval(forKey: .treasuryCut)
             let txFeeFixed              = try c.decode(Coin.self, forKey: .txFeeFixed)
             let txFeePerByte            = try c.decode(Coin.self, forKey: .txFeePerByte)
             let utxoCostPerByte         = try c.decode(Coin.self, forKey: .utxoCostPerByte)
@@ -341,7 +298,6 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
                 txFeePerByte: txFeePerByte,
                 utxoCostPerByte: utxoCostPerByte
             )
-            try checkRationalRanges()
         } else {
             // CBOR path: decode via Primitive so init(from primitive:) handles both
             // the map format (protocol_param_update) and the n2c 31-element array.
@@ -373,17 +329,17 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
             try c.encode(maxValueSize, forKey: .maxValueSize)
             try c.encodeIfPresent(maxReferenceScriptsSize, forKey: .maxReferenceScriptsSize)
             try c.encodeIfPresent(minFeeReferenceScripts, forKey: .minFeeReferenceScripts)
-            try c.encodeIfPresent(minFeeRefScriptCostPerByte, forKey: .minFeeRefScriptCostPerByte)
+            try c.encodeLedgerRationalIfPresent(minFeeRefScriptCostPerByte, forKey: .minFeeRefScriptCostPerByte)
             try c.encode(minPoolCost, forKey: .minPoolCost)
-            try c.encode(monetaryExpansion, forKey: .monetaryExpansion)
-            try c.encode(poolPledgeInfluence, forKey: .poolPledgeInfluence)
+            try c.encodeLedgerRational(monetaryExpansion, forKey: .monetaryExpansion)
+            try c.encodeLedgerRational(poolPledgeInfluence, forKey: .poolPledgeInfluence)
             try c.encode(poolRetireMaxEpoch, forKey: .poolRetireMaxEpoch)
             try c.encode(poolVotingThresholds, forKey: .poolVotingThresholds)
             try c.encode(protocolVersion, forKey: .protocolVersion)
             try c.encode(stakeAddressDeposit, forKey: .stakeAddressDeposit)
             try c.encode(stakePoolDeposit, forKey: .stakePoolDeposit)
             try c.encode(stakePoolTargetNum, forKey: .stakePoolTargetNum)
-            try c.encode(treasuryCut, forKey: .treasuryCut)
+            try c.encodeLedgerRational(treasuryCut, forKey: .treasuryCut)
             try c.encode(txFeeFixed, forKey: .txFeeFixed)
             try c.encode(txFeePerByte, forKey: .txFeePerByte)
             try c.encode(utxoCostPerByte, forKey: .utxoCostPerByte)
@@ -468,9 +424,11 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
         let poolRetireMaxEpoch  = try intVal(.maximumEpoch, as: UInt32.self)
         let stakePoolTargetNum  = try intVal(.nOpt, as: UInt16.self)
 
-        let poolPledgeInfluence = try NonNegativeInterval(from: require(.poolPledgeInfluence)).toDouble
-        let monetaryExpansion   = try UnitInterval(from: require(.expansionRate)).toDouble
-        let treasuryCut         = try UnitInterval(from: require(.treasuryGrowthRate)).toDouble
+        // Rationals as the ledger reads them: `#6.30` pairs, reduced, within
+        // the range of their type.
+        let poolPledgeInfluence = try NonNegativeInterval.ledgerCBOR(require(.poolPledgeInfluence), "poolPledgeInfluence")
+        let monetaryExpansion   = try UnitInterval.ledgerCBOR(require(.expansionRate), "monetaryExpansion")
+        let treasuryCut         = try UnitInterval.ledgerCBOR(require(.treasuryGrowthRate), "treasuryCut")
 
         let pv = try ProtocolVersion(from: require(.protocolVersion))
         guard let pvMajor = UInt32(exactly: pv.major ?? 0), let pvMinor = UInt32(exactly: pv.minor ?? 0) else {
@@ -488,11 +446,7 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
             PlutusV3: cborCM.plutusV3.map { Array($0.values) } ?? []
         )
 
-        let prices = try ExUnitPrices(from: require(.executionCosts))
-        let executionUnitPrices = ExecutionUnitPrices(
-            priceMemory: prices.memPrice.toDouble,
-            priceSteps:  prices.stepPrice.toDouble
-        )
+        let executionUnitPrices = try ExecutionUnitPrices(cbor: require(.executionCosts), "executionCosts")
 
         let txU = try ExUnits(from: require(.maxTxExUnits))
         let maxTxExecutionUnits = ProtocolParametersExecutionUnits(
@@ -509,31 +463,8 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
         let collateralPercentage = try intVal(.collateralPercentage, as: UInt16.self)
         let maxCollateralInputs  = try intVal(.maxCollateralInputs, as: UInt16.self)
 
-        let pvtCBOR = try PoolVotingThresholds(from: require(.poolVotingThresholds))
-        let poolVotingThresholds = ProtocolParametersPoolVotingThresholds(
-            committeeNoConfidence: pvtCBOR.committeeNoConfidence?.toDouble ?? 0,
-            committeeNormal:       pvtCBOR.committeeNormal?.toDouble ?? 0,
-            hardForkInitiation:    pvtCBOR.hardForkInitiation?.toDouble ?? 0,
-            motionNoConfidence:    pvtCBOR.motionNoConfidence?.toDouble ?? 0,
-            ppSecurityGroup:       pvtCBOR.ppSecurityGroup?.toDouble ?? 0
-        )
-
-        let dvtCBOR = try DrepVotingThresholds(from: require(.drepVotingThresholds))
-        guard dvtCBOR.thresholds.count == 10 else {
-            throw CardanoCoreError.deserializeError("dRepVotingThresholds must have 10 elements")
-        }
-        let dRepVotingThresholds = DRepVotingThresholds(
-            committeeNoConfidence: dvtCBOR.thresholds[2].toDouble,
-            committeeNormal:       dvtCBOR.thresholds[1].toDouble,
-            hardForkInitiation:    dvtCBOR.thresholds[4].toDouble,
-            motionNoConfidence:    dvtCBOR.thresholds[0].toDouble,
-            ppEconomicGroup:       dvtCBOR.thresholds[6].toDouble,
-            ppGovGroup:            dvtCBOR.thresholds[8].toDouble,
-            ppNetworkGroup:        dvtCBOR.thresholds[5].toDouble,
-            ppTechnicalGroup:      dvtCBOR.thresholds[7].toDouble,
-            treasuryWithdrawal:    dvtCBOR.thresholds[9].toDouble,
-            updateToConstitution:  dvtCBOR.thresholds[3].toDouble
-        )
+        let poolVotingThresholds = try ProtocolParametersPoolVotingThresholds(cbor: require(.poolVotingThresholds))
+        let dRepVotingThresholds = try DRepVotingThresholds(cbor: require(.drepVotingThresholds))
 
         let committeeMinSize       = try intVal(.minCommitteeSize, as: UInt16.self)
         let committeeMaxTermLength = try intVal(.committeeTermLimit, as: UInt32.self)
@@ -544,15 +475,8 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
 
         // A NonNegativeInterval in the ledger: the whole rational, not just
         // its numerator.
-        let minFeeRefScriptCostPerByte: Double?
-        if let p = map[CBORKey.minFeeRefScriptCoinsPerByte.rawValue] {
-            let interval = try NonNegativeInterval(from: p)
-            guard interval.upperBound > 0 else {
-                throw CardanoCoreError.deserializeError("ProtocolParameters CBOR key 33: denominator is zero")
-            }
-            minFeeRefScriptCostPerByte = interval.toDouble
-        } else {
-            minFeeRefScriptCostPerByte = nil
+        let minFeeRefScriptCostPerByte = try map[CBORKey.minFeeRefScriptCoinsPerByte.rawValue].map {
+            try NonNegativeInterval.ledgerCBOR($0, "minFeeRefScriptCostPerByte")
         }
 
         self.init(
@@ -603,21 +527,6 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
         dict[.int(CBORKey.maximumEpoch.rawValue)]      = .integer(poolRetireMaxEpoch)
         dict[.int(CBORKey.nOpt.rawValue)]              = .integer(stakePoolTargetNum)
 
-        // A rate that cannot be written as an interval — negative, above one
-        // where it must be at most one, not finite, or too large — would
-        // leave out a parameter the decoder requires.
-        func nonNegative(_ value: Double, _ what: String) throws -> NonNegativeInterval {
-            guard let interval = doubleToNonNegativeInterval(value) else {
-                throw CardanoCoreError.valueError("\(what): \(value) is not a non-negative interval")
-            }
-            return interval
-        }
-        func unit(_ value: Double, _ what: String) throws -> UnitInterval {
-            guard let interval = doubleToUnitInterval(value) else {
-                throw CardanoCoreError.valueError("\(what): \(value) is not a unit interval")
-            }
-            return interval
-        }
         // The ledger's CBOR decoder refuses execution units above Int64.max.
         func exUnit(_ value: UInt64, _ what: String) throws -> UInt64 {
             guard value <= UInt64(Int64.max) else {
@@ -626,12 +535,16 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
             return value
         }
 
-        dict[.int(CBORKey.poolPledgeInfluence.rawValue)] =
-            try nonNegative(poolPledgeInfluence, "poolPledgeInfluence").toPrimitive()
-        dict[.int(CBORKey.expansionRate.rawValue)] =
-            try unit(monetaryExpansion, "monetaryExpansion").toPrimitive()
-        dict[.int(CBORKey.treasuryGrowthRate.rawValue)] =
-            try unit(treasuryCut, "treasuryCut").toPrimitive()
+        // Rationals as the ledger writes them: reduced, as `#6.30` pairs. A
+        // value outside its type's range is refused rather than written.
+        try LedgerRational.check(poolPledgeInfluence.numerator, poolPledgeInfluence.denominator,
+                                 .nonNegativeInterval, "poolPledgeInfluence")
+        try LedgerRational.check(monetaryExpansion.numerator, monetaryExpansion.denominator,
+                                 .unitInterval, "monetaryExpansion")
+        try LedgerRational.check(treasuryCut.numerator, treasuryCut.denominator, .unitInterval, "treasuryCut")
+        dict[.int(CBORKey.poolPledgeInfluence.rawValue)] = poolPledgeInfluence.ledgerPrimitive()
+        dict[.int(CBORKey.expansionRate.rawValue)] = monetaryExpansion.ledgerPrimitive()
+        dict[.int(CBORKey.treasuryGrowthRate.rawValue)] = treasuryCut.ledgerPrimitive()
 
         dict[.int(CBORKey.protocolVersion.rawValue)] = try ProtocolVersion(
             major: Int(protocolVersion.major), minor: Int(protocolVersion.minor)
@@ -657,10 +570,7 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
         }
         dict[.int(CBORKey.costModels.rawValue)] = .dict(cmDict)
 
-        dict[.int(CBORKey.executionCosts.rawValue)] = try ExUnitPrices(
-            memPrice: try nonNegative(executionUnitPrices.priceMemory, "priceMemory"),
-            stepPrice: try nonNegative(executionUnitPrices.priceSteps, "priceSteps")
-        ).toPrimitive()
+        dict[.int(CBORKey.executionCosts.rawValue)] = try executionUnitPrices.ledgerPrimitive()
 
         dict[.int(CBORKey.maxTxExUnits.rawValue)] = try ExUnits(
             mem: try exUnit(maxTxExecutionUnits.memory, "maxTxExecutionUnits memory"),
@@ -675,24 +585,8 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
         dict[.int(CBORKey.collateralPercentage.rawValue)]  = .integer(collateralPercentage)
         dict[.int(CBORKey.maxCollateralInputs.rawValue)]   = .integer(maxCollateralInputs)
 
-        let pvt = poolVotingThresholds
-        dict[.int(CBORKey.poolVotingThresholds.rawValue)] = try PoolVotingThresholds(
-            committeeNoConfidence: try unit(pvt.committeeNoConfidence, "poolVotingThresholds"),
-            committeeNormal: try unit(pvt.committeeNormal, "poolVotingThresholds"),
-            hardForkInitiation: try unit(pvt.hardForkInitiation, "poolVotingThresholds"),
-            motionNoConfidence: try unit(pvt.motionNoConfidence, "poolVotingThresholds"),
-            ppSecurityGroup: try unit(pvt.ppSecurityGroup, "poolVotingThresholds")
-        ).toPrimitive()
-
-        let dvt = dRepVotingThresholds
-        let dvtIntervals = try [
-            dvt.motionNoConfidence,  dvt.committeeNormal,  dvt.committeeNoConfidence,
-            dvt.updateToConstitution, dvt.hardForkInitiation, dvt.ppNetworkGroup,
-            dvt.ppEconomicGroup, dvt.ppTechnicalGroup, dvt.ppGovGroup, dvt.treasuryWithdrawal
-        ].map { try unit($0, "dRepVotingThresholds") }
-        dict[.int(CBORKey.drepVotingThresholds.rawValue)] = try DrepVotingThresholds(
-            thresholds: dvtIntervals
-        ).toPrimitive()
+        dict[.int(CBORKey.poolVotingThresholds.rawValue)] = try poolVotingThresholds.ledgerPrimitive()
+        dict[.int(CBORKey.drepVotingThresholds.rawValue)] = try dRepVotingThresholds.ledgerPrimitive()
 
         dict[.int(CBORKey.minCommitteeSize.rawValue)]       = .integer(committeeMinSize)
         dict[.int(CBORKey.committeeTermLimit.rawValue)]     = .integer(committeeMaxTermLength)
@@ -701,8 +595,9 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
         dict[.int(CBORKey.drepDeposit.rawValue)]            = .integer(dRepDeposit)
         dict[.int(CBORKey.drepInactivityPeriod.rawValue)]   = .integer(dRepActivity)
         if let minFeeRefScriptCostPerByte {
-            dict[.int(CBORKey.minFeeRefScriptCoinsPerByte.rawValue)] =
-                try nonNegative(minFeeRefScriptCostPerByte, "minFeeRefScriptCostPerByte").toPrimitive()
+            try LedgerRational.check(minFeeRefScriptCostPerByte.numerator, minFeeRefScriptCostPerByte.denominator,
+                                     .nonNegativeInterval, "minFeeRefScriptCostPerByte")
+            dict[.int(CBORKey.minFeeRefScriptCoinsPerByte.rawValue)] = minFeeRefScriptCostPerByte.ledgerPrimitive()
         }
 
         return .dict(dict)
@@ -730,9 +625,9 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
         let poolRetireMaxEpoch  = try uint(7, as: UInt32.self)
         let stakePoolTargetNum  = try uint(8, as: UInt16.self)
 
-        let poolPledgeInfluence = try ProtocolParameters.rationalToDouble(elements[9])
-        let monetaryExpansion   = try ProtocolParameters.rationalToDouble(elements[10])
-        let treasuryCut         = try ProtocolParameters.rationalToDouble(elements[11])
+        let poolPledgeInfluence = try NonNegativeInterval.ledgerCBOR(elements[9], "n2c poolPledgeInfluence")
+        let monetaryExpansion   = try UnitInterval.ledgerCBOR(elements[10], "n2c monetaryExpansion")
+        let treasuryCut         = try UnitInterval.ledgerCBOR(elements[11], "n2c treasuryCut")
 
         guard case .list(let pvArr) = elements[12], pvArr.count == 2 else {
             throw CardanoCoreError.deserializeError("Invalid protocolVersion at n2c position 12")
@@ -746,13 +641,7 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
 
         let costModels = try ProtocolParameters.decodeCostModelsRaw(elements[15])
 
-        guard case .list(let ecArr) = elements[16], ecArr.count == 2 else {
-            throw CardanoCoreError.deserializeError("Invalid executionCosts at n2c position 16")
-        }
-        let executionUnitPrices = ExecutionUnitPrices(
-            priceMemory: try ProtocolParameters.rationalToDouble(ecArr[0]),
-            priceSteps:  try ProtocolParameters.rationalToDouble(ecArr[1])
-        )
+        let executionUnitPrices = try ExecutionUnitPrices(cbor: elements[16], "n2c executionCosts")
 
         guard case .list(let txExArr) = elements[17], txExArr.count == 2 else {
             throw CardanoCoreError.deserializeError("Invalid maxTxExUnits at n2c position 17")
@@ -774,32 +663,8 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
         let collateralPercentage = try uint(20, as: UInt16.self)
         let maxCollateralInputs  = try uint(21, as: UInt16.self)
 
-        guard case .list(let pvtArr) = elements[22], pvtArr.count == 5 else {
-            throw CardanoCoreError.deserializeError("Invalid poolVotingThresholds at n2c position 22")
-        }
-        let poolVotingThresholds = ProtocolParametersPoolVotingThresholds(
-            committeeNoConfidence: try ProtocolParameters.rationalToDouble(pvtArr[0]),
-            committeeNormal:       try ProtocolParameters.rationalToDouble(pvtArr[1]),
-            hardForkInitiation:    try ProtocolParameters.rationalToDouble(pvtArr[2]),
-            motionNoConfidence:    try ProtocolParameters.rationalToDouble(pvtArr[3]),
-            ppSecurityGroup:       try ProtocolParameters.rationalToDouble(pvtArr[4])
-        )
-
-        guard case .list(let dvtArr) = elements[23], dvtArr.count == 10 else {
-            throw CardanoCoreError.deserializeError("Invalid dRepVotingThresholds at n2c position 23")
-        }
-        let dRepVotingThresholds = DRepVotingThresholds(
-            committeeNoConfidence: try ProtocolParameters.rationalToDouble(dvtArr[2]),
-            committeeNormal:       try ProtocolParameters.rationalToDouble(dvtArr[1]),
-            hardForkInitiation:    try ProtocolParameters.rationalToDouble(dvtArr[4]),
-            motionNoConfidence:    try ProtocolParameters.rationalToDouble(dvtArr[0]),
-            ppEconomicGroup:       try ProtocolParameters.rationalToDouble(dvtArr[6]),
-            ppGovGroup:            try ProtocolParameters.rationalToDouble(dvtArr[8]),
-            ppNetworkGroup:        try ProtocolParameters.rationalToDouble(dvtArr[5]),
-            ppTechnicalGroup:      try ProtocolParameters.rationalToDouble(dvtArr[7]),
-            treasuryWithdrawal:    try ProtocolParameters.rationalToDouble(dvtArr[9]),
-            updateToConstitution:  try ProtocolParameters.rationalToDouble(dvtArr[3])
-        )
+        let poolVotingThresholds = try ProtocolParametersPoolVotingThresholds(cbor: elements[22])
+        let dRepVotingThresholds = try DRepVotingThresholds(cbor: elements[23])
 
         let committeeMinSize       = try uint(24, as: UInt16.self)
         let committeeMaxTermLength = try uint(25, as: UInt32.self)
@@ -807,7 +672,7 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
         let govActionDeposit       = try uint(27)
         let dRepDeposit            = try uint(28)
         let dRepActivity           = try uint(29, as: UInt32.self)
-        let minFeeRefScriptCostPerByte = try ProtocolParameters.rationalToDouble(elements[30])
+        let minFeeRefScriptCostPerByte = try NonNegativeInterval.ledgerCBOR(elements[30], "n2c minFeeRefScriptCostPerByte")
 
         self.init(
             collateralPercentage: collateralPercentage,
@@ -842,30 +707,6 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
             txFeePerByte: txFeePerByte,
             utxoCostPerByte: utxoCostPerByte
         )
-        try checkRationalRanges()
-    }
-
-    /// Throws when a rational parameter is outside its ledger type's range.
-    private func checkRationalRanges() throws {
-        try checkRational(poolPledgeInfluence, "poolPledgeInfluence", atMostOne: false)
-        try checkRational(monetaryExpansion, "monetaryExpansion", atMostOne: true)
-        try checkRational(treasuryCut, "treasuryCut", atMostOne: true)
-        try checkRational(executionUnitPrices.priceMemory, "priceMemory", atMostOne: false)
-        try checkRational(executionUnitPrices.priceSteps, "priceSteps", atMostOne: false)
-        if let minFeeRefScriptCostPerByte {
-            try checkRational(minFeeRefScriptCostPerByte, "minFeeRefScriptCostPerByte", atMostOne: false)
-        }
-        let p = poolVotingThresholds
-        for value in [p.committeeNoConfidence, p.committeeNormal, p.hardForkInitiation,
-                      p.motionNoConfidence, p.ppSecurityGroup] {
-            try checkRational(value, "poolVotingThresholds", atMostOne: true)
-        }
-        let d = dRepVotingThresholds
-        for value in [d.committeeNoConfidence, d.committeeNormal, d.hardForkInitiation, d.motionNoConfidence,
-                      d.ppEconomicGroup, d.ppGovGroup, d.ppNetworkGroup, d.ppTechnicalGroup,
-                      d.treasuryWithdrawal, d.updateToConstitution] {
-            try checkRational(value, "dRepVotingThresholds", atMostOne: true)
-        }
     }
 
     // MARK: - JSONSerializable (Serializable requirement)
@@ -879,7 +720,45 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
     public func toDict() throws -> Primitive {
         let jsonData = try JSONEncoder().encode(self)
         let jsonAny = try JSONSerialization.jsonObject(with: jsonData)
-        return try Self.jsonAnyToPrimitive(jsonAny)
+        guard case .orderedDict(var dict) = try Self.jsonAnyToPrimitive(jsonAny) else {
+            throw CardanoCoreError.valueError("ProtocolParameters JSON must be an object")
+        }
+        // JSONSerialization reads a decimal into a Double, which cannot hold
+        // most of them; put the rationals back exactly.
+        func set(_ value: Primitive, _ path: String...) {
+            func put(_ value: Primitive, _ path: ArraySlice<String>,
+                     in dict: inout OrderedDictionary<Primitive, Primitive>) {
+                guard let key = path.first else { return }
+                if path.count == 1 {
+                    dict[.string(key)] = value
+                } else if case .orderedDict(var inner)? = dict[.string(key)] {
+                    put(value, path.dropFirst(), in: &inner)
+                    dict[.string(key)] = .orderedDict(inner)
+                }
+            }
+            put(value, path[...], in: &dict)
+        }
+        set(monetaryExpansion.jsonPrimitive, "monetaryExpansion")
+        set(treasuryCut.jsonPrimitive, "treasuryCut")
+        set(poolPledgeInfluence.jsonPrimitive, "poolPledgeInfluence")
+        if let minFeeRefScriptCostPerByte {
+            set(minFeeRefScriptCostPerByte.jsonPrimitive, "minFeeRefScriptCostPerByte")
+        }
+        set(executionUnitPrices.priceMemory.jsonPrimitive, "executionUnitPrices", "priceMemory")
+        set(executionUnitPrices.priceSteps.jsonPrimitive, "executionUnitPrices", "priceSteps")
+        for (key, value) in poolVotingThresholds.namedValues {
+            set(value.jsonPrimitive, "poolVotingThresholds", key)
+        }
+        for (key, value) in dRepVotingThresholds.namedValues {
+            set(value.jsonPrimitive, "dRepVotingThresholds", key)
+        }
+        if let base = minFeeReferenceScripts?.base {
+            set(base.jsonPrimitive, "minFeeReferenceScripts", "base")
+        }
+        if let multiplier = minFeeReferenceScripts?.multiplier {
+            set(multiplier.jsonPrimitive, "minFeeReferenceScripts", "multiplier")
+        }
+        return .orderedDict(dict)
     }
 
     // MARK: - Private JSON ↔ Primitive helpers
@@ -924,46 +803,16 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
         }
     }
 
-    private static func rationalToDouble(_ p: Primitive) throws -> Double {
-        switch p {
-        case .unitInterval(let ui):
-            guard ui.denominator > 0 else {
-                throw CardanoCoreError.deserializeError("Rational has a zero denominator")
-            }
-            return Double(ui.numerator) / Double(ui.denominator)
-        default:
-            break
-        }
-        let elements: [Primitive]
-        switch p {
-        case .cborTag(let tagged) where tagged.tag == 30:
-            guard case .list(let arr) = tagged.value else {
-                throw CardanoCoreError.deserializeError("tag-30 rational value must be a list")
-            }
-            elements = arr
-        case .list(let arr):
-            elements = arr
-        default:
-            throw CardanoCoreError.deserializeError("Expected rational (tag-30 or list): \(p)")
-        }
-        guard elements.count == 2 else {
-            throw CardanoCoreError.deserializeError("Rational must have 2 elements")
-        }
-        // The ledger's rationals are BoundedRatio Word64.
-        let num = try elements[0].integer("Rational numerator", as: UInt64.self)
-        let den = try elements[1].integer("Rational denominator", as: UInt64.self)
-        guard den > 0 else {
-            throw CardanoCoreError.deserializeError("Rational has a zero denominator")
-        }
-        return Double(num) / Double(den)
-    }
-
     private static func primitiveToJSONAny(_ primitive: Primitive) throws -> Any {
         switch primitive {
         case .string(let s):   return s
         case .int(let i):      return i
         case .uint(let u):     return Int64(exactly: u).map { $0 as Any } ?? u
-        case .float(let f):    return f
+        // A Double as the shortest decimal that reads back to it: what was
+        // meant by 0.0577, where JSONSerialization would write 17 digits.
+        case .float(let f):    return f.isFinite ? NSDecimalNumber(string: "\(f)") : f
+        // Written as its exact digits.
+        case .decimal(let d):  return NSDecimalNumber(decimal: d)
         case .bool(let b):     return b
         case .null:            return NSNull()
         case .list(let arr):   return try arr.map { try primitiveToJSONAny($0) }
@@ -992,6 +841,8 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
         // A coin above Int64.max, which JSONSerialization reads as an
         // unsigned NSNumber.
         case let u as UInt64:  return .uint(u)
+        // A number with more digits than a Double holds, read exactly.
+        case let d as NSDecimalNumber: return .decimal(d.decimalValue)
         case let f as Double:  return .float(f)
         case let b as Bool:    return .bool(b)
         case let arr as [Any]: return .list(try arr.map { try jsonAnyToPrimitive($0) })
@@ -1031,19 +882,23 @@ public struct ProtocolParametersCostModels: Codable, Equatable, Hashable, Sendab
     }
 }
 
+/// The DRep voting thresholds: each a `UnitInterval`, held exactly.
 public struct DRepVotingThresholds: Codable, Equatable, Hashable, Sendable {
-    public let committeeNoConfidence: Double
-    public let committeeNormal: Double
-    public let hardForkInitiation: Double
-    public let motionNoConfidence: Double
-    public let ppEconomicGroup: Double
-    public let ppGovGroup: Double
-    public let ppNetworkGroup: Double
-    public let ppTechnicalGroup: Double
-    public let treasuryWithdrawal: Double
-    public let updateToConstitution: Double
+    public let committeeNoConfidence: UnitInterval
+    public let committeeNormal: UnitInterval
+    public let hardForkInitiation: UnitInterval
+    public let motionNoConfidence: UnitInterval
+    public let ppEconomicGroup: UnitInterval
+    public let ppGovGroup: UnitInterval
+    public let ppNetworkGroup: UnitInterval
+    public let ppTechnicalGroup: UnitInterval
+    public let treasuryWithdrawal: UnitInterval
+    public let updateToConstitution: UnitInterval
 
-    public init(committeeNoConfidence: Double, committeeNormal: Double, hardForkInitiation: Double, motionNoConfidence: Double, ppEconomicGroup: Double, ppGovGroup: Double, ppNetworkGroup: Double, ppTechnicalGroup: Double, treasuryWithdrawal: Double, updateToConstitution: Double) {
+    public init(committeeNoConfidence: UnitInterval, committeeNormal: UnitInterval, hardForkInitiation: UnitInterval,
+                motionNoConfidence: UnitInterval, ppEconomicGroup: UnitInterval, ppGovGroup: UnitInterval,
+                ppNetworkGroup: UnitInterval, ppTechnicalGroup: UnitInterval, treasuryWithdrawal: UnitInterval,
+                updateToConstitution: UnitInterval) {
         self.committeeNoConfidence = committeeNoConfidence
         self.committeeNormal = committeeNormal
         self.hardForkInitiation = hardForkInitiation
@@ -1055,27 +910,175 @@ public struct DRepVotingThresholds: Codable, Equatable, Hashable, Sendable {
         self.treasuryWithdrawal = treasuryWithdrawal
         self.updateToConstitution = updateToConstitution
     }
+
+    private enum CodingKeys: String, CodingKey, CaseIterable {
+        case committeeNoConfidence, committeeNormal, hardForkInitiation, motionNoConfidence, ppEconomicGroup
+        case ppGovGroup, ppNetworkGroup, ppTechnicalGroup, treasuryWithdrawal, updateToConstitution
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            committeeNoConfidence: try c.decodeUnitInterval(forKey: .committeeNoConfidence),
+            committeeNormal: try c.decodeUnitInterval(forKey: .committeeNormal),
+            hardForkInitiation: try c.decodeUnitInterval(forKey: .hardForkInitiation),
+            motionNoConfidence: try c.decodeUnitInterval(forKey: .motionNoConfidence),
+            ppEconomicGroup: try c.decodeUnitInterval(forKey: .ppEconomicGroup),
+            ppGovGroup: try c.decodeUnitInterval(forKey: .ppGovGroup),
+            ppNetworkGroup: try c.decodeUnitInterval(forKey: .ppNetworkGroup),
+            ppTechnicalGroup: try c.decodeUnitInterval(forKey: .ppTechnicalGroup),
+            treasuryWithdrawal: try c.decodeUnitInterval(forKey: .treasuryWithdrawal),
+            updateToConstitution: try c.decodeUnitInterval(forKey: .updateToConstitution))
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        for (key, value) in namedValues {
+            try c.encodeLedgerRational(value, forKey: CodingKeys(rawValue: key)!)
+        }
+    }
+
+    /// The thresholds in the ledger's CBOR order (`drep_voting_thresholds`).
+    public var ledgerOrder: [UnitInterval] {
+        [motionNoConfidence, committeeNormal, committeeNoConfidence, updateToConstitution, hardForkInitiation,
+         ppNetworkGroup, ppEconomicGroup, ppTechnicalGroup, ppGovGroup, treasuryWithdrawal]
+    }
+
+    var namedValues: [(String, UnitInterval)] {
+        [("committeeNoConfidence", committeeNoConfidence), ("committeeNormal", committeeNormal),
+         ("hardForkInitiation", hardForkInitiation), ("motionNoConfidence", motionNoConfidence),
+         ("ppEconomicGroup", ppEconomicGroup), ("ppGovGroup", ppGovGroup), ("ppNetworkGroup", ppNetworkGroup),
+         ("ppTechnicalGroup", ppTechnicalGroup), ("treasuryWithdrawal", treasuryWithdrawal),
+         ("updateToConstitution", updateToConstitution)]
+    }
+
+    /// Reads the ledger's `drep_voting_thresholds`: ten `#6.30` unit
+    /// intervals in its order.
+    init(cbor primitive: Primitive) throws {
+        guard case .list(let t) = primitive, t.count == 10 else {
+            throw CardanoCoreError.deserializeError("dRepVotingThresholds must be a list of 10 unit intervals")
+        }
+        func at(_ i: Int) throws -> UnitInterval { try UnitInterval.ledgerCBOR(t[i], "dRepVotingThresholds[\(i)]") }
+        self.init(
+            committeeNoConfidence: try at(2), committeeNormal: try at(1), hardForkInitiation: try at(4),
+            motionNoConfidence: try at(0), ppEconomicGroup: try at(6), ppGovGroup: try at(8),
+            ppNetworkGroup: try at(5), ppTechnicalGroup: try at(7), treasuryWithdrawal: try at(9),
+            updateToConstitution: try at(3))
+    }
+
+    /// The thresholds as the ledger writes them.
+    ///
+    /// - Throws: When a threshold is above one.
+    func ledgerPrimitive() throws -> Primitive {
+        .list(try ledgerOrder.enumerated().map { i, value in
+            try LedgerRational.check(value.numerator, value.denominator, .unitInterval, "dRepVotingThresholds[\(i)]")
+            return value.ledgerPrimitive()
+        })
+    }
 }
 
+/// The reference-script fee constants as some providers report them. The
+/// ledger fixes them in Conway; Dijkstra makes them parameters.
 public struct MinReferenceScriptsSize: Codable, Equatable, Hashable, Sendable {
-    public let base: Double?
-    public let multiplier: Double?
-    public let range: Double?
+    /// Lovelace per byte: the `minFeeRefScriptCostPerByte` `NonNegativeInterval`.
+    public let base: NonNegativeInterval?
+    /// The cost growth per stride: a `PositiveInterval` (1.2 in Conway).
+    public let multiplier: NonNegativeInterval?
+    /// The stride in bytes: a `NonZero Word32` (25600 in Conway).
+    public let range: UInt32?
 
-    public init(base: Double?, multiplier: Double?, range: Double?) {
+    public init(base: NonNegativeInterval?, multiplier: NonNegativeInterval?, range: UInt32?) {
         self.base = base
         self.multiplier = multiplier
         self.range = range
     }
+
+    private enum CodingKeys: String, CodingKey { case base, multiplier, range }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        base = try c.decodeNonNegativeIntervalIfPresent(forKey: .base)
+        multiplier = try c.decodeNonNegativeIntervalIfPresent(forKey: .multiplier, bounds: .positiveInterval)
+        range = try c.decodeIfPresent(UInt32.self, forKey: .range)
+        if range == 0 {
+            throw CardanoCoreError.deserializeError("minFeeReferenceScripts range: must not be zero")
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeLedgerRationalIfPresent(base, forKey: .base)
+        try c.encodeLedgerRationalIfPresent(multiplier, forKey: .multiplier)
+        try c.encodeIfPresent(range, forKey: .range)
+    }
 }
 
+/// The prices of execution units: the ledger's `Prices`, each a
+/// `NonNegativeInterval`, held exactly.
 public struct ExecutionUnitPrices: Codable, Equatable, Hashable, Sendable {
-    public let priceMemory: Double
-    public let priceSteps: Double
+    public let priceMemory: NonNegativeInterval
+    public let priceSteps: NonNegativeInterval
 
-    public init(priceMemory: Double, priceSteps: Double) {
+    public init(priceMemory: NonNegativeInterval, priceSteps: NonNegativeInterval) {
         self.priceMemory = priceMemory
         self.priceSteps = priceSteps
+    }
+
+    private enum CodingKeys: String, CodingKey { case priceMemory, priceSteps, prMem, prSteps }
+
+    /// Reads `priceMemory`/`priceSteps`, or the older `prMem`/`prSteps`, as
+    /// the ledger's `FromJSON Prices` does; each a decimal or a fraction.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        priceMemory = try c.contains(.priceMemory)
+            ? c.decodeNonNegativeInterval(forKey: .priceMemory) : c.decodeNonNegativeInterval(forKey: .prMem)
+        priceSteps = try c.contains(.priceSteps)
+            ? c.decodeNonNegativeInterval(forKey: .priceSteps) : c.decodeNonNegativeInterval(forKey: .prSteps)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeLedgerRational(priceMemory, forKey: .priceMemory)
+        try c.encodeLedgerRational(priceSteps, forKey: .priceSteps)
+    }
+
+    /// The fee for a script that uses `exUnits`, as the ledger computes it
+    /// (`txscriptfee`): `ceiling (mem × priceMemory + steps × priceSteps)`,
+    /// in exact rational arithmetic.
+    ///
+    /// - Throws: When the fee does not fit a `Coin`.
+    public func scriptFee(memory: UInt64, steps: UInt64) throws -> Coin {
+        let memNum = BigUInt(memory) * BigUInt(priceMemory.numerator)
+        let stepNum = BigUInt(steps) * BigUInt(priceSteps.numerator)
+        let memDen = BigUInt(priceMemory.denominator), stepDen = BigUInt(priceSteps.denominator)
+        guard memDen > 0, stepDen > 0 else {
+            throw CardanoCoreError.valueError("ExecutionUnitPrices: a price has a zero denominator")
+        }
+        let numerator = memNum * stepDen + stepNum * memDen
+        let denominator = memDen * stepDen
+        let (quotient, remainder) = numerator.quotientAndRemainder(dividingBy: denominator)
+        let fee = remainder == 0 ? quotient : quotient + 1
+        guard let coin = Coin(exactly: fee) else {
+            throw CardanoCoreError.valueError("ExecutionUnitPrices: the fee \(fee) does not fit a Coin")
+        }
+        return coin
+    }
+
+    /// Reads the ledger's `ex_unit_prices`: `[mem_price, step_price]`, each a
+    /// `#6.30` non-negative interval.
+    init(cbor primitive: Primitive, _ what: String) throws {
+        guard case .list(let prices) = primitive, prices.count == 2 else {
+            throw CardanoCoreError.deserializeError("\(what): expected [memPrice, stepPrice]")
+        }
+        self.init(priceMemory: try NonNegativeInterval.ledgerCBOR(prices[0], "\(what) memPrice"),
+                  priceSteps: try NonNegativeInterval.ledgerCBOR(prices[1], "\(what) stepPrice"))
+    }
+
+    /// The prices as the ledger writes them: `[mem_price, step_price]`.
+    func ledgerPrimitive() throws -> Primitive {
+        try LedgerRational.check(priceMemory.numerator, priceMemory.denominator, .nonNegativeInterval, "priceMemory")
+        try LedgerRational.check(priceSteps.numerator, priceSteps.denominator, .nonNegativeInterval, "priceSteps")
+        return .list([priceMemory.ledgerPrimitive(), priceSteps.ledgerPrimitive()])
     }
 }
 
@@ -1091,19 +1094,76 @@ public struct ProtocolParametersExecutionUnits: Codable, Equatable, Hashable, Se
     }
 }
 
+/// The stake pool voting thresholds: each a `UnitInterval`, held exactly.
 public struct ProtocolParametersPoolVotingThresholds: Codable, Equatable, Hashable, Sendable {
-    public let committeeNoConfidence: Double
-    public let committeeNormal: Double
-    public let hardForkInitiation: Double
-    public let motionNoConfidence: Double
-    public let ppSecurityGroup: Double
+    public let committeeNoConfidence: UnitInterval
+    public let committeeNormal: UnitInterval
+    public let hardForkInitiation: UnitInterval
+    public let motionNoConfidence: UnitInterval
+    public let ppSecurityGroup: UnitInterval
 
-    public init(committeeNoConfidence: Double, committeeNormal: Double, hardForkInitiation: Double, motionNoConfidence: Double, ppSecurityGroup: Double) {
+    public init(committeeNoConfidence: UnitInterval, committeeNormal: UnitInterval, hardForkInitiation: UnitInterval,
+                motionNoConfidence: UnitInterval, ppSecurityGroup: UnitInterval) {
         self.committeeNoConfidence = committeeNoConfidence
         self.committeeNormal = committeeNormal
         self.hardForkInitiation = hardForkInitiation
         self.motionNoConfidence = motionNoConfidence
         self.ppSecurityGroup = ppSecurityGroup
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case committeeNoConfidence, committeeNormal, hardForkInitiation, motionNoConfidence, ppSecurityGroup
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            committeeNoConfidence: try c.decodeUnitInterval(forKey: .committeeNoConfidence),
+            committeeNormal: try c.decodeUnitInterval(forKey: .committeeNormal),
+            hardForkInitiation: try c.decodeUnitInterval(forKey: .hardForkInitiation),
+            motionNoConfidence: try c.decodeUnitInterval(forKey: .motionNoConfidence),
+            ppSecurityGroup: try c.decodeUnitInterval(forKey: .ppSecurityGroup))
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        for (key, value) in namedValues {
+            try c.encodeLedgerRational(value, forKey: CodingKeys(rawValue: key)!)
+        }
+    }
+
+    /// The thresholds in the ledger's CBOR order (`pool_voting_thresholds`):
+    /// motion of no confidence, committee normal, committee no confidence,
+    /// hard fork initiation, security group.
+    public var ledgerOrder: [UnitInterval] {
+        [motionNoConfidence, committeeNormal, committeeNoConfidence, hardForkInitiation, ppSecurityGroup]
+    }
+
+    var namedValues: [(String, UnitInterval)] {
+        [("committeeNoConfidence", committeeNoConfidence), ("committeeNormal", committeeNormal),
+         ("hardForkInitiation", hardForkInitiation), ("motionNoConfidence", motionNoConfidence),
+         ("ppSecurityGroup", ppSecurityGroup)]
+    }
+
+    /// Reads the ledger's `pool_voting_thresholds`: five `#6.30` unit
+    /// intervals in its order.
+    init(cbor primitive: Primitive) throws {
+        guard case .list(let t) = primitive, t.count == 5 else {
+            throw CardanoCoreError.deserializeError("poolVotingThresholds must be a list of 5 unit intervals")
+        }
+        func at(_ i: Int) throws -> UnitInterval { try UnitInterval.ledgerCBOR(t[i], "poolVotingThresholds[\(i)]") }
+        self.init(committeeNoConfidence: try at(2), committeeNormal: try at(1), hardForkInitiation: try at(3),
+                  motionNoConfidence: try at(0), ppSecurityGroup: try at(4))
+    }
+
+    /// The thresholds as the ledger writes them.
+    ///
+    /// - Throws: When a threshold is above one.
+    func ledgerPrimitive() throws -> Primitive {
+        .list(try ledgerOrder.enumerated().map { i, value in
+            try LedgerRational.check(value.numerator, value.denominator, .unitInterval, "poolVotingThresholds[\(i)]")
+            return value.ledgerPrimitive()
+        })
     }
 }
 
