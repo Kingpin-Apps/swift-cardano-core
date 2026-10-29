@@ -167,6 +167,52 @@ struct PlutusDataEncodingTests {
         #expect(try raw.toPlutusData() == PlutusData.fromCBORHex("a10102"))
     }
 
+    // MARK: - Constructors
+
+    @Test("A constructor keeps the form its fields were written in", arguments: [
+        "d879820102",  // definite fields
+        "d8799f0102ff",  // indefinite fields
+        "d87980",  // no fields
+        "d8799fff",  // no fields, indefinite
+        "d90500820102",  // tag 1280, definite
+        "d8668200820102",  // tag 102, definite
+        "d86682009f0102ff",  // tag 102, indefinite
+        "a100d879820102",  // inside a map
+    ])
+    func constructorForm(hex: String) throws {
+        try expectRoundTrip(hex)
+        #expect(try Datum.fromCBORHex(hex).toCBORHex() == hex)
+    }
+
+    @Test("A constructor built in code is written as before")
+    func constructorDefaults() throws {
+        #expect(try PlutusData.constructor(Constr(tag: 0, fields: [.bigInt(.int(1))])).toCBORHex()
+            == "d8799f01ff")
+        #expect(try PlutusData.constructor(Constr(tag: 0)).toCBORHex() == "d87980")
+        #expect(try PlutusData.constructor(
+            Constr(tag: 0, fields: [.bigInt(.int(1))], useIndefiniteList: false)).toCBORHex()
+            == "d8798101")
+
+        var decoded = try PlutusData.fromCBORHex("d879820102")
+        guard case .constructor(var constr) = decoded else { return }
+        constr.useIndefiniteList = true
+        decoded = .constructor(constr)
+        #expect(try decoded.toCBORHex() == "d8799f0102ff")
+    }
+
+    @Test("An inline datum keeps its bytes, so its output keeps its size")
+    func inlineDatum() throws {
+        let option = "8201d81845d879820102"
+        #expect(try DatumOption.fromCBORHex(option).toCBORHex() == option)
+    }
+
+    @Test("A datum reads any Plutus data", arguments: [
+        "820102", "9f0102ff", "a10102", "1bffffffffffffffff", "3bffffffffffffffff",
+    ])
+    func datumReadsPlutusData(hex: String) throws {
+        #expect(try Datum.fromCBORHex(hex).toCBORHex() == hex)
+    }
+
     // MARK: - Integers
 
     @Test("Integers across the whole range keep their encoding", arguments: [

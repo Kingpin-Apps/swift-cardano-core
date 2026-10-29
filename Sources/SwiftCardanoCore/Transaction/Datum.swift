@@ -454,24 +454,19 @@ public enum Datum: PlutusDataProtocol {
                 dict.reduce(into: [:]) { result, entry in
                     result[entry.key.toAnyValue()] = entry.value.toAnyValue()
                 })
-        case .orderedDict(let od):
-            self = .dict(
-                od.reduce(into: [:] as [AnyValue: AnyValue]) { result, entry in
-                    result[entry.key.toAnyValue()] = entry.value.toAnyValue()
-                })
-        case .int(let int):
+        case .int(let int) where Int(exactly: int) != nil:
             self = .int(Int(int))
-        case .uint(let uint):
+        case .uint(let uint) where Int(exactly: uint) != nil:
             self = .int(Int(uint))
         case .bytes(let bytes):
             self = .bytes(bytes)
-        case .indefiniteList(let list):
-            self = .indefiniteList(
-                IndefiniteList(list.map { $0.toAnyValue() })
-            )
         case .cborSimpleValue(let cbor):
             self = .cbor(cbor)
-        case .byteString(_), .indefiniteDictionary(_), .cborTag(_):
+        case .orderedDict, .indefiniteDictionary, .list, .indefiniteList, .cborTag, .byteString,
+            .int, .uint, .bigInt, .bigUInt:
+            // Read as Plutus data, which keeps a map's order, the constructors
+            // in it and how each part was written, so the datum hashes as
+            // written.
             self = .plutusData(try PlutusData(from: primitive))
         default:
             throw CardanoCoreError.deserializeError("Invalid Datum")

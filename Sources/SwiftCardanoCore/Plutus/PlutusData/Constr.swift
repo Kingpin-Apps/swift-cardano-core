@@ -16,12 +16,35 @@ public struct Constr: Serializable, CustomStringConvertible, Sendable {
     /// Fields of the constructor
     public let fields: [PlutusData]
 
-    public var useIndefiniteList: Bool?
+    /// Whether the fields are written as an indefinite-length array. A
+    /// constructor without fields is written `[]` either way, unless it was
+    /// decoded from `[_ ]`.
+    public var useIndefiniteList: Bool? { didSet { writtenIndefinite = nil } }
+
+    /// How the fields were written, when this was decoded and
+    /// ``useIndefiniteList`` has not been changed since. A datum's hash is
+    /// taken over its bytes, and the ledger accepts either form, so a decoded
+    /// constructor is written back in the form it was read in.
+    var writtenIndefinite: Bool? = nil
+    /// Whether this was decoded from the general form, `#6.102([tag, fields])`,
+    /// which the ledger accepts for any constructor tag.
+    var writtenGeneral = false
 
     public init(tag: UInt64?, fields: [PlutusData] = [], useIndefiniteList: Bool? = nil) {
         self.tag = tag
         self.fields = fields
         self.useIndefiniteList = useIndefiniteList ?? true
+    }
+
+    /// The fields of a constructor as written, and whether they were written
+    /// as an indefinite-length array.
+    private static func fields(of primitive: Primitive) throws -> (fields: [Primitive], indefinite: Bool) {
+        switch primitive {
+            case .list(let list): return (list, false)
+            case .indefiniteList(let list): return (list.getAll(), true)
+            default:
+                throw CardanoCoreError.deserializeError("Expected array of fields but got: \(primitive)")
+        }
     }
 
     public static var constrID: Int {
@@ -61,19 +84,12 @@ public struct Constr: Serializable, CustomStringConvertible, Sendable {
                 )
             }
 
-            let fields: [Primitive]
-            if case .list(let list) = valueArray[1] {
-                fields = list
-            } else if case .indefiniteList(let indefiniteList) = valueArray[1] {
-                fields = indefiniteList.getAll()
-            } else {
-                throw CardanoCoreError.deserializeError(
-                    "Expected array of fields but got: \(valueArray[1])")
-            }
-
+            let (fields, indefinite) = try Self.fields(of: valueArray[1])
             self.tag = UInt64(tag)
             self.fields = try fields.map { try PlutusData(from: $0) }
-            self.useIndefiniteList = true
+            self.useIndefiniteList = indefinite
+            self.writtenIndefinite = indefinite
+            self.writtenGeneral = true
         } else {
             let constructorID: UInt64
             if 121 <= cborTag.tag && cborTag.tag < 128 {
@@ -85,19 +101,11 @@ public struct Constr: Serializable, CustomStringConvertible, Sendable {
                     "Invalid constructor tag for PlutusData: \(cborTag.tag)")
             }
 
-            let fields: [Primitive]
-            if case .list(let list) = cborTag.value {
-                fields = list
-            } else if case .indefiniteList(let indefiniteList) = cborTag.value {
-                fields = indefiniteList.getAll()
-            } else {
-                throw CardanoCoreError.deserializeError(
-                    "Expected array of fields but got: \(cborTag.value)")
-            }
-
+            let (fields, indefinite) = try Self.fields(of: cborTag.value)
             self.tag = constructorID
             self.fields = try fields.map { try PlutusData(from: $0) }
-            self.useIndefiniteList = true
+            self.useIndefiniteList = indefinite
+            self.writtenIndefinite = indefinite
         }
     }
 
@@ -108,42 +116,20 @@ public struct Constr: Serializable, CustomStringConvertible, Sendable {
             try $0.toPrimitive(isRoot: false)
         }
 
-        let toEncode: Primitive
-        if primitives.isEmpty {
-            toEncode = .list([])
-        } else {
-            let indefiniteList = IndefiniteList<Primitive>(primitives)
-            toEncode = .indefiniteList(indefiniteList)
-        }
+        let indefinite = writtenIndefinite ?? (useIndefiniteList != false && !primitives.isEmpty)
+        let toEncode: Primitive = indefinite
+            ? .indefiniteList(IndefiniteList<Primitive>(primitives)) : .list(primitives)
 
-        if calculatedTag != nil {
+        if let calculatedTag, !writtenGeneral {
             return .cborTag(
-                CBORTag(tag: UInt64(calculatedTag!), value: toEncode)
+                CBORTag(tag: UInt64(calculatedTag), value: toEncode)
             )
         } else {
             let tagToUse = self.tag ?? UInt64(Self.CONSTR_ID)
 
-            if self.useIndefiniteList! {
-                return .cborTag(
-                    CBORTag(
-                        tag: 102,
-                        value: .list([
-                            .int(Int64(tagToUse)),
-                            toEncode,
-                        ])
-                    )
-                )
-            } else {
-                return .cborTag(
-                    CBORTag(
-                        tag: 102,
-                        value: .list([
-                            .int(Int64(tagToUse)),
-                            .list(primitives),
-                        ])
-                    )
-                )
-            }
+            return .cborTag(
+                CBORTag(tag: 102, value: .list([.uint(tagToUse), toEncode]))
+            )
         }
     }
 
