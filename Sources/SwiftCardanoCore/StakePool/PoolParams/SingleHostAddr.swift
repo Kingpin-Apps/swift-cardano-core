@@ -18,7 +18,7 @@ public struct SingleHostAddr: Serializable, Sendable {
     // MARK: - CBORSerializable
     
     public init(from primitive: Primitive) throws {
-        guard case let .list(elements) = primitive else {
+        guard let elements = primitive.arrayElements else {
             throw CardanoCoreError.deserializeError("Invalid SingleHostAddr primitive")
         }
         // single_host_addr = (0, port / nil, ipv4 / nil, ipv6 / nil)

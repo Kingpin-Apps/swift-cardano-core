@@ -33,7 +33,7 @@ public struct SingleHostName: Serializable, Sendable {
     // MARK: - CBORSerializable
     
     public init(from primitive: Primitive) throws {
-        guard case let .list(elements) = primitive else {
+        guard let elements = primitive.arrayElements else {
             throw CardanoCoreError.deserializeError("Invalid SingleHostName primitive")
         }
         // single_host_name = (1, port / nil, dns_name)

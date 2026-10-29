@@ -347,3 +347,25 @@ struct ReviewGovernanceFixTests {
         #expect(throws: (any Error).self) { try TransactionOutput.fromDict(.orderedDict(dict)) }
     }
 }
+
+@Suite("Records written as indefinite-length arrays")
+struct IndefiniteRecordTests {
+    @Test("Relays and governance action ids read indefinite-length arrays")
+    func indefinite() throws {
+        // single_host_addr = (0, port / null, ipv4 / null, ipv6 / null)
+        let relay = try Relay.fromCBORHex("9f00f6f6f6ff")
+        guard case .singleHostAddr = relay else {
+            Issue.record("expected a single-host-addr relay, got \(relay)")
+            return
+        }
+        let id = try GovActionID.fromCBORHex("9f5820" + String(repeating: "11", count: 32) + "00ff")
+        #expect(id.govActionIndex == 0)
+    }
+
+    @Test("A governance action id with extra elements is rejected")
+    func extraElements() {
+        #expect(throws: (any Error).self) {
+            try GovActionID.fromCBORHex("835820" + String(repeating: "11", count: 32) + "0000")
+        }
+    }
+}

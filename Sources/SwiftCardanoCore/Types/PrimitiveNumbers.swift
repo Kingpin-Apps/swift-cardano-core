@@ -45,6 +45,19 @@ extension Primitive {
     }
 }
 
+extension Primitive {
+    /// The elements of an array, whether it was written with a definite or
+    /// an indefinite length — the ledger reads a record either way
+    /// (`decodeRecordNamed`) — or `nil` when this is not an array.
+    public var arrayElements: [Primitive]? {
+        switch self {
+        case .list(let elements): return elements
+        case .indefiniteList(let elements): return elements.getAll()
+        default: return nil
+        }
+    }
+}
+
 extension Array {
     /// The element at `index`, or a decoding error naming `what` when the
     /// array is too short.

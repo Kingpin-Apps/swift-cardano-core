@@ -175,10 +175,14 @@ public struct GovActionID: Serializable, Sendable {
         var container = try decoder.unkeyedContainer()
         transactionID = try container.decode(TransactionId.self)
         govActionIndex = try container.decode(UInt16.self)
+        // gov_action_id = [transaction_id, gov_action_index]: nothing more.
+        guard container.isAtEnd else {
+            throw CardanoCoreError.deserializeError("GovActionID must have exactly 2 elements")
+        }
     }
     
     public init(from primitive: Primitive) throws {
-        if case let .list(primitiveList) = primitive,
+        if let primitiveList = primitive.arrayElements,
            primitiveList.count == 2 {
             
             let transactionID = try TransactionId(from: primitiveList[0])
