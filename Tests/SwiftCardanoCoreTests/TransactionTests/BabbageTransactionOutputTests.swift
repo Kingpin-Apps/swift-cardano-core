@@ -8,7 +8,7 @@ struct BabbageTransactionOutputTests {
     
     @Test("Test initialization")
     func testInitialization() async throws {
-        let address: Address = try! Address(from: .string("stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n")
+        let address: Address = try! Address(from: .string("addr_test1vr2p8st5t5cxqglyjky7vk98k7jtfhdpvhl4e97cezuhn0cqcexl7")
         )
         let amount = Value(coin: 1000000)
         let datum = DatumOption(
@@ -34,7 +34,7 @@ struct BabbageTransactionOutputTests {
     
     @Test("Test Codable")
     func testCodable() async throws {
-        let address: Address = try! Address(from: .string("stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n")
+        let address: Address = try! Address(from: .string("addr_test1vr2p8st5t5cxqglyjky7vk98k7jtfhdpvhl4e97cezuhn0cqcexl7")
         )
         let amount = Value(coin: 1000000)
         let datum = DatumOption(
@@ -63,7 +63,7 @@ struct BabbageTransactionOutputTests {
     
     @Test("Test optional properties")
     func testOptionalProperties() async throws {
-        let address: Address = try! Address(from: .string("stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n")
+        let address: Address = try! Address(from: .string("addr_test1vr2p8st5t5cxqglyjky7vk98k7jtfhdpvhl4e97cezuhn0cqcexl7")
         )
         let amount = Value(coin: 1000000)
         
@@ -82,7 +82,7 @@ struct BabbageTransactionOutputTests {
     
     @Test("Test script property")
     func testScriptProperty() async throws {
-        let address: Address = try! Address(from: .string("stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n")
+        let address: Address = try! Address(from: .string("addr_test1vr2p8st5t5cxqglyjky7vk98k7jtfhdpvhl4e97cezuhn0cqcexl7")
         )
         let amount = Value(coin: 1000000)
         let nativeScript = NativeScript.invalidBefore(BeforeScript(slot: 100))

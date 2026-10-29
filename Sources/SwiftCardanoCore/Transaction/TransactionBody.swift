@@ -137,7 +137,10 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
             throw CardanoCoreError.deserializeError("Trailing bytes after TransactionBody")
         }
         try LedgerDuplicateRules(scanner.bytes, era: era).checkBody(at: 0)
-        var body = try Transaction.decoder().decode(TransactionBody.self, from: data)
+        // Addresses and values are read by the rules of `era`.
+        var body = try Era.$decoding.withValue(era) {
+            try Transaction.decoder().decode(TransactionBody.self, from: data)
+        }
         try body.keepBytes(scanner.bytes)
         return body
     }
@@ -391,7 +394,15 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
 
         let mint: MultiAsset?
         if let mintPrimitive = primitiveDict[key(.mint)] {
-            mint = try MultiAsset(from: mintPrimitive)
+            // The mint field's amounts are signed 64-bit integers
+            // (`DecCBOR MultiAsset`), and from Conway it may not be empty
+            // (`emptyFailure "Mint" "non-empty"`,
+            // `eras/conway/impl/src/Cardano/Ledger/Conway/TxBody.hs`).
+            let decoded = try MultiAsset(from: mintPrimitive, amounts: .mint)
+            if Era.decodingRules >= .conway, decoded.isEmpty {
+                throw CardanoCoreError.deserializeError("TransactionBody: the mint field may not be empty")
+            }
+            mint = decoded
         } else {
             mint = nil
         }

@@ -90,7 +90,10 @@ public struct Block: Serializable {
         for span in witnessSpans { try rules.checkWitnessSet(at: span.lowerBound) }
         try rules.checkAuxiliaryDataSet(at: spans[3].lowerBound)
 
-        var block = try Transaction.decoder().decode(Block.self, from: data)
+        // Addresses and values are read by the rules of `era`.
+        var block = try Era.$decoding.withValue(era) {
+            try Transaction.decoder().decode(Block.self, from: data)
+        }
 
         block.header.originalCBOR = bytes.subdata(in: spans[0])
         for (index, span) in bodySpans.enumerated() where index < block.transactionBodies.count {

@@ -16,7 +16,7 @@ struct ValueTests {
     @Test("Initialize Value with custom parameters")
     func testCustomInitialization() throws {
         let coin: Int64 = 1000000
-        let multiAsset = try MultiAsset(from: .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.string("assetName"): .uint(5)])]))
+        let multiAsset = try MultiAsset(from: .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.bytes(AssetName(from: "assetName").payload): .uint(5)])]))
         let value = Value(coin: coin, multiAsset: multiAsset)
         
         #expect(value.coin == coin)
@@ -27,11 +27,11 @@ struct ValueTests {
     func testPrimitiveInitialization() throws {
         let primitive: Primitive = .list([
             .uint(1000000),
-            .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.string("asset1"): .uint(5)])])
+            .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.bytes(AssetName(from: "asset1").payload): .uint(5)])])
         ])
         let value = try Value(from: primitive)
         let multiAsset = try MultiAsset(from: .dict([
-            .string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.string("asset1"): .uint(5)])
+            .string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.bytes(AssetName(from: "asset1").payload): .uint(5)])
         ]))
         #expect(value.coin == 1000000)
         #expect(value.multiAsset == multiAsset)
@@ -39,8 +39,8 @@ struct ValueTests {
     
     @Test("Value addition")
     func testAddition() throws {
-        let multiAsset1 = try MultiAsset(from: .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.string("asset1"): .uint(5)])]))
-        let multiAsset2 = try MultiAsset(from: .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.string("asset1"): .uint(3)])]))
+        let multiAsset1 = try MultiAsset(from: .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.bytes(AssetName(from: "asset1").payload): .uint(5)])]))
+        let multiAsset2 = try MultiAsset(from: .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.bytes(AssetName(from: "asset1").payload): .uint(3)])]))
         
         let value1 = Value(
             coin: 1000000,
@@ -51,7 +51,7 @@ struct ValueTests {
             multiAsset: multiAsset2
         )
         
-        let summedMultiAsset = try MultiAsset(from: .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.string("asset1"): .uint(8)])]))
+        let summedMultiAsset = try MultiAsset(from: .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.bytes(AssetName(from: "asset1").payload): .uint(8)])]))
         
         let sum = value1 + value2
         #expect(sum.coin == 3000000)
@@ -62,15 +62,15 @@ struct ValueTests {
     func testSubtraction() throws {
         let value1 = Value(
             coin: 3000000,
-            multiAsset: try MultiAsset(from: .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.string("asset1"): .uint(8)])]))
+            multiAsset: try MultiAsset(from: .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.bytes(AssetName(from: "asset1").payload): .uint(8)])]))
         )
         let value2 = Value(
             coin: 1000000,
-            multiAsset: try MultiAsset(from: .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.string("asset1"): .uint(3)])]))
+            multiAsset: try MultiAsset(from: .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.bytes(AssetName(from: "asset1").payload): .uint(3)])]))
         )
         
         let difference = value1 - value2
-        let differenceMultiAsset = try MultiAsset(from: .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.string("asset1"): .uint(5)])]))
+        let differenceMultiAsset = try MultiAsset(from: .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.bytes(AssetName(from: "asset1").payload): .uint(5)])]))
         
         #expect(difference.coin == 2000000)
         #expect(difference.multiAsset == differenceMultiAsset)
@@ -80,15 +80,15 @@ struct ValueTests {
     func testComparisons() throws {
         let value1 = Value(
             coin: 1000000,
-            multiAsset: try MultiAsset(from: .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.string("asset1"): .uint(5)])]))
+            multiAsset: try MultiAsset(from: .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.bytes(AssetName(from: "asset1").payload): .uint(5)])]))
         )
         let value2 = Value(
             coin: 2000000,
-            multiAsset: try MultiAsset(from: .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.string("asset1"): .uint(8)])]))
+            multiAsset: try MultiAsset(from: .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.bytes(AssetName(from: "asset1").payload): .uint(8)])]))
         )
         let value3 = Value(
             coin: 1000000,
-            multiAsset: try MultiAsset(from: .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.string("asset1"): .uint(5)])]))
+            multiAsset: try MultiAsset(from: .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.bytes(AssetName(from: "asset1").payload): .uint(5)])]))
         )
         
         #expect(value1 < value2)
@@ -99,9 +99,9 @@ struct ValueTests {
     
     @Test("Value union operation")
     func testUnion() throws {
-        let multiAsset1 = try MultiAsset(from: .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.string("asset1"): .uint(5)])]))
-        let multiAsset2 = try MultiAsset(from: .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.string("asset1"): .uint(3)])]))
-        let unionMultiAsset = try MultiAsset(from: .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.string("asset1"): .uint(8)])]))
+        let multiAsset1 = try MultiAsset(from: .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.bytes(AssetName(from: "asset1").payload): .uint(5)])]))
+        let multiAsset2 = try MultiAsset(from: .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.bytes(AssetName(from: "asset1").payload): .uint(3)])]))
+        let unionMultiAsset = try MultiAsset(from: .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.bytes(AssetName(from: "asset1").payload): .uint(8)])]))
         
         let value1 = Value(
             coin: 1000000,
@@ -119,9 +119,9 @@ struct ValueTests {
     
     @Test("Value compound addition")
     func testCompoundAddition() throws {
-        let multiAsset1 = try MultiAsset(from: .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.string("asset1"): .uint(5)])]))
-        let multiAsset2 = try MultiAsset(from: .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.string("asset1"): .uint(3)])]))
-        let addedMultiAsset = try MultiAsset(from: .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.string("asset1"): .uint(8)])]))
+        let multiAsset1 = try MultiAsset(from: .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.bytes(AssetName(from: "asset1").payload): .uint(5)])]))
+        let multiAsset2 = try MultiAsset(from: .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.bytes(AssetName(from: "asset1").payload): .uint(3)])]))
+        let addedMultiAsset = try MultiAsset(from: .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.bytes(AssetName(from: "asset1").payload): .uint(8)])]))
         
         var value1 = Value(
             coin: 1000000,
@@ -141,7 +141,7 @@ struct ValueTests {
     func testCodable() throws {
         let originalValue = Value(
             coin: 1000000,
-            multiAsset: try MultiAsset(from: .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.string("asset1"): .uint(5)])]))
+            multiAsset: try MultiAsset(from: .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.bytes(AssetName(from: "asset1").payload): .uint(5)])]))
         )
         let encoder = CBOREncoder()
         let decoder = CBORDecoder()
@@ -156,15 +156,15 @@ struct ValueTests {
     func testHashing() throws {
         let value1 = Value(
             coin: 1000000,
-            multiAsset: try MultiAsset(from: .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.string("asset1"): .uint(5)])]))
+            multiAsset: try MultiAsset(from: .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.bytes(AssetName(from: "asset1").payload): .uint(5)])]))
         )
         let value2 = Value(
             coin: 1000000,
-            multiAsset: try MultiAsset(from: .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.string("asset1"): .uint(5)])]))
+            multiAsset: try MultiAsset(from: .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.bytes(AssetName(from: "asset1").payload): .uint(5)])]))
         )
         let value3 = Value(
             coin: 2000000,
-            multiAsset: try MultiAsset(from: .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.string("asset1"): .uint(8)])]))
+            multiAsset: try MultiAsset(from: .dict([.string("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"): .dict([.bytes(AssetName(from: "asset1").payload): .uint(8)])]))
         )
         
         #expect(value1.hashValue == value2.hashValue)
@@ -179,20 +179,20 @@ struct ValueTests {
         let a = try Value(from: .list([
             .uint(1),
             .orderedDict([
-                scriptHash1Primitive: .orderedDict([.string("Token1"): .uint(1), .string("Token2"): .uint(2)])
+                scriptHash1Primitive: .orderedDict([.bytes(AssetName(from: "Token1").payload): .uint(1), .bytes(AssetName(from: "Token2").payload): .uint(2)])
             ])
         ]))
         let b = try Value(from: .list([
             .uint(11),
             .orderedDict([
-                scriptHash1Primitive: .orderedDict([.string("Token1"): .uint(11), .string("Token2"): .uint(22)])
+                scriptHash1Primitive: .orderedDict([.bytes(AssetName(from: "Token1").payload): .uint(11), .bytes(AssetName(from: "Token2").payload): .uint(22)])
             ])
         ]))
         let c = try Value(from: .list([
             .uint(11),
             .orderedDict([
-                scriptHash1Primitive: .orderedDict([.string("Token1"): .uint(11), .string("Token2"): .uint(22)]),
-                scriptHash2Primitive: .orderedDict([.string("Token1"): .uint(11), .string("Token2"): .uint(22)])
+                scriptHash1Primitive: .orderedDict([.bytes(AssetName(from: "Token1").payload): .uint(11), .bytes(AssetName(from: "Token2").payload): .uint(22)]),
+                scriptHash2Primitive: .orderedDict([.bytes(AssetName(from: "Token1").payload): .uint(11), .bytes(AssetName(from: "Token2").payload): .uint(22)])
             ])
         ]))
 
@@ -211,7 +211,7 @@ struct ValueTests {
         let expectedBMinusA = try Value(from: .list([
             .uint(10),
             .orderedDict([
-                scriptHash1Primitive: .orderedDict([.string("Token1"): .uint(10), .string("Token2"): .uint(20)])
+                scriptHash1Primitive: .orderedDict([.bytes(AssetName(from: "Token1").payload): .uint(10), .bytes(AssetName(from: "Token2").payload): .uint(20)])
             ])
         ]))
         let bMinusA = b - a
@@ -220,8 +220,8 @@ struct ValueTests {
         let expectedCMinusA = try Value(from: .list([
             .uint(10),
             .orderedDict([
-                scriptHash1Primitive: .orderedDict([.string("Token1"): .uint(10), .string("Token2"): .uint(20)]),
-                scriptHash2Primitive: .orderedDict([.string("Token1"): .uint(11), .string("Token2"): .uint(22)])
+                scriptHash1Primitive: .orderedDict([.bytes(AssetName(from: "Token1").payload): .uint(10), .bytes(AssetName(from: "Token2").payload): .uint(20)]),
+                scriptHash2Primitive: .orderedDict([.bytes(AssetName(from: "Token1").payload): .uint(11), .bytes(AssetName(from: "Token2").payload): .uint(22)])
             ])
         ]))
         #expect(c - a == expectedCMinusA)
@@ -229,34 +229,30 @@ struct ValueTests {
         let expectedAPlus100 = try Value(from: .list([
             .uint(101),
             .orderedDict([
-                scriptHash1Primitive: .orderedDict([.string("Token1"): .uint(1), .string("Token2"): .uint(2)])
+                scriptHash1Primitive: .orderedDict([.bytes(AssetName(from: "Token1").payload): .uint(1), .bytes(AssetName(from: "Token2").payload): .uint(2)])
             ])
         ]))
         #expect(a + Value(coin: 100) == expectedAPlus100)
 
-        let expectedAMinusC = try Value(from: .list([
-            .int(-10),
-            .orderedDict([
-                scriptHash1Primitive: .orderedDict([.string("Token1"): .int(-10), .string("Token2"): .int(-20)]),
-                scriptHash2Primitive: .orderedDict([.string("Token1"): .int(-11), .string("Token2"): .int(-22)])
-            ])
-        ]))
+        // Differences are not output values, which the ledger reads as unsigned.
+        let expectedAMinusC = Value(coin: -10, multiAsset: try MultiAsset(from: .orderedDict([
+                scriptHash1Primitive: .orderedDict([.bytes(AssetName(from: "Token1").payload): .int(-10), .bytes(AssetName(from: "Token2").payload): .int(-20)]),
+                scriptHash2Primitive: .orderedDict([.bytes(AssetName(from: "Token1").payload): .int(-11), .bytes(AssetName(from: "Token2").payload): .int(-22)])
+            ])))
         #expect(a - c == expectedAMinusC)
 
-        let expectedBMinusC = try Value(from: .list([
-            .uint(0),
-            .orderedDict([
+        // Differences are not output values, which the ledger reads as unsigned.
+        let expectedBMinusC = Value(coin: 0, multiAsset: try MultiAsset(from: .orderedDict([
 //            scriptHash1: ["Token1": 0, "Token2": 0],
-                scriptHash2Primitive: .orderedDict([.string("Token1"): .int(-11), .string("Token2"): .int(-22)])
-            ])
-        ]))
+                scriptHash2Primitive: .orderedDict([.bytes(AssetName(from: "Token1").payload): .int(-11), .bytes(AssetName(from: "Token2").payload): .int(-22)])
+            ])))
         #expect(b - c == expectedBMinusC)
 
         let result = a.union(b)
         let expectedUnion = try Value(from: .list([
             .uint(12),
             .orderedDict([
-                scriptHash1Primitive: .orderedDict([.string("Token1"): .uint(12), .string("Token2"): .uint(24)])
+                scriptHash1Primitive: .orderedDict([.bytes(AssetName(from: "Token1").payload): .uint(12), .bytes(AssetName(from: "Token2").payload): .uint(24)])
             ])
         ]))
         #expect(result == expectedUnion)

@@ -1,4 +1,5 @@
 import Foundation
+@preconcurrency import BigInt
 import CBORCodable
 import OrderedCollections
 
@@ -35,39 +36,67 @@ public struct MultiAsset: Serializable, Comparable {
         return normalizedData
     }
     
-    public init(from dict: [String: [String: Int64]]) throws {
+    public init<T: BinaryInteger>(from dict: [String: [String: T]]) throws {
         var data: [ScriptHash: Asset] = [:]
 
         for (policyId, asset) in dict {
             let pid = ScriptHash(payload: policyId.hexStringToData)
-            var assetData: OrderedDictionary<AssetName, Int64> = [:]
+            var assetData: OrderedDictionary<AssetName, BigInt> = [:]
             for (assetName, amount) in asset {
                 let name = AssetName(from: assetName)
-                assetData[name] = amount
+                assetData[name] = BigInt(amount)
             }
             data[pid] = Asset(assetData)
         }
         self.data = data
     }
 
-        
+    /// Reads a multi-asset with the amounts of the mint field, as the
+    /// ledger's `DecCBOR MultiAsset` instance does (`decodeIntegerBounded64`,
+    /// `eras/mary/impl/src/Cardano/Ledger/Mary/Value.hs`).
     public init(from primitive: Primitive) throws {
+        try self.init(from: primitive, amounts: .mint)
+    }
+
+    /// Reads a multi-asset whose amounts follow `amounts`, as
+    /// `decodeMultiAsset` does (`eras/mary/impl/src/Cardano/Ledger/Mary/Value.hs`):
+    ///
+    /// - before Conway, zero amounts and then empty asset maps are dropped
+    ///   (`decodeWithPrunning`);
+    /// - from Conway, a zero amount or an empty asset map fails
+    ///   (`decodeConway`);
+    /// - in every era, the multi-asset must fit the ledger's compact form:
+    ///   44 bytes an asset and 28 a policy, at most 65,535
+    ///   (`isMultiAssetSmallEnough`).
+    init(from primitive: Primitive, amounts: AssetAmountRule) throws {
         var data: [ScriptHash: Asset] = [:]
         
-        var primitiveDict: OrderedDictionary<Primitive, Primitive> = [:]
-        
+        let primitiveDict: OrderedDictionary<Primitive, Primitive>
         switch primitive {
             case let .dict(dict):
-                primitiveDict.merge(dict) { (_, new) in new }
+                primitiveDict = OrderedDictionary(uniqueKeysWithValues: dict.map { ($0.key, $0.value) })
             case let .orderedDict(orderedDict):
                 primitiveDict = orderedDict
             default:
                 throw CardanoCoreError.deserializeError("Invalid MultiAsset type")
         }
         
+        let refusesZeros = AssetAmountRule.refusesZeros
         for (policyId, asset) in primitiveDict {
             let pid = try ScriptHash(from: policyId)
-            data[pid] = try Asset(from: asset)
+            let assets = try Asset(from: asset, amounts: amounts)
+            if assets.isEmpty {
+                if refusesZeros {
+                    throw CardanoCoreError.deserializeError("Empty Assets are not allowed")
+                }
+                data.removeValue(forKey: pid)
+                continue
+            }
+            data[pid] = assets
+        }
+        let assetCount = data.values.reduce(0) { $0 + $1.count }
+        guard 44 * assetCount + 28 * data.count <= 65535 else {
+            throw CardanoCoreError.deserializeError("MultiAsset is too big to compact")
         }
         self.data = data
     }
@@ -107,11 +136,11 @@ public struct MultiAsset: Serializable, Comparable {
         if String(describing: type(of: encoder)).contains("JSONEncoder") {
             var container = encoder.singleValueContainer()
             
-            let toEncode = data.reduce(into: [String: [String: Int64]]()) { result, item in
+            let toEncode = data.reduce(into: [String: [String: JSONAmount]]()) { result, item in
                 let (policyId, asset) = item
-                let assetDict = asset.data.reduce(into: [String: Int64]()) { res, assetItem in
+                let assetDict = asset.data.reduce(into: [String: JSONAmount]()) { res, assetItem in
                     let (assetName, amount) = assetItem
-                    res[assetName.description] = amount
+                    res[assetName.description] = JSONAmount(amount)
                 }
                 result[policyId.description] = assetDict
             }
@@ -236,7 +265,7 @@ public struct MultiAsset: Serializable, Comparable {
     /// Filter items by criteria.
     /// - Parameter criteria: A function that takes in three input arguments (policy_id, asset_name, amount) and returns a bool. If returned value is True, then the asset will be kept, otherwise discarded.
     /// - Returns: A new filtered MultiAsset object.
-    public func filter(criteria: (ScriptHash, AssetName, Int64) -> Bool) throws -> MultiAsset {
+    public func filter(criteria: (ScriptHash, AssetName, BigInt) -> Bool) throws -> MultiAsset {
         var newMultiAsset = MultiAsset([:])
             
         for (policyId, asset) in data {
@@ -262,7 +291,7 @@ public struct MultiAsset: Serializable, Comparable {
         return newMultiAsset
     }
 
-    public func count(criteria: (ScriptHash, AssetName, Int64) -> Bool) throws -> Int {
+    public func count(criteria: (ScriptHash, AssetName, BigInt) -> Bool) throws -> Int {
         var count = 0
         for (policyId, asset) in data {
             for (assetName, amount) in asset.data {
@@ -276,5 +305,38 @@ public struct MultiAsset: Serializable, Comparable {
             }
         }
         return count
+    }
+}
+
+/// An amount in JSON: a number while it fits a 64-bit integer, signed or
+/// unsigned, which every amount the ledger accepts in an output or the mint
+/// field does; a decimal string beyond, which only a sum or difference can be.
+struct JSONAmount: Codable, Sendable {
+    let value: BigInt
+
+    init(_ value: BigInt) { self.value = value }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let signed = try? container.decode(Int64.self) {
+            value = BigInt(signed)
+        } else if let unsigned = try? container.decode(UInt64.self) {
+            value = BigInt(unsigned)
+        } else if let text = try? container.decode(String.self), let parsed = BigInt(text) {
+            value = parsed
+        } else {
+            throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid amount")
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        if let signed = Int64(exactly: value) {
+            try container.encode(signed)
+        } else if let unsigned = UInt64(exactly: value) {
+            try container.encode(unsigned)
+        } else {
+            try container.encode(value.description)
+        }
     }
 }

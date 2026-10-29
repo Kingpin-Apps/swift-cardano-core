@@ -1,3 +1,4 @@
+@preconcurrency import BigInt
 import Foundation
 import OrderedCollections
 import SwiftNaCl
@@ -47,7 +48,7 @@ public struct UTxO: Serializable {
                 outputPrimitives: (String, Int, DatumOption?, ScriptType?, Bool?)) throws {
         input = try TransactionInput(from: inputPrimitives.0, index: inputPrimitives.1)
         output = try TransactionOutput(from: outputPrimitives.0,
-                                   amount: Int64(outputPrimitives.1),
+                                   amount: BigInt(outputPrimitives.1),
                                    datumOption: outputPrimitives.2,
                                    script: outputPrimitives.3,
                                    postAlonzo: outputPrimitives.4 ?? true)

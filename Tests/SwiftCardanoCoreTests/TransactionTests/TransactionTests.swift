@@ -11,7 +11,7 @@ struct TransactionTests {
         from: .string("732bfd67e66be8e8288349fcaaa2294973ef6271cc189a239bb431275401b8e5")
     )
     let address = try! Address(
-        from: .string("stake_test1upyz3gk6mw5he20apnwfn96cn9rscgvmmsxc9r86dh0k66gswf59n")
+        from: .string("addr_test1vr2p8st5t5cxqglyjky7vk98k7jtfhdpvhl4e97cezuhn0cqcexl7")
     )
     let amount = Value(coin: 1_000_000)
     let verificationKey = try! VerificationKey(payload: Data(repeating: 0x01, count: 64))

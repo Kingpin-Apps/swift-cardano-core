@@ -1,3 +1,4 @@
+import BigInt
 import Testing
 import Foundation
 import CBORCodable
@@ -72,7 +73,7 @@ import OrderedCollections
             paymentPart: .verificationKeyHash(VerificationKeyHash(payload: Data(repeating: 0, count: 28))),
             network: .testnet
         ).toBech32()
-        for amount in ["9223372036854775808", "-9223372036854775809"] {
+        for amount in ["18446744073709551616", "-1"] {
             #expect(throws: (any Error).self) {
                 _ = try ShelleyTransactionOutput.fromJSON(
                     json([("address", "\"\(address)\""), ("amount", amount)]))
@@ -84,16 +85,17 @@ import OrderedCollections
         }
         let output = try ShelleyTransactionOutput.fromJSON(
             json([("address", "\"\(address)\""), ("amount", "9223372036854775807")]))
-        #expect(output.amount.coin == Int64.max)
+        #expect(output.amount.coin == BigInt(Int64.max))
     }
 
     @Test func shelleyOutputToDictWithNegativeCoinDoesNotTrap() throws {
         let address = try Address(
             paymentPart: .verificationKeyHash(VerificationKeyHash(payload: Data(repeating: 0, count: 28))),
             network: .testnet)
-        // A negative coin decodes (`validate()` rejects it) and must encode.
+        // A negative coin encodes without trapping; reading it back fails, as
+        // an output coin is unsigned.
         let output = ShelleyTransactionOutput(address: address, amount: Value(coin: -1))
-        #expect(try ShelleyTransactionOutput.fromDict(output.toDict()) == output)
+        #expect(throws: (any Error).self) { _ = try ShelleyTransactionOutput.fromDict(output.toDict()) }
     }
 
     // MARK: - Babbage outputs
@@ -112,7 +114,7 @@ import OrderedCollections
             paymentPart: .verificationKeyHash(VerificationKeyHash(payload: Data(repeating: 0, count: 28))),
             network: .testnet
         ).toBech32()
-        for amount in ["9223372036854775808", "-9223372036854775809"] {
+        for amount in ["18446744073709551616", "-1"] {
             #expect(throws: (any Error).self) {
                 _ = try BabbageTransactionOutput.fromJSON(
                     json([("address", "\"\(address)\""), ("amount", amount)]))
@@ -125,25 +127,29 @@ import OrderedCollections
             paymentPart: .verificationKeyHash(VerificationKeyHash(payload: Data(repeating: 0, count: 28))),
             network: .testnet)
         let output = BabbageTransactionOutput(address: address, amount: Value(coin: -1))
-        #expect(try BabbageTransactionOutput.fromDict(output.toDict()) == output)
+        #expect(throws: (any Error).self) { _ = try BabbageTransactionOutput.fromDict(output.toDict()) }
     }
 
     // MARK: - Value and Asset
 
-    @Test func valueCoinAboveInt64Throws() throws {
-        #expect(throws: (any Error).self) { _ = try Value.fromCBOR(data: try hex("1b8000000000000000")) }
-        #expect(throws: (any Error).self) { _ = try Value.fromCBOR(data: try hex("82 1b8000000000000000 a0")) }
+    @Test func valueCoinOutsideWord64Throws() throws {
+        // An output coin is a Word64 (`decodeWord64`): above Int64.max decodes,
+        // a negative coin does not.
+        #expect(try Value.fromCBOR(data: try hex("1b8000000000000000")).coin == BigInt(Int64.max) + 1)
+        #expect(try Value.fromCBOR(data: try hex("82 1bffffffffffffffff a0")).coin == BigInt(UInt64.max))
         #expect(throws: (any Error).self) { _ = try Value.fromCBOR(data: try hex("3b8000000000000000")) }
-        #expect(try Value.fromCBOR(data: try hex("1b7fffffffffffffff")).coin == Int64.max)
+        #expect(throws: (any Error).self) { _ = try Value.fromCBOR(data: try hex("20")) }
+        #expect(try Value.fromCBOR(data: try hex("1b7fffffffffffffff")).coin == BigInt(Int64.max))
         #expect(try Value(from: Value(coin: 5).toPrimitive()).coin == 5)
     }
 
     @Test func assetAmountAboveInt64Throws() throws {
         #expect(throws: (any Error).self) { _ = try Asset.fromCBOR(data: try hex("a1 40 1bffffffffffffffff")) }
         #expect(throws: (any Error).self) { _ = try Asset.fromCBOR(data: try hex("a1 40 3bffffffffffffffff")) }
-        #expect(throws: (any Error).self) { _ = try Asset.fromJSON(#"{"":18446744073709551615}"#) }
+        // JSON amounts are unbounded: Asset holds sums and differences too.
+        #expect(try Asset.fromJSON(#"{"":18446744073709551615}"#).data.values.first == BigInt(UInt64.max))
         let asset = try Asset.fromCBOR(data: try hex("a1 40 3b7fffffffffffffff"))
-        #expect(asset.data.values.first == Int64.min)
+        #expect(asset.data.values.first == BigInt(Int64.min))
     }
 
     // MARK: - Withdrawals
