@@ -11,18 +11,21 @@ Cardano supports native assets (tokens) alongside ADA, enabling the creation and
 ### Value Types
 
 - ``Value``: Represents both ADA and native assets in a single structure
-- ``Coin``: ADA amounts in lovelace (1 ADA = 1,000,000 lovelace)
+- ``Coin``: ADA amounts in lovelace (1 ADA = 1,000,000 lovelace), a `UInt64`
 - ``MultiAsset``: Collection of native tokens organized by policy
 - ``Asset``: Token amounts within a specific policy
 - ``AssetName``: Human-readable name for a token (up to 32 bytes)
 
 ### Policy and Identification
 
-- ``ScriptHash``: Policy ID that governs asset minting and burning
-- ``PolicyId``: Alias for ScriptHash used in asset identification
-- Asset fingerprint: Unique identifier combining policy ID and asset name
+- ``ScriptHash``: Policy ID that governs asset minting and burning; a
+  ``MultiAsset`` is keyed by it
+- Asset fingerprint: Unique identifier combining policy ID and asset name (CIP-14)
 
 ## Step-by-Step Asset Usage
+
+These examples are compiled and run by the package's tests
+(`AssetsGuideExamplesTests`), so they stay true to the API.
 
 ### 1. Working with ADA (Coin)
 
@@ -76,7 +79,7 @@ let combinedValue = value1 + value2
 let remainingValue = combinedValue - Value(coin: Coin(200_000))
 
 // Check if value contains specific assets
-if mixedValue.multiAsset?.contains(policyId: policyId) == true {
+if mixedValue.multiAsset.data[policyId] != nil {
     print("Value contains tokens from policy: \(policyId)")
 }
 ```
@@ -85,26 +88,29 @@ if mixedValue.multiAsset?.contains(policyId: policyId) == true {
 
 ### Asset Fingerprints
 
+SwiftCardanoCore does not compute CIP-14 fingerprints itself, but it gives
+you the bytes and the Bech32 encoder. The example assumes a `blake2b160`
+function, a Blake2b hash with a 20-byte digest from a crypto library of your
+choice.
+
 ```swift
-// Generate asset fingerprint (CIP-14)
-extension AssetName {
-    func fingerprint(policyId: ScriptHash) -> String {
-        let combined = policyId.payload + self.payload
-        let hash = // ... Blake2b hash calculation
-        return encodeBech32(hrp: "asset", data: hash)
-    }
+// CIP-14: the Bech32 ("asset") encoding of the Blake2b-160 hash
+// of the policy ID followed by the asset name
+func fingerprint(policyId: ScriptHash, assetName: AssetName) throws -> String? {
+    let hash = try blake2b160(policyId.payload + assetName.payload)
+    return Bech32().encode(hrp: "asset", witprog: hash)
 }
 
 // Usage
-let fingerprint = tokenName.fingerprint(policyId: policyId)
-print("Asset fingerprint: \(fingerprint)")
+let tokenFingerprint = try fingerprint(policyId: policyId, assetName: tokenName)
+print("Asset fingerprint: \(tokenFingerprint ?? "")")
 ```
 
 ### Asset Metadata (CIP-25)
 
 ```swift
 // Create NFT metadata following CIP-25
-let nftMetadata = Metadata([
+let nftMetadata = try Metadata([
     721: .map([
         .text(policyId.payload.toHex): .map([
             .text("MyNFT001"): .map([
@@ -125,6 +131,10 @@ let nftMetadata = Metadata([
 ```
 
 ## Minting and Burning
+
+The minting and burning examples assume a `txInput`, a `recipientAddress`,
+a `txOutput`, the `keyHash` of the policy's key and that key's `witness`
+of your own.
 
 ### Minting Transaction
 
@@ -148,15 +158,10 @@ let txBody = TransactionBody(
 )
 
 // Add minting policy script to witnesses
-let mintingScript = NativeScript.scriptPubkey(.verificationKeyHash(keyHash))
+let mintingScript = NativeScript.scriptPubkey(ScriptPubkey(keyHash: keyHash))
 let witnessSet = TransactionWitnessSet(
     vkeyWitnesses: .nonEmptyOrderedSet(NonEmptyOrderedSet([witness])),
-    nativeScripts: .nonEmptyOrderedSet(NonEmptyOrderedSet([mintingScript])),
-    bootstrapWitness: nil,
-    plutusV1Script: nil,
-    plutusV2Script: nil,
-    plutusData: nil,
-    redeemers: nil
+    nativeScripts: .nonEmptyOrderedSet(NonEmptyOrderedSet([mintingScript]))
 )
 ```
 
@@ -180,7 +185,7 @@ let burnTxBody = TransactionBody(
 
 - <doc:Transactions> - Including assets in transactions
 - <doc:Scripts> - Minting policies and asset control
-- <doc:Metadata> - Asset metadata standards
+- ``Metadata`` - Transaction metadata, including CIP-25 asset metadata
 - <doc:Serialization> - CBOR encoding for assets
 
 ## Related Symbols
