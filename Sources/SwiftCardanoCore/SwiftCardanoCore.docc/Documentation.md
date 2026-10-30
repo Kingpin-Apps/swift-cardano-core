@@ -68,6 +68,10 @@ print("Generated address: \(try address.toBech32())")
 - <doc:Serialization>
 - <doc:StakePools>
 
+### Upgrading
+
+- <doc:Migrating>
+
 ### Error Handling
 
 - ``CardanoCoreError``
