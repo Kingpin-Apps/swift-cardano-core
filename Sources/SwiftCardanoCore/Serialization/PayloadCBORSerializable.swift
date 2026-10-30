@@ -81,11 +81,18 @@ public extension PayloadCBORSerializable where Self: Codable {
     }
     
     /// Load the object from a JSON file.
+    ///
+    /// The file's `type` must be this type's own, so a signing key file is
+    /// not read as a verification key, nor a payment key as a stake key. A
+    /// type with no envelope type of its own, such as ``SigningKey``, reads
+    /// any.
     /// - Parameter path: The file path
     /// - Returns: The object restored from the JSON file.
+    /// - Throws: `CardanoCoreError.ioError` when the file cannot be read, and
+    ///   `CardanoCoreError.invalidKeyTypeError` when it holds another type.
     static func load(from path: String) throws -> Self {
         let jsonString = try readTextFile(path)
-        return try fromTextEnvelope(jsonString)
+        return try fromTextEnvelope(jsonString, validateType: !Self.TYPE.isEmpty)
     }
     
     /// Restore from a dictionary.

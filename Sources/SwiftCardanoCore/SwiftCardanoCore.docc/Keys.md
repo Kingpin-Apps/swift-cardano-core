@@ -232,14 +232,18 @@ let signatures = try keyPairs.map { keyPair in
 
 Key operations throw a ``CardanoCoreError``; match its cases to tell the
 failures apart. `save(to:)` throws `CardanoCoreError.ioError` when the file
-already exists (pass `overwrite: true` to replace it).
+already exists (pass `overwrite: true` to replace it). `load(from:)` throws
+`CardanoCoreError.ioError` when the file cannot be read, and
+`CardanoCoreError.invalidKeyTypeError` when it holds another kind of key — a
+verification key, say, or a stake key where a payment key was asked for.
 
 ```swift
 do {
     let keyPair = try PaymentKeyPair.generate()
     try keyPair.signingKey.save(to: "payment.skey")
 
-    let signature = try keyPair.signingKey.sign(data: Data("test message".utf8))
+    let signingKey = try PaymentSigningKey.load(from: "payment.skey")
+    let signature = try signingKey.sign(data: Data("test message".utf8))
     print("Signature: \(signature.toHex)")
 } catch CardanoCoreError.ioError(let message) {
     print("File operation failed: \(message ?? "")")

@@ -238,7 +238,8 @@ struct KeysGuideExamplesTests {
             let keyPair = try PaymentKeyPair.generate()
             try keyPair.signingKey.save(to: "payment.skey")
 
-            let signature = try keyPair.signingKey.sign(data: Data("test message".utf8))
+            let signingKey = try PaymentSigningKey.load(from: "payment.skey")
+            let signature = try signingKey.sign(data: Data("test message".utf8))
             print("Signature: \(signature.toHex)")
         } catch CardanoCoreError.ioError(let message) {
             print("File operation failed: \(message ?? "")")
@@ -265,6 +266,22 @@ struct KeysGuideExamplesTests {
             caught = message
         }
         #expect(caught?.hasPrefix("File already exists") == true)
+    }
+
+    /// The error handling example's `invalidKeyTypeError` case is the one
+    /// `load(from:)` throws for a file holding another kind of key.
+    @Test func errorHandlingCatchesTheWrongKindOfKey() throws {
+        let path = NSTemporaryDirectory() + "keys-guide-\(UUID().uuidString).vkey"
+        defer { try? FileManager.default.removeItem(atPath: path) }
+        try PaymentKeyPair.generate().verificationKey.save(to: path)
+
+        var caught: String?
+        do {
+            _ = try PaymentSigningKey.load(from: path)
+        } catch CardanoCoreError.invalidKeyTypeError(let message) {
+            caught = message
+        }
+        #expect(caught != nil)
     }
 
     @Test(.disabled("Writes a key file to the working directory"))

@@ -272,4 +272,23 @@ struct PublicAPITests {
         expectIOError { try DRep.load(from: path) }
         expectIOError { try Register.load(from: path) }
     }
+
+    @Test("A key file is read only as the type of key it holds")
+    func keyFilesMustMatchTheirType() throws {
+        let directory = NSTemporaryDirectory() + "keys-\(UUID().uuidString)/"
+        try FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: directory) }
+        let keyPair = try PaymentKeyPair.generate()
+        let skeyPath = directory + "payment.skey", vkeyPath = directory + "payment.vkey"
+        try keyPair.signingKey.save(to: skeyPath)
+        try keyPair.verificationKey.save(to: vkeyPath)
+
+        #expect(try PaymentSigningKey.load(from: skeyPath) == keyPair.signingKey)
+        #expect(try PaymentVerificationKey.load(from: vkeyPath) == keyPair.verificationKey)
+        #expect(throws: CardanoCoreError.self) { try PaymentVerificationKey.load(from: skeyPath) }
+        #expect(throws: CardanoCoreError.self) { try StakeSigningKey.load(from: skeyPath) }
+        #expect(throws: CardanoCoreError.self) { try PaymentSigningKey.load(from: vkeyPath) }
+        // The untyped key reads any signing key file.
+        #expect(try SigningKey.load(from: skeyPath).payload == keyPair.signingKey.payload)
+    }
 }
