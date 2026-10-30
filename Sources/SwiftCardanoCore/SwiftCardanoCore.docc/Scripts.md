@@ -314,7 +314,6 @@ let outputWithDatum = TransactionOutput(
 
 - <doc:Assets> - Script-based asset minting policies
 - <doc:Transactions> - Including scripts in transactions
-- <doc:Plutus> - Advanced Plutus script development
 - <doc:Addresses> - Script addresses and payment credentials
 
 ## Cost models and the script integrity hash
