@@ -16,7 +16,7 @@ struct CustomData: CBORSerializable {
         guard case let .list(elements) = primitive,
               elements.count == 2,
               case let .string(stringValue) = elements[1] else {
-            throw DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "Invalid CustomData format"))
+            throw CardanoCoreError.deserializeError("Invalid CustomData format")
         }
 
         self.value = try elements[0].integer("CustomData value")
@@ -28,6 +28,48 @@ struct CustomData: CBORSerializable {
             .integer(value),
             .string(text)
         ])
+    }
+}
+
+/// A Plutus data type of the reader's own, as the Serialization guide
+/// implements it.
+// A datum with three fields: constructor 0 of an integer, bytes and a list
+struct MyPlutusData: PlutusDataProtocol {
+    let field1: Int64
+    let field2: Data
+    let field3: [Int64]
+
+    init(field1: Int64, field2: Data, field3: [Int64]) {
+        self.field1 = field1
+        self.field2 = field2
+        self.field3 = field3
+    }
+
+    init(from plutusData: PlutusData) throws {
+        guard case let .constructor(constr) = plutusData,
+              constr.tag == 0,
+              constr.fields.count == 3,
+              case let .bigInt(.int(field1)) = constr.fields[0],
+              case let .bytes(field2) = constr.fields[1],
+              case let .array(list) = constr.fields[2] else {
+            throw CardanoCoreError.deserializeError("Invalid MyPlutusData: \(plutusData)")
+        }
+        self.field1 = field1
+        self.field2 = field2.data
+        self.field3 = try list.map { element in
+            guard case let .bigInt(.int(value)) = element else {
+                throw CardanoCoreError.deserializeError("Invalid MyPlutusData list element: \(element)")
+            }
+            return value
+        }
+    }
+
+    func toPlutusData() throws -> PlutusData {
+        .constructor(Constr(tag: 0, fields: [
+            .bigInt(.int(field1)),
+            .bytes(try Bytes(from: field2)),
+            .array(NestedList(field3.map { .bigInt(.int($0)) })),
+        ]))
     }
 }
 
@@ -108,12 +150,49 @@ struct SerializationGuideExamplesTests {
         #expect(try original.toCBORHex() == hex)
     }
 
+    @Test func handlingDecodingErrors() throws {
+        func decodeTransaction(_ cborHex: String) -> Transaction? {
+            do {
+                return try Transaction.fromCBORHex(cborHex)
+            } catch CardanoCoreError.invalidArgument(let message) {
+                print("Not hex: \(message ?? "")")
+            } catch CardanoCoreError.deserializeError(let message) {
+                print("Not a transaction: \(message ?? "")")
+            } catch {
+                print("Decoding failed: \(error)")
+            }
+            return nil
+        }
+
+        #expect(decodeTransaction(hex) != nil)
+        #expect(decodeTransaction("not hex") == nil)
+        #expect(decodeTransaction("80") == nil) // an empty CBOR array
+
+        // Each failure is the case the example catches.
+        #expect(throws: CardanoCoreError.invalidArgument("Invalid hex string: not hex")) {
+            try Transaction.fromCBORHex("not hex")
+        }
+        let error = #expect(throws: CardanoCoreError.self) {
+            try Transaction.fromCBORHex("80")
+        }
+        guard case .deserializeError = error else {
+            Issue.record("Expected deserializeError, got \(String(describing: error))")
+            return
+        }
+    }
+
     @Test func customCBOREncoding() throws {
         // Usage
         let customData = CustomData(value: 42, text: "Hello")
         let serialized = try customData.toCBORData()
         let deserialized = try CustomData.fromCBOR(data: serialized)
         #expect(deserialized == customData)
+
+        // The type's own error reaches the caller of fromCBOR unchanged.
+        let wrongShape = try Primitive.list([.string("Hello")]).toCBORData()
+        #expect(throws: CardanoCoreError.deserializeError("Invalid CustomData format")) {
+            try CustomData.fromCBOR(data: wrongShape)
+        }
     }
 
     @Test func workingWithPrimitive() throws {
@@ -130,6 +209,16 @@ struct SerializationGuideExamplesTests {
         let dynamicCBOR = try dynamicValue.toCBORData()
         let restored = try Primitive.fromCBOR(data: dynamicCBOR)
         #expect(try restored.toCBORData() == dynamicCBOR)
+    }
+
+    @Test func primitiveToAnyValue() throws {
+        let restored = Primitive.orderedDict([.string("name"): .string("Alice")])
+
+        let anyValue: AnyValue = restored.toAnyValue()
+        print("As AnyValue: \(anyValue)")
+
+        #expect(Primitive.string("Alice").toAnyValue() == AnyValue.string("Alice"))
+        #expect(Primitive.list([.uint(1)]).toAnyValue() == AnyValue.array([.uint64(1)]))
     }
 
     @Test func transactionMetadataJSON() throws {
@@ -168,6 +257,41 @@ struct SerializationGuideExamplesTests {
         let plutusJSON = try plutusData.toJSON()!
         let fromJSON = try PlutusData.fromJSON(plutusJSON)
         #expect(fromJSON == plutusData)
+    }
+
+    @Test func yourOwnPlutusDataTypes() throws {
+        let myData = MyPlutusData(field1: 42, field2: Data("hello".utf8), field3: [1, 2, 3])
+
+        // JSON (cardano-cli's detailed schema) and back
+        let myJSON = try myData.toJSON()!
+        let myFromJSON = try MyPlutusData.fromJSON(myJSON)
+        #expect(myFromJSON == myData)
+
+        // CBOR and the datum hash, as for any Plutus data
+        let myCBOR = try myData.toCBORData()
+        let myFromCBOR = try MyPlutusData.fromCBOR(data: myCBOR)
+        let myDatumHash = try myData.hash()
+
+        #expect(myFromJSON.field1 == 42)
+        #expect(myFromJSON.field2 == Data("hello".utf8))
+        #expect(myFromJSON.field3 == [1, 2, 3])
+        #expect(myFromCBOR == myData)
+        #expect(myFromCBOR.field3 == [1, 2, 3])
+        // The same JSON and CBOR as the PlutusData it converts to.
+        let plutusData = try myData.toPlutusData()
+        #expect(myJSON == (try plutusData.toJSON()))
+        #expect(myCBOR == (try plutusData.toCBORData()))
+        #expect(myDatumHash == (try MyPlutusData(from: plutusData).hash()))
+        #expect(myData != MyPlutusData(field1: 43, field2: Data("hello".utf8), field3: [1, 2, 3]))
+        // Plutus data of another shape is rejected with the type's own error.
+        let otherJSON = try PlutusData.constructor(Constr(tag: 1, fields: [])).toJSON()!
+        let error = #expect(throws: CardanoCoreError.self) {
+            try MyPlutusData.fromJSON(otherJSON)
+        }
+        guard case .deserializeError = error else {
+            Issue.record("Expected deserializeError, got \(String(describing: error))")
+            return
+        }
     }
 
     @Test(.disabled("Writes a transaction file to the working directory"))

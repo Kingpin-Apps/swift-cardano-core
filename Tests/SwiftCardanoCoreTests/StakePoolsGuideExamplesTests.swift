@@ -263,10 +263,26 @@ struct StakePoolsGuideExamplesTests {
         let cborHex = try opcert.toCBORHex()
         let fromHex = try OperationalCertificate.fromCBORHex(cborHex)
 
-        // JSON, to read or show (the text envelope is the form to read back)
-        let json = try opcert.toJSON()
+        // JSON, with the keys and signature as hex
+        let json = try opcert.toJSON()!
+        let fromJson = try OperationalCertificate.fromJSON(json)
+        #expect(fromJson == opcert)
+        #expect(fromJson.coldVerificationKey == opcert.coldVerificationKey)
+
         #expect(fromHex == opcert)
-        #expect(json != nil)
+        // == leaves out the cold key, so check it and the signature directly.
+        #expect(fromJson.coldVerificationKey == coldKeyPair.verificationKey)
+        #expect(fromJson.sigma == opcert.sigma)
+        #expect(fromJson.hotVKey == kesKeyPair.verificationKey)
+        #expect(json.contains(opcert.sigma.toHex))
+        // JSON that is not a certificate throws deserializeError.
+        let error = #expect(throws: CardanoCoreError.self) {
+            try OperationalCertificate.fromJSON("{\"sequenceNumber\": 0}")
+        }
+        guard case .deserializeError = error else {
+            Issue.record("Expected deserializeError, got \(String(describing: error))")
+            return
+        }
     }
 
     @Test(.disabled("Writes node.cert to the working directory"))
@@ -282,8 +298,43 @@ struct StakePoolsGuideExamplesTests {
             )
             try opcert.save(to: "node.cert")
 
+        } catch CardanoCoreError.ioError(let message) {
+            print("File operation failed: \(message ?? "")")
+        } catch CardanoCoreError.invalidArgument(let message) {
+            print("Invalid parameter: \(message ?? "")")
+        } catch CardanoCoreError.deserializeError(let message) {
+            print("Deserialization failed: \(message ?? "")")
         } catch {
             print("Operational certificate failed: \(error)")
+        }
+    }
+
+    /// The error handling example's `ioError` case is the one `save(to:)`
+    /// throws when the file exists, and its `invalidArgument` case the one a
+    /// malformed certificate throws; run here in a temporary directory.
+    @Test func errorHandlingCatchesEachCase() throws {
+        var issueCounter = try newIssueCounter()
+        let path = NSTemporaryDirectory() + "stake-pools-guide-\(UUID().uuidString).cert"
+        defer { try? FileManager.default.removeItem(atPath: path) }
+
+        let opcert = try OperationalCertificate.issue(
+            kesVerificationKey: kesKeyPair.verificationKey,
+            coldSigningKey: coldKeyPair.signingKey,
+            operationalCertificateIssueCounter: &issueCounter,
+            kesPeriod: kesPeriod
+        )
+        try opcert.save(to: path)
+        #expect(throws: CardanoCoreError.ioError("File already exists: \(path)")) {
+            try opcert.save(to: path)
+        }
+
+        let error = #expect(throws: CardanoCoreError.self) {
+            try OperationalCertificate(
+                hotVKey: kesKeyPair.verificationKey, sequenceNumber: 0, kesPeriod: 0, sigma: Data(count: 3))
+        }
+        guard case .invalidArgument = error else {
+            Issue.record("Expected invalidArgument, got \(String(describing: error))")
+            return
         }
     }
 }

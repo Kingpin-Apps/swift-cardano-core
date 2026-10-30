@@ -278,6 +278,11 @@ try drepCert.save(to: "drep-registration.cert")
 
 ### Error Handling with File Operations
 
+`save(to:)` throws `CardanoCoreError.ioError` when the file already exists
+(pass `overwrite: true` to replace it), and `load(from:)` throws
+`CardanoCoreError.deserializeError` when the file holds another kind of
+certificate. A missing file throws Foundation's file-reading error.
+
 ```swift
 do {
     // Save certificate
@@ -287,6 +292,10 @@ do {
     let loadedCert = try Register.load(from: "my-certificate.cert")
     print("Certificate loaded successfully: \(loadedCert.description)")
 
+} catch CardanoCoreError.ioError(let message) {
+    print("File operation failed: \(message ?? "")")
+} catch CardanoCoreError.deserializeError(let message) {
+    print("Certificate parsing failed: \(message ?? "")")
 } catch {
     print("Certificate file operation failed: \(error)")
 }
@@ -309,3 +318,4 @@ do {
 - ``RegisterDRep``
 - ``StakeCredential``
 - ``PoolParams``
+- ``CardanoCoreError``

@@ -42,10 +42,10 @@ import SwiftCardanoCore
 
 // Individual key generation
 let paymentSKey = try PaymentSigningKey.generate()
-let paymentVKey: PaymentVerificationKey = try paymentSKey.toVerificationKey()
+let paymentVKey = try PaymentVerificationKey.fromSigningKey(paymentSKey)
 
 let stakeSKey = try StakeSigningKey.generate()
-let stakeVKey: StakeVerificationKey = try stakeSKey.toVerificationKey()
+let stakeVKey = try StakeVerificationKey.fromSigningKey(stakeSKey)
 
 // KeyPair generation (recommended)
 let paymentKeyPair = try PaymentKeyPair.generate()
@@ -79,7 +79,7 @@ assert(loadedPaymentVKey == paymentKeyPair.verificationKey)
 
 ```swift
 // Derive verification key from signing key
-let derivedVKey: PaymentVerificationKey = try paymentSKey.toVerificationKey()
+let derivedVKey = try PaymentVerificationKey.fromSigningKey(paymentSKey)
 
 // Generate key hashes for addresses
 let paymentKeyHash = try paymentKeyPair.verificationKey.hash()
@@ -88,15 +88,48 @@ let stakeKeyHash = try stakeKeyPair.verificationKey.hash()
 print("Payment Key Hash: \(paymentKeyHash.payload.toHex)")
 print("Stake Key Hash: \(stakeKeyHash.payload.toHex)")
 
-// Sign a message: a 64-byte Ed25519 signature
+// Sign a message (a 64-byte Ed25519 signature) and verify the signature
 let testData = Data("test message".utf8)
 let signature = try paymentKeyPair.signingKey.sign(data: testData)
-assert(signature.count == 64)
+let isValid = try paymentKeyPair.verificationKey.verify(signature: signature, data: testData)
+assert(isValid)
+
+// A signature does not verify for any other message
+let isTampered = try paymentKeyPair.verificationKey.verify(
+    signature: signature,
+    data: Data("tampered message".utf8)
+)
+assert(!isTampered)
 ```
+
+`verify(signature:data:)` checks an Ed25519 signature. Every Ed25519
+verification key has it, the extended ones too; it throws
+`CardanoCoreError.invalidKeyTypeError` when the key is not a 32-byte Ed25519
+key. (KES keys verify with `verify(signature:message:period:)` instead.)
 
 ## Advanced Key Operations
 
 ### Extended Keys (BIP32)
+
+`generate()` makes a standalone extended key: the root key of a wallet made
+from fresh entropy.
+
+```swift
+// Generate extended keys
+let rootPaymentSKey = try PaymentExtendedSigningKey.generate()
+let rootStakeSKey = try StakeExtendedSigningKey.generate()
+
+// Their verification keys carry the chain code
+let rootPaymentVKey = try PaymentExtendedVerificationKey.fromSigningKey(rootPaymentSKey)
+let rootStakeVKey = try StakeExtendedVerificationKey.fromSigningKey(rootStakeSKey)
+
+// Extended keys sign and verify like the others
+let message = Data("extended message".utf8)
+let rootSignature = try rootPaymentSKey.sign(data: message)
+assert(try rootPaymentVKey.verify(signature: rootSignature, data: message))
+```
+
+To derive keys along a path instead, as a wallet does, start from a mnemonic:
 
 ```swift
 // Create a wallet from a new 24-word mnemonic
@@ -111,7 +144,7 @@ let extendedPaymentKey = try PaymentExtendedSigningKey.fromHDWallet(paymentWalle
 let extendedStakeKey = try StakeExtendedSigningKey.fromHDWallet(stakeWallet)
 
 // The extended verification key carries the chain code
-let extendedPaymentVKey: PaymentExtendedVerificationKey = try extendedPaymentKey.toVerificationKey()
+let extendedPaymentVKey = try PaymentExtendedVerificationKey.fromSigningKey(extendedPaymentKey)
 ```
 
 ### Specialized Keys
@@ -143,13 +176,17 @@ func generateSecureKeyPair() throws -> PaymentKeyPair {
     return try PaymentKeyPair.generate()
 }
 
-// Key validation: the verification key must be the one the signing key derives
-func validateKeyPair(_ keyPair: PaymentKeyPair) throws -> Bool {
-    let derived = try PaymentKeyPair.fromSigningKey(keyPair.signingKey)
-    return derived.verificationKey == keyPair.verificationKey
+// Key validation: the verification key must verify the signing key's signatures
+func validateKeyPair(_ keyPair: PaymentKeyPair) throws {
+    let testMessage = Data("validation test".utf8)
+    let signature = try keyPair.signingKey.sign(data: testMessage)
+
+    guard try keyPair.verificationKey.verify(signature: signature, data: testMessage) else {
+        throw CardanoCoreError.invalidArgument("Key pair validation failed")
+    }
 }
 
-assert(try validateKeyPair(paymentKeyPair))
+try validateKeyPair(paymentKeyPair)
 ```
 
 ## Key-Based Operations
@@ -193,6 +230,10 @@ let signatures = try keyPairs.map { keyPair in
 
 ## Error Handling
 
+Key operations throw a ``CardanoCoreError``; match its cases to tell the
+failures apart. `save(to:)` throws `CardanoCoreError.ioError` when the file
+already exists (pass `overwrite: true` to replace it).
+
 ```swift
 do {
     let keyPair = try PaymentKeyPair.generate()
@@ -200,6 +241,10 @@ do {
 
     let signature = try keyPair.signingKey.sign(data: Data("test message".utf8))
     print("Signature: \(signature.toHex)")
+} catch CardanoCoreError.ioError(let message) {
+    print("File operation failed: \(message ?? "")")
+} catch CardanoCoreError.invalidKeyTypeError(let message) {
+    print("Wrong kind of key: \(message ?? "")")
 } catch {
     print("Key operation error: \(error)")
 }
@@ -239,7 +284,7 @@ func testKeyGeneration() throws {
     assert(keyPair1.verificationKey != keyPair2.verificationKey)
     
     // Derived verification key should match
-    let derivedVKey: PaymentVerificationKey = try keyPair1.signingKey.toVerificationKey()
+    let derivedVKey = try PaymentVerificationKey.fromSigningKey(keyPair1.signingKey)
     assert(derivedVKey == keyPair1.verificationKey)
 }
 
@@ -272,3 +317,6 @@ func testKeySerialization() throws {
 - ``StakeSigningKey``
 - ``StakeVerificationKey``
 - ``VerificationKeyHash``
+- ``PaymentExtendedSigningKey``
+- ``HDWallet``
+- ``CardanoCoreError``

@@ -285,11 +285,20 @@ let loadedCounter = try OperationalCertificateIssueCounter.load(from: "opcert.co
 let cborHex = try opcert.toCBORHex()
 let fromHex = try OperationalCertificate.fromCBORHex(cborHex)
 
-// JSON, to read or show (the text envelope is the form to read back)
-let json = try opcert.toJSON()
+// JSON, with the keys and signature as hex
+let json = try opcert.toJSON()!
+let fromJson = try OperationalCertificate.fromJSON(json)
+assert(fromJson == opcert)
+assert(fromJson.coldVerificationKey == opcert.coldVerificationKey)
 ```
 
 ## Error Handling
+
+Stake pool operations throw a ``CardanoCoreError``; match its cases to tell
+the failures apart. `save(to:)` throws `CardanoCoreError.ioError` when the
+file already exists (pass `overwrite: true` to replace it), and a certificate
+read from a file or JSON that does not hold one throws
+`CardanoCoreError.deserializeError`.
 
 ```swift
 do {
@@ -301,6 +310,12 @@ do {
     )
     try opcert.save(to: "node.cert")
 
+} catch CardanoCoreError.ioError(let message) {
+    print("File operation failed: \(message ?? "")")
+} catch CardanoCoreError.invalidArgument(let message) {
+    print("Invalid parameter: \(message ?? "")")
+} catch CardanoCoreError.deserializeError(let message) {
+    print("Deserialization failed: \(message ?? "")")
 } catch {
     print("Operational certificate failed: \(error)")
 }
@@ -324,3 +339,4 @@ do {
 - ``PoolOperator``
 - ``PoolMetadata``
 - ``Relay``
+- ``CardanoCoreError``

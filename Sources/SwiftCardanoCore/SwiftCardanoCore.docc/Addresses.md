@@ -182,7 +182,10 @@ try rewardAddress.save(to: "stake.addr")
 
 ## Error Handling
 
-Parsing, encoding and file operations throw. Catch the error to report it:
+Parsing, encoding and file operations throw a ``CardanoCoreError``; match its
+cases to tell the failures apart. A string that is not an address at all
+throws `CardanoCoreError.decodingError`, and an address whose header names an
+unknown type or network throws `CardanoCoreError.invalidAddressInputError`.
 
 ```swift
 do {
@@ -192,6 +195,12 @@ do {
         return
     }
     print("Mainnet address: \(try address.toBech32())")
+} catch CardanoCoreError.decodingError(let message) {
+    print("Not an address: \(message ?? "")")
+} catch CardanoCoreError.invalidAddressInputError(let message) {
+    print("Invalid address: \(message ?? "")")
+} catch CardanoCoreError.encodingError(let message) {
+    print("Address encoding failed: \(message ?? "")")
 } catch {
     print("Address parsing failed: \(error)")
 }
@@ -199,9 +208,11 @@ do {
 
 ### Error Handling with File Operations
 
-``Address/save(to:overwrite:)`` throws when the file already exists (pass
-`overwrite: true` to replace it), and ``Address/load(from:)`` throws when the
-file is missing or does not hold an address.
+``Address/save(to:overwrite:)`` throws `CardanoCoreError.ioError` when the
+file already exists (pass `overwrite: true` to replace it).
+``Address/load(from:)`` throws `CardanoCoreError.ioError` when the file is
+missing, and `CardanoCoreError.decodingError` when it does not hold an
+address.
 
 ```swift
 // Handle file operation errors
@@ -213,8 +224,12 @@ do {
     let address = try Address.load(from: "my-address.addr")
     print("Successfully loaded address: \(try address.toBech32())")
 
+} catch CardanoCoreError.ioError(let message) {
+    print("File operation failed: \(message ?? "")")
+} catch CardanoCoreError.decodingError(let message) {
+    print("Address parsing failed: \(message ?? "")")
 } catch {
-    print("File operation failed: \(error)")
+    print("Unexpected error: \(error)")
 }
 ```
 
@@ -282,3 +297,4 @@ for addressString in validAddresses {
 - ``ScriptHash``
 - ``PaymentKeyPair``
 - ``StakeKeyPair``
+- ``CardanoCoreError``

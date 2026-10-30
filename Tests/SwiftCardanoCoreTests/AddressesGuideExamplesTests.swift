@@ -146,8 +146,31 @@ struct AddressesGuideExamplesTests {
                 return
             }
             print("Mainnet address: \(try address.toBech32())")
+        } catch CardanoCoreError.decodingError(let message) {
+            print("Not an address: \(message ?? "")")
+        } catch CardanoCoreError.invalidAddressInputError(let message) {
+            print("Invalid address: \(message ?? "")")
+        } catch CardanoCoreError.encodingError(let message) {
+            print("Address encoding failed: \(message ?? "")")
         } catch {
             print("Address parsing failed: \(error)")
+        }
+
+        // The string is not an address, so the first case catches it.
+        let error = #expect(throws: CardanoCoreError.self) {
+            try Address.fromBech32("invalid_address_string")
+        }
+        guard case .decodingError = error else {
+            Issue.record("Expected decodingError, got \(String(describing: error))")
+            return
+        }
+        // Bytes whose header names no network throw invalidAddressInputError.
+        let headerError = #expect(throws: CardanoCoreError.self) {
+            try Address.fromCBOR(data: Data([0x41, 0xff]))
+        }
+        guard case .invalidAddressInputError = headerError else {
+            Issue.record("Expected invalidAddressInputError, got \(String(describing: headerError))")
+            return
         }
     }
 
@@ -166,8 +189,42 @@ struct AddressesGuideExamplesTests {
             let address = try Address.load(from: "my-address.addr")
             print("Successfully loaded address: \(try address.toBech32())")
 
+        } catch CardanoCoreError.ioError(let message) {
+            print("File operation failed: \(message ?? "")")
+        } catch CardanoCoreError.decodingError(let message) {
+            print("Address parsing failed: \(message ?? "")")
         } catch {
-            print("File operation failed: \(error)")
+            print("Unexpected error: \(error)")
+        }
+    }
+
+    /// The file example's cases are the ones `save(to:)` and `load(from:)`
+    /// throw; run here in a temporary directory.
+    @Test func errorHandlingWithFileOperationsCatchesEachCase() throws {
+        let directory = NSTemporaryDirectory() + "addresses-guide-\(UUID().uuidString)/"
+        try FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: directory) }
+        let baseAddress = try Address(
+            paymentPart: .verificationKeyHash(try paymentKeyPair.verificationKey.hash()),
+            network: .testnet)
+
+        // Saving over an existing file
+        try baseAddress.save(to: directory + "my-address.addr")
+        #expect(throws: CardanoCoreError.ioError("File already exists: \(directory)my-address.addr")) {
+            try baseAddress.save(to: directory + "my-address.addr")
+        }
+        // Loading a missing file
+        #expect(throws: CardanoCoreError.ioError("File not found: \(directory)missing.addr")) {
+            try Address.load(from: directory + "missing.addr")
+        }
+        // Loading a file that holds no address
+        try "not an address".write(toFile: directory + "junk.addr", atomically: true, encoding: .utf8)
+        let error = #expect(throws: CardanoCoreError.self) {
+            try Address.load(from: directory + "junk.addr")
+        }
+        guard case .decodingError = error else {
+            Issue.record("Expected decodingError, got \(String(describing: error))")
+            return
         }
     }
 

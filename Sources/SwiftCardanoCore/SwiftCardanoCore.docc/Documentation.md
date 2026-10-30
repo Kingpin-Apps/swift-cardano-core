@@ -9,7 +9,7 @@ SwiftCardanoCore provides a complete Swift implementation of Cardano's data stru
 ### Key Features
 
 - **Complete Cardano Data Types**: Full implementation of addresses, transactions, certificates, metadata, and more
-- **Cryptographic Operations**: Ed25519 key generation and signing, and BIP32 key derivation
+- **Cryptographic Operations**: Ed25519 key generation, signing, and verification, and BIP32 key derivation
 - **CBOR Serialization**: Native support for Cardano's CBOR encoding/decoding
 - **Multi-Era Support**: Compatible with Byron, Shelley, Allegra, Mary, Alonzo, Babbage, and Conway eras
 - **Native Asset Support**: Work with ADA and native tokens seamlessly
@@ -67,3 +67,7 @@ print("Generated address: \(try address.toBech32())")
 
 - <doc:Serialization>
 - <doc:StakePools>
+
+### Error Handling
+
+- ``CardanoCoreError``

@@ -12,6 +12,8 @@ SwiftCardanoCore uses CBOR (Concise Binary Object Representation) as the primary
 
 - ``CBORSerializable``: Protocol for types that can be encoded/decoded to/from CBOR
 - ``Primitive``: Intermediate representation for CBOR data, and a value for dynamic CBOR content
+- ``AnyValue``: CBORCodable's generic value, which ``Primitive/toAnyValue()`` converts to
+- ``PlutusDataProtocol``: Protocol for types of your own that are Plutus data
 
 ### CBOR Features
 
@@ -153,7 +155,9 @@ Four things make this hold:
   crashing. So does a hash of the wrong length: a key hash must be 28 bytes and
   a transaction id 32, and the ledger rejects any other size.
 - **Decoding never crashes.** Whatever the input — CBOR bytes, a ``Primitive``,
-  JSON — a decoder either produces a value or throws an error:
+  JSON — a decoder either produces a value or throws an error, a
+  ``CardanoCoreError`` for every check the library makes (see Handling
+  Decoding Errors below):
   lengths and counts are checked against the bytes present, and no integer is
   narrowed with a conversion that traps. ``Primitive`` offers
   the same tools to code that reads its own types:
@@ -175,6 +179,32 @@ Four things make this hold:
 > preserves indefinite-length items for PlutusData — so the flag is reserved for a
 > Cardano-specific mode rather than CBORCodable's.
 
+### Handling Decoding Errors
+
+A decoder throws a ``CardanoCoreError``; match its cases to tell the failures
+apart. Text that is not hex throws `CardanoCoreError.invalidArgument`, and
+bytes that are not the CBOR of the type throw
+`CardanoCoreError.deserializeError`.
+
+```swift
+func decodeTransaction(_ cborHex: String) -> Transaction? {
+    do {
+        return try Transaction.fromCBORHex(cborHex)
+    } catch CardanoCoreError.invalidArgument(let message) {
+        print("Not hex: \(message ?? "")")
+    } catch CardanoCoreError.deserializeError(let message) {
+        print("Not a transaction: \(message ?? "")")
+    } catch {
+        print("Decoding failed: \(error)")
+    }
+    return nil
+}
+
+assert(decodeTransaction(hex) != nil)
+assert(decodeTransaction("not hex") == nil)
+assert(decodeTransaction("80") == nil) // an empty CBOR array
+```
+
 ## Advanced Serialization
 
 ### Custom CBOR Encoding
@@ -194,7 +224,7 @@ struct CustomData: CBORSerializable {
         guard case let .list(elements) = primitive,
               elements.count == 2,
               case let .string(stringValue) = elements[1] else {
-            throw DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "Invalid CustomData format"))
+            throw CardanoCoreError.deserializeError("Invalid CustomData format")
         }
 
         self.value = try elements[0].integer("CustomData value")
@@ -232,6 +262,15 @@ let dynamicValue = Primitive.orderedDict([
 
 let dynamicCBOR = try dynamicValue.toCBORData()
 let restored = try Primitive.fromCBOR(data: dynamicCBOR)
+```
+
+For code that works with CBORCodable's values, ``Primitive/toAnyValue()``
+converts a ``Primitive`` to an ``AnyValue``; no import beyond
+`SwiftCardanoCore` is needed.
+
+```swift
+let anyValue: AnyValue = restored.toAnyValue()
+print("As AnyValue: \(anyValue)")
 ```
 
 ## JSON Serialization
@@ -274,6 +313,66 @@ let plutusData = PlutusData.constructor(Constr(tag: 0, fields: [
 
 let plutusJSON = try plutusData.toJSON()!
 let fromJSON = try PlutusData.fromJSON(plutusJSON)
+```
+
+### Your Own Plutus Data Types
+
+A type of your own conforms to ``PlutusDataProtocol`` by converting to and
+from ``PlutusData``. It then gets CBOR and JSON encoding, `fromJSON(_:)`, its
+datum hash and `==` from the protocol.
+
+```swift
+// A datum with three fields: constructor 0 of an integer, bytes and a list
+struct MyPlutusData: PlutusDataProtocol {
+    let field1: Int64
+    let field2: Data
+    let field3: [Int64]
+
+    init(field1: Int64, field2: Data, field3: [Int64]) {
+        self.field1 = field1
+        self.field2 = field2
+        self.field3 = field3
+    }
+
+    init(from plutusData: PlutusData) throws {
+        guard case let .constructor(constr) = plutusData,
+              constr.tag == 0,
+              constr.fields.count == 3,
+              case let .bigInt(.int(field1)) = constr.fields[0],
+              case let .bytes(field2) = constr.fields[1],
+              case let .array(list) = constr.fields[2] else {
+            throw CardanoCoreError.deserializeError("Invalid MyPlutusData: \(plutusData)")
+        }
+        self.field1 = field1
+        self.field2 = field2.data
+        self.field3 = try list.map { element in
+            guard case let .bigInt(.int(value)) = element else {
+                throw CardanoCoreError.deserializeError("Invalid MyPlutusData list element: \(element)")
+            }
+            return value
+        }
+    }
+
+    func toPlutusData() throws -> PlutusData {
+        .constructor(Constr(tag: 0, fields: [
+            .bigInt(.int(field1)),
+            .bytes(try Bytes(from: field2)),
+            .array(NestedList(field3.map { .bigInt(.int($0)) })),
+        ]))
+    }
+}
+
+let myData = MyPlutusData(field1: 42, field2: Data("hello".utf8), field3: [1, 2, 3])
+
+// JSON (cardano-cli's detailed schema) and back
+let myJSON = try myData.toJSON()!
+let myFromJSON = try MyPlutusData.fromJSON(myJSON)
+assert(myFromJSON == myData)
+
+// CBOR and the datum hash, as for any Plutus data
+let myCBOR = try myData.toCBORData()
+let myFromCBOR = try MyPlutusData.fromCBOR(data: myCBOR)
+let myDatumHash = try myData.hash()
 ```
 
 ## File Operations
@@ -410,5 +509,8 @@ let loadedCert = try PoolRegistration.load(from: "pool-registration.cert")
 
 - ``CBORSerializable``
 - ``Primitive``
+- ``AnyValue``
 - ``Metadata``
 - ``PlutusData``
+- ``PlutusDataProtocol``
+- ``CardanoCoreError``

@@ -255,8 +255,38 @@ struct CertificatesGuideExamplesTests {
             let loadedCert = try Register.load(from: "my-certificate.cert")
             print("Certificate loaded successfully: \(loadedCert.description)")
 
+        } catch CardanoCoreError.ioError(let message) {
+            print("File operation failed: \(message ?? "")")
+        } catch CardanoCoreError.deserializeError(let message) {
+            print("Certificate parsing failed: \(message ?? "")")
         } catch {
             print("Certificate file operation failed: \(error)")
+        }
+    }
+
+    /// The file example's cases are the ones `save(to:)` and `load(from:)`
+    /// throw; run here in a temporary directory.
+    @Test func errorHandlingWithFileOperationsCatchesEachCase() throws {
+        let directory = NSTemporaryDirectory() + "certificates-guide-\(UUID().uuidString)/"
+        try FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: directory) }
+        let stakeRegistration = try Register(stakeCredential: stakeCredential, coin: Coin(2_000_000))
+        let path = directory + "my-certificate.cert"
+
+        // Saving over an existing file
+        try stakeRegistration.save(to: path)
+        #expect(throws: CardanoCoreError.ioError("File already exists: \(path)")) {
+            try stakeRegistration.save(to: path)
+        }
+        #expect(try Register.load(from: path) == stakeRegistration)
+
+        // Loading another kind of certificate
+        let error = #expect(throws: CardanoCoreError.self) {
+            try Unregister.load(from: path)
+        }
+        guard case .deserializeError = error else {
+            Issue.record("Expected deserializeError, got \(String(describing: error))")
+            return
         }
     }
 }
