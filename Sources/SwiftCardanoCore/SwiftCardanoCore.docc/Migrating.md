@@ -26,6 +26,9 @@ Values the ledger holds as integers or exact rationals are no longer `Double`,
   `UInt32` or `UInt64` instead of `Int`. ``PointerAddress`` takes a `UInt32`
   slot and `UInt16` indices.
 - `ExecutionPrices` and `PriceRatio` are replaced by ``ExecutionUnitPrices``.
+- ``Url`` keeps its text exactly as written, in `text`, since anchor and
+  pool-metadata hashes are taken over it. Its `value` is now `URL?`: `nil`
+  when Foundation cannot read the text.
 
 The table at the end lists every property whose type changed.
 
@@ -137,6 +140,12 @@ whose default is mainnet's epoch length. Their initialisers no longer take it.
 |---|---|---|
 | `exUnitsMem` | `Int` | `UInt64` |
 | `exUnitsSteps` | `Int` | `UInt64` |
+
+**``Asset``**
+
+| Property | Was | Now |
+|---|---|---|
+| `data` | `OrderedDictionary<AssetName, Int64>` | `OrderedDictionary<AssetName, BigInt>` |
 
 **``BlockVersionData``**
 
@@ -286,6 +295,20 @@ whose default is mainnet's epoch length. Their initialisers no longer take it.
 | `lastKnownBlockVersionMinor` | `Int?` | `UInt16?` |
 | `maxKnownMajorProtocolVersion` | `Int?` | `UInt64?` |
 
+**``PlutusData``**
+
+| Property | Was | Now |
+|---|---|---|
+| `mapEntries` | `OrderedDictionary<PlutusData, PlutusData>?` | `MapPairs<PlutusData, PlutusData>?` |
+
+**``PointerAddress``**
+
+| Property | Was | Now |
+|---|---|---|
+| `certIndex` | `Int` | `UInt16` |
+| `slot` | `Int` | `UInt32` |
+| `txIndex` | `Int` | `UInt16` |
+
 **``PoolParams``**
 
 | Property | Was | Now |
@@ -417,6 +440,12 @@ whose default is mainnet's epoch length. Their initialisers no longer take it.
 | `minThd` | `String` | `LovelacePortion` |
 | `thdDecrement` | `String` | `LovelacePortion` |
 
+**``TransactionOutput``**
+
+| Property | Was | Now |
+|---|---|---|
+| `lovelace` | `Int64` | `BigInt` |
+
 **``TxFeePolicy``**
 
 | Property | Was | Now |
@@ -424,8 +453,20 @@ whose default is mainnet's epoch length. Their initialisers no longer take it.
 | `multiplier` | `String` | `UInt64` |
 | `summand` | `String` | `Coin` |
 
+**``Url``**
+
+| Property | Was | Now |
+|---|---|---|
+| `value` | `URL` | `URL?` |
+
 **``VSSCert``**
 
 | Property | Was | Now |
 |---|---|---|
 | `expiryEpoch` | `Int` | `EpochNumber` |
+
+**``Value``**
+
+| Property | Was | Now |
+|---|---|---|
+| `coin` | `Int64` | `BigInt` |
