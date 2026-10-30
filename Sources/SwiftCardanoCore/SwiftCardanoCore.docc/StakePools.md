@@ -34,6 +34,11 @@ Running a Cardano stake pool requires managing several cryptographic components:
 
 ## Step-by-Step Node Setup
 
+These examples are compiled and run by the package's tests
+(`StakePoolsGuideExamplesTests`), so they stay true to the API; the ones that
+write key, counter and certificate files are compiled but not run. Each step
+uses the keys and values of the steps before it.
+
 ### 1. Generate Cold Keys
 
 Cold keys represent the pool's long-term identity and must be kept secure offline.
@@ -100,7 +105,7 @@ var issueCounter = try OperationalCertificateIssueCounter.createNewCounter(
 try issueCounter.save(to: "opcert.counter")
 
 // Load an existing counter
-var loadedCounter = try OperationalCertificateIssueCounter.load(from: "opcert.counter")
+let loadedCounter = try OperationalCertificateIssueCounter.load(from: "opcert.counter")
 ```
 
 ### 5. Issue an Operational Certificate
@@ -165,6 +170,10 @@ try counter.save(to: "opcert.counter", overwrite: true)
 
 ### Configure Pool Parameters
 
+This example assumes the `metadataHashBytes` of your metadata file, the
+`rewardAccountHash` of the pool's reward account and the `ownerKeyHash` of
+an owner's stake key.
+
 ```swift
 // Pool metadata (hosted off-chain)
 let poolMetadata = try PoolMetadata(
@@ -174,7 +183,7 @@ let poolMetadata = try PoolMetadata(
 
 // Configure relay endpoints
 let relay = Relay.singleHostAddr(
-    SingleHostAddr(port: 6000, ipv4: ipv4Data, ipv6: nil)
+    SingleHostAddr(port: 6000, ipv4: IPv4Address("192.0.2.1"), ipv6: nil)
 )
 
 // Build pool parameters
@@ -185,7 +194,7 @@ let poolParams = PoolParams(
     cost: 340_000_000,       // 340 ADA minimum cost
     margin: UnitInterval(numerator: 3, denominator: 100), // 3% margin
     rewardAccount: rewardAccountHash,
-    poolOwners: .orderedSet(OrderedSet([ownerKeyHash])),
+    poolOwners: .orderedSet(try OrderedSet([ownerKeyHash])),
     relays: [relay],
     poolMetadata: poolMetadata
 )
@@ -224,7 +233,7 @@ let bech32Id = try poolOp.toBech32()
 let hexId = try poolOp.id(.hex)
 
 // Validate a pool ID
-let isValid = PoolOperator.isValidBech32("pool1pu5jlj...")
+let isValid = PoolOperator.isValidBech32("pool1pu5jlj4q9w9jlxeu370a3c9myx47md5j5m2str0naunn2q3lkdy")
 
 // Save and load pool ID
 try poolOp.save(to: "pool.id", format: .bech32)
@@ -276,9 +285,8 @@ let loadedCounter = try OperationalCertificateIssueCounter.load(from: "opcert.co
 let cborHex = try opcert.toCBORHex()
 let fromHex = try OperationalCertificate.fromCBORHex(cborHex)
 
-// JSON serialization
+// JSON, to read or show (the text envelope is the form to read back)
 let json = try opcert.toJSON()
-let fromJson = try OperationalCertificate.fromJSON(json!)
 ```
 
 ## Error Handling
@@ -293,16 +301,8 @@ do {
     )
     try opcert.save(to: "node.cert")
 
-} catch CardanoCoreError.invalidArgument(let message) {
-    print("Invalid parameter: \(message)")
-} catch CardanoCoreError.deserializeError(let message) {
-    print("Deserialization failed: \(message)")
-} catch CardanoCoreError.ioError(let message) {
-    print("File operation failed: \(message)")
-} catch CardanoCoreError.valueError(let message) {
-    print("Validation error: \(message)")
 } catch {
-    print("Unexpected error: \(error)")
+    print("Operational certificate failed: \(error)")
 }
 ```
 
