@@ -191,7 +191,10 @@ struct SharedWordlistMnemonicTests {
     @Test("A phrase valid in both Chinese wordlists loads, with its entropy")
     func sharedChinese() throws {
         let (words, entropy) = try Self.sharedPhrase()
-        #expect(throws: (any Error).self) { try Mnemonic(from: words) }
+        // swift-mnemonic reads it too since 0.2.6, choosing the list whose
+        // checksum the phrase passes.
+        let mnemonic = try Mnemonic(from: words)
+        #expect(try Mnemonic.toEntropy(words, wordlist: mnemonic.wordlist) == entropy)
         #expect(try HDWallet.entropy(of: words) == entropy)
         let wallet = try HDWallet.fromMnemonic(mnemonic: words.joined(separator: " "))
         #expect(wallet.entropy == entropy.hexEncodedString())
