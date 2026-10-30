@@ -255,6 +255,14 @@ public struct OperationalCertificate: TextEnvelopable, JSONSerializable, Sendabl
 
     // MARK: - Issue Operational Certificate
 
+    /// The bytes a cold key signs for an operational certificate.
+    static func signable(kesVerificationKey: Data, sequenceNumber: UInt64, kesPeriod: UInt64) -> Data {
+        var data = kesVerificationKey
+        withUnsafeBytes(of: sequenceNumber.bigEndian) { data.append(contentsOf: $0) }
+        withUnsafeBytes(of: kesPeriod.bigEndian) { data.append(contentsOf: $0) }
+        return data
+    }
+
     /// Issues a new operational certificate, mirroring `cardano-cli node issue-op-cert`.
     ///
     /// This constructs the certificate body `[kes_vkey, sequence_number, kes_period]`,
@@ -268,21 +276,22 @@ public struct OperationalCertificate: TextEnvelopable, JSONSerializable, Sendabl
     ///     Will be incremented after successful issuance.
     ///   - kesPeriod: The KES period at which the certificate becomes valid.
     /// - Returns: The issued `OperationalCertificate` with the cold verification key set.
-    /// - Throws: If CBOR encoding or signing fails.
-    /// The bytes a cold key signs for an operational certificate.
-    static func signable(kesVerificationKey: Data, sequenceNumber: UInt64, kesPeriod: UInt64) -> Data {
-        var data = kesVerificationKey
-        withUnsafeBytes(of: sequenceNumber.bigEndian) { data.append(contentsOf: $0) }
-        withUnsafeBytes(of: kesPeriod.bigEndian) { data.append(contentsOf: $0) }
-        return data
-    }
-
+    /// - Throws: `CardanoCoreError.invalidArgument` when the counter belongs to
+    ///   another pool's cold key, and when CBOR encoding or signing fails.
     public static func issue(
         kesVerificationKey: KESVerificationKey,
         coldSigningKey: StakePoolSigningKey,
         operationalCertificateIssueCounter: inout OperationalCertificateIssueCounter,
         kesPeriod: UInt64
     ) throws -> OperationalCertificate {
+        // The counter tracks one cold key's certificates: issuing with
+        // another pool's key would number this one from the wrong sequence.
+        let coldVerificationKey: StakePoolVerificationKey = try coldSigningKey.toVerificationKey()
+        guard coldVerificationKey == operationalCertificateIssueCounter.coldVerificationKey else {
+            throw CardanoCoreError.invalidArgument(
+                "The issue counter is for cold key \(operationalCertificateIssueCounter.coldVerificationKey.payload.toHex), "
+                    + "not \(coldVerificationKey.payload.toHex)")
+        }
         let sequenceNumber = UInt64(operationalCertificateIssueCounter.counterValue)
 
         // The cold key signs the raw KES key, then the counter and the KES
@@ -293,9 +302,6 @@ public struct OperationalCertificate: TextEnvelopable, JSONSerializable, Sendabl
                 kesVerificationKey: kesVerificationKey.payload,
                 sequenceNumber: sequenceNumber,
                 kesPeriod: kesPeriod))
-
-        // Derive the cold verification key
-        let coldVerificationKey: StakePoolVerificationKey = try coldSigningKey.toVerificationKey()
 
         // Build the operational certificate
         let cert = try OperationalCertificate(
@@ -314,11 +320,15 @@ public struct OperationalCertificate: TextEnvelopable, JSONSerializable, Sendabl
 
     // MARK: - Equatable
 
+    /// Equal when they are the same certificate for the same cold key: a
+    /// certificate read from a block, which carries no cold key, differs from
+    /// the same one read from a text envelope, which does.
     public static func == (lhs: OperationalCertificate, rhs: OperationalCertificate) -> Bool {
         return lhs.hotVKey == rhs.hotVKey &&
             lhs.sequenceNumber == rhs.sequenceNumber &&
             lhs.kesPeriod == rhs.kesPeriod &&
-            lhs.sigma == rhs.sigma
+            lhs.sigma == rhs.sigma &&
+            lhs.coldVerificationKey == rhs.coldVerificationKey
     }
 
     // MARK: - Hashable
@@ -328,6 +338,7 @@ public struct OperationalCertificate: TextEnvelopable, JSONSerializable, Sendabl
         hasher.combine(sequenceNumber)
         hasher.combine(kesPeriod)
         hasher.combine(sigma)
+        hasher.combine(coldVerificationKey)
     }
 
     // MARK: - Private Helpers

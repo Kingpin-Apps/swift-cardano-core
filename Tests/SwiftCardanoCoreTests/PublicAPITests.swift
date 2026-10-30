@@ -291,4 +291,19 @@ struct PublicAPITests {
         // The untyped key reads any signing key file.
         #expect(try SigningKey.load(from: skeyPath).payload == keyPair.signingKey.payload)
     }
+
+    @Test("Issuing refuses a counter kept for another pool's cold key")
+    func issueChecksTheCounterColdKey() throws {
+        let cold = try StakePoolKeyPair.generate()
+        var otherPoolCounter = try OperationalCertificateIssueCounter.createNewCounter(
+            coldVerificationKey: StakePoolKeyPair.generate().verificationKey)
+        #expect(throws: CardanoCoreError.self) {
+            try OperationalCertificate.issue(
+                kesVerificationKey: KESKeyPair.generate().verificationKey,
+                coldSigningKey: cold.signingKey,
+                operationalCertificateIssueCounter: &otherPoolCounter,
+                kesPeriod: 0)
+        }
+        #expect(otherPoolCounter.counterValue == 0)
+    }
 }

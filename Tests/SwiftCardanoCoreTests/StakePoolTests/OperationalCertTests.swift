@@ -366,8 +366,8 @@ func makeOperationalCertWithColdKey() throws -> OperationalCertificate {
         #expect(cert1 != differentCert)
     }
 
-    @Test("Test equality ignores cold verification key")
-    func testEqualityIgnoresColdKey() async throws {
+    @Test("Test equality compares the cold verification key")
+    func testEqualityComparesColdKey() async throws {
         let hotVKey = try makeHotVKey()
         let coldKeyPair = try StakePoolKeyPair.generate()
 
@@ -384,7 +384,7 @@ func makeOperationalCertWithColdKey() throws -> OperationalCertificate {
             sigma: sigma,
             coldVerificationKey: coldKeyPair.verificationKey
         )
-        #expect(certWithoutColdKey == certWithColdKey)
+        #expect(certWithoutColdKey != certWithColdKey)
     }
 }
 

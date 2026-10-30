@@ -281,9 +281,12 @@ let loadedCert = try OperationalCertificate.load(from: "node.cert")
 try issueCounter.save(to: "opcert.counter")
 let loadedCounter = try OperationalCertificateIssueCounter.load(from: "opcert.counter")
 
-// CBOR hex encoding
+// CBOR hex encoding: the certificate as a block carries it, without the
+// cold key (the text envelope, from save(to:), keeps it)
 let cborHex = try opcert.toCBORHex()
 let fromHex = try OperationalCertificate.fromCBORHex(cborHex)
+assert(fromHex.coldVerificationKey == nil)
+assert(fromHex.sigma == opcert.sigma)
 
 // JSON, with the keys and signature as hex
 let json = try opcert.toJSON()!

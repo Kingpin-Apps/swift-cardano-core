@@ -259,9 +259,12 @@ struct StakePoolsGuideExamplesTests {
             kesVerificationKey: kesKeyPair.verificationKey, coldSigningKey: coldKeyPair.signingKey,
             operationalCertificateIssueCounter: &counter, kesPeriod: kesPeriod)
 
-        // CBOR hex encoding
+        // CBOR hex encoding: the certificate as a block carries it, without the
+        // cold key (the text envelope, from save(to:), keeps it)
         let cborHex = try opcert.toCBORHex()
         let fromHex = try OperationalCertificate.fromCBORHex(cborHex)
+        #expect(fromHex.coldVerificationKey == nil)
+        #expect(fromHex.sigma == opcert.sigma)
 
         // JSON, with the keys and signature as hex
         let json = try opcert.toJSON()!
@@ -269,8 +272,7 @@ struct StakePoolsGuideExamplesTests {
         #expect(fromJson == opcert)
         #expect(fromJson.coldVerificationKey == opcert.coldVerificationKey)
 
-        #expect(fromHex == opcert)
-        // == leaves out the cold key, so check it and the signature directly.
+        #expect(try OperationalCertificate.fromTextEnvelope(opcert.toTextEnvelope()!) == opcert)
         #expect(fromJson.coldVerificationKey == coldKeyPair.verificationKey)
         #expect(fromJson.sigma == opcert.sigma)
         #expect(fromJson.hotVKey == kesKeyPair.verificationKey)
