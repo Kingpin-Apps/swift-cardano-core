@@ -46,9 +46,9 @@ struct PlutusDataEqualityTests {
 
     /// An integer goes on the wire as a CBOR bignum only when it does not fit
     /// in 64 bits, so the case it is held in cannot decide the encoding.
-    @Test(
-        "An integer is written in the smallest form that holds it",
-        arguments: [
+    static let smallestFormCases: [(BigInt, String)] = {
+        let twoTo70: BigInt = BigInt(1) << 70
+        return [
             (BigInt(0), "00"),
             (BigInt(7), "07"),
             (BigInt(-7), "26"),
@@ -56,10 +56,12 @@ struct PlutusDataEqualityTests {
             (BigInt(Int64.min), "3b7fffffffffffffff"),
             (BigInt(UInt64.max), "1bffffffffffffffff"),
             // 2^70, and -2^70 as tag 3's -1 - n.
-            (BigInt(1) << 70, "c249400000000000000000"),
-            (-(BigInt(1) << 70), "c3493fffffffffffffffff"),
+            (twoTo70, "c249400000000000000000"),
+            (-twoTo70, "c3493fffffffffffffffff"),
         ]
-    )
+    }()
+
+    @Test("An integer is written in the smallest form that holds it", arguments: smallestFormCases)
     func integerEncoding(value: BigInt, expected: String) throws {
         let held: BigInteger = value.sign == .plus
             ? .bigUInt(value.magnitude)

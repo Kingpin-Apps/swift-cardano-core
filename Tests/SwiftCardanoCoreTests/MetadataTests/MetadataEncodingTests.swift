@@ -38,13 +38,21 @@ struct MetadataEncodingTests {
         #expect(try metadata.toCBORHex() == "a3010002000300")
     }
 
-    @Test("Integers across the whole range CBOR carries", arguments: [
-        ("a1011bffffffffffffffff", BigInt(1) << 64 - 1),
-        ("a1013bffffffffffffffff", -(BigInt(1) << 64)),
-        ("a1013b8000000000000000", -(BigInt(1) << 63) - 1),
-        ("a101c249010000000000000000", BigInt(1) << 64),
-        ("a101c349010000000000000000", -(BigInt(1) << 64) - 1),
-    ])
+    /// Typed up front: inferring the literal inside `@Test` times out the
+    /// type checker on some toolchains.
+    static let integerRangeCases: [(String, BigInt)] = {
+        let twoTo63: BigInt = BigInt(1) << 63
+        let twoTo64: BigInt = BigInt(1) << 64
+        return [
+            ("a1011bffffffffffffffff", twoTo64 - 1),
+            ("a1013bffffffffffffffff", -twoTo64),
+            ("a1013b8000000000000000", -twoTo63 - 1),
+            ("a101c249010000000000000000", twoTo64),
+            ("a101c349010000000000000000", -twoTo64 - 1),
+        ]
+    }()
+
+    @Test("Integers across the whole range CBOR carries", arguments: integerRangeCases)
     func integerRange(hex: String, value: BigInt) throws {
         let metadata = try Metadata.fromCBORHex(hex)
         #expect(metadata[1]?.integerValue == value)

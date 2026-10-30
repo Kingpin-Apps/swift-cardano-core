@@ -227,11 +227,17 @@ struct PlutusDataEncodingTests {
         try expectRoundTrip(hex)
     }
 
-    @Test("Integers are read with their value", arguments: [
-        ("3bffffffffffffffff", -(BigInt(1) << 64)),
-        ("3b8000000000000000", -(BigInt(1) << 63) - 1),
-        ("1bffffffffffffffff", (BigInt(1) << 64) - 1),
-    ])
+    static let integerValueCases: [(String, BigInt)] = {
+        let twoTo63: BigInt = BigInt(1) << 63
+        let twoTo64: BigInt = BigInt(1) << 64
+        return [
+            ("3bffffffffffffffff", -twoTo64),
+            ("3b8000000000000000", -twoTo63 - 1),
+            ("1bffffffffffffffff", twoTo64 - 1),
+        ]
+    }()
+
+    @Test("Integers are read with their value", arguments: integerValueCases)
     func integerValues(hex: String, value: BigInt) throws {
         guard case .bigInt(let integer) = try PlutusData.fromCBORHex(hex) else {
             Issue.record("not an integer")
