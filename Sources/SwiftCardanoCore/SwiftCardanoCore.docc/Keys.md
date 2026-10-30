@@ -28,8 +28,12 @@ Cardano uses Ed25519 elliptic curve cryptography for all key operations. SwiftCa
 
 - ``PaymentExtendedSigningKey`` & ``PaymentExtendedVerificationKey``: BIP32 hierarchical keys
 - ``StakeExtendedSigningKey`` & ``StakeExtendedVerificationKey``: Extended stake keys
+- ``HDWallet``: Derives extended keys from a mnemonic along a BIP32 path
 
 ## Step-by-Step Key Management
+
+These examples are compiled and run by the package's tests
+(`KeysGuideExamplesTests`), so they stay true to the API.
 
 ### 1. Generating Keys
 
@@ -38,10 +42,10 @@ import SwiftCardanoCore
 
 // Individual key generation
 let paymentSKey = try PaymentSigningKey.generate()
-let paymentVKey = try PaymentVerificationKey.fromSigningKey(paymentSKey)
+let paymentVKey: PaymentVerificationKey = try paymentSKey.toVerificationKey()
 
 let stakeSKey = try StakeSigningKey.generate()
-let stakeVKey = try StakeVerificationKey.fromSigningKey(stakeSKey)
+let stakeVKey: StakeVerificationKey = try stakeSKey.toVerificationKey()
 
 // KeyPair generation (recommended)
 let paymentKeyPair = try PaymentKeyPair.generate()
@@ -75,7 +79,7 @@ assert(loadedPaymentVKey == paymentKeyPair.verificationKey)
 
 ```swift
 // Derive verification key from signing key
-let derivedVKey = try PaymentVerificationKey.fromSigningKey(paymentSKey)
+let derivedVKey: PaymentVerificationKey = try paymentSKey.toVerificationKey()
 
 // Generate key hashes for addresses
 let paymentKeyHash = try paymentKeyPair.verificationKey.hash()
@@ -84,11 +88,10 @@ let stakeKeyHash = try stakeKeyPair.verificationKey.hash()
 print("Payment Key Hash: \(paymentKeyHash.payload.toHex)")
 print("Stake Key Hash: \(stakeKeyHash.payload.toHex)")
 
-// Validate key pair consistency
+// Sign a message: a 64-byte Ed25519 signature
 let testData = Data("test message".utf8)
 let signature = try paymentKeyPair.signingKey.sign(data: testData)
-let isValid = try paymentKeyPair.verificationKey.verify(signature: signature, data: testData)
-assert(isValid)
+assert(signature.count == 64)
 ```
 
 ## Advanced Key Operations
@@ -96,12 +99,19 @@ assert(isValid)
 ### Extended Keys (BIP32)
 
 ```swift
-// Generate extended keys for hierarchical derivation
-let extendedPaymentKey = try PaymentExtendedSigningKey.generate()
-let extendedStakeKey = try StakeExtendedSigningKey.generate()
+// Create a wallet from a new 24-word mnemonic
+let mnemonic = try HDWallet.generateMnemonic().joined(separator: " ")
+let wallet = try HDWallet.fromMnemonic(mnemonic: mnemonic)
 
-// Derive child keys (implementation depends on BIP32 support)
-// let childKey = try extendedPaymentKey.deriveChild(index: 0)
+// Derive the first payment and stake keys of account 0 (CIP-1852)
+let paymentWallet = try wallet.derive(fromPath: "m/1852'/1815'/0'/0/0")
+let stakeWallet = try wallet.derive(fromPath: "m/1852'/1815'/0'/2/0")
+
+let extendedPaymentKey = try PaymentExtendedSigningKey.fromHDWallet(paymentWallet)
+let extendedStakeKey = try StakeExtendedSigningKey.fromHDWallet(stakeWallet)
+
+// The extended verification key carries the chain code
+let extendedPaymentVKey: PaymentExtendedVerificationKey = try extendedPaymentKey.toVerificationKey()
 ```
 
 ### Specialized Keys
@@ -133,35 +143,29 @@ func generateSecureKeyPair() throws -> PaymentKeyPair {
     return try PaymentKeyPair.generate()
 }
 
-// Key validation
-func validateKeyPair(_ keyPair: PaymentKeyPair) throws {
-    let testMessage = Data("validation test".utf8)
-    let signature = try keyPair.signingKey.sign(data: testMessage)
-    
-    guard try keyPair.verificationKey.verify(signature: signature, data: testMessage) else {
-        throw CardanoCoreError.invalidArgument("Key pair validation failed")
-    }
+// Key validation: the verification key must be the one the signing key derives
+func validateKeyPair(_ keyPair: PaymentKeyPair) throws -> Bool {
+    let derived = try PaymentKeyPair.fromSigningKey(keyPair.signingKey)
+    return derived.verificationKey == keyPair.verificationKey
 }
 
-try validateKeyPair(paymentKeyPair)
+assert(try validateKeyPair(paymentKeyPair))
 ```
 
 ## Key-Based Operations
+
+These examples assume a `txBody` of your own.
 
 ### Transaction Signing
 
 ```swift
 // Sign transaction data
-let txBodyHash = txBody.hash()
+let txBodyHash = try txBody.hash()
 let signature = try paymentKeyPair.signingKey.sign(data: txBodyHash)
 
 // Create witness for transaction
 let witness = VerificationKeyWitness(
-    vkey: .verificationKey(VerificationKey(
-        payload: paymentKeyPair.verificationKey.payload,
-        type: paymentKeyPair.verificationKey.type,
-        description: paymentKeyPair.verificationKey.description
-    )),
+    vkey: .verificationKey(paymentKeyPair.verificationKey),
     signature: signature
 )
 ```
@@ -174,12 +178,12 @@ let keyPairs = try (0..<3).map { _ in try PaymentKeyPair.generate() }
 let keyHashes = try keyPairs.map { try $0.verificationKey.hash() }
 
 // Create multi-signature script (2-of-3)
-let multiSigScript = NativeScript.scriptNOfK(
-    n: 2,
-    nativeScripts: keyHashes.map { keyHash in
-        .scriptPubkey(.verificationKeyHash(keyHash))
+let multiSigScript = NativeScript.scriptNofK(ScriptNofK(
+    required: 2,
+    scripts: keyHashes.map { keyHash in
+        .scriptPubkey(ScriptPubkey(keyHash: keyHash))
     }
-)
+))
 
 // Sign with multiple keys
 let signatures = try keyPairs.map { keyPair in
@@ -193,15 +197,9 @@ let signatures = try keyPairs.map { keyPair in
 do {
     let keyPair = try PaymentKeyPair.generate()
     try keyPair.signingKey.save(to: "payment.skey")
-    
-    let signature = try keyPair.signingKey.sign(data: testData)
-    
-} catch CardanoCoreError.invalidArgument(let message) {
-    print("Invalid key parameter: \(message)")
-} catch CardanoCoreError.ioError(let message) {
-    print("File operation failed: \(message)")
-} catch CardanoCoreError.encodingError(let message) {
-    print("Key encoding failed: \(message)")
+
+    let signature = try keyPair.signingKey.sign(data: Data("test message".utf8))
+    print("Signature: \(signature.toHex)")
 } catch {
     print("Key operation error: \(error)")
 }
@@ -241,7 +239,7 @@ func testKeyGeneration() throws {
     assert(keyPair1.verificationKey != keyPair2.verificationKey)
     
     // Derived verification key should match
-    let derivedVKey = try PaymentVerificationKey.fromSigningKey(keyPair1.signingKey)
+    let derivedVKey: PaymentVerificationKey = try keyPair1.signingKey.toVerificationKey()
     assert(derivedVKey == keyPair1.verificationKey)
 }
 
