@@ -25,6 +25,10 @@ Transactions are the core mechanism for transferring value and executing smart c
 
 ## Step-by-Step Transaction Building
 
+These examples are compiled and run by the package's tests
+(`TransactionsGuideExamplesTests`), so they stay true to the API. Each step
+builds on the values of the steps before it.
+
 ### 1. Create Transaction Inputs
 
 ```swift
@@ -74,23 +78,13 @@ let signature = try paymentKeyPair.signingKey.sign(data: txBody.hash())
 
 // Create witness
 let witness = VerificationKeyWitness(
-    vkey: .verificationKey(VerificationKey(
-        payload: paymentKeyPair.verificationKey.payload,
-        type: paymentKeyPair.verificationKey.type,
-        description: paymentKeyPair.verificationKey.description
-    )),
+    vkey: .verificationKey(paymentKeyPair.verificationKey),
     signature: signature
 )
 
 // Create witness set
 let witnessSet = TransactionWitnessSet(
-    vkeyWitnesses: .nonEmptyOrderedSet(NonEmptyOrderedSet([witness])),
-    nativeScripts: nil,
-    bootstrapWitness: nil,
-    plutusV1Script: nil,
-    plutusV2Script: nil,
-    plutusData: nil,
-    redeemers: nil
+    vkeyWitnesses: .nonEmptyOrderedSet(NonEmptyOrderedSet([witness]))
 )
 ```
 
@@ -144,31 +138,17 @@ let signature1 = try keyPair1.signingKey.sign(data: txBody.hash())
 let signature2 = try keyPair2.signingKey.sign(data: txBody.hash())
 
 let witness1 = VerificationKeyWitness(
-    vkey: .verificationKey(VerificationKey(
-        payload: keyPair1.verificationKey.payload,
-        type: keyPair1.verificationKey.type,
-        description: keyPair1.verificationKey.description
-    )),
+    vkey: .verificationKey(keyPair1.verificationKey),
     signature: signature1
 )
 
 let witness2 = VerificationKeyWitness(
-    vkey: .verificationKey(VerificationKey(
-        payload: keyPair2.verificationKey.payload,
-        type: keyPair2.verificationKey.type,
-        description: keyPair2.verificationKey.description
-    )),
+    vkey: .verificationKey(keyPair2.verificationKey),
     signature: signature2
 )
 
 let multiSigWitnessSet = TransactionWitnessSet(
-    vkeyWitnesses: .nonEmptyOrderedSet(NonEmptyOrderedSet([witness1, witness2])),
-    nativeScripts: nil,
-    bootstrapWitness: nil,
-    plutusV1Script: nil,
-    plutusV2Script: nil,
-    plutusData: nil,
-    redeemers: nil
+    vkeyWitnesses: .nonEmptyOrderedSet(NonEmptyOrderedSet([witness1, witness2]))
 )
 ```
 
@@ -177,16 +157,11 @@ let multiSigWitnessSet = TransactionWitnessSet(
 ```swift
 // Add native script to witness set
 let keyHash = try paymentKeyPair.verificationKey.hash()
-let nativeScript = NativeScript.scriptPubkey(.verificationKeyHash(keyHash))
+let nativeScript = NativeScript.scriptPubkey(ScriptPubkey(keyHash: keyHash))
 
 let scriptWitnessSet = TransactionWitnessSet(
     vkeyWitnesses: .nonEmptyOrderedSet(NonEmptyOrderedSet([witness])),
-    nativeScripts: .nonEmptyOrderedSet(NonEmptyOrderedSet([nativeScript])),
-    bootstrapWitness: nil,
-    plutusV1Script: nil,
-    plutusV2Script: nil,
-    plutusData: nil,
-    redeemers: nil
+    nativeScripts: .nonEmptyOrderedSet(NonEmptyOrderedSet([nativeScript]))
 )
 ```
 
@@ -227,14 +202,14 @@ print("CBOR: \(cborHex)")
 let restoredTransaction = try Transaction.fromCBOR(data: cborData)
 
 // From CBOR hex string
-let transactionFromHex = try Transaction.fromCBOR(hex: cborHex)
+let transactionFromHex = try Transaction.fromCBORHex(cborHex)
 ```
 
 ## Transaction File Operations
 
 ### Save and Load Methods
 
-Transactions conform to the ``PayloadJSONSerializable`` protocol, providing convenient methods for saving to and loading from JSON files in Cardano CLI-compatible format.
+Transactions conform to the ``TextEnvelopable`` protocol, providing convenient methods for saving to and loading from JSON text-envelope files in Cardano CLI-compatible format.
 
 ```swift
 // Create a complete transaction
@@ -326,7 +301,7 @@ try inspectTransaction(from: "minting-tx.json")
 - <doc:Assets> - Working with native assets and tokens
 - <doc:Scripts> - Native scripts and smart contracts  
 - <doc:Certificates> - Stake registration and delegation
-- <doc:Metadata> - Transaction metadata and auxiliary data
+- ``AuxiliaryData`` - Transaction metadata and auxiliary data
 - <doc:Serialization> - CBOR encoding and decoding
 
 ## Related Symbols
