@@ -106,78 +106,41 @@ public struct SingleHostAddr: Serializable, Sendable {
     
     // MARK: - JSONSerializable
     
+    /// Reads ``toDict()``'s form.
     public static func fromDict(_ dict: Primitive) throws -> SingleHostAddr {
         guard case let .orderedDict(dictValue) = dict,
-              let codePrimitive = dictValue[.uint(UInt64(0))],
-              case let .uint(code) = codePrimitive,
-              code == Self.code else {
+              try dictValue[.string("type")]?.integer("SingleHostAddr type", as: Int.self) == Self.code else {
             throw CardanoCoreError.deserializeError("Invalid SingleHostAddr type in dict")
         }
-
-        var port: Int? = nil
-        if let portPrimitive = dictValue[.uint(UInt64(1))] {
-            switch portPrimitive {
-                case .null:
-                    port = nil
-                default:
-                    // port = uint .size 2
-                    port = Int(try portPrimitive.integer("SingleHostAddr port", as: UInt16.self))
-            }
+        func field(_ name: String) -> Primitive? {
+            guard let value = dictValue[.string(name)], value != .null else { return nil }
+            return value
         }
-        
-        var ipv4: IPv4Address? = nil
-        if let ipv4Primitive = dictValue[.uint(UInt64(2))] {
-            switch ipv4Primitive {
-                case .bytes(let ipv4Data):
-                    if ipv4Data.count == 4 {
-                        ipv4 = try IPv4Address(ipv4Data)
-                    } else {
-                        throw CardanoCoreError.deserializeError("Invalid IPv4 address length in SingleHostAddr dict")
-                    }
-                case .null:
-                    ipv4 = nil
-                default:
-                    throw CardanoCoreError.deserializeError("Invalid ipv4 value in SingleHostAddr dict")
+        // port = uint .size 2
+        let port = try field("port").map { Int(try $0.integer("SingleHostAddr port", as: UInt16.self)) }
+        let ipv4 = try field("ipv4").map { value -> IPv4Address in
+            guard case .string(let text) = value, let address = IPv4Address(text) else {
+                throw CardanoCoreError.deserializeError("Invalid ipv4 value in SingleHostAddr dict: \(value)")
             }
+            return address
         }
-        
-        var ipv6: IPv6Address? = nil
-        if let ipv6Primitive = dictValue[.uint(UInt64(3))] {
-            switch ipv6Primitive {
-                case .bytes(let ipv6Data):
-                    if ipv6Data.count == 16 {
-                        ipv6 = try IPv6Address(ipv6Data)
-                    } else {
-                        throw CardanoCoreError.deserializeError("Invalid IPv6 address length in SingleHostAddr dict")
-                    }
-                case .null:
-                    ipv6 = nil
-                default:
-                    throw CardanoCoreError.deserializeError("Invalid ipv6 value in SingleHostAddr dict")
+        let ipv6 = try field("ipv6").map { value -> IPv6Address in
+            guard case .string(let text) = value, let address = IPv6Address(text) else {
+                throw CardanoCoreError.deserializeError("Invalid ipv6 value in SingleHostAddr dict: \(value)")
             }
+            return address
         }
-        
         return SingleHostAddr(port: port, ipv4: ipv4, ipv6: ipv6)
     }
-    
+
+    /// `{"type": 0, "port": …, "ipv4": "192.0.2.1", "ipv6": "2001:db8::1"}`,
+    /// an absent field as `null`.
     public func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
-        dict[.uint(UInt64(0))] = .uint(UInt64(Self.code))
-        if let port = self.port {
-            dict[.uint(UInt64(1))] = .integer(port)
-        } else {
-            dict[.uint(UInt64(1))] = .null
-        }
-        if let ipv4 = self.ipv4 {
-            dict[.uint(UInt64(2))] = .bytes(ipv4.rawValue)
-        } else {
-            dict[.uint(UInt64(2))] = .null
-        }
-        if let ipv6 = self.ipv6 {
-            dict[.uint(UInt64(3))] = .bytes(ipv6.rawValue)
-        } else {
-            dict[.uint(UInt64(3))] = .null
-        }
+        dict[.string("type")] = .integer(Self.code)
+        dict[.string("port")] = port.map { .integer($0) } ?? .null
+        dict[.string("ipv4")] = ipv4.map { .string($0.description) } ?? .null
+        dict[.string("ipv6")] = ipv6.map { .string($0.description) } ?? .null
         return .orderedDict(dict)
     }
     

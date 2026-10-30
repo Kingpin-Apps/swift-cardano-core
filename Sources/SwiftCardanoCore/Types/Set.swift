@@ -697,3 +697,58 @@ private extension CBOR {
         return self
     }
 }
+
+// MARK: - JSON
+
+/// An element of a collection as JSON: its own JSON form, or the hex of its
+/// CBOR when it has none.
+func jsonElement<Element: CBORSerializable>(_ element: Element) throws -> Primitive {
+    if let element = element as? any JSONSerializable {
+        return try element.toDict()
+    }
+    return .string(try element.toCBORHex())
+}
+
+/// Reads ``jsonElement(_:)``'s form.
+func elementFromJSON<Element: CBORSerializable>(_ primitive: Primitive, as type: Element.Type) throws -> Element {
+    if let jsonType = Element.self as? any JSONSerializable.Type {
+        guard let element = try jsonType.fromDict(primitive) as? Element else {
+            throw CardanoCoreError.deserializeError("Expected \(Element.self) in JSON")
+        }
+        return element
+    }
+    guard case .string(let hex) = primitive else {
+        throw CardanoCoreError.deserializeError("\(Element.self) in JSON is the hex of its CBOR, got \(primitive)")
+    }
+    return try Element.fromCBORHex(hex)
+}
+
+extension OrderedSet {
+    /// The elements in order, each as its own JSON.
+    public func toDict() throws -> Primitive {
+        .list(try elementsOrdered.map(jsonElement))
+    }
+
+    /// Reads ``toDict()``'s form.
+    public static func fromDict(_ primitive: Primitive) throws -> Self {
+        guard case .list(let elements) = primitive else {
+            throw CardanoCoreError.deserializeError("An ordered set in JSON is a list, got \(primitive)")
+        }
+        return try Self(try elements.map { try elementFromJSON($0, as: Element.self) })
+    }
+}
+
+extension NonEmptyOrderedSet {
+    /// The elements in order, each as its own JSON.
+    public func toDict() throws -> Primitive {
+        .list(try elementsOrdered.map(jsonElement))
+    }
+
+    /// Reads ``toDict()``'s form.
+    public static func fromDict(_ primitive: Primitive) throws -> Self {
+        guard case .list(let elements) = primitive else {
+            throw CardanoCoreError.deserializeError("A non-empty ordered set in JSON is a list, got \(primitive)")
+        }
+        return try Self(nonEmpty: try elements.map { try elementFromJSON($0, as: Element.self) })
+    }
+}

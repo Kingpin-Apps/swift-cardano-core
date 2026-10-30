@@ -94,53 +94,32 @@ public struct SingleHostName: Serializable, Sendable {
     
     // MARK: - JSONSerializable
     
+    /// Reads ``toDict()``'s form.
     public static func fromDict(_ dict: Primitive) throws -> SingleHostName {
         guard case let .orderedDict(dictValue) = dict,
-              let codePrimitive = dictValue[.string("code")],
-              case let .uint(codeValue) = codePrimitive,
-              codeValue == UInt64(Self.code) else {
-            throw CardanoCoreError.deserializeError("Invalid SingleHostName code")
+              try dictValue[.string("type")]?.integer("SingleHostName type", as: Int.self) == Self.code else {
+            throw CardanoCoreError.deserializeError("Invalid SingleHostName type in dict")
         }
-        
         var port: Int? = nil
-        if let portPrimitive = dictValue[.string("port")] {
-            switch portPrimitive {
-                case .null:
-                    port = nil
-                default:
-                    // port = uint .size 2
-                    port = Int(try portPrimitive.integer("SingleHostName port", as: UInt16.self))
-            }
+        if let portPrimitive = dictValue[.string("port")], portPrimitive != .null {
+            // port = uint .size 2
+            port = Int(try portPrimitive.integer("SingleHostName port", as: UInt16.self))
         }
-        
         var dnsName: String? = nil
-        if let dnsNamePrimitive = dictValue[.string("dnsName")] {
-            switch dnsNamePrimitive {
-                case .string(let dnsNameValue):
-                    dnsName = dnsNameValue
-                case .null:
-                    dnsName = nil
-                default:
-                    throw CardanoCoreError.deserializeError("Invalid dnsName value in SingleHostName")
-            }
+        switch dictValue[.string("dnsName")] {
+            case .string(let value)?: dnsName = value
+            case .null?, nil: dnsName = nil
+            default: throw CardanoCoreError.deserializeError("Invalid dnsName value in SingleHostName")
         }
-        
         return try SingleHostName(port: port, dnsName: dnsName)
     }
-    
+
+    /// `{"type": 1, "port": …, "dnsName": …}`, an absent field as `null`.
     public func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
-        dict[.string("code")] = .uint(UInt64(Self.code))
-        if let port = self.port {
-            dict[.string("port")] = .integer(port)
-        } else {
-            dict[.string("port")] = .null
-        }
-        if let dnsName = self.dnsName {
-            dict[.string("dnsName")] = .string(dnsName)
-        } else {
-            dict[.string("dnsName")] = .null
-        }
+        dict[.string("type")] = .integer(Self.code)
+        dict[.string("port")] = port.map { .integer($0) } ?? .null
+        dict[.string("dnsName")] = dnsName.map { .string($0) } ?? .null
         return .orderedDict(dict)
     }
     

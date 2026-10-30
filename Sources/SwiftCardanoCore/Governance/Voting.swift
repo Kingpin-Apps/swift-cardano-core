@@ -80,19 +80,19 @@ public enum VoterType: Serializable {
         
         switch typeString {
             case "constitutionalCommitteeHotKeyhash":
-                let hash = try VerificationKeyHash(from: hashPrimitive)
+                let hash = try VerificationKeyHash.fromDict(hashPrimitive)
                 return .constitutionalCommitteeHotKeyhash(hash)
             case "constitutionalCommitteeHotScriptHash":
-                let hash = try ScriptHash(from: hashPrimitive)
+                let hash = try ScriptHash.fromDict(hashPrimitive)
                 return .constitutionalCommitteeHotScriptHash(hash)
             case "drepKeyhash":
-                let hash = try VerificationKeyHash(from: hashPrimitive)
+                let hash = try VerificationKeyHash.fromDict(hashPrimitive)
                 return .drepKeyhash(hash)
             case "drepScriptHash":
-                let hash = try ScriptHash(from: hashPrimitive)
+                let hash = try ScriptHash.fromDict(hashPrimitive)
                 return .drepScriptHash(hash)
             case "stakePoolKeyhash":
-                let hash = try VerificationKeyHash(from: hashPrimitive)
+                let hash = try VerificationKeyHash.fromDict(hashPrimitive)
                 return .stakePoolKeyhash(hash)
             default:
                 throw CardanoCoreError.deserializeError("Invalid VoterType type: \(typeString)")
@@ -104,19 +104,19 @@ public enum VoterType: Serializable {
         switch self {
             case .constitutionalCommitteeHotKeyhash(let hash):
                 dict[.string("type")] = .string("constitutionalCommitteeHotKeyhash")
-                dict[.string("hash")] = hash.toPrimitive()
+                dict[.string("hash")] = .string(hash.payload.toHex)
             case .constitutionalCommitteeHotScriptHash(let hash):
                 dict[.string("type")] = .string("constitutionalCommitteeHotScriptHash")
-                dict[.string("hash")] = hash.toPrimitive()
+                dict[.string("hash")] = .string(hash.payload.toHex)
             case .drepKeyhash(let hash):
                 dict[.string("type")] = .string("drepKeyhash")
-                dict[.string("hash")] = hash.toPrimitive()
+                dict[.string("hash")] = .string(hash.payload.toHex)
             case .drepScriptHash(let hash):
                 dict[.string("type")] = .string("drepScriptHash")
-                dict[.string("hash")] = hash.toPrimitive()
+                dict[.string("hash")] = .string(hash.payload.toHex)
             case .stakePoolKeyhash(let hash):
                 dict[.string("type")] = .string("stakePoolKeyhash")
-                dict[.string("hash")] = hash.toPrimitive()
+                dict[.string("hash")] = .string(hash.payload.toHex)
         }
         return .orderedDict(dict)
     }
@@ -172,8 +172,7 @@ public struct VotingProcedure: Serializable {
             throw CardanoCoreError.deserializeError("Invalid VotingProcedure dict format")
         }
         guard let votePrimitive = orderedDict[.string("vote")],
-              case let .int(voteValue) = votePrimitive,
-              let vote = Vote(rawValue: Int(voteValue)) else {
+              let vote = Vote(rawValue: try votePrimitive.integer("VotingProcedure vote", as: Int.self)) else {
             throw CardanoCoreError.deserializeError("Invalid or missing vote in VotingProcedure dict")
         }
         
@@ -182,7 +181,7 @@ public struct VotingProcedure: Serializable {
             if anchorPrimitive == .null {
                 anchor = nil
             } else {
-                anchor = try Anchor(from: anchorPrimitive)
+                anchor = try Anchor.fromDict(anchorPrimitive)
             }
         } else {
             anchor = nil
@@ -195,7 +194,7 @@ public struct VotingProcedure: Serializable {
         var dict = OrderedDictionary<Primitive, Primitive>()
         dict[.string("vote")] = .int(Int64(vote.rawValue))
         if let anchor = anchor {
-            dict[.string("anchor")] = try anchor.toPrimitive()
+            dict[.string("anchor")] = try anchor.toDict()
         } else {
             dict[.string("anchor")] = .null
         }
@@ -243,29 +242,14 @@ public struct Voter: Serializable {
     
     // MARK: - JSONSerializable
     
+    /// Reads ``toDict()``'s form.
     public static func fromDict(_ dict: Primitive) throws -> Voter {
-        guard case let .orderedDict(orderedDict) = dict else {
-            throw CardanoCoreError.deserializeError("Invalid Voter dict format")
-        }
-        guard let codePrimitive = orderedDict[.string("code")],
-              case .int(_) = codePrimitive else {
-            throw CardanoCoreError.deserializeError("Invalid or missing code in Voter dict")
-        }
-        
-        guard let credentialPrimitive = orderedDict[.string("credential")] else {
-            throw CardanoCoreError.deserializeError("Missing credential in Voter dict")
-        }
-        
-        let credential = try VoterType(from: credentialPrimitive)
-        
-        return Voter(credential: credential)
+        Voter(credential: try VoterType.fromDict(dict))
     }
-    
+
+    /// The voter as `{"type": …, "hash": hex}`.
     public func toDict() throws -> Primitive {
-        var dict = OrderedDictionary<Primitive, Primitive>()
-        dict[.string("code")] = .int(Int64(code))
-        dict[.string("credential")] = try credential.toPrimitive()
-        return .orderedDict(dict)
+        try credential.toDict()
     }
 }
 
@@ -472,42 +456,52 @@ public struct VotingProcedures: Serializable {
     
     // MARK: - JSONSerializable
 
+    /// Reads ``toDict()``'s form.
     public static func fromDict(_ dict: Primitive) throws -> VotingProcedures {
-        guard case let .orderedDict(orderedDict) = dict else {
+        guard case let .list(entries) = dict else {
             throw CardanoCoreError.deserializeError("Invalid VotingProcedures dict format")
         }
         var procedures: [Voter: [GovActionID: VotingProcedure]] = [:]
-        
-        for (voterPrimitive, actionsPrimitive) in orderedDict {
-            let voter = try Voter(from: voterPrimitive)
-            
-            guard case let .orderedDict(actionsDict) = actionsPrimitive else {
-                throw CardanoCoreError.deserializeError("Invalid actions dictionary in VotingProcedures: \(actionsPrimitive)")
+        for entry in entries {
+            guard case let .orderedDict(entryDict) = entry,
+                  let voterPrimitive = entryDict[.string("voter")],
+                  case let .list(votes)? = entryDict[.string("votes")] else {
+                throw CardanoCoreError.deserializeError("Invalid VotingProcedures entry: \(entry)")
             }
-            
             var actions: [GovActionID: VotingProcedure] = [:]
-            for (govActionPrimitive, procedurePrimitive) in actionsDict {
-                let govActionID = try GovActionID(from: govActionPrimitive)
-                let procedure = try VotingProcedure(from: procedurePrimitive)
-                actions[govActionID] = procedure
+            for vote in votes {
+                guard case let .orderedDict(voteDict) = vote,
+                      let actionPrimitive = voteDict[.string("govActionId")],
+                      let procedurePrimitive = voteDict[.string("procedure")] else {
+                    throw CardanoCoreError.deserializeError("Invalid vote in VotingProcedures: \(vote)")
+                }
+                actions[try GovActionID.fromDict(actionPrimitive)] = try VotingProcedure.fromDict(procedurePrimitive)
             }
-            
-            procedures[voter] = actions
+            procedures[try Voter.fromDict(voterPrimitive)] = actions
         }
-        
         return VotingProcedures(procedures)
     }
-    
+
+    /// Each voter with its votes, as a list — a voter or an action id cannot
+    /// be a JSON key — in the order of their CBOR, so the JSON is stable:
+    /// `[{"voter": …, "votes": [{"govActionId": …, "procedure": …}]}]`.
     public func toDict() throws -> Primitive {
-        var dict = OrderedDictionary<Primitive, Primitive>()
-        for (voter, actions) in procedures {
-            var actionsDict = OrderedDictionary<Primitive, Primitive>()
-            for (govActionID, procedure) in actions {
-                actionsDict[try govActionID.toPrimitive()] = try procedure.toPrimitive()
-            }
-            dict[try voter.toPrimitive()] = .orderedDict(actionsDict)
-        }
-        return .orderedDict(dict)
+        func cbor(_ value: some CBORSerializable) throws -> Data { try value.toCBORData() }
+        let voters = try procedures.keys.map { ($0, try cbor($0)) }
+            .sorted { $0.1.lexicographicallyPrecedes($1.1) }.map(\.0)
+        return .list(try voters.map { voter in
+            let actions = try procedures[voter, default: [:]].keys.map { ($0, try cbor($0)) }
+                .sorted { $0.1.lexicographicallyPrecedes($1.1) }.map(\.0)
+            return .orderedDict([
+                .string("voter"): try voter.toDict(),
+                .string("votes"): .list(try actions.map { action in
+                    .orderedDict([
+                        .string("govActionId"): try action.toDict(),
+                        .string("procedure"): try procedures[voter]![action]!.toDict(),
+                    ])
+                }),
+            ])
+        })
     }
     
     // MARK: - Equatable and Hashable

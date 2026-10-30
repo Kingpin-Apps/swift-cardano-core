@@ -146,7 +146,13 @@ public enum BigInteger: Serializable, CustomStringConvertible, Sendable {
         if case let .int(intData) = orderedDict[.string("int")] {
             return .int(Int64(intData))
         } else if case let .uint(intData) = orderedDict[.string("int")] {
-            return .bigUInt(BigUInt(intData))
+            // JSON gives a non-negative number as .uint; one that fits is
+            // held as .int, as reading it from CBOR does.
+            return intData <= UInt64(Int64.max) ? .int(Int64(intData)) : .bigUInt(BigUInt(intData))
+        } else if case let .string(digits) = orderedDict[.string("int")], let value = BigInt(digits) {
+            // An integer too large for a JSON number is written as its digits.
+            if let small = Int64(exactly: value) { return .int(small) }
+            return value.sign == .minus ? .bigNInt(value) : .bigUInt(value.magnitude)
         } else if case let .bigInt(intData) = orderedDict[.string("int")] {
             return .bigNInt(intData)
         } else if case let .bigUInt(intData) = orderedDict[.string("int")] {

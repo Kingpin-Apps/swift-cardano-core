@@ -183,11 +183,23 @@ public struct PoolMetadata: Serializable {
             return nil
         }()
         
+        // Where the metadata of a registered pool is published, and its
+        // hash: what a pool registration carries.
+        var url: Url? = nil
+        if case let .string(urlString) = dictValue[.string("url")] {
+            url = try Url(urlString)
+        }
+        let poolMetadataHash = try dictValue[.string("poolMetadataHash")].map {
+            try PoolMetadataHash(payload: $0.jsonBytes("PoolMetadata poolMetadataHash", count: PoolMetadataHash.maxSize))
+        }
+
         return try PoolMetadata(
             name: name?.stringValue,
             description: description?.stringValue,
             ticker: ticker?.stringValue,
-            homepage: homepage
+            homepage: homepage,
+            url: url,
+            poolMetadataHash: poolMetadataHash
         )
     }
     
@@ -208,6 +220,14 @@ public struct PoolMetadata: Serializable {
 
         if let homepage = homepage {
             dict[.string("homepage")] = .string(homepage.absoluteString)
+        }
+
+        if let url = url {
+            dict[.string("url")] = .string(url.absoluteString)
+        }
+
+        if let poolMetadataHash = poolMetadataHash {
+            dict[.string("poolMetadataHash")] = .string(poolMetadataHash.payload.toHex)
         }
 
         return .orderedDict(dict)

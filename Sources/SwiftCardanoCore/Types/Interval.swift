@@ -175,6 +175,22 @@ public struct UnitInterval: Serializable {
         }
     }
     
+    /// Reads ``toDict()``'s form, or the CBOR shape.
+    public static func fromDict(_ primitive: Primitive) throws -> UnitInterval {
+        if case let .orderedDict(dict) = primitive,
+           let numerator = dict[.string("numerator")], let denominator = dict[.string("denominator")] {
+            return try UnitInterval(
+                checkedNumerator: numerator.integer("UnitInterval numerator"),
+                denominator: denominator.integer("UnitInterval denominator"))
+        }
+        return try UnitInterval(from: primitive)
+    }
+
+    /// `{"numerator": n, "denominator": d}`.
+    public func toDict() throws -> Primitive {
+        .orderedDict([.string("numerator"): .uint(numerator), .string("denominator"): .uint(denominator)])
+    }
+
     public func toPrimitive() throws -> Primitive {
         let cborTag = CBORTag(
             tag: UInt64(UnitInterval.tag),

@@ -79,8 +79,7 @@ public enum PlutusScript: Serializable {
             guard let typeValue = dict[.string("type")],
                   case .string(let typeStr) = typeValue,
                   let dataValue = dict[.string("data")],
-                  case .string(let base64String) = dataValue,
-                  let data = Data(base64Encoded: base64String) else {
+                  let data = try? dataValue.jsonBytes("Plutus script data") else {
                 throw CardanoCoreError.deserializeError("Invalid PlutusScript dictionary: missing or invalid fields")
             }
             
@@ -146,8 +145,7 @@ public struct PlutusV1Script: PlutusScriptable {
             return PlutusV1Script(data: data)
         case .orderedDict(let dict):
             guard let dataValue = dict[.string("data")],
-                  case .string(let base64String) = dataValue,
-                  let data = Data(base64Encoded: base64String) else {
+                  let data = try? dataValue.jsonBytes("Plutus script data") else {
                 throw CardanoCoreError.deserializeError("Invalid PlutusV1Script dictionary: missing or invalid 'data' field")
             }
             return PlutusV1Script(data: data)
@@ -160,7 +158,7 @@ public struct PlutusV1Script: PlutusScriptable {
         return .orderedDict([
             .string("type"): .string("PlutusV1Script"),
             .string("version"): .integer(version),
-            .string("data"): .string(data.base64EncodedString())
+            .string("data"): .string(data.toHex)
         ])
     }
 }
@@ -199,8 +197,7 @@ public struct PlutusV2Script: PlutusScriptable {
             return PlutusV2Script(data: data)
         case .orderedDict(let dict):
             guard let dataValue = dict[.string("data")],
-                  case .string(let base64String) = dataValue,
-                  let data = Data(base64Encoded: base64String) else {
+                  let data = try? dataValue.jsonBytes("Plutus script data") else {
                 throw CardanoCoreError.deserializeError("Invalid PlutusV2Script dictionary: missing or invalid 'data' field")
             }
             return PlutusV2Script(data: data)
@@ -213,7 +210,7 @@ public struct PlutusV2Script: PlutusScriptable {
         return .orderedDict([
             .string("type"): .string("PlutusV2Script"),
             .string("version"): .integer(version),
-            .string("data"): .string(data.base64EncodedString())
+            .string("data"): .string(data.toHex)
         ])
     }
 }
@@ -252,8 +249,7 @@ public struct PlutusV3Script: PlutusScriptable {
             return PlutusV3Script(data: data)
         case .orderedDict(let dict):
             guard let dataValue = dict[.string("data")],
-                  case .string(let base64String) = dataValue,
-                  let data = Data(base64Encoded: base64String) else {
+                  let data = try? dataValue.jsonBytes("Plutus script data") else {
                 throw CardanoCoreError.deserializeError("Invalid PlutusV3Script dictionary: missing or invalid 'data' field")
             }
             return PlutusV3Script(data: data)
@@ -266,7 +262,7 @@ public struct PlutusV3Script: PlutusScriptable {
         return .orderedDict([
             .string("type"): .string("PlutusV3Script"),
             .string("version"): .integer(version),
-            .string("data"): .string(data.base64EncodedString())
+            .string("data"): .string(data.toHex)
         ])
     }
 }

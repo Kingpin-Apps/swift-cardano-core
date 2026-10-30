@@ -40,7 +40,7 @@ extension JSONDescribable {
 
     public var description: String { self.debugDescription }
 
-    /// Default implementation: delegates to `toJSON()` (base64 encoding for Data).
+    /// Default implementation: delegates to `toJSON()`.
     public func toDisplayJSON() throws -> String? { try toJSON() }
 }
 
@@ -65,11 +65,18 @@ extension JSONSerializable {
 
             // Convert Any to Primitive
             func anyToPrimitive(_ value: Any) throws -> Primitive {
+                // JSONSerialization gives every number and boolean as an
+                // NSNumber, which casts to Int as readily as to Bool: ask
+                // which it is before casting. `objCType` is "c" for a
+                // boolean on Darwin and on swift-corelibs-foundation alike.
+                if let number = value as? NSNumber, String(cString: number.objCType) == "c" {
+                    return .bool(number.boolValue)
+                }
                 switch value {
                 case let str as String: return .string(str)
-                case let i as Int: return .int(Int64(i))
+                // A non-negative integer is read as CBOR reads one, as .uint.
+                case let i as Int: return i < 0 ? .int(Int64(i)) : .uint(UInt64(i))
                 case let u as UInt: return .uint(UInt64(u))
-                case let b as Bool: return .bool(b)
                 case let f as Double: return .float(f)
                 case let f as Float: return .float(Double(f))
                 case let arr as [Any]: return .list(try arr.map { try anyToPrimitive($0) })
@@ -95,12 +102,15 @@ extension JSONSerializable {
         }
     }
 
-    /// The JSON form of the value, binary fields as base64 strings. A value
+    /// The JSON form of the value, binary fields as hex strings, as
+    /// cardano-cli writes them. ``fromJSON(_:)`` reads it back as an equal
+    /// value, but not the bytes the value was read from: to keep those — a
+    /// transaction's id and signatures depend on them — use CBOR. A value
     /// whose dict form is a single string or number, a hash say, is written as
     /// that bare JSON value.
     public func toJSON() throws -> String? {
         let primitive = try self.toDict()
-        let jsonObject = try Self.primitiveToAny(primitive, hexEncodeBytes: false)
+        let jsonObject = try Self.primitiveToAny(primitive, hexEncodeBytes: true)
         let jsonData = try JSONSerialization.data(
             withJSONObject: jsonObject,
             options: [.sortedKeys, .withoutEscapingSlashes, .fragmentsAllowed]
@@ -217,8 +227,9 @@ extension JSONSerializable {
 }
 
 extension Primitive {
-    /// The bytes of a field read from JSON: raw bytes, or a string of hex or
-    /// of base64, which ``JSONSerializable/toJSON()`` writes. Hex is tried
+    /// The bytes of a field read from JSON: raw bytes, or a string of hex —
+    /// what ``JSONSerializable/toJSON()`` writes — or of base64, which earlier
+    /// versions wrote. Hex is tried
     /// first, and either reading must give `count` bytes when it is set, so a
     /// hex string that also happens to be valid base64 is not misread.
     func jsonBytes(_ field: String, count: Int? = nil) throws -> Data {

@@ -275,6 +275,19 @@ print("As AnyValue: \(anyValue)")
 
 ## JSON Serialization
 
+Every type with `toJSON()` reads its JSON back with `fromJSON(_:)` as an equal
+value. Bytes are written as hex, as cardano-cli writes them; hex or base64 is
+read. A type with no readable JSON form of its own is written as its CBOR shape
+when JSON holds that without loss, and as the hex of its CBOR otherwise.
+
+JSON keeps the *value*, not the bytes it was read from. A transaction read back
+from JSON is equal to the original, but the way its CBOR was written — map and
+field order, indefinite-length lists, chunked byte strings — is not kept, so
+re-encoding it can give different bytes, a different transaction id, and
+signatures that no longer match. To move a transaction or anything signed,
+use its CBOR or a text envelope (`toTextEnvelope()` / `save(to:)`), which keep
+the bytes.
+
 ### Transaction Metadata JSON
 
 ```swift

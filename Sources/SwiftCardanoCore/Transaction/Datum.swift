@@ -51,18 +51,8 @@ public enum DatumType: Serializable {
             throw CardanoCoreError.deserializeError("Invalid DatumType dict")
         }
         if let datumHashPrimitive = dictValue[.string("datumHash")] {
-            // When coming from JSON, the hash is base64-encoded
-            let datumHash: DatumHash
-            if case .string(let base64Str) = datumHashPrimitive {
-                guard let data = Data(base64Encoded: base64Str) else {
-                    throw CardanoCoreError.deserializeError(
-                        "Invalid DatumHash base64: \(base64Str)")
-                }
-                datumHash = DatumHash(payload: data)
-            } else {
-                datumHash = try DatumHash(from: datumHashPrimitive)
-            }
-            return .datumHash(datumHash)
+            return .datumHash(try DatumHash(
+                payload: datumHashPrimitive.jsonBytes("DatumHash", count: DatumHash.maxSize)))
         } else if let dataPrimitive = dictValue[.string("data")] {
             let plutusData = try PlutusData.fromDict(dataPrimitive)
             return .data(plutusData)
@@ -75,8 +65,7 @@ public enum DatumType: Serializable {
         var dict = OrderedDictionary<Primitive, Primitive>()
         switch self {
         case .datumHash(let datumHash):
-            // Encode as base64 for JSON compatibility
-            dict[.string("datumHash")] = .string(datumHash.payload.base64EncodedString())
+            dict[.string("datumHash")] = .string(datumHash.payload.toHex)
         case .data(let plutusData):
             dict[.string("data")] = try plutusData.toDict()
         }

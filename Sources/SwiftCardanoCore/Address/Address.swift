@@ -482,6 +482,15 @@ public struct Address: CBORSerializable, CustomStringConvertible, Equatable, Sen
         return encoded
     }
     
+    /// The address as text: Base58 for a Byron address, Bech32 for the rest.
+    /// ``fromBech32(_:)`` and `init(from: .string(_))` read either back.
+    public func toText() throws -> String {
+        if let byronAddr = _byronAddress {
+            return byronAddr.toBase58()
+        }
+        return try toBech32()
+    }
+
     /// Decode a bech32 string into an address object.
     /// - Parameter data: Bech32-encoded string.
     /// - Returns: Decoded address.

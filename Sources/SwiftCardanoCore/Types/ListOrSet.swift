@@ -130,18 +130,29 @@ public enum ListOrOrderedSet<T: Serializable>: Serializable {
 
     // MARK: - JSONSerializable
 
+    /// Reads ``toDict()``'s form.
     public static func fromDict(_ primitive: Primitive) throws -> ListOrOrderedSet<T> {
-        guard case let .list(elements) = primitive else {
-            throw CardanoCoreError.deserializeError("Expected list primitive for ListOrOrderedSet")
-        }
-
+        let (form, elements) = try jsonCollection(primitive, in: "ListOrOrderedSet")
         let items = try elements.map { try T.fromDict($0) }
-        return .list(items)
+        switch form {
+            case .list: return .list(items)
+            case .set: return .orderedSet(try OrderedSet(items))
+            case .indefiniteList: return .indefiniteList(IndefiniteList(items))
+            case .indefiniteSet: return .indefiniteOrderedSet(IndefiniteList(items))
+        }
     }
 
+    /// The elements as a JSON list, wrapped to say how they were written
+    /// when that was not a plain list — ``JSONCollectionForm`` — so the
+    /// value reads back as it was.
     public func toDict() throws -> Primitive {
-        let elements = self.asArray
-        return .list(try elements.map { try $0.toDict() })
+        let form: JSONCollectionForm = switch self {
+            case .list: .list
+            case .orderedSet: .set
+            case .indefiniteList: .indefiniteList
+            case .indefiniteOrderedSet: .indefiniteSet
+        }
+        return form.wrap(.list(try asArray.map { try $0.toDict() }))
     }
 
 
@@ -329,20 +340,28 @@ public enum ListOrNonEmptyOrderedSet<T: Serializable>: Serializable {
 
     // MARK: - JSONSerializable
 
+    /// Reads ``toDict()``'s form.
     public static func fromDict(_ primitive: Primitive) throws -> ListOrNonEmptyOrderedSet<T> {
-        // For JSON, ListOrNonEmptyOrderedSet is represented as a list
-        guard case let .list(elements) = primitive else {
-            throw CardanoCoreError.deserializeError("Expected list primitive for ListOrNonEmptyOrderedSet")
-        }
-
+        let (form, elements) = try jsonCollection(primitive, in: "ListOrNonEmptyOrderedSet")
         let items = try elements.map { try T.fromDict($0) }
-        return .list(items)
+        switch form {
+            case .list: return .list(items)
+            case .set: return .nonEmptyOrderedSet(try NonEmptyOrderedSet(nonEmpty: items))
+            case .indefiniteList: return .indefiniteList(IndefiniteList(items))
+            case .indefiniteSet: return .indefiniteNonEmptyOrderedSet(IndefiniteList(items))
+        }
     }
 
+    /// The elements as a JSON list, wrapped to say how they were written
+    /// when that was not a plain list — ``JSONCollectionForm``.
     public func toDict() throws -> Primitive {
-        // For JSON, serialize as a list (JSON doesn't have sets)
-        let elements = self.asList
-        return .list(try elements.map { try $0.toDict() })
+        let form: JSONCollectionForm = switch self {
+            case .list: .list
+            case .nonEmptyOrderedSet: .set
+            case .indefiniteList: .indefiniteList
+            case .indefiniteNonEmptyOrderedSet: .indefiniteSet
+        }
+        return form.wrap(.list(try asList.map { try $0.toDict() }))
     }
 
     public func contains(_ element: Element) -> Bool {
@@ -393,4 +412,28 @@ public enum ListOrNonEmptyOrderedSet<T: Serializable>: Serializable {
                 return indefiniteList.get(at: index)
         }
     }
+}
+
+/// How a list-or-set was written, which its JSON keeps: a plain list is a
+/// JSON list, and the other forms wrap it, as `{"set": [...]}`,
+/// `{"indefiniteList": [...]}` or `{"indefiniteSet": [...]}`.
+enum JSONCollectionForm: String, CaseIterable {
+    case list, set, indefiniteList, indefiniteSet
+
+    func wrap(_ elements: Primitive) -> Primitive {
+        self == .list ? elements : .orderedDict([.string(rawValue): elements])
+    }
+}
+
+/// The form and elements of a list-or-set's JSON.
+func jsonCollection(_ primitive: Primitive, in type: String) throws -> (JSONCollectionForm, [Primitive]) {
+    if case .list(let elements) = primitive {
+        return (.list, elements)
+    }
+    if case .orderedDict(let dict) = primitive, dict.count == 1,
+       case .string(let name) = dict.keys[0], let form = JSONCollectionForm(rawValue: name),
+       case .list(let elements) = dict.values[0] {
+        return (form, elements)
+    }
+    throw CardanoCoreError.deserializeError("\(type): expected a JSON list or {\"set\": [...]}, got \(primitive)")
 }

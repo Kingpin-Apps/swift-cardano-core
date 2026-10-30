@@ -43,35 +43,26 @@ public enum Relay: Serializable, Sendable {
     
     // MARK: - JSONSerializable
     
+    /// Reads ``toDict()``'s form: the relay's own dict, whose `type` says
+    /// which kind it is.
     public static func fromDict(_ dict: Primitive) throws -> Relay {
-        guard case let .orderedDict(dictValue) = dict else {
-            throw CardanoCoreError.deserializeError("Invalid Relay dict")
+        guard case let .orderedDict(dictValue) = dict, let type = dictValue[.string("type")] else {
+            throw CardanoCoreError.deserializeError("Invalid Relay dict: \(dict)")
         }
-        if let value = dictValue[.uint(0)] {
-            let singleHostAddr = try SingleHostAddr.fromDict(value)
-            return .singleHostAddr(singleHostAddr)
-        } else if let value = dictValue[.uint(1)] {
-            let singleHostName = try SingleHostName.fromDict(value)
-            return .singleHostName(singleHostName)
-        } else if let value = dictValue[.uint(2)] {
-            let multiHostName = try MultiHostName.fromDict(value)
-            return .multiHostName(multiHostName)
-        } else {
-            throw CardanoCoreError.deserializeError("Invalid Relay dictionary")
+        switch try type.integer("Relay type", as: Int.self) {
+            case SingleHostAddr.code: return .singleHostAddr(try SingleHostAddr.fromDict(dict))
+            case SingleHostName.code: return .singleHostName(try SingleHostName.fromDict(dict))
+            case MultiHostName.code: return .multiHostName(try MultiHostName.fromDict(dict))
+            default: throw CardanoCoreError.deserializeError("Invalid Relay type: \(type)")
         }
     }
-    
+
     public func toDict() throws -> Primitive {
-        var dict = OrderedDictionary<Primitive, Primitive>()
         switch self {
-            case .singleHostAddr(let value):
-                dict[.uint(0)] = try value.toDict()
-            case .singleHostName(let value):
-                dict[.uint(1)] = try value.toDict()
-            case .multiHostName(let value):
-                dict[.uint(2)] = try value.toDict()
+            case .singleHostAddr(let value): return try value.toDict()
+            case .singleHostName(let value): return try value.toDict()
+            case .multiHostName(let value): return try value.toDict()
         }
-        return .orderedDict(dict)
     }
 
 }

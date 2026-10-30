@@ -77,30 +77,32 @@ public struct BootstrapWitness: Serializable {
     
     // MARK: - JSONSerializable
     
+    /// Reads ``toDict()``'s form; each field may be hex, base64 or raw bytes.
     public static func fromDict(_ primitive: Primitive) throws -> BootstrapWitness {
-        guard case let .list(elements) = primitive,
-              elements.count == 4,
-              case let .bytes(publicKeyData) = elements[0],
-              case let .bytes(signatureData) = elements[1],
-              case let .bytes(chainCodeData) = elements[2],
-              case let .bytes(attributesData) = elements[3] else {
+        guard case let .orderedDict(dict) = primitive else {
             throw CardanoCoreError.deserializeError("Invalid BootstrapWitness dictionary")
         }
-        
+        func field(_ name: String) throws -> Data {
+            guard let value = dict[.string(name)] else {
+                throw CardanoCoreError.deserializeError("BootstrapWitness is missing \(name)")
+            }
+            return try value.jsonBytes("BootstrapWitness \(name)")
+        }
         return try BootstrapWitness(
-            publicKey: publicKeyData,
-            signature: signatureData,
-            chainCode: chainCodeData,
-            attributes: attributesData
+            publicKey: field("publicKey"),
+            signature: field("signature"),
+            chainCode: field("chainCode"),
+            attributes: field("attributes")
         )
     }
-    
+
+    /// The witness's fields as hex, by name.
     public func toDict() throws -> Primitive {
-        return .list([
-            .bytes(publicKey),
-            .bytes(signature),
-            .bytes(chainCode),
-            .bytes(attributes)
+        return .orderedDict([
+            .string("publicKey"): .string(publicKey.toHex),
+            .string("signature"): .string(signature.toHex),
+            .string("chainCode"): .string(chainCode.toHex),
+            .string("attributes"): .string(attributes.toHex),
         ])
     }
 

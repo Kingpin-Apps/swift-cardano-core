@@ -62,9 +62,7 @@ public struct MultiHostName: Serializable, Sendable {
     
     public static func fromDict(_ dict: Primitive) throws -> MultiHostName {
         guard case let .orderedDict(dictValue) = dict,
-              let typePrimitive = dictValue[.string("type")],
-              case let .uint(typeValue) = typePrimitive,
-              typeValue == UInt(Self.code) else {
+              try dictValue[.string("type")]?.integer("MultiHostName type", as: Int.self) == Self.code else {
             throw CardanoCoreError.deserializeError("Invalid MultiHostName type in dict")
         }
         

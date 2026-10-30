@@ -195,4 +195,55 @@ struct PublicAPITests {
             anchorDataHash: AnchorDataHash(payload: Data(repeating: 0x33, count: 32)))
         #expect(try Anchor.fromJSON(anchor.toJSON()!) == anchor)
     }
+
+    @Test("JSON writes bytes as hex, and still reads the base64 earlier versions wrote")
+    func jsonBytesAreHex() throws {
+        let hash = Data(repeating: 0xab, count: 32)
+        let anchor = Anchor(anchorUrl: try Url("https://example.com/a.json"), anchorDataHash: AnchorDataHash(payload: hash))
+        let json = try #require(try anchor.toJSON())
+        #expect(json.contains(hash.toHex))
+        let legacy = json.replacingOccurrences(of: hash.toHex, with: hash.base64EncodedString())
+        #expect(try Anchor.fromJSON(legacy) == anchor)
+    }
+
+    @Test("Governance ids, votes, intervals and relays round-trip through JSON")
+    func governanceAndPoolJSON() throws {
+        let action = GovActionID(transactionID: try TransactionId(payload: Data(repeating: 4, count: 32)), govActionIndex: 3)
+        #expect(try action.toJSON() == "{\"govActionIndex\":3,\"transactionId\":\"\(String(repeating: "04", count: 32))\"}")
+        #expect(try GovActionID.fromJSON(action.toJSON()!) == action)
+
+        let interval = UnitInterval(numerator: 3, denominator: 100)
+        #expect(try interval.toJSON() == "{\"denominator\":100,\"numerator\":3}")
+        #expect(try UnitInterval.fromJSON(interval.toJSON()!) == interval)
+        #expect(throws: CardanoCoreError.self) { try UnitInterval.fromJSON("{\"numerator\":3,\"denominator\":2}") }
+
+        for vote in [Vote.no, .yes, .abstain] {
+            #expect(try Vote.fromJSON(vote.toJSON()!) == vote)
+        }
+        let voter = Voter(credential: .drepKeyhash(try VerificationKeyHash(payload: Data(repeating: 7, count: 28))))
+        let procedures = VotingProcedures([voter: [action: VotingProcedure(vote: .yes)]])
+        #expect(try VotingProcedures.fromJSON(procedures.toJSON()!) == procedures)
+
+        let relays: [Relay] = [
+            .singleHostAddr(SingleHostAddr(port: 3001, ipv4: IPv4Address("192.0.2.1"), ipv6: nil)),
+            .singleHostName(try SingleHostName(port: nil, dnsName: "relay.example.com")),
+            .multiHostName(try MultiHostName(dnsName: "pool.example.com")),
+        ]
+        for relay in relays {
+            #expect(try Relay.fromJSON(relay.toJSON()!) == relay)
+        }
+    }
+
+    @Test("A JSON boolean is read as a boolean")
+    func jsonBooleans() throws {
+        let tx = Transaction(
+            transactionBody: TransactionBody(
+                inputs: .list([TransactionInput(transactionId: TransactionId(payload: Data(count: 32)), index: 0)]),
+                outputs: [], fee: 1),
+            transactionWitnessSet: TransactionWitnessSet(),
+            valid: false)
+        let restored = try Transaction.fromJSON(tx.toJSON()!)
+        #expect(restored.valid == false)
+        #expect(restored == tx)
+    }
 }

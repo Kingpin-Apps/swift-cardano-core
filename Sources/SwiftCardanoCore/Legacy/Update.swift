@@ -50,8 +50,8 @@ public struct Update: Serializable {
             throw CardanoCoreError.deserializeError(
                 "Missing proposedprotocolParamUpdates in Update dict")
         }
-        let proposedprotocolParamUpdates = try ProposedProtocolParamUpdates(
-            from: proposedprotocolParamUpdatesPrimitive)
+        let proposedprotocolParamUpdates = try ProposedProtocolParamUpdates.fromDict(
+            proposedprotocolParamUpdatesPrimitive)
 
         guard let epochPrimitive = orderedDict[.string(CodingKeys.epoch.rawValue)] else {
             throw CardanoCoreError.deserializeError("Missing or invalid epoch in Update dict")
@@ -67,8 +67,7 @@ public struct Update: Serializable {
     public func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
         dict[.string(CodingKeys.proposedprotocolParamUpdates.rawValue)] =
-            try proposedprotocolParamUpdates
-            .toPrimitive()
+            try proposedprotocolParamUpdates.toDict()
         dict[.string(CodingKeys.epoch.rawValue)] = .integer(epoch)
         return .orderedDict(dict)
     }
@@ -122,6 +121,7 @@ public struct ProposedProtocolParamUpdates: Serializable {
 
     // MARK: - JSONSerializable
 
+    /// Reads ``toDict()``'s form.
     public static func fromDict(_ dict: Primitive) throws -> ProposedProtocolParamUpdates {
         guard case .orderedDict(let orderedDict) = dict else {
             throw CardanoCoreError.deserializeError(
@@ -129,20 +129,22 @@ public struct ProposedProtocolParamUpdates: Serializable {
         }
         var data: [GenesisHash: ProtocolParamUpdate] = [:]
         for (key, value) in orderedDict {
-            guard case .bytes(_) = key else {
-                throw CardanoCoreError.deserializeError("Invalid GenesisHash")
+            let genesisHash = try GenesisHash(
+                payload: key.jsonBytes("GenesisHash", count: GenesisHash.maxSize))
+            guard case .string(let cborHex) = value else {
+                throw CardanoCoreError.deserializeError("A ProtocolParamUpdate in JSON is its CBOR hex")
             }
-            let genesisHash = try GenesisHash(from: key)
-            let protocolParamUpdate = try ProtocolParamUpdate(from: value)
-            data[genesisHash] = protocolParamUpdate
+            data[genesisHash] = try ProtocolParamUpdate.fromCBORHex(cborHex)
         }
         return ProposedProtocolParamUpdates(data)
     }
 
+    /// Each genesis key hash, in hex and in order, mapped to its update as
+    /// CBOR hex: an update has no JSON form of its own.
     public func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
-        for (key, value) in data {
-            dict[key.toPrimitive()] = try value.toPrimitive()
+        for (key, value) in data.sorted(by: { $0.key.payload.lexicographicallyPrecedes($1.key.payload) }) {
+            dict[.string(key.payload.toHex)] = .string(try value.toCBORHex())
         }
         return .orderedDict(dict)
     }

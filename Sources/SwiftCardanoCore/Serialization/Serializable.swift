@@ -6,34 +6,50 @@ public protocol Serializable: CBORSerializable, JSONSerializable, Sendable  {}
 /// Default `JSONSerializable` implementation for any `CBORSerializable` type.
 /// Conforming to `Serializable` is sufficient — `toDict()` and `fromDict()` are
 /// provided here so types don't need to implement them separately.
+///
+/// The default JSON is the value's own CBOR shape when JSON carries that
+/// shape without loss — integers, text, booleans, null, lists and maps keyed
+/// by text — and otherwise the hex of its CBOR. Either reads back as the same
+/// value. A type with a more readable JSON form implements its own pair.
 public extension JSONSerializable where Self: CBORSerializable {
     static func fromDict(_ primitive: Primitive) throws -> Self {
-        try Self.init(from: primitive)
-    }
-    
-    func toDict() throws -> Primitive {
-        do {
-            let mirror = Mirror(reflecting: self)
-            var dict = OrderedDictionary<Primitive, Primitive>()
-            for child in mirror.children {
-                guard let label = child.label else { continue }
-
-                switch child.value {
-                    case let v as any Serializable:
-                        dict[.string(label)] = try v.toDict()
-                    case let v as any CBORSerializable:
-                        dict[.string(label)] = try v.toPrimitive()
-                    default:
-                        dict[.string(label)] = try Primitive.fromAny(child.value)
-                }
-            }
-            return .orderedDict(dict)
-        } catch {
-            // Mirror-based traversal can't represent fields that don't conform to
-            // CBORSerializable (e.g. Swift tuples). Fall back to the type's own
-            // CBOR encoding, which is always representable as a Primitive.
-            return try toPrimitive()
+        if case .string(let hex) = primitive, let data = Data(hexString: hex),
+           let value = try? Self.fromCBOR(data: data) {
+            return value
         }
+        return try Self.init(from: primitive)
+    }
+
+    func toDict() throws -> Primitive {
+        let primitive = try toPrimitive()
+        return primitive.survivesJSON ? primitive : .string(try toCBORHex())
+    }
+}
+
+extension Primitive {
+    /// Whether JSON carries this value without loss: it reads back as the
+    /// same primitive. Bytes, tags, floats and maps keyed by anything but
+    /// text do not survive.
+    var survivesJSON: Bool {
+        var pending = [self]
+        while let value = pending.popLast() {
+            switch value {
+            case .uint, .string, .bool, .null:
+                continue
+            case .int(let int) where int < 0:
+                continue
+            case .list(let elements):
+                pending.append(contentsOf: elements)
+            case .orderedDict(let dict):
+                for (key, element) in dict {
+                    guard case .string = key else { return false }
+                    pending.append(element)
+                }
+            default:
+                return false
+            }
+        }
+        return true
     }
 }
 

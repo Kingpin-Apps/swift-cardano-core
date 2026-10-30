@@ -181,6 +181,26 @@ public struct GovActionID: Serializable, Sendable {
         }
     }
     
+    /// Reads ``toDict()``'s form.
+    public static func fromDict(_ primitive: Primitive) throws -> GovActionID {
+        guard case let .orderedDict(dict) = primitive,
+              let transactionID = dict[.string("transactionId")],
+              let index = dict[.string("govActionIndex")] else {
+            throw CardanoCoreError.deserializeError("Invalid GovActionID dict: \(primitive)")
+        }
+        return GovActionID(
+            transactionID: try TransactionId.fromDict(transactionID),
+            govActionIndex: try index.integer("GovActionID index", as: UInt16.self))
+    }
+
+    /// `{"transactionId": hex, "govActionIndex": n}`.
+    public func toDict() throws -> Primitive {
+        .orderedDict([
+            .string("transactionId"): .string(transactionID.payload.toHex),
+            .string("govActionIndex"): .integer(govActionIndex),
+        ])
+    }
+
     public init(from primitive: Primitive) throws {
         if let primitiveList = primitive.arrayElements,
            primitiveList.count == 2 {

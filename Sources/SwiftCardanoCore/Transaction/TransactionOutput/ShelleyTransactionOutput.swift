@@ -77,13 +77,8 @@ public struct ShelleyTransactionOutput: Serializable {
         let address = try Address(from: .string(addressStr))
         
         var datumHash: DatumHash? = nil
-        if case let .string(datumHashStr) = orderedDict[.string("datumHash")] {
-            // When coming from JSON, the hash is base64-encoded
-            if let data = Data(base64Encoded: datumHashStr) {
-                datumHash = DatumHash(payload: data)
-            } else {
-                datumHash = try DatumHash(from: .bytes(datumHashStr.hexStringToData))
-            }
+        if let datumHashPrimitive = orderedDict[.string("datumHash")], datumHashPrimitive != .null {
+            datumHash = try DatumHash(payload: datumHashPrimitive.jsonBytes("DatumHash", count: DatumHash.maxSize))
         }
         
         return ShelleyTransactionOutput(
@@ -95,13 +90,13 @@ public struct ShelleyTransactionOutput: Serializable {
     
     public func toDict() throws -> Primitive {
         var dict: OrderedDictionary<Primitive, Primitive> = [
-            .string("address"): .string(try address.toBech32())
+            .string("address"): .string(try address.toText())
         ]
         
         dict[.string("amount")] = try amount.outputAmountDict()
 
         if let datumHash = datumHash {
-            dict[.string("datumHash")] = .string(datumHash.payload.base64EncodedString())
+            dict[.string("datumHash")] = .string(datumHash.payload.toHex)
         }
         
         return .orderedDict(dict)

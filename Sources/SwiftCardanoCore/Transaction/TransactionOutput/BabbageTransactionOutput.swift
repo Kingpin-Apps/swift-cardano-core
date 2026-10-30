@@ -129,7 +129,7 @@ public struct BabbageTransactionOutput: Serializable {
     
     public func toDict() throws -> Primitive {
         var dict: OrderedDictionary<Primitive, Primitive> = [
-            .string("address"): .string(try address.toBech32()),
+            .string("address"): .string(try address.toText()),
             .string("amount"): try amount.outputAmountDict()
         ]
         if let datumOption = datumOption {

@@ -192,7 +192,12 @@ public struct PoolParams: Serializable {
         guard let poolOwnersPrimitive = dictValue[.string(CodingKeys.poolOwners.rawValue)] else {
             throw CardanoCoreError.deserializeError("Missing poolOwners in PoolParams")
         }
-        let poolOwners = try ListOrOrderedSet<VerificationKeyHash>(from: poolOwnersPrimitive)
+        guard case let .list(ownerElements) = poolOwnersPrimitive else {
+            throw CardanoCoreError.deserializeError("Invalid poolOwners in PoolParams")
+        }
+        let poolOwners = ListOrOrderedSet<VerificationKeyHash>.list(try ownerElements.map {
+            try VerificationKeyHash.fromDict($0)
+        })
         
         var relays: [Relay]? = nil
         if let relaysPrimitive = dictValue[.string(CodingKeys.relays.rawValue)] {
@@ -202,7 +207,7 @@ public struct PoolParams: Serializable {
                 guard case let .list(relayElements) = relaysPrimitive else {
                     throw CardanoCoreError.deserializeError("Invalid relays in PoolParams")
                 }
-                relays = try relayElements.map { try Relay(from: $0) }
+                relays = try relayElements.map { try Relay.fromDict($0) }
             }
         }
         
@@ -211,7 +216,7 @@ public struct PoolParams: Serializable {
             if case .null = poolMetadataPrimitive {
                 poolMetadata = nil
             } else {
-                poolMetadata = try PoolMetadata(from: poolMetadataPrimitive)
+                poolMetadata = try PoolMetadata.fromDict(poolMetadataPrimitive)
             }
         }
         return PoolParams(
@@ -239,13 +244,13 @@ public struct PoolParams: Serializable {
         dict[.string(CodingKeys.rewardAccount.rawValue)] = .string(rewardAccount.payload.toHex)
         dict[.string(CodingKeys.poolOwners.rawValue)] = .list(poolOwners.asArray.map { .string($0.payload.toHex) })
         if let relays = relays {
-            let relaysArray = try relays.map { try $0.toPrimitive() }
+            let relaysArray = try relays.map { try $0.toDict() }
             dict[.string(CodingKeys.relays.rawValue)] = .list(relaysArray)
         } else {
             dict[.string(CodingKeys.relays.rawValue)] = .null
         }
         if let poolMetadata = poolMetadata {
-            dict[.string(CodingKeys.poolMetadata.rawValue)] = try poolMetadata.toPrimitive()
+            dict[.string(CodingKeys.poolMetadata.rawValue)] = try poolMetadata.toDict()
         } else {
             dict[.string(CodingKeys.poolMetadata.rawValue)] = .null
         }

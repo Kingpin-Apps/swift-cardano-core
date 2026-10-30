@@ -39,25 +39,24 @@ public enum RedeemerTag: Int, Serializable {
 
     // MARK: - JSONSerializable
 
+    /// Reads a tag from its number, its name, or ``toDict()``'s form.
     public static func fromDict(_ primitive: Primitive) throws -> RedeemerTag {
-        // Support both formats: int or dict with "tag" key
         switch primitive {
-        case .int(let value):
-            guard let tag = RedeemerTag(rawValue: Int(value)) else {
+        case .int, .uint:
+            let value = try primitive.integer("RedeemerTag", as: Int.self)
+            guard let tag = RedeemerTag(rawValue: value) else {
                 throw CardanoCoreError.deserializeError("Invalid RedeemerTag value: \(value)")
             }
             return tag
         case .orderedDict(let dict):
-            guard let tagValue = dict[.string("tag")],
-                case .int(let value) = tagValue,
-                let tag = RedeemerTag(rawValue: Int(value))
-            else {
-                throw CardanoCoreError.deserializeError(
-                    "Invalid RedeemerTag dictionary: \(primitive)")
+            if let value = dict[.string("value")] {
+                return try fromDict(value)
             }
-            return tag
+            guard let name = dict[.string("tag")] else {
+                throw CardanoCoreError.deserializeError("Invalid RedeemerTag dictionary: \(primitive)")
+            }
+            return try fromDict(name)
         case .string(let str):
-            // Also support string representation
             let mapping: [String: RedeemerTag] = [
                 "spend": .spend, "mint": .mint, "cert": .cert,
                 "reward": .reward, "voting": .voting, "proposing": .proposing,
@@ -319,7 +318,7 @@ public struct RedeemerValue: Serializable {
             throw CardanoCoreError.deserializeError("Invalid RedeemerValue dict: \(primitive)")
         }
 
-        let data = try PlutusData(from: elements[0])
+        let data = try PlutusData.fromDict(elements[0])
         let exUnits = try ExecutionUnits.fromDict(elements[1])
         return RedeemerValue(data: data, exUnits: exUnits)
     }
@@ -504,45 +503,31 @@ public struct RedeemerMap: Serializable {
 
     // MARK: - JSONSerializable
 
+    /// Reads ``toDict()``'s form.
     public static func fromDict(_ primitive: Primitive) throws -> RedeemerMap {
-        let pairs: [(Primitive, Primitive)]
-
-        switch primitive {
-        case .dict(let dict):
-            pairs = dict.map { ($0.key, $0.value) }
-        case .orderedDict(let orderedDict):
-            pairs = orderedDict.map { ($0.key, $0.value) }
-        default:
+        guard case .orderedDict(let dict) = primitive, case .list(let entries)? = dict[.string("map")] else {
             throw CardanoCoreError.deserializeError("Invalid RedeemerMap dict: \(primitive)")
         }
-
-        let decoded = try pairs.map { (keyPrimitive, valuePrimitive) in
-            (try RedeemerKey.fromDict(keyPrimitive), try RedeemerValue.fromDict(valuePrimitive))
-        }
-
-        if case .dict = primitive {
-            return RedeemerMap(Self.canonicallyOrdered(decoded))
-        }
-
         var storage = OrderedDictionary<RedeemerKey, RedeemerValue>()
-        for (key, value) in decoded {
-            storage[key] = value
+        for entry in entries {
+            guard case .orderedDict(let pair) = entry,
+                  let key = pair[.string("key")], let value = pair[.string("value")] else {
+                throw CardanoCoreError.deserializeError("Invalid RedeemerMap entry: \(entry)")
+            }
+            storage[try RedeemerKey.fromDict(key)] = try RedeemerValue.fromDict(value)
         }
         return RedeemerMap(storage)
     }
 
+    /// The entries in order, as a list — a key is not text, so it cannot be a
+    /// JSON key: `{"map": [{"key": …, "value": …}]}`. The `map` wrapper tells
+    /// it apart from the list form of ``Redeemers``.
     public func toDict() throws -> Primitive {
-        var dict = OrderedDictionary<Primitive, Primitive>()
-
-        for (key, value) in storage {
-            let keyPrimitive = try key.toDict()
-            let valuePrimitive = try value.toDict()
-            // For JSON, convert array keys to strings
-            let keyString = "[\(try keyPrimitive.toJSON())]"
-            dict[.string(keyString)] = valuePrimitive
-        }
-
-        return .orderedDict(dict)
+        .orderedDict([
+            .string("map"): .list(try storage.map { key, value in
+                .orderedDict([.string("key"): try key.toDict(), .string("value"): try value.toDict()])
+            }),
+        ])
     }
 }
 

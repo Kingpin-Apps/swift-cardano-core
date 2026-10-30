@@ -372,9 +372,9 @@ public indirect enum Primitive: CBORSerializable, Sendable {
     public func toJSON() throws -> Any {
         switch self {
         case .bytes(let data):
-            return data.base64EncodedString()
+            return data.toHex
         case .byteArray(let array):
-            return Data(array).base64EncodedString()
+            return Data(array).toHex
         case .string(let string):
             return string
         case .int(let value):
