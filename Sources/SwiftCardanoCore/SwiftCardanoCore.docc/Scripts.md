@@ -14,9 +14,12 @@ Scripts in Cardano enable programmable conditions for spending UTxOs and minting
 - ``ScriptPubkey``: Requires a specific key signature
 - ``ScriptAll``: Requires all sub-scripts to be satisfied
 - ``ScriptAny``: Requires any one sub-script to be satisfied
-- ``ScriptNOfK``: Requires N out of K sub-scripts to be satisfied
-- ``ScriptInvalidBefore``: Valid only after a specific slot
-- ``ScriptInvalidHereafter``: Valid only before a specific slot
+- ``ScriptNofK``: Requires N out of K sub-scripts to be satisfied
+- ``BeforeScript``: `invalid_before` — valid only from a slot on (cardano-cli type `"after"`)
+- ``AfterScript``: `invalid_hereafter` — valid only before a slot (cardano-cli type `"before"`)
+
+The two time locks are named for the ledger field they set, which reads the
+opposite way round to cardano-cli's JSON names.
 
 A native script read from CBOR — on its own, or from a transaction's witness
 set, auxiliary data or a reference script — is read as the ledger reads it:
@@ -41,6 +44,9 @@ written. A script built in Swift is written in its canonical form.
 
 ## Step-by-Step Native Script Creation
 
+These examples are compiled and run by the package's tests
+(`ScriptsGuideExamplesTests`), so they stay true to the API.
+
 ### 1. Simple Signature Script
 
 ```swift
@@ -51,7 +57,7 @@ let keyPair = try PaymentKeyPair.generate()
 let keyHash = try keyPair.verificationKey.hash()
 
 // Create signature script
-let sigScript = NativeScript.scriptPubkey(.verificationKeyHash(keyHash))
+let sigScript = NativeScript.scriptPubkey(ScriptPubkey(keyHash: keyHash))
 
 // Calculate script hash (policy ID)
 let scriptHash = try sigScript.scriptHash()
@@ -63,54 +69,48 @@ print("Script Hash/Policy ID: \(scriptHash.payload.toHex)")
 ```swift
 // Generate multiple keys
 let keyPair1 = try PaymentKeyPair.generate()
-let keyPair2 = try PaymentKeyPair.generate()
-let keyPair3 = try PaymentKeyPair.generate()
-
 let keyHash1 = try keyPair1.verificationKey.hash()
-let keyHash2 = try keyPair2.verificationKey.hash()
-let keyHash3 = try keyPair3.verificationKey.hash()
+let keyHash2 = try PaymentKeyPair.generate().verificationKey.hash()
+let keyHash3 = try PaymentKeyPair.generate().verificationKey.hash()
 
 // Create 2-of-3 multi-sig script
-let multiSigScript = NativeScript.scriptNOfK(
-    n: 2,
-    nativeScripts: [
-        .scriptPubkey(.verificationKeyHash(keyHash1)),
-        .scriptPubkey(.verificationKeyHash(keyHash2)),
-        .scriptPubkey(.verificationKeyHash(keyHash3))
+let multiSigScript = NativeScript.scriptNofK(ScriptNofK(
+    required: 2,
+    scripts: [
+        .scriptPubkey(ScriptPubkey(keyHash: keyHash1)),
+        .scriptPubkey(ScriptPubkey(keyHash: keyHash2)),
+        .scriptPubkey(ScriptPubkey(keyHash: keyHash3)),
     ]
-)
+))
 ```
 
 ### 3. Time-Locked Scripts
 
 ```swift
-// Script valid only after slot 1000
-let afterScript = NativeScript.scriptInvalidBefore(1000)
+// Valid from slot 1000 on (invalid_before; cardano-cli type "after")
+let afterSlot = NativeScript.invalidBefore(BeforeScript(slot: 1000))
 
-// Script valid only before slot 2000
-let beforeScript = NativeScript.scriptInvalidHereafter(2000)
+// Valid only before slot 2000 (invalid_hereafter; cardano-cli type "before")
+let beforeSlot = NativeScript.invalidHereAfter(AfterScript(slot: 2000))
 
-// Combined time window script (valid between slots 1000-2000)
-let timeWindowScript = NativeScript.scriptAll([
-    .scriptInvalidBefore(1000),
-    .scriptInvalidHereafter(2000)
-])
+// Valid from slot 1000 up to slot 2000
+let timeWindowScript = NativeScript.scriptAll(ScriptAll(scripts: [afterSlot, beforeSlot]))
 ```
 
 ### 4. Complex Conditional Scripts
 
 ```swift
-// Require primary key OR (backup key AND time condition)
-let emergencyScript = NativeScript.scriptAny([
+// Require the primary key, or the backup key once slot 129600 is reached
+let emergencyScript = NativeScript.scriptAny(ScriptAny(scripts: [
     // Primary authentication
-    .scriptPubkey(.verificationKeyHash(keyHash1)),
-    
-    // Emergency recovery after 30 days (assuming ~20s per slot)
-    .scriptAll([
-        .scriptPubkey(.verificationKeyHash(keyHash2)), // Backup key
-        .scriptInvalidBefore(129600) // ~30 days in slots
-    ])
-])
+    .scriptPubkey(ScriptPubkey(keyHash: keyHash1)),
+
+    // Emergency recovery: the backup key, from slot 129600 on
+    .scriptAll(ScriptAll(scripts: [
+        .scriptPubkey(ScriptPubkey(keyHash: keyHash2)),
+        .invalidBefore(BeforeScript(slot: 129_600)),
+    ])),
+]))
 ```
 
 ## Plutus Script Integration
@@ -118,21 +118,21 @@ let emergencyScript = NativeScript.scriptAny([
 ### Working with Plutus Scripts
 
 ```swift
-// Load compiled Plutus script
-let scriptBytes = Data(hex: "59015859015501000033332332...")
+// Load a compiled Plutus script: its flat-encoded bytes
+let scriptBytes = Data(hexString: "4e4d01000033222220051200120011")!
 let plutusV2Script = PlutusV2Script(data: scriptBytes)
 
-// Calculate script hash
+// Calculate the script hash
 let plutusHash = try plutusScriptHash(script: .plutusV2Script(plutusV2Script))
 
-// Create script reference
+// Create a script reference
 let scriptRef = try ScriptRef(script: Script(script: .plutusV2Script(plutusV2Script)))
 ```
 
 ### Plutus Data and Redeemers
 
 ```swift
-// Create Plutus data for script parameters
+// Plutus data for the script, from cardano-cli's detailed JSON schema
 let datum = try PlutusData.fromJSON("""
 {
     "constructor": 0,
@@ -143,12 +143,19 @@ let datum = try PlutusData.fromJSON("""
 }
 """)
 
-// Create redeemer for script execution
+// The same value built in Swift
+let built = PlutusData.constructor(Constr(tag: 0, fields: [
+    .bigInt(.int(42)),
+    .bytes(try Bytes(from: Data(hexString: "deadbeef")!)),
+]))
+assert(datum == built)
+
+// A redeemer for spending the first input
 let redeemer = Redeemer(
     tag: .spend,
     index: 0,
     data: datum,
-    exUnits: ExUnits(mem: 1000000, steps: 500000000)
+    exUnits: ExecutionUnits(mem: 1_000_000, steps: 500_000_000)
 )
 ```
 
@@ -169,6 +176,7 @@ in Swift routinely take different representations, so comparing that detail woul
 make two values with byte-identical CBOR come out unequal.
 
 ```swift
+let raw = Data(repeating: 7, count: 8)
 let fromChain = PlutusData.bytes(.byteString(ByteString(bytes: raw)))
 let rebuilt   = PlutusData.bytes(.boundedBytes(try BoundedBytes(bytes: raw)))
 
@@ -183,55 +191,55 @@ bits, whichever case it happens to be held in.
 
 A map, though, keeps its order: a Plutus map is an ordered list of pairs rather
 than a dictionary, so `{1: a, 2: b}` and `{2: b, 1: a}` are different values with
-different hashes. That is why the API takes an `OrderedDictionary` — build one from
-a sequence of pairs rather than from a Swift dictionary literal, which has no order
-to give.
+different hashes. A map holds its pairs as ``MapPairs``, which keeps them in order
+— repeated keys included — so build one from a sequence of pairs:
+
+```swift
+let a = PlutusData.bytes(try Bytes(from: Data("a".utf8)))
+let b = PlutusData.bytes(try Bytes(from: Data("b".utf8)))
+let one = PlutusData.bigInt(.int(1)), two = PlutusData.bigInt(.int(2))
+
+let first  = PlutusData.map(MapPairs([(one, a), (two, b)]))
+let second = PlutusData.map(MapPairs([(two, b), (one, a)]))
+
+assert(first != second)
+assert(try first.hash() != second.hash())
+```
 
 ## Script Usage in Transactions
+
+The transaction examples assume a `txBody`, a `txInput`, a `recipientAddress`
+and a `scriptRefTxId` of your own.
 
 ### Native Script Transactions
 
 ```swift
-// Create transaction spending from script address
+// The script address that holds the funds
 let scriptAddress = try Address(
-    paymentPart: .scriptHash(scriptHash),
+    paymentPart: .scriptHash(try multiSigScript.scriptHash()),
     network: .testnet
 )
 
-// Transaction with script witness
+// The witness set: a signature for each key the script needs, and the script
 let witnessSet = TransactionWitnessSet(
-    vkeyWitnesses: .nonEmptyOrderedSet(NonEmptyOrderedSet([
-        // Signatures for keys referenced in script
+    vkeyWitnesses: .list([
         VerificationKeyWitness(
-            vkey: .verificationKey(VerificationKey(
-                payload: keyPair1.verificationKey.payload,
-                type: keyPair1.verificationKey.type,
-                description: keyPair1.verificationKey.description
-            )),
+            vkey: .verificationKey(keyPair1.verificationKey),
             signature: try keyPair1.signingKey.sign(data: txBody.hash())
-        )
-    ])),
-    nativeScripts: .nonEmptyOrderedSet(NonEmptyOrderedSet([multiSigScript])),
-    bootstrapWitness: nil,
-    plutusV1Script: nil,
-    plutusV2Script: nil,
-    plutusData: nil,
-    redeemers: nil
+        ),
+    ]),
+    nativeScripts: .list([multiSigScript])
 )
 ```
 
 ### Plutus Script Transactions
 
 ```swift
-// Transaction with Plutus script
+// The witness set of a transaction that runs a Plutus script
 let plutusWitnessSet = TransactionWitnessSet(
-    vkeyWitnesses: nil,
-    nativeScripts: nil,
-    bootstrapWitness: nil,
-    plutusV1Script: nil,
-    plutusV2Script: .nonEmptyOrderedSet(NonEmptyOrderedSet([plutusV2Script])),
-    plutusData: .nonEmptyOrderedSet(NonEmptyOrderedSet([datum])),
-    redeemers: .nonEmptyOrderedSet(NonEmptyOrderedSet([redeemer]))
+    plutusV2Script: .list([plutusV2Script]),
+    plutusData: .list([datum]),
+    redeemers: .list([redeemer])
 )
 ```
 
@@ -240,27 +248,27 @@ let plutusWitnessSet = TransactionWitnessSet(
 ### Minting Policy Script
 
 ```swift
-// Create minting policy with time restriction
-let mintingPolicy = NativeScript.scriptAll([
-    .scriptPubkey(.verificationKeyHash(keyHash)),
-    .scriptInvalidHereafter(2000) // Can only mint before slot 2000
-])
+// A minting policy that one key signs, before slot 2000
+let mintingPolicy = NativeScript.scriptAll(ScriptAll(scripts: [
+    .scriptPubkey(ScriptPubkey(keyHash: keyHash)),
+    .invalidHereAfter(AfterScript(slot: 2000)),   // can only mint before slot 2000
+]))
 
 let policyId = try mintingPolicy.scriptHash()
 
-// Create minting transaction
+// Mint 1000 MyToken and send them on
 let mintingAsset = Asset([AssetName(from: "MyToken"): 1000])
 let mintingMultiAsset = MultiAsset([policyId: mintingAsset])
 
 let mintingTxBody = TransactionBody(
-    inputs: .orderedSet(try OrderedSet([txInput])),
+    inputs: .list([txInput]),
     outputs: [
         TransactionOutput(
             address: recipientAddress,
-            amount: Value(coin: Coin(2_000_000), multiAsset: mintingMultiAsset)
-        )
+            amount: Value(coin: 2_000_000, multiAsset: mintingMultiAsset)
+        ),
     ],
-    fee: Coin(250_000),
+    fee: 250_000,
     mint: mintingMultiAsset
 )
 ```
@@ -270,34 +278,35 @@ let mintingTxBody = TransactionBody(
 ### Script References (Babbage Era)
 
 ```swift
-// Include script in transaction output for reference
+// An output that carries the script, for later transactions to reference
 let scriptOutput = TransactionOutput(
     address: scriptAddress,
-    amount: Value(coin: Coin(2_000_000))
+    amount: Value(coin: 2_000_000),
+    script: .plutusV2Script(plutusV2Script),
+    postAlonzo: true
 )
-scriptOutput.scriptRef = scriptRef
 
-// Reference script in later transactions without including full script
+// A later transaction refers to that output instead of including the script
 let referencingTx = TransactionBody(
-    inputs: .orderedSet(try OrderedSet([txInput])),
+    inputs: .list([txInput]),
     outputs: [scriptOutput],
-    fee: Coin(200_000),
-    referenceInputs: .nonEmptyOrderedSet(NonEmptyOrderedSet([
-        TransactionInput(transactionId: scriptRefTxId, index: 0)
-    ]))
+    fee: 200_000,
+    referenceInputs: .list([
+        TransactionInput(transactionId: scriptRefTxId, index: 0),
+    ])
 )
 ```
 
 ### Inline Datums
 
 ```swift
-// Create output with inline datum
-var outputWithDatum = TransactionOutput(
+// An output that holds its datum inline
+let outputWithDatum = TransactionOutput(
     address: scriptAddress,
-    amount: Value(coin: Coin(5_000_000))
+    amount: Value(coin: 5_000_000),
+    datumOption: DatumOption(datum: datum),
+    postAlonzo: true
 )
-outputWithDatum.datum = datum
-outputWithDatum.postAlonzo = true // Enable post-Alonzo features
 ```
 
 
@@ -328,6 +337,12 @@ rejected — which is what a current node sends.
 ## Related Symbols
 
 - ``NativeScript``
+- ``ScriptPubkey``
+- ``ScriptAll``
+- ``ScriptAny``
+- ``ScriptNofK``
+- ``BeforeScript``
+- ``AfterScript``
 - ``PlutusV1Script``
 - ``PlutusV2Script``
 - ``PlutusV3Script``
