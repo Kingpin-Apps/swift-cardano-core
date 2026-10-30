@@ -1,3 +1,45 @@
+## 0.10.0 (2026-10-30)
+
+### Feat
+
+- **keys**: verify Ed25519 signatures, generate extended keys, return concrete key types
+- make CardanoCoreError, PlutusDataProtocol and AnyValue public
+- decode metadata, native scripts and transactions of any depth
+- **plutus**: read and free Plutus data of any depth without recursion
+- **types**: range-checked integer reads and writes for Primitive
+- **byron**: decode Byron blocks in full
+
+### Fix
+
+- **opcert**: check the counter's cold key on issue and compare cold keys in ==
+- **keys**: refuse to load a key file of another key type
+- **io**: throw ioError for any file that cannot be read
+- **json**: round-trip every type through JSON and write bytes as hex
+- **json**: stop toJSON crashing on bare values and round-trip opcerts, credentials, anchors and witnesses
+- **scripts**: read native scripts as the ledger does and hash their bytes
+- **params**: write protocol parameters as the ledger 31-element list
+- **crypto**: load mnemonics that fit more than one wordlist
+- **byron**: hash without trapping and guard #6.102 constructor reads
+- **core**: keep set mutations, era header layouts and kept bytes on encode
+- **ledger**: read record fields and text envelopes by each era's rules
+- **decode**: read relays and governance action ids as the ledger does
+- **governance**: model nonces, check sizes and keep Codable on the CDDL form
+- **stake-pool,byron**: sign opcerts as the ledger does and range-check Byron address fields
+- **stake-pool**: hash pool metadata as published and range-check counters
+- **governance**: name pool voting thresholds in the CDDL's order
+- **parameters**: hold protocol and genesis rationals exactly
+- **types**: keep URL text and map order as written
+- **certificates**: decode and re-encode every on-chain certificate
+- **value**: keep tokens in output JSON and read values as the ledger writes them
+- **ledger**: decode addresses, assets and values by each era's ledger rules
+- **parameters**: widen protocol-parameter and genesis fields to ledger types
+- **decode**: throw instead of trapping in certificate, pool, governance and script decoding
+- **decode**: throw instead of trapping in headers, Plutus, parameters and genesis
+- **decode**: throw instead of crashing in shared types, and check hash sizes
+- decode transactions, outputs and addresses without crashing
+- **metadata,byron**: lossless metadata JSON and ledger-range Byron bigints
+- **serialization**: keep every map pair and datum's bytes, and read repeated keys as the ledger does
+
 ## 0.9.1 (2026-10-29)
 
 ### Fix
