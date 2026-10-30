@@ -9,7 +9,7 @@ SwiftCardanoCore provides a complete Swift implementation of Cardano's data stru
 ### Key Features
 
 - **Complete Cardano Data Types**: Full implementation of addresses, transactions, certificates, metadata, and more
-- **Cryptographic Operations**: Ed25519 key generation, signing, and verification
+- **Cryptographic Operations**: Ed25519 key generation and signing, and BIP32 key derivation
 - **CBOR Serialization**: Native support for Cardano's CBOR encoding/decoding
 - **Multi-Era Support**: Compatible with Byron, Shelley, Allegra, Mary, Alonzo, Babbage, and Conway eras
 - **Native Asset Support**: Work with ADA and native tokens seamlessly
@@ -17,6 +17,9 @@ SwiftCardanoCore provides a complete Swift implementation of Cardano's data stru
 - **Governance Features**: DRep registration, voting procedures, and governance actions
 
 ### Quick Start
+
+This example is compiled and run by the package's tests
+(`DocumentationGuideExamplesTests`), so it stays true to the API.
 
 ```swift
 import SwiftCardanoCore
@@ -28,19 +31,21 @@ let stakeKeyPair = try StakeKeyPair.generate()
 // Create a Cardano address
 let address = try Address(
     paymentPart: .verificationKeyHash(try paymentKeyPair.verificationKey.hash()),
-    stakePart: .verificationKeyHash(try stakeKeyPair.verificationKey.hash()),
+    stakingPart: .verificationKeyHash(try stakeKeyPair.verificationKey.hash()),
     network: .testnet
 )
 
-print("Generated address: \(address.toBech32())")
+print("Generated address: \(try address.toBech32())")
 ```
 
 ### Supported Platforms
 
-- **iOS**: 15.0+
-- **macOS**: 12.0+
+- **iOS**: 16.0+
+- **macOS**: 14.0+
 - **tvOS**: 15.0+
 - **watchOS**: 8.0+
+- **visionOS**: 1.0+
+- **Mac Catalyst**: 15.0+
 - **Swift**: 6.2+
 - **Linux**
 
@@ -57,16 +62,8 @@ print("Generated address: \(address.toBech32())")
 
 - <doc:Assets>
 - <doc:Scripts>
-- <doc:Plutus>
-- <doc:Governance>
-- <doc:Metadata>
 
 ### Configuration & Utilities
 
 - <doc:Serialization>
-- <doc:Configuration>
 - <doc:StakePools>
-
-### Error Handling
-
-- ``CardanoCoreError``
