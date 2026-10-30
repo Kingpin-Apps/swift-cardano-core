@@ -56,14 +56,20 @@ public extension ExtendedSigningKeyProtocol {
         )
     }
 
-    static func fromHDWallet(_ hdwallet: HDWallet) throws -> any ExtendedSigningKeyProtocol {
+    /// The extended signing key of an HD wallet node: its extended private
+    /// key, public key and chain code, as cardano-cli writes them.
+    /// - Parameter hdwallet: The wallet node, usually derived to a key's path.
+    /// - Returns: The key, of this type.
+    static func fromHDWallet(_ hdwallet: HDWallet) throws -> Self {
         let payload = hdwallet.xPrivateKey + hdwallet.publicKey + hdwallet.chainCode
-        
-        return try Self(
-            payload: payload,
-            type: "PaymentExtendedSigningKeyShelley_ed25519_bip32",
-            description: "Payment Signing Key"
-        )
+        return try Self(payload: payload, type: nil, description: nil)
+    }
+
+    /// A new extended signing key: the root key of a wallet made from fresh
+    /// 256-bit entropy.
+    static func generate() throws -> Self {
+        let mnemonic = try HDWallet.generateMnemonic(wordCount: .twentyFour)
+        return try fromHDWallet(HDWallet.fromMnemonic(mnemonic: mnemonic.joined(separator: " ")))
     }
 }
 

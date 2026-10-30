@@ -153,6 +153,13 @@ public struct KESVerificationKey: VerificationKeyProtocol {
         )
     }
 
+    /// KES signatures are checked at a period: use ``verify(signature:message:period:)``.
+    public func verify(signature: Data, data: Data) throws -> Bool {
+        throw CardanoCoreError.invalidOperation(
+            "KES signatures are checked at a period. Use verify(signature:message:period:)."
+        )
+    }
+
     public static func fromSigningKey(_ key: KESSigningKey) throws -> KESVerificationKey {
         let kes = try Sum6KES(secretKeyBytes: key.payload, period: key.currentPeriod)
         return try KESVerificationKey(payload: kes.publicKey.bytes)

@@ -23,9 +23,33 @@ public extension VerificationKeyProtocol {
         )
     }
     
-    static func fromSigningKey<T>(_ key: any SigningKeyProtocol) throws -> T where T: VerificationKeyProtocol {
+    /// The verification key of a signing key.
+    /// - Parameter key: The signing key.
+    /// - Returns: Its verification key, of this type.
+    static func fromSigningKey(_ key: any SigningKeyProtocol) throws -> Self {
         return try key.toVerificationKey()
     }
+
+    /// Check an Ed25519 signature made by this key's signing key.
+    /// - Parameters:
+    ///   - signature: The 64-byte signature.
+    ///   - data: The data that was signed.
+    /// - Returns: Whether the signature is valid for `data`.
+    /// - Throws: `CardanoCoreError.invalidKeyTypeError` when the key is not 32 bytes.
+    func verify(signature: Data, data: Data) throws -> Bool {
+        try ed25519Verify(publicKey: payload, signature: signature, data: data)
+    }
+}
+
+/// Whether `signature` is a valid Ed25519 signature of `data` by `publicKey`.
+func ed25519Verify(publicKey: Data, signature: Data, data: Data) throws -> Bool {
+    guard publicKey.count == 32 else {
+        throw CardanoCoreError.invalidKeyTypeError(
+            "An Ed25519 verification key is 32 bytes, got \(publicKey.count)")
+    }
+    guard signature.count == 64 else { return false }
+    let verifyKey = try SwiftNaCl.VerifyKey(key: publicKey)
+    return (try? verifyKey.verify(smessage: data, signature: signature)) != nil
 }
 
 public extension ExtendedVerificationKeyProtocol {
@@ -39,8 +63,18 @@ public extension ExtendedVerificationKeyProtocol {
     /// Generate ExtendedVerificationKey from an ExtendedSigningKey
     /// - Parameter key: ExtendedSigningKey instance
     /// - Returns: ExtendedVerificationKey
-    static func fromSigningKey<T>(_ key: any ExtendedSigningKeyProtocol) throws -> T where T: ExtendedVerificationKeyProtocol {
+    static func fromSigningKey(_ key: any ExtendedSigningKeyProtocol) throws -> Self {
         return try key.toVerificationKey()
+    }
+
+    /// Check an Ed25519 signature made by this key's signing key. The chain
+    /// code plays no part: the first 32 bytes are the public key.
+    /// - Parameters:
+    ///   - signature: The 64-byte signature.
+    ///   - data: The data that was signed.
+    /// - Returns: Whether the signature is valid for `data`.
+    func verify(signature: Data, data: Data) throws -> Bool {
+        try ed25519Verify(publicKey: payload.prefix(32), signature: signature, data: data)
     }
     
     /// Get the 32-byte verification key with chain code trimmed off
@@ -152,6 +186,15 @@ public enum VerificationKeyType: CBORSerializable, Sendable {
         case .verificationKey(let key):
             return .bytes(key.payload)
         }
+    }
+
+    /// Check an Ed25519 signature made by this key's signing key.
+    /// - Parameters:
+    ///   - signature: The 64-byte signature.
+    ///   - data: The data that was signed.
+    /// - Returns: Whether the signature is valid for `data`.
+    public func verify(signature: Data, data: Data) throws -> Bool {
+        try ed25519Verify(publicKey: payload.prefix(32), signature: signature, data: data)
     }
     
     /// Load the object from a JSON file.

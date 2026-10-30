@@ -82,6 +82,13 @@ public struct VRFVerificationKey: VerificationKeyProtocol {
         )
     }
     
+    /// VRF keys make proofs, not signatures, so there is nothing to verify.
+    public func verify(signature: Data, data: Data) throws -> Bool {
+        throw CardanoCoreError.invalidOperation(
+            "VRF keys do not support signing, so there is no signature to verify."
+        )
+    }
+
     public static func fromSigningKey(_ key: VRFSigningKey) throws -> VRFVerificationKey {
         let vrfSKey = try SwiftNaCl.VRFSigningKey(bytes: key.payload)
         return try VRFVerificationKey(payload: vrfSKey.verifyingKey.bytes)
