@@ -61,10 +61,10 @@ public struct Anchor: Serializable, Sendable {
               let dataHashPrimitive = orderedDict[.string("anchorDataHash")] else {
             throw CardanoCoreError.valueError("Missing required Anchor fields")
         }
-        guard case let .string(urlString) = urlPrimitive,
-              case let .bytes(dataHashData) = dataHashPrimitive else {
+        guard case let .string(urlString) = urlPrimitive else {
             throw CardanoCoreError.valueError("Invalid Anchor field types")
         }
+        let dataHashData = try dataHashPrimitive.jsonBytes("Anchor anchorDataHash")
         let anchorUrl = try Url(urlString)
         let anchorDataHash = try checkedHash(dataHashData)
         return Anchor(anchorUrl: anchorUrl, anchorDataHash: anchorDataHash)

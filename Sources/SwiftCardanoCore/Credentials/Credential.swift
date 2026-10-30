@@ -106,6 +106,42 @@ extension Credential {
     public static func == (lhs: Self, rhs: any Credential) -> Bool {
         return lhs.credential == rhs.credential
     }
+
+    /// The JSON form of a credential, which keeps whether it is a key hash or
+    /// a script hash: `{"keyHash": hex}` or `{"scriptHash": hex}`, as the
+    /// ledger writes a credential in JSON.
+    public func toDict() throws -> Primitive { jsonDict() }
+
+    func jsonDict() -> Primitive {
+        switch credential {
+        case .verificationKeyHash(let hash):
+            return .orderedDict([.string("keyHash"): .string(hash.payload.toHex)])
+        case .scriptHash(let hash):
+            return .orderedDict([.string("scriptHash"): .string(hash.payload.toHex)])
+        }
+    }
+
+    /// Reads ``toDict()``'s form.
+    ///
+    /// - Throws: When the dict does not hold exactly one of `keyHash` and
+    ///   `scriptHash`, or the hash is not 28 bytes.
+    public static func fromDict(_ primitive: Primitive) throws -> Self {
+        guard case let .orderedDict(entries) = primitive, entries.count == 1,
+              let (key, value) = entries.elements.first,
+              case let .string(name) = key else {
+            throw CardanoCoreError.deserializeError(
+                "\(Self.self): expected {\"keyHash\": hex} or {\"scriptHash\": hex}, got \(primitive)")
+        }
+        let payload = try value.jsonBytes("\(Self.self) \(name)", count: SCRIPT_HASH_SIZE)
+        switch name {
+        case "keyHash":
+            return Self(credential: .verificationKeyHash(try VerificationKeyHash.checked(payload)))
+        case "scriptHash":
+            return Self(credential: .scriptHash(try ScriptHash.checked(payload)))
+        default:
+            throw CardanoCoreError.deserializeError("\(Self.self): unknown credential kind \(name)")
+        }
+    }
 }
 
 public struct StakeCredential: Credential {

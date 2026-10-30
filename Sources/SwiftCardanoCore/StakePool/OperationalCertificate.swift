@@ -194,6 +194,8 @@ public struct OperationalCertificate: TextEnvelopable, JSONSerializable, Sendabl
 
     // MARK: - JSONSerializable
 
+    /// Reads ``toDict()``'s form. Each key may be hex, base64 or raw bytes;
+    /// the cold verification key may be absent.
     public static func fromDict(_ primitive: Primitive) throws -> OperationalCertificate {
         guard case let .orderedDict(dict) = primitive else {
             throw CardanoCoreError.deserializeError("Invalid OperationalCertificate dict")
@@ -202,7 +204,8 @@ public struct OperationalCertificate: TextEnvelopable, JSONSerializable, Sendabl
         guard let hotVKeyPrimitive = dict[.string(CodingKeys.hotVKey.rawValue)] else {
             throw CardanoCoreError.deserializeError("Missing hotVKey in OperationalCertificate")
         }
-        let hotVKey = try KESVerificationKey(from: hotVKeyPrimitive)
+        let hotVKey = try KESVerificationKey(
+            payload: hotVKeyPrimitive.jsonBytes("OperationalCertificate hotVKey", count: 32))
 
         guard let seqPrimitive = dict[.string(CodingKeys.sequenceNumber.rawValue)] else {
             throw CardanoCoreError.deserializeError("Missing sequenceNumber in OperationalCert")
@@ -214,25 +217,39 @@ public struct OperationalCertificate: TextEnvelopable, JSONSerializable, Sendabl
         }
         let kesPeriod = try kesPeriodPrimitive.integer("OperationalCertificate kes_period", as: UInt64.self)
 
-        guard let sigmaPrimitive = dict[.string(CodingKeys.sigma.rawValue)],
-              case let .bytes(sigma) = sigmaPrimitive else {
-            throw CardanoCoreError.deserializeError("Missing or invalid sigma in OperationalCert")
+        guard let sigmaPrimitive = dict[.string(CodingKeys.sigma.rawValue)] else {
+            throw CardanoCoreError.deserializeError("Missing sigma in OperationalCert")
+        }
+        let sigma = try sigmaPrimitive.jsonBytes("OperationalCertificate sigma", count: SIGMA_SIZE)
+
+        var coldVerificationKey: StakePoolVerificationKey?
+        if let coldPrimitive = dict[.string(Self.coldVerificationKeyField)], coldPrimitive != .null {
+            coldVerificationKey = try StakePoolVerificationKey(
+                payload: coldPrimitive.jsonBytes("OperationalCertificate coldVerificationKey", count: 32))
         }
 
         return try OperationalCertificate(
             hotVKey: hotVKey,
             sequenceNumber: sequenceNumber,
             kesPeriod: kesPeriod,
-            sigma: sigma
+            sigma: sigma,
+            coldVerificationKey: coldVerificationKey
         )
     }
 
+    static let coldVerificationKeyField = "coldVerificationKey"
+
+    /// The certificate's fields, keys and signature as hex, and the cold
+    /// verification key when the certificate carries one.
     public func toDict() throws -> Primitive {
         var dict = OrderedDictionary<Primitive, Primitive>()
-        dict[.string(CodingKeys.hotVKey.rawValue)] = .bytes(hotVKey.payload)
+        dict[.string(CodingKeys.hotVKey.rawValue)] = .string(hotVKey.payload.toHex)
         dict[.string(CodingKeys.sequenceNumber.rawValue)] = .uint(sequenceNumber)
         dict[.string(CodingKeys.kesPeriod.rawValue)] = .uint(kesPeriod)
-        dict[.string(CodingKeys.sigma.rawValue)] = .bytes(sigma)
+        dict[.string(CodingKeys.sigma.rawValue)] = .string(sigma.toHex)
+        if let coldVerificationKey {
+            dict[.string(Self.coldVerificationKeyField)] = .string(coldVerificationKey.payload.toHex)
+        }
         return .orderedDict(dict)
     }
 

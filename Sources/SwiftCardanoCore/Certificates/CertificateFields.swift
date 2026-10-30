@@ -105,38 +105,11 @@ func dictString(_ dict: Primitive, _ key: String, in type: String) throws -> Str
 }
 
 extension StakeCredential {
-    /// The dict form of a stake credential, which keeps whether it is a key
-    /// hash or a script hash: `{"keyHash": hex}` or `{"scriptHash": hex}`, as
-    /// the ledger writes a credential in JSON.
-    func certificateDict() -> Primitive {
-        switch credential {
-        case .verificationKeyHash(let hash):
-            return .orderedDict([.string("keyHash"): .string(hash.payload.toHex)])
-        case .scriptHash(let hash):
-            return .orderedDict([.string("scriptHash"): .string(hash.payload.toHex)])
-        }
-    }
+    /// The dict form of a stake credential: ``Credential/toDict()``.
+    func certificateDict() -> Primitive { jsonDict() }
 
     /// Reads ``certificateDict()``'s form.
-    ///
-    /// - Throws: When the dict does not hold exactly one of `keyHash` and
-    ///   `scriptHash`, or the hash is not 28 bytes of hex.
     static func fromCertificateDict(_ primitive: Primitive) throws -> StakeCredential {
-        guard case let .orderedDict(entries) = primitive, entries.count == 1,
-              let (key, value) = entries.elements.first,
-              case let .string(name) = key,
-              case let .string(hex) = value,
-              let payload = Data(hexString: hex) else {
-            throw CardanoCoreError.deserializeError(
-                "StakeCredential: expected {\"keyHash\": hex} or {\"scriptHash\": hex}, got \(primitive)")
-        }
-        switch name {
-        case "keyHash":
-            return StakeCredential(credential: .verificationKeyHash(try VerificationKeyHash.checked(payload)))
-        case "scriptHash":
-            return StakeCredential(credential: .scriptHash(try ScriptHash.checked(payload)))
-        default:
-            throw CardanoCoreError.deserializeError("StakeCredential: unknown credential kind \(name)")
-        }
+        try fromDict(primitive)
     }
 }

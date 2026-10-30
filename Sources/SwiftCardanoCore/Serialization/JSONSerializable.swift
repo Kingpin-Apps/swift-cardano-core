@@ -14,7 +14,7 @@ extension JSONDescribable {
 
             guard let data = json.data(using: .utf8) else { return "{}" }
 
-            guard let jsonObject = try? JSONSerialization.jsonObject(with: data) else {
+            guard let jsonObject = try? JSONSerialization.jsonObject(with: data, options: .fragmentsAllowed) else {
                 return "{}"
             }
 
@@ -25,6 +25,7 @@ extension JSONDescribable {
                         .prettyPrinted,
                         .sortedKeys,
                         .withoutEscapingSlashes,
+                        .fragmentsAllowed,
                     ]
                 )
             else {
@@ -60,7 +61,7 @@ extension JSONSerializable {
         }
 
         do {
-            let jsonObject = try JSONSerialization.jsonObject(with: data)
+            let jsonObject = try JSONSerialization.jsonObject(with: data, options: .fragmentsAllowed)
 
             // Convert Any to Primitive
             func anyToPrimitive(_ value: Any) throws -> Primitive {
@@ -94,12 +95,15 @@ extension JSONSerializable {
         }
     }
 
+    /// The JSON form of the value, binary fields as base64 strings. A value
+    /// whose dict form is a single string or number, a hash say, is written as
+    /// that bare JSON value.
     public func toJSON() throws -> String? {
         let primitive = try self.toDict()
         let jsonObject = try Self.primitiveToAny(primitive, hexEncodeBytes: false)
         let jsonData = try JSONSerialization.data(
             withJSONObject: jsonObject,
-            options: [.sortedKeys, .withoutEscapingSlashes]
+            options: [.sortedKeys, .withoutEscapingSlashes, .fragmentsAllowed]
         )
         return String(data: jsonData, encoding: .utf8)
     }
@@ -110,7 +114,7 @@ extension JSONSerializable {
         let jsonObject = try Self.primitiveToAny(primitive, hexEncodeBytes: true)
         let jsonData = try JSONSerialization.data(
             withJSONObject: jsonObject,
-            options: [.sortedKeys, .withoutEscapingSlashes]
+            options: [.sortedKeys, .withoutEscapingSlashes, .fragmentsAllowed]
         )
         return String(data: jsonData, encoding: .utf8)
     }
@@ -210,4 +214,25 @@ extension JSONSerializable {
         }
     }
 
+}
+
+extension Primitive {
+    /// The bytes of a field read from JSON: raw bytes, or a string of hex or
+    /// of base64, which ``JSONSerializable/toJSON()`` writes. Hex is tried
+    /// first, and either reading must give `count` bytes when it is set, so a
+    /// hex string that also happens to be valid base64 is not misread.
+    func jsonBytes(_ field: String, count: Int? = nil) throws -> Data {
+        func fits(_ data: Data) -> Bool { count.map { data.count == $0 } ?? true }
+        switch self {
+        case .bytes(let data) where fits(data):
+            return data
+        case .string(let string):
+            if let data = Data(hexString: string), fits(data) { return data }
+            if let data = Data(base64Encoded: string), fits(data) { return data }
+        default:
+            break
+        }
+        let size = count.map { "\($0) bytes of " } ?? ""
+        throw CardanoCoreError.deserializeError("\(field) must be \(size)hex or base64, got \(self)")
+    }
 }

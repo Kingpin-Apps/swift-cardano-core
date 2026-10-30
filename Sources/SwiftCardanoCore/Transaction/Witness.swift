@@ -113,22 +113,9 @@ public struct VerificationKeyWitness: Serializable, TextEnvelopable {
             throw CardanoCoreError.deserializeError("Missing signature in VerificationKeyWitness")
         }
         
-        let signatureData: Data
-        switch signaturePrimitive {
-        case .bytes(let data):
-            signatureData = data
-        case .string(let str):
-            // Try base64 first, then hex
-            if let data = Data(base64Encoded: str) {
-                signatureData = data
-            } else if let data = Data(hexString: str) {
-                signatureData = data
-            } else {
-                throw CardanoCoreError.deserializeError("Invalid signature format in VerificationKeyWitness")
-            }
-        default:
-            throw CardanoCoreError.deserializeError("Invalid signature type in VerificationKeyWitness")
-        }
+        // An Ed25519 signature is 64 bytes; asking for that keeps a hex
+        // signature, which is also valid base64, from being misread.
+        let signatureData = try signaturePrimitive.jsonBytes("VerificationKeyWitness signature", count: 64)
         
         return VerificationKeyWitness(vkey: vkey, signature: signatureData)
     }
