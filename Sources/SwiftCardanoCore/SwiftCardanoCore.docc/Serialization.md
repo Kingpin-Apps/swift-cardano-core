@@ -11,8 +11,7 @@ SwiftCardanoCore uses CBOR (Concise Binary Object Representation) as the primary
 ### Serialization Protocols
 
 - ``CBORSerializable``: Protocol for types that can be encoded/decoded to/from CBOR
-- ``Primitive``: Intermediate representation for CBOR data
-- ``AnyValue``: Generic value wrapper for dynamic CBOR content
+- ``Primitive``: Intermediate representation for CBOR data, and a value for dynamic CBOR content
 
 ### CBOR Features
 
@@ -22,6 +21,11 @@ SwiftCardanoCore uses CBOR (Concise Binary Object Representation) as the primary
 - Round-trip serialization guarantee
 
 ## Step-by-Step Serialization
+
+These examples are compiled and run by the package's tests
+(`SerializationGuideExamplesTests`), so they stay true to the API; the ones
+that write files are compiled but not run. They assume a `txBody` and a
+`witnessSet` of your own, and the hex of a transaction, `hex`.
 
 ### 1. Basic CBOR Operations
 
@@ -38,7 +42,7 @@ print("CBOR hex: \(cborHex)")
 
 // Deserialize from CBOR
 let restoredAddress = try Address.fromCBOR(data: cborData)
-let addressFromHex = try Address.fromCBOR(hex: cborHex)
+let addressFromHex = try Address.fromCBORHex(cborHex)
 ```
 
 ### 2. Transaction Serialization
@@ -149,7 +153,7 @@ Four things make this hold:
   crashing. So does a hash of the wrong length: a key hash must be 28 bytes and
   a transaction id 32, and the ledger rejects any other size.
 - **Decoding never crashes.** Whatever the input — CBOR bytes, a ``Primitive``,
-  JSON — a decoder either produces a value or throws a ``CardanoCoreError``:
+  JSON — a decoder either produces a value or throws an error:
   lengths and counts are checked against the bytes present, and no integer is
   narrowed with a conversion that traps. ``Primitive`` offers
   the same tools to code that reads its own types:
@@ -180,22 +184,26 @@ Four things make this hold:
 struct CustomData: CBORSerializable {
     let value: Int
     let text: String
-    
+
+    init(value: Int, text: String) {
+        self.value = value
+        self.text = text
+    }
+
     init(from primitive: Primitive) throws {
         guard case let .list(elements) = primitive,
               elements.count == 2,
-              case let .int(intValue) = elements[0],
               case let .string(stringValue) = elements[1] else {
-            throw CardanoCoreError.deserializeError("Invalid CustomData format")
+            throw DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "Invalid CustomData format"))
         }
-        
-        self.value = intValue
+
+        self.value = try elements[0].integer("CustomData value")
         self.text = stringValue
     }
-    
+
     func toPrimitive() throws -> Primitive {
         return .list([
-            .int(value),
+            .integer(value),
             .string(text)
         ])
     }
@@ -207,21 +215,23 @@ let serialized = try customData.toCBORData()
 let deserialized = try CustomData.fromCBOR(data: serialized)
 ```
 
-### Working with AnyValue
+### Working with Primitive
+
+A ``Primitive`` holds any CBOR value, for content with no type of its own.
 
 ```swift
 // Create dynamic CBOR content
-let dynamicValue = AnyValue.map([
-    "name": .string("Alice"),
-    "age": .uint(30),
-    "tokens": .array([
+let dynamicValue = Primitive.orderedDict([
+    .string("name"): .string("Alice"),
+    .string("age"): .uint(30),
+    .string("tokens"): .list([
         .string("TokenA"),
         .string("TokenB")
     ])
 ])
 
 let dynamicCBOR = try dynamicValue.toCBORData()
-let restored = try AnyValue.fromCBOR(data: dynamicCBOR)
+let restored = try Primitive.fromCBOR(data: dynamicCBOR)
 ```
 
 ## JSON Serialization
@@ -230,7 +240,7 @@ let restored = try AnyValue.fromCBOR(data: dynamicCBOR)
 
 ```swift
 // Create metadata with JSON-compatible structure
-let metadata = Metadata([
+let metadata = try Metadata([
     1: .text("Hello Cardano!"),
     2: .map([
         .text("name"): .text("My NFT"),
@@ -238,14 +248,14 @@ let metadata = Metadata([
         .text("image"): .text("ipfs://QmHash...")
     ]),
     3: .list([
-        .uint(1),
-        .uint(2),
-        .uint(3)
+        .int(1),
+        .int(2),
+        .int(3)
     ])
 ])
 
 // Convert to JSON for external APIs
-let jsonString = try metadata.toJSON()
+let jsonString = try metadata.toJSON()!
 print("Metadata JSON: \(jsonString)")
 
 // Parse from JSON
@@ -255,22 +265,22 @@ let parsedMetadata = try Metadata.fromJSON(jsonString)
 ### PlutusData JSON
 
 ```swift
-// Convert PlutusData to/from JSON (CIP-114 format)
-let plutusData = try MyPlutusData(
-    field1: 42,
-    field2: Data("hello".utf8),
-    field3: [1, 2, 3]
-)
+// Convert PlutusData to/from JSON (cardano-cli's detailed schema)
+let plutusData = PlutusData.constructor(Constr(tag: 0, fields: [
+    .bigInt(.int(42)),
+    .bytes(try Bytes(from: Data("hello".utf8))),
+    .array([.bigInt(.int(1)), .bigInt(.int(2)), .bigInt(.int(3))]),
+]))
 
-let plutusJSON = try plutusData.toJSON()
-let fromJSON = try MyPlutusData.fromJSON(plutusJSON)
+let plutusJSON = try plutusData.toJSON()!
+let fromJSON = try PlutusData.fromJSON(plutusJSON)
 ```
 
 ## File Operations
 
-### PayloadJSONSerializable Protocol
+### Text Envelope Files
 
-Many Cardano types implement the ``PayloadJSONSerializable`` protocol, providing convenient file I/O operations for saving and loading data in JSON format compatible with Cardano CLI tools.
+Transactions, keys, certificates and the other types that conform to ``TextEnvelopable`` save to and load from JSON text-envelope files compatible with Cardano CLI tools.
 
 ```swift
 // Save transaction to file
@@ -294,11 +304,14 @@ assert(transaction.id == loadedTransaction.id)
 
 ### Address File Operations
 
+Addresses save as their Bech32 text. This example assumes a script's
+`scriptHash`.
+
 ```swift
 // Save different address types
 let paymentAddr = try Address.fromBech32("addr_test1vr2p8st5t5cxqglyjky7vk98k7jtfhdpvhl4e97cezuhn0cqcexl7")
-let stakeAddr = try Address.fromBech32("stake_test1ur2p8st5t5cxqglyjky7vk98k7jtfhdpvhl4e97cezuhn0cqtxwdg")
-let scriptAddr = try Address.fromBech32("addr_test1wpnnm9z6mjhqyqk3s4w4x7mgh90clkqm6q5s5s5s5s5s5s5qqqqqqq")
+let stakeAddr = try Address.fromBech32("stake_test1uqevw2xnsc0pvn9t9r9c7qryfqfeerchgrlm3ea2nefr9hqp8n5xl")
+let scriptAddr = try Address(paymentPart: .scriptHash(scriptHash), network: .testnet)
 
 // Save addresses to files
 try paymentAddr.save(to: "payment.addr")
@@ -311,15 +324,20 @@ let loadedStake = try Address.load(from: "stake.addr")
 let loadedScript = try Address.load(from: "script.addr")
 
 // Verify addresses match
-assert(paymentAddr.toBech32() == loadedPayment.toBech32())
+assert(paymentAddr == loadedPayment)
+assert(stakeAddr == loadedStake)
+assert(scriptAddr == loadedScript)
 ```
 
 
 ### Metadata File Operations
 
+Metadata has no text envelope; ``Metadata`` saves and loads its JSON form
+with `saveJSON(to:)` and `loadJSON(from:)`.
+
 ```swift
 // Create rich metadata
-let nftMetadata = Metadata([
+let nftMetadata = try Metadata([
     721: .map([
         .text("policy_id"): .text("b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8"),
         .text("asset_name"): .map([
@@ -341,10 +359,10 @@ let nftMetadata = Metadata([
 ])
 
 // Save metadata to file
-try nftMetadata.save(to: "nft-metadata.json")
+try nftMetadata.saveJSON(to: "nft-metadata.json")
 
 // Load and verify metadata
-let loadedMetadata = try Metadata.load(from: "nft-metadata.json")
+let loadedMetadata = try Metadata.loadJSON(from: "nft-metadata.json")
 let originalJSON = try nftMetadata.toJSON()
 let loadedJSON = try loadedMetadata.toJSON()
 
@@ -354,41 +372,43 @@ assert(originalJSON == loadedJSON)
 
 ### Certificate File Operations
 
+This example assumes the pool's `poolKeyHash`, `vrfKeyHash`,
+`rewardAccountHash`, `ownerKeyHash`, `relay` and `poolMetadata`; see
+<doc:StakePools> for how to make them.
+
 ```swift
 // Create stake pool registration certificate
 let poolParams = PoolParams(
-    operator: poolKeyHash,
+    poolOperator: poolKeyHash,
     vrfKeyHash: vrfKeyHash,
     pledge: Coin(1000000000), // 1000 ADA
     cost: Coin(340000000),    // 340 ADA
     margin: UnitInterval(numerator: 1, denominator: 20), // 5%
-    rewardAccount: rewardAddress,
-    poolOwners: [ownerKeyHash],
+    rewardAccount: rewardAccountHash,
+    poolOwners: .list([ownerKeyHash]),
     relays: [relay],
-    poolMetadata: poolMetadataHash
+    poolMetadata: poolMetadata
 )
 
-let poolRegistration = PoolRegistrationCertificate(poolParams: poolParams)
+let poolRegistration = try PoolRegistration(poolParams: poolParams)
 
 // Save certificate to file
 try poolRegistration.save(to: "pool-registration.cert")
 
 // Load certificate from file
-let loadedCert = try PoolRegistrationCertificate.load(from: "pool-registration.cert")
+let loadedCert = try PoolRegistration.load(from: "pool-registration.cert")
 ```
 
 
 ## See Also
 
 - <doc:Transactions> - Transaction serialization examples
-- <doc:Metadata> - Metadata JSON encoding
-- <doc:Plutus> - PlutusData serialization
+- <doc:Scripts> - PlutusData serialization
 - <doc:Assets> - Value and asset encoding
 
 ## Related Symbols
 
 - ``CBORSerializable``
 - ``Primitive``
-- ``AnyValue``
 - ``Metadata``
 - ``PlutusData``
