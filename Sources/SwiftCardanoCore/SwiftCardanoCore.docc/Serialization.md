@@ -514,9 +514,9 @@ let loadedCert = try PoolRegistration.load(from: "pool-registration.cert")
 
 ## See Also
 
-- <doc:Transactions> - Transaction serialization examples
-- <doc:Scripts> - PlutusData serialization
-- <doc:Assets> - Value and asset encoding
+- <doc:Transactions>
+- <doc:Scripts>
+- <doc:Assets>
 
 ## Related Symbols
 

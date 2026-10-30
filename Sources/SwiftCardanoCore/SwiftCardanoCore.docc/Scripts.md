@@ -312,9 +312,9 @@ let outputWithDatum = TransactionOutput(
 
 ## See Also
 
-- <doc:Assets> - Script-based asset minting policies
-- <doc:Transactions> - Including scripts in transactions
-- <doc:Addresses> - Script addresses and payment credentials
+- <doc:Assets>
+- <doc:Transactions>
+- <doc:Addresses>
 
 ## Cost models and the script integrity hash
 

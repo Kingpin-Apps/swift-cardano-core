@@ -307,10 +307,10 @@ func testKeySerialization() throws {
 
 ## See Also
 
-- <doc:Addresses> - Creating addresses from keys
-- <doc:Transactions> - Signing transactions with keys
-- <doc:Certificates> - Key-based certificate operations
-- <doc:Scripts> - Multi-signature scripts
+- <doc:Addresses>
+- <doc:Transactions>
+- <doc:Certificates>
+- <doc:Scripts>
 
 ## Related Symbols
 

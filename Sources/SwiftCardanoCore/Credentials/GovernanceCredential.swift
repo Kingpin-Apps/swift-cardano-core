@@ -56,7 +56,7 @@ extension GovernanceCredential {
     ///
     /// Based on [miscellaneous section](https://github.com/cardano-foundation/CIPs/tree/master/CIP-0005#miscellaneous) in CIP-5.
     /// - Parameters:
-    ///   - credentialType: Type of credential.
+    ///   - format: The id format, CIP-129 or CIP-105.
     /// - Returns: The human-readable prefix.
     public func computeHrp(_ format: IdFormat = .cip129) -> String {
         let prefix: String
@@ -126,7 +126,7 @@ extension GovernanceCredential {
     }
     
     /// Decode a bech32 string into an Credential object.
-    /// - Parameter data: Bech32-encoded string.
+    /// - Parameter bech32: Bech32-encoded string.
     /// - Returns: Decoded Credential.
     public static func fromBech32(_ bech32: String) throws -> Self {
         let _bech32 = Bech32()

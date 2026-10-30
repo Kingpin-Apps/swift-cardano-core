@@ -93,7 +93,7 @@ public struct Transaction: Serializable, TextEnvelopable {
     /// of it and of its parts.
     ///
     /// Which repeated map keys and set elements the ledger rejects depends on
-    /// the era — see ``LedgerDuplicateRules`` — so a transaction from an
+    /// the era, so a transaction from an
     /// earlier era should be read with that era.
     public static func fromCBOR(data: Data, era: Era) throws -> Transaction {
         let scanner = CBORItemScanner(data)

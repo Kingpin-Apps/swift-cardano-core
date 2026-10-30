@@ -326,10 +326,10 @@ do {
 
 ## See Also
 
-- <doc:Keys> - Cryptographic key generation and management
-- <doc:Certificates> - Pool registration and retirement certificates
-- <doc:Transactions> - Including pool operations in transactions
-- <doc:Serialization> - CBOR and text envelope formats
+- <doc:Keys>
+- <doc:Certificates>
+- <doc:Transactions>
+- <doc:Serialization>
 
 ## Related Symbols
 

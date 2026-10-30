@@ -305,10 +305,10 @@ do {
 
 ## See Also
 
-- <doc:Transactions> - Including certificates in transactions
-- <doc:Keys> - Generating keys for certificates
-- <doc:StakePools> - Pool operation details
-- <doc:Addresses> - Stake addresses and reward accounts
+- <doc:Transactions>
+- <doc:Keys>
+- <doc:StakePools>
+- <doc:Addresses>
 
 ## Related Symbols
 

@@ -69,7 +69,8 @@ extension NativeScript: NestedTree {
             case (.scriptNofK(let lhs), .scriptNofK(let rhs)):
                 guard lhs.required == rhs.required else { return false }
                 fallthrough
-            case (.scriptAll, .scriptAll), (.scriptAny, .scriptAny), (.scriptNofK, .scriptNofK):
+            case (.scriptAll, .scriptAll), (.scriptAny, .scriptAny):
+                // Also reached by fallthrough from two scriptNofK with the same `required`.
                 let (left, right) = (lhs.children, rhs.children)
                 guard left.count == right.count else { return false }
                 pending.append(contentsOf: zip(left, right))

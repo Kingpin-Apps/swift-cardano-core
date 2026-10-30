@@ -283,7 +283,7 @@ public struct DRep: CBORSerializable, CustomStringConvertible, CustomDebugString
     }
     
     /// Decode a bech32 string into an DRep object.
-    /// - Parameter data: Bech32-encoded string.
+    /// - Parameter drepId: Bech32-encoded string.
     /// - Returns: Decoded DRepId.
     public static func fromBech32(_ drepId: String) throws -> DRep {
         return try DRep(from: .string(drepId))

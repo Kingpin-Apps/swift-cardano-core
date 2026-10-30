@@ -298,11 +298,11 @@ try inspectTransaction(from: "minting-tx.json")
 
 ## See Also
 
-- <doc:Assets> - Working with native assets and tokens
-- <doc:Scripts> - Native scripts and smart contracts  
-- <doc:Certificates> - Stake registration and delegation
-- ``AuxiliaryData`` - Transaction metadata and auxiliary data
-- <doc:Serialization> - CBOR encoding and decoding
+- <doc:Assets>
+- <doc:Scripts>
+- <doc:Certificates>
+- ``AuxiliaryData``
+- <doc:Serialization>
 
 ## Related Symbols
 

@@ -143,8 +143,9 @@ public enum ListOrOrderedSet<T: Serializable>: Serializable {
     }
 
     /// The elements as a JSON list, wrapped to say how they were written
-    /// when that was not a plain list — ``JSONCollectionForm`` — so the
-    /// value reads back as it was.
+    /// when that was not a plain list — `{"set": [...]}`,
+    /// `{"indefiniteList": [...]}` or `{"indefiniteSet": [...]}` — so the value
+    /// reads back as it was.
     public func toDict() throws -> Primitive {
         let form: JSONCollectionForm = switch self {
             case .list: .list
@@ -353,7 +354,8 @@ public enum ListOrNonEmptyOrderedSet<T: Serializable>: Serializable {
     }
 
     /// The elements as a JSON list, wrapped to say how they were written
-    /// when that was not a plain list — ``JSONCollectionForm``.
+    /// when that was not a plain list — `{"set": [...]}`,
+    /// `{"indefiniteList": [...]}` or `{"indefiniteSet": [...]}`.
     public func toDict() throws -> Primitive {
         let form: JSONCollectionForm = switch self {
             case .list: .list

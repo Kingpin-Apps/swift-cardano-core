@@ -183,10 +183,10 @@ let burnTxBody = TransactionBody(
 
 ## See Also
 
-- <doc:Transactions> - Including assets in transactions
-- <doc:Scripts> - Minting policies and asset control
-- ``Metadata`` - Transaction metadata, including CIP-25 asset metadata
-- <doc:Serialization> - CBOR encoding for assets
+- <doc:Transactions>
+- <doc:Scripts>
+- ``Metadata``
+- <doc:Serialization>
 
 ## Related Symbols
 

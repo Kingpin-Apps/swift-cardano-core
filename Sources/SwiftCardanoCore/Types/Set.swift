@@ -259,7 +259,7 @@ public struct OrderedSet<T: CBORSerializable & Hashable & Sendable>: SetTaggable
     }
     
     /// Adds the elements not already in the set at the end, in order
-    /// - Parameter elements: The elements to add
+    /// - Parameter newElements: The elements to add
     public mutating func append<S: Sequence>(contentsOf newElements: S) where S.Element == Element {
         for element in newElements {
             append(element)
@@ -518,7 +518,7 @@ public struct NonEmptyOrderedSet<T: CBORSerializable & Hashable & Sendable>: Set
     }
     
     /// Adds the elements not already in the set at the end, in order
-    /// - Parameter elements: The elements to add
+    /// - Parameter newElements: The elements to add
     public mutating func append<S: Sequence>(contentsOf newElements: S) where S.Element == Element {
         for element in newElements {
             append(element)

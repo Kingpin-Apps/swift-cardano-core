@@ -442,7 +442,7 @@ public struct RedeemerMap: Serializable {
         }
     }
 
-    /// Hashes the entries order-independently, matching ``==``.
+    /// Hashes the entries order-independently, matching `==`.
     public func hash(into hasher: inout Hasher) {
         hasher.combine(storage.count)
         var combined = 0

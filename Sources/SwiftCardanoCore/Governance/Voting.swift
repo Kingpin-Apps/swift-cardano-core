@@ -370,7 +370,7 @@ public struct VotingProcedures: Serializable {
     }
     
     /// Get all votes of a specific type (yes/no/abstain)
-    /// - Parameter vote: The vote type to filter by
+    /// - Parameter type: The vote type to filter by
     /// - Returns: Array of tuples containing voter, governance action ID, and voting procedure
     public func votes(of type: Vote) -> [(Voter, GovActionID, VotingProcedure)] {
         return allVotes.filter { $0.2.vote == type }

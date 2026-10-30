@@ -442,7 +442,7 @@ public enum RawDatum: PlutusDataProtocol {
     }
 
     /// Long byte strings are written in 64-byte chunks, as Plutus data
-    /// requires; see ``Primitive/chunkingLongBytes()``.
+    /// requires.
     public func toPrimitive() throws -> Primitive {
         try unchunkedPrimitive().chunkingLongBytes()
     }
@@ -548,7 +548,7 @@ public enum Datum: PlutusDataProtocol {
     }
 
     /// Long byte strings are written in 64-byte chunks, as Plutus data
-    /// requires; see ``Primitive/chunkingLongBytes()``.
+    /// requires.
     public func toPrimitive() throws -> Primitive {
         try unchunkedPrimitive().chunkingLongBytes()
     }

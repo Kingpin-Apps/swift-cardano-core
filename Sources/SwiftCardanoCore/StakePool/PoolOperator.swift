@@ -110,7 +110,7 @@ public struct PoolOperator: Serializable {
     }
     
     /// Decode a bech32 string into an PoolOperator object.
-    /// - Parameter data: Bech32-encoded string.
+    /// - Parameter poolId: Bech32-encoded string.
     /// - Returns: Decoded PoolOperator.
     public static func fromBech32(_ poolId: String) throws -> PoolOperator {
         return try PoolOperator(from: .string(poolId))

@@ -235,7 +235,7 @@ public struct GovActionID: Serializable, Sendable {
     }
     
     /// Decode a bech32 string into an GovActionID object.
-    /// - Parameter data: Bech32-encoded string.
+    /// - Parameter govActionID: Bech32-encoded string.
     /// - Returns: Decoded GovActionID.
     public static func fromBech32(_ govActionID: String) throws -> GovActionID {
         return try GovActionID(from: .string(govActionID))

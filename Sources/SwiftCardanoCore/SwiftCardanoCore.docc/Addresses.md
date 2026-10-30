@@ -282,10 +282,10 @@ for addressString in validAddresses {
 
 ## See Also
 
-- <doc:Keys> - Generating keys for addresses
-- <doc:Transactions> - Using addresses in transactions
-- <doc:Scripts> - Script-based addresses
-- <doc:Certificates> - Reward addresses and staking
+- <doc:Keys>
+- <doc:Transactions>
+- <doc:Scripts>
+- <doc:Certificates>
 
 ## Related Symbols
 
