@@ -1,6 +1,6 @@
 import OrderedCollections
 
-protocol PlutusDataProtocol: Serializable {
+public protocol PlutusDataProtocol: Serializable {
     init(from plutusData: PlutusData) throws
     
     func toPlutusData() throws -> PlutusData

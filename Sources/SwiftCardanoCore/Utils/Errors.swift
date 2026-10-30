@@ -6,7 +6,7 @@
 import Foundation
 import SwiftMnemonic
 
-enum CardanoCoreError: Error, CustomStringConvertible, Equatable {
+public enum CardanoCoreError: Error, CustomStringConvertible, Equatable, Sendable {
     case encodingError(String?)
     case decodingError(String?)
     case inputUTxODepletedError(String?)
@@ -28,7 +28,7 @@ enum CardanoCoreError: Error, CustomStringConvertible, Equatable {
     case ioError(String?)
     case notImplementedError(String?)
     
-    var description: String {
+    public var description: String {
         switch self {
             case .encodingError(let message):
                 return message ?? "Encoding error occurred."

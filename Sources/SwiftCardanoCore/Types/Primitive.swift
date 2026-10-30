@@ -3,6 +3,10 @@ import Foundation
 import OrderedCollections
 import CBORCodable
 
+/// CBORCodable's dynamically typed value, which ``Primitive/toAnyValue()`` and
+/// a few other calls return, named here so callers need not import CBORCodable.
+public typealias AnyValue = CBORCodable.AnyValue
+
 public indirect enum Primitive: CBORSerializable, Sendable {
     case bytes(Data)
     case byteArray([UInt8])
