@@ -318,7 +318,7 @@ public enum Certificate: Serializable {
     }
     
     static func load(from path: String) throws -> Certificate {
-        let jsonString = try String(contentsOfFile: path, encoding: .utf8)
+        let jsonString = try readTextFile(path)
         
         guard let data = jsonString.data(using: .utf8),
               let dict = try JSONSerialization.jsonObject(with: data) as? [String: String] else {

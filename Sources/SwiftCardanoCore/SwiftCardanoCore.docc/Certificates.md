@@ -279,9 +279,10 @@ try drepCert.save(to: "drep-registration.cert")
 ### Error Handling with File Operations
 
 `save(to:)` throws `CardanoCoreError.ioError` when the file already exists
-(pass `overwrite: true` to replace it), and `load(from:)` throws
-`CardanoCoreError.deserializeError` when the file holds another kind of
-certificate. A missing file throws Foundation's file-reading error.
+(pass `overwrite: true` to replace it). `load(from:)` throws
+`CardanoCoreError.ioError` when the file cannot be read, and
+`CardanoCoreError.deserializeError` when it holds another kind of
+certificate.
 
 ```swift
 do {

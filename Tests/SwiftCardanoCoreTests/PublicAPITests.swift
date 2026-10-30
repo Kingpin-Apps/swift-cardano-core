@@ -246,4 +246,30 @@ struct PublicAPITests {
         #expect(restored.valid == false)
         #expect(restored == tx)
     }
+
+    @Test("Loading a file that is not there throws ioError, whatever the type")
+    func missingFilesThrowIOError() throws {
+        let path = NSTemporaryDirectory() + "missing-\(UUID().uuidString)"
+        func expectIOError(_ load: () throws -> Any) {
+            do {
+                _ = try load()
+                Issue.record("Expected ioError, but the load succeeded")
+            } catch CardanoCoreError.ioError(let message) {
+                #expect(message?.contains(path) == true)
+            } catch {
+                Issue.record("Expected ioError, got \(error)")
+            }
+        }
+        expectIOError { try PaymentSigningKey.load(from: path) }
+        expectIOError { try PaymentVerificationKey.load(from: path) }
+        expectIOError { try SigningKeyType.load(from: path) }
+        expectIOError { try VerificationKeyType.load(from: path) }
+        expectIOError { try Transaction.load(from: path) }
+        expectIOError { try OperationalCertificate.load(from: path) }
+        expectIOError { try OperationalCertificateIssueCounter.load(from: path) }
+        expectIOError { try Address.load(from: path) }
+        expectIOError { try PoolOperator.load(from: path) }
+        expectIOError { try DRep.load(from: path) }
+        expectIOError { try Register.load(from: path) }
+    }
 }

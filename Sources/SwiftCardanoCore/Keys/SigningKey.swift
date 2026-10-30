@@ -296,7 +296,7 @@ public enum SigningKeyType: CBORSerializable, Sendable {
     /// - Parameter path: The file path
     /// - Returns: The object restored from the JSON file.
     public static func load(from path: String) throws -> Self {
-        let jsonString = try String(contentsOfFile: path, encoding: .utf8)
+        let jsonString = try readTextFile(path)
         
         guard let data = jsonString.data(using: .utf8),
               let dict = try JSONSerialization.jsonObject(with: data) as? [String: String] else {

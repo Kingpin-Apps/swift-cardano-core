@@ -534,7 +534,7 @@ public struct Address: CBORSerializable, CustomStringConvertible, Equatable, Sen
             throw CardanoCoreError.ioError("File not found: \(path)")
         }
         
-        let bech32String = try String(contentsOfFile: path, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines)
+        let bech32String = try readTextFile(path).trimmingCharacters(in: .whitespacesAndNewlines)
         return try Address(from: .string(bech32String))
     }
 }

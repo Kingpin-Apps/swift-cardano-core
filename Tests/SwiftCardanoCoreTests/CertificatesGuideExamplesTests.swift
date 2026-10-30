@@ -280,6 +280,15 @@ struct CertificatesGuideExamplesTests {
         }
         #expect(try Register.load(from: path) == stakeRegistration)
 
+        // Loading a file that is not there
+        let missing = #expect(throws: CardanoCoreError.self) {
+            try Register.load(from: directory + "missing.cert")
+        }
+        guard case .ioError = missing else {
+            Issue.record("Expected ioError, got \(String(describing: missing))")
+            return
+        }
+
         // Loading another kind of certificate
         let error = #expect(throws: CardanoCoreError.self) {
             try Unregister.load(from: path)

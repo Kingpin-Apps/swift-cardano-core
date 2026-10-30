@@ -74,3 +74,14 @@ public enum CardanoCoreError: Error, CustomStringConvertible, Equatable, Sendabl
     }
 }
 
+
+/// The text of the file at `path`.
+/// - Throws: `CardanoCoreError.ioError` when the file cannot be read — it is
+///   missing, unreadable, or not UTF-8 — with the reason.
+func readTextFile(_ path: String) throws -> String {
+    do {
+        return try String(contentsOfFile: path, encoding: .utf8)
+    } catch {
+        throw CardanoCoreError.ioError("Cannot read \(path): \(error.localizedDescription)")
+    }
+}
