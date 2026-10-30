@@ -19,15 +19,26 @@ Cardano addresses encode payment and staking credentials using Blake2b-256 hashe
 
 ### Network Types
 
-- ``Network.mainnet``: Cardano mainnet (production)
-- ``Network.testnet``: Preview/preprod testnet environments
+An address carries a ``NetworkId``:
+
+- `NetworkId.mainnet`: Cardano mainnet (production)
+- `NetworkId.testnet`: Preview/preprod testnet environments
 
 ### Credentials
 
-- ``Credential.verificationKeyHash``: Address controlled by a cryptographic key
-- ``Credential.scriptHash``: Address controlled by a script
+An address is built from a ``PaymentPart`` and a ``StakingPart``, each of
+which is one of:
+
+- `.verificationKeyHash`: Address part controlled by a cryptographic key
+- `.scriptHash`: Address part controlled by a script
+
+A ``StakingPart`` can also be a `.pointerAddress` (``PointerAddress``).
 
 ## Step-by-Step Address Creation
+
+These examples are compiled and run by the package's tests
+(`AddressesGuideExamplesTests`), so they stay true to the API. They assume
+a `paymentKeyPair`, a `stakeKeyPair` and a `nativeScript` of your own.
 
 ### 1. Base Addresses (Payment + Stake)
 
@@ -41,11 +52,11 @@ let stakeKeyPair = try StakeKeyPair.generate()
 // Create base address
 let baseAddress = try Address(
     paymentPart: .verificationKeyHash(try paymentKeyPair.verificationKey.hash()),
-    stakePart: .verificationKeyHash(try stakeKeyPair.verificationKey.hash()),
+    stakingPart: .verificationKeyHash(try stakeKeyPair.verificationKey.hash()),
     network: .testnet
 )
 
-print("Base Address: \(baseAddress.toBech32())")
+print("Base Address: \(try baseAddress.toBech32())")
 
 // Save to file (Cardano CLI compatible)
 try baseAddress.save(to: "base.addr")
@@ -60,7 +71,7 @@ let enterpriseAddress = try Address(
     network: .mainnet
 )
 
-print("Enterprise Address: \(enterpriseAddress.toBech32())")
+print("Enterprise Address: \(try enterpriseAddress.toBech32())")
 ```
 
 ### 3. Reward Addresses (Stake Only)
@@ -72,7 +83,7 @@ let rewardAddress = try Address(
     network: .mainnet
 )
 
-print("Reward Address: \(rewardAddress.toBech32())")
+print("Reward Address: \(try rewardAddress.toBech32())")
 ```
 
 ### 4. Script Addresses
@@ -82,11 +93,11 @@ print("Reward Address: \(rewardAddress.toBech32())")
 let scriptHash = try nativeScript.scriptHash()
 let scriptAddress = try Address(
     paymentPart: .scriptHash(scriptHash),
-    stakePart: .verificationKeyHash(try stakeKeyPair.verificationKey.hash()),
+    stakingPart: .verificationKeyHash(try stakeKeyPair.verificationKey.hash()),
     network: .testnet
 )
 
-print("Script Address: \(scriptAddress.toBech32())")
+print("Script Address: \(try scriptAddress.toBech32())")
 ```
 
 ## Address Parsing and Validation
@@ -96,8 +107,8 @@ print("Script Address: \(scriptAddress.toBech32())")
 ```swift
 // Parse various address formats
 let testnetAddr = "addr_test1vr2p8st5t5cxqglyjky7vk98k7jtfhdpvhl4e97cezuhn0cqcexl7"
-let mainnetAddr = "addr1qx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer3jcu5d8ps7zex2k2xt6alqpggj7c6z"
-let rewardAddr = "stake1u8pcjgmx7962w6hey5hhsd502araxp26kdtgagakhaqtq8sxy9w7g"
+let mainnetAddr = "addr1qx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer3jcu5d8ps7zex2k2xt3uqxgjqnnj83ws8lhrn648jjxtwqfjkjv7"
+let rewardAddr = "stake1uyevw2xnsc0pvn9t9r9c7qryfqfeerchgrlm3ea2nefr9hqxdekzz"
 
 do {
     let parsedTestnet = try Address.fromBech32(testnetAddr)
@@ -127,7 +138,7 @@ let stakeKeyPair = try StakeKeyPair.generate()
 
 let baseAddress = try Address(
     paymentPart: .verificationKeyHash(try paymentKeyPair.verificationKey.hash()),
-    stakePart: .verificationKeyHash(try stakeKeyPair.verificationKey.hash()),
+    stakingPart: .verificationKeyHash(try stakeKeyPair.verificationKey.hash()),
     network: .testnet
 )
 
@@ -137,7 +148,7 @@ print("Address saved to payment.addr")
 
 // Load address from file
 let loadedAddress = try Address.load(from: "payment.addr")
-print("Loaded address: \(loadedAddress.toBech32())")
+print("Loaded address: \(try loadedAddress.toBech32())")
 
 // Verify they match
 assert(baseAddress == loadedAddress)
@@ -165,48 +176,45 @@ try enterpriseAddress.save(to: "enterprise.addr")
 try rewardAddress.save(to: "stake.addr")
 
 // These files can be used directly with cardano-cli commands
-// For example: cardano-cli transaction build --tx-in-script-file script.json --tx-out $(cat base.addr)+1000000
+// For example: cardano-cli transaction build ... --tx-out $(cat base.addr)+1000000
 ```
 
 
 ## Error Handling
 
+Parsing, encoding and file operations throw. Catch the error to report it:
+
 ```swift
 do {
     let address = try Address.fromBech32("invalid_address_string")
-    try address.validateNetwork(.mainnet)
-    try address.save(to: "address.addr")
-    
-} catch CardanoCoreError.invalidArgument(let message) {
-    print("Invalid address parameter: \(message)")
-} catch CardanoCoreError.deserializeError(let message) {
-    print("Address parsing failed: \(message)")
-} catch CardanoCoreError.encodingError(let message) {
-    print("Address encoding failed: \(message)")
+    guard address.network == .mainnet else {
+        print("Not a mainnet address")
+        return
+    }
+    print("Mainnet address: \(try address.toBech32())")
 } catch {
-    print("Address error: \(error)")
+    print("Address parsing failed: \(error)")
 }
 ```
 
-
 ### Error Handling with File Operations
+
+``Address/save(to:overwrite:)`` throws when the file already exists (pass
+`overwrite: true` to replace it), and ``Address/load(from:)`` throws when the
+file is missing or does not hold an address.
 
 ```swift
 // Handle file operation errors
 do {
-// Save address
-try baseAddress.save(to: "my-address.addr")
+    // Save address
+    try baseAddress.save(to: "my-address.addr")
 
-// Load address
-let address = try Address.load(from: "my-address.addr")
-print("Successfully loaded address: \(address.toBech32())")
+    // Load address
+    let address = try Address.load(from: "my-address.addr")
+    print("Successfully loaded address: \(try address.toBech32())")
 
-} catch CardanoCoreError.ioError(let message) {
-print("File operation failed: \(message)")
-} catch CardanoCoreError.deserializeError(let message) {
-print("Address parsing failed: \(message)")
 } catch {
-print("Unexpected error: \(error)")
+    print("File operation failed: \(error)")
 }
 ```
 
@@ -220,12 +228,12 @@ func testAddressRoundTrip() throws {
     
     let originalAddress = try Address(
         paymentPart: .verificationKeyHash(try paymentKeyPair.verificationKey.hash()),
-        stakePart: .verificationKeyHash(try stakeKeyPair.verificationKey.hash()),
+        stakingPart: .verificationKeyHash(try stakeKeyPair.verificationKey.hash()),
         network: .testnet
     )
     
     // Test Bech32 round-trip
-    let bech32String = originalAddress.toBech32()
+    let bech32String = try originalAddress.toBech32()
     let parsedAddress = try Address.fromBech32(bech32String)
     assert(originalAddress == parsedAddress)
     
@@ -238,7 +246,7 @@ func testAddressRoundTrip() throws {
 // Address format validation
 func validateAddressFormat(_ addressString: String) -> Bool {
     do {
-        let address = try Address.fromBech32(addressString)
+        _ = try Address.fromBech32(addressString)
         return true
     } catch {
         return false
@@ -248,8 +256,8 @@ func validateAddressFormat(_ addressString: String) -> Bool {
 // Test known address formats
 let validAddresses = [
     "addr_test1vr2p8st5t5cxqglyjky7vk98k7jtfhdpvhl4e97cezuhn0cqcexl7",
-    "addr1qx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer3jcu5d8ps7zex2k2xt6alqpggj7c6z",
-    "stake1u8pcjgmx7962w6hey5hhsd502araxp26kdtgagakhaqtq8sxy9w7g"
+    "addr1qx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer3jcu5d8ps7zex2k2xt3uqxgjqnnj83ws8lhrn648jjxtwqfjkjv7",
+    "stake1uyevw2xnsc0pvn9t9r9c7qryfqfeerchgrlm3ea2nefr9hqxdekzz"
 ]
 
 for addressString in validAddresses {
@@ -267,8 +275,9 @@ for addressString in validAddresses {
 ## Related Symbols
 
 - ``Address``
-- ``Network``
-- ``Credential``
+- ``NetworkId``
+- ``PaymentPart``
+- ``StakingPart``
 - ``VerificationKeyHash``
 - ``ScriptHash``
 - ``PaymentKeyPair``
