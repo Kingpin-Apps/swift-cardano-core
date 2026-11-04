@@ -48,8 +48,27 @@ public struct VerificationKeyWitness: Serializable, TextEnvelopable {
         self._description = Self.DESCRIPTION
     }
     
+    // MARK: - TextEnvelopable
+
+    /// Reads a witness file: the bare `[vkey, signature]` this type and
+    /// current cardano-cli versions write, or the `[0, [vkey, signature]]`
+    /// older cardano-cli versions wrote, where `0` marks a key witness and
+    /// `1` a Byron bootstrap witness.
+    public static func fromEnvelopeCBOR(_ data: Data, type: String) throws -> VerificationKeyWitness {
+        let primitive = try Primitive.fromCBOR(data: data)
+        guard let elements = primitive.arrayElements, elements.count == 2,
+              case let .uint(tag) = elements[0] else {
+            return try VerificationKeyWitness(from: primitive)
+        }
+        guard tag == 0 else {
+            throw CardanoCoreError.deserializeError(
+                "Witness file holds witness kind \(tag), not a key witness (kind 0)")
+        }
+        return try VerificationKeyWitness(from: elements[1])
+    }
+
     // MARK: - CBORSerializable
-    
+
     public init(from primitive: Primitive) throws {
         guard let elements = primitive.arrayElements else {
             throw CardanoCoreError.deserializeError("Invalid VerificationKeyWitness primitive")

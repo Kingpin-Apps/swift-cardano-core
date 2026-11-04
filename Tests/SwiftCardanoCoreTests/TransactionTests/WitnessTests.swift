@@ -71,8 +71,47 @@ import CBORCodable
         
         let encodedData = try CBOREncoder().encode(vkeyWitness)
         let decodedWitness = try CBORDecoder().decode(VerificationKeyWitness.self, from: encodedData)
-        
+
         #expect(decodedWitness == vkeyWitness)
+    }
+
+    // A witness written by `cardano-cli conway transaction witness` 11.2.3.
+    let cliVkey = "7da9a56144fc140072ac38229162bca3ab62c9667891e69ba647a44584285965"
+    let cliSignature = "36e14373862f7014dee0223b58b7a9959a7657defacc0527d8fe82330aed22d910ddb84010ee97d584b6414c14c9ba1a241379ac7aff68ae53fda25702ecb00f"
+
+    func envelope(_ cborHex: String) -> String {
+        """
+        {
+            "type": "TxWitness ConwayEra",
+            "description": "Key Witness ShelleyEra",
+            "cborHex": "\(cborHex)"
+        }
+        """
+    }
+
+    @Test func testTextEnvelopeReadsBareWitness() async throws {
+        let witness = try VerificationKeyWitness.fromTextEnvelope(
+            envelope("825820\(cliVkey)5840\(cliSignature)"))
+
+        #expect(witness.vkey.payload.toHex == cliVkey)
+        #expect(witness.signature.toHex == cliSignature)
+    }
+
+    @Test func testTextEnvelopeReadsOlderCardanoCliWitness() async throws {
+        let bare = try VerificationKeyWitness.fromTextEnvelope(
+            envelope("825820\(cliVkey)5840\(cliSignature)"))
+        let tagged = try VerificationKeyWitness.fromTextEnvelope(
+            envelope("8200825820\(cliVkey)5840\(cliSignature)"))
+
+        #expect(tagged == bare)
+        #expect(try tagged.toTextEnvelope() == bare.toTextEnvelope())
+    }
+
+    @Test func testTextEnvelopeRejectsBootstrapWitness() async throws {
+        #expect(throws: CardanoCoreError.self) {
+            try VerificationKeyWitness.fromTextEnvelope(
+                envelope("8201825820\(cliVkey)5840\(cliSignature)"))
+        }
     }
 }
 
