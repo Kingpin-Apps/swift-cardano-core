@@ -1,3 +1,9 @@
+## 0.10.1 (2026-11-04)
+
+### Fix
+
+- read witness files in the older cardano-cli [0, witness] form
+
 ## 0.10.0 (2026-10-30)
 
 ### Feat
