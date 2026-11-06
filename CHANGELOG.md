@@ -1,3 +1,10 @@
+## 0.10.3 (2026-11-06)
+
+### Fix
+
+- value ordering, DRep script prefix, envelope type and ScriptRef sync
+- Ed25519 signature size and genesis parameters era
+
 ## 0.10.2 (2026-11-06)
 
 ## 0.10.1 (2026-11-04)
