@@ -8,9 +8,9 @@ public struct GenesisKeyDelegation: CertificateSerializable {
     public var _type: String
     public var _description: String
     
-    /// The text envelope `type` field: always ``GenesisKeyDelegation/TYPE``.
-    public var type: String { get { return GenesisKeyDelegation.TYPE } }
-    public var description: String { get { return GenesisKeyDelegation.DESCRIPTION } }
+    /// The text envelope `type` it was created or read with; ``GenesisKeyDelegation/TYPE`` by default.
+    public var type: String { _type }
+    public var description: String { _description }
 
     public static var TYPE: String { CertificateType.shelley.rawValue }
     public static var DESCRIPTION: String { CertificateDescription.genesisKeyDelegation.rawValue }

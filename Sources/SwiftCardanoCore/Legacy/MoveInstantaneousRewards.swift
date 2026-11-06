@@ -253,9 +253,9 @@ public struct MoveInstantaneousRewards: CertificateSerializable {
     public var _type: String
     public var _description: String
 
-    /// The text envelope `type` field: always ``MoveInstantaneousRewards/TYPE``.
-    public var type: String { return MoveInstantaneousRewards.TYPE }
-    public var description: String { return MoveInstantaneousRewards.DESCRIPTION }
+    /// The text envelope `type` it was created or read with; ``MoveInstantaneousRewards/TYPE`` by default.
+    public var type: String { _type }
+    public var description: String { _description }
 
     public static var TYPE: String { CertificateType.shelley.rawValue }
     public static var DESCRIPTION: String {

@@ -215,19 +215,23 @@ public struct Value: CBORSerializable, Comparable, Sendable {
         return lhs.coin <= rhs.coin && lhs.multiAsset <= rhs.multiAsset
     }
 
-    /// Returns `true` when the coin of `lhs` is `>=` that of `rhs` and the multi-asset of `lhs` is `>=` that of `rhs`.
+    /// Returns `true` when `rhs <= lhs`.
     public static func >= (lhs: Value, rhs: Value) -> Bool {
-        return lhs.coin >= rhs.coin && lhs.multiAsset >= rhs.multiAsset
+        return rhs <= lhs
     }
 
-    /// Returns `true` when the coin of `lhs` is `<` that of `rhs` and the multi-asset of `lhs` is `<` that of `rhs`.
+    /// Returns `true` when `lhs <= rhs` and not `rhs <= lhs`: nothing in
+    /// `lhs` is larger, and the coin or some asset is smaller.
+    ///
+    /// Two values can be neither `<` nor `>` each other, when each holds more
+    /// of something; sort by ``coin`` instead when a total order is needed.
     public static func < (lhs: Value, rhs: Value) -> Bool {
-        return lhs.coin < rhs.coin && lhs.multiAsset < rhs.multiAsset
+        return lhs <= rhs && !(rhs <= lhs)
     }
 
-    /// Returns `true` when the coin of `lhs` is `>` that of `rhs` and the multi-asset of `lhs` is `>` that of `rhs`.
+    /// Returns `true` when `rhs < lhs`.
     public static func > (lhs: Value, rhs: Value) -> Bool {
-        return lhs.coin > rhs.coin && lhs.multiAsset > rhs.multiAsset
+        return rhs < lhs
     }
     
     public func hash(into hasher: inout Hasher) {

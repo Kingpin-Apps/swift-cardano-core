@@ -10,8 +10,8 @@ public struct Register: CertificateSerializable {
     public var _type: String
     public var _description: String
 
-    public var type: String { Register.TYPE }
-    public var description: String { Register.DESCRIPTION }
+    public var type: String { _type }
+    public var description: String { _description }
 
     public static var TYPE: String { CertificateType.conway.rawValue }
     public static var DESCRIPTION: String { CertificateDescription.stakeRegistration.rawValue }

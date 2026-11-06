@@ -10,7 +10,7 @@ public struct RegisterDRep: CertificateSerializable {
     public var _type: String
     public var _description: String
 
-    public var type: String { RegisterDRep.TYPE }
+    public var type: String { _type }
     public var description: String {
         switch drepCredential.credential {
             case .verificationKeyHash(_):

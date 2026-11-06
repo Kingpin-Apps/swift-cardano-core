@@ -293,39 +293,31 @@ public struct Asset: Serializable, Comparable, AdditiveArithmetic {
         return result
     }
 
-    /// Returns `true` when `lhs <= rhs` and the two maps are not equal.
+    /// Returns `true` when `lhs <= rhs` and not `rhs <= lhs`: no amount in
+    /// `lhs` is larger, and at least one is smaller.
     public static func < (lhs: Asset, rhs: Asset) -> Bool {
-        // lhs < rhs means lhs <= rhs && lhs != rhs
-        return lhs <= rhs && lhs != rhs
+        return lhs <= rhs && !(rhs <= lhs)
     }
 
-    /// Returns `true` when every asset in `lhs` is also in `rhs` with an amount at least as large.
-    ///
-    /// Assets only in `rhs` are ignored.
+    /// Returns `true` when every amount in `lhs` is at most the same asset's
+    /// amount in `rhs`, an asset missing from either side counting as zero.
     public static func <= (lhs: Asset, rhs: Asset) -> Bool {
-        // Check if lhs is a subset of rhs with all values <= corresponding rhs values
-        for (key, value) in lhs.data {
-            guard let rhsValue = rhs.data[key] else {
-                // lhs has an asset that rhs doesn't have, so lhs cannot be <= rhs
-                return false
-            }
-            if value > rhsValue {
-                // lhs has more of this asset than rhs, so lhs cannot be <= rhs
-                return false
-            }
+        for (key, value) in lhs.data where value > (rhs.data[key] ?? 0) {
+            return false
+        }
+        for (key, value) in rhs.data where lhs.data[key] == nil && value < 0 {
+            return false
         }
         return true
     }
 
     /// Returns `true` when `rhs < lhs`.
     public static func > (lhs: Asset, rhs: Asset) -> Bool {
-        // lhs > rhs means rhs < lhs
         return rhs < lhs
     }
 
     /// Returns `true` when `rhs <= lhs`.
     public static func >= (lhs: Asset, rhs: Asset) -> Bool {
-        // lhs >= rhs means rhs <= lhs
         return rhs <= lhs
     }
 }

@@ -11,8 +11,8 @@ public struct PoolRegistration: CertificateSerializable {
     public var _type: String
     public var _description: String
 
-    public var type: String { get { return PoolRegistration.TYPE } }
-    public var description: String { get { return PoolRegistration.DESCRIPTION } }
+    public var type: String { _type }
+    public var description: String { _description }
 
     public static var TYPE: String { CertificateType.conway.rawValue }
     public static var DESCRIPTION: String { CertificateDescription.poolRegistration.rawValue }

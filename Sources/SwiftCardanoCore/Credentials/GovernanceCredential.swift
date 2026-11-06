@@ -129,12 +129,11 @@ extension GovernanceCredential {
     
     /// The Bech32 ID of this credential.
     ///
-    /// The human-readable part always comes from ``computeHrp(_:)`` with its
-    /// default CIP-129 format, whatever `format` is.
-    /// - Parameter format: The ID format of the data part, CIP-129 by default.
+    /// - Parameter format: The ID format, CIP-129 by default. CIP-105 gives a
+    ///   script credential the `_script` prefix, such as `drep_script`.
     /// - Returns: The Bech32 ID.
     public func toBech32(_ format: IdFormat = .cip129) throws -> String {
-        let hrp = self.computeHrp()
+        let hrp = self.computeHrp(format)
         
         let data = try self.toBytes(format)
         

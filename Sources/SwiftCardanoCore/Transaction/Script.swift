@@ -108,10 +108,38 @@ public struct ScriptRef: CBORTaggable, Serializable {
     /// The CBOR tag; always 24.
     public var tag: UInt64 = 24
     /// The tagged value: the CBOR bytes of ``script``, which ``toPrimitive()`` writes.
-    public var value: Primitive
+    ///
+    /// Setting it decodes ``script`` from it again; bytes that are not a
+    /// script leave ``script`` as it was.
+    public var value: Primitive {
+        didSet {
+            guard !syncing else { return }
+            let bytes: Data
+            switch value {
+                case .bytes(let data): bytes = data
+                case .string(let text): bytes = text.toData
+                default: return
+            }
+            guard let decoded = try? Self.script(from: bytes) else { return }
+            syncing = true
+            defer { syncing = false }
+            script = decoded
+        }
+    }
     
-    /// The decoded script. Setting it does not update ``value``.
-    public var script: Script
+    /// The decoded script. Setting it encodes ``value`` from it again.
+    public var script: Script {
+        didSet {
+            guard !syncing, let bytes = try? CBOREncoder().encode(script) else { return }
+            syncing = true
+            defer { syncing = false }
+            value = .bytes(bytes)
+        }
+    }
+
+    /// Set while ``value`` and ``script`` update each other, so neither
+    /// observer runs the other again.
+    private var syncing = false
     
     /// Creates a reference script from its tagged value, decoding the script it holds.
     ///
@@ -184,6 +212,11 @@ public struct ScriptRef: CBORTaggable, Serializable {
     
     public static func == (lhs: ScriptRef, rhs: ScriptRef) -> Bool {
         return lhs.tag == rhs.tag && lhs.script == rhs.script
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(tag)
+        hasher.combine(script)
     }
     
     public init(from primitive: Primitive) throws {

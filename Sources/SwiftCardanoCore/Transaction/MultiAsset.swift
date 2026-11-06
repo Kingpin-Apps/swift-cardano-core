@@ -251,69 +251,35 @@ public struct MultiAsset: Serializable, Comparable {
         return true
     }
 
-    /// Returns `true` when every policy in `lhs` is also in `rhs` and its asset map is `<=` the one in `rhs`.
-    ///
-    /// Policies only in `rhs` are ignored.
+    /// Returns `true` when every amount in `lhs` is at most the same asset's
+    /// amount in `rhs`, a policy or asset missing from either side counting
+    /// as zero.
     public static func <= (lhs: MultiAsset, rhs: MultiAsset) -> Bool {
-        for (key, value) in lhs.data {
-            guard let rhsData = rhs.data[key] else {
-                // lhs has a policy ID that rhs doesn't have, so lhs cannot be <= rhs
-                return false
-            }
-            if !(value <= rhsData) {
-                return false
-            }
+        for (key, value) in lhs.data where !(value <= (rhs.data[key] ?? .zero)) {
+            return false
+        }
+        for (key, value) in rhs.data where lhs.data[key] == nil && !(Asset.zero <= value) {
+            return false
         }
         return true
     }
 
-    /// Returns `true` when, for every policy in both multi-assets, the asset map in `lhs` is `>=` the one in `rhs`.
-    ///
-    /// Policies in only one of the two are skipped.
+    /// Returns `true` when `rhs <= lhs`.
     public static func >= (lhs: MultiAsset, rhs: MultiAsset) -> Bool {
-        for (key, value) in lhs.data {
-            guard let rhsData = rhs.data[key] else {
-                continue
-            }
-            if !(value >= rhsData) {
-                return false
-            }
-        }
-        return true
+        return rhs <= lhs
     }
-    
-    /// Returns `true` when, for every policy in both multi-assets, the asset map in `lhs` is `<` the one in `rhs`.
-    ///
-    /// Policies in only one of the two are skipped, so two multi-assets with no
-    /// policy in common compare as `true`.
+
+    /// Returns `true` when `lhs <= rhs` and not `rhs <= lhs`: no amount in
+    /// `lhs` is larger, and at least one is smaller.
     public static func < (lhs: MultiAsset, rhs: MultiAsset) -> Bool {
-        for (key, value) in lhs.data {
-            guard let rhsData = rhs.data[key] else {
-                continue
-            }
-            if !(value < rhsData) {
-                return false
-            }
-        }
-        return true
+        return lhs <= rhs && !(rhs <= lhs)
     }
-    
-    /// Returns `true` when, for every policy in both multi-assets, the asset map in `lhs` is `>` the one in `rhs`.
-    ///
-    /// Policies in only one of the two are skipped, so two multi-assets with no
-    /// policy in common compare as `true`.
+
+    /// Returns `true` when `rhs < lhs`.
     public static func > (lhs: MultiAsset, rhs: MultiAsset) -> Bool {
-        for (key, value) in lhs.data {
-            guard let rhsData = rhs.data[key] else {
-                continue
-            }
-            if !(value > rhsData) {
-                return false
-            }
-        }
-        return true
+        return rhs < lhs
     }
-    
+
     /// Filter items by criteria.
     /// - Parameter criteria: A function that takes in three input arguments (policy_id, asset_name, amount) and returns a bool. If returned value is True, then the asset will be kept, otherwise discarded.
     /// - Returns: A new filtered MultiAsset object.

@@ -10,8 +10,8 @@ public struct StakeDeregistration: CertificateSerializable {
     public var _type: String
     public var _description: String
 
-    public var type: String { StakeDeregistration.TYPE }
-    public var description: String { StakeDeregistration.DESCRIPTION }
+    public var type: String { _type }
+    public var description: String { _description }
 
     public static var TYPE: String { CertificateType.shelley.rawValue }
     public static var DESCRIPTION: String { CertificateDescription.stakeDeregistration.rawValue }

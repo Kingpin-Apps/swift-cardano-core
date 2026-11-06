@@ -10,8 +10,8 @@ public struct AuthCommitteeHot: CertificateSerializable {
     public var _type: String
     public var _description: String
 
-    public var type: String { AuthCommitteeHot.TYPE }
-    public var description: String { AuthCommitteeHot.DESCRIPTION }
+    public var type: String { _type }
+    public var description: String { _description }
 
     public static var TYPE: String { CertificateType.conway.rawValue }
     public static var DESCRIPTION: String { CertificateDescription.authCommitteeHot.rawValue }
