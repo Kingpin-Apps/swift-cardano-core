@@ -1,5 +1,5 @@
 {
-  "originHash" : "0f20dfd8a9375e56b99625c6c6a1f1423dd9aef986490399e55c3121b12ff5bc",
+  "originHash" : "a3a71304be4ed6119d7ebd48afaf64c998332136b20e9b066004b931f36f3d69",
   "pins" : [
     {
       "identity" : "base32",
@@ -42,8 +42,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-asn1.git",
       "state" : {
-        "revision" : "3b6410f7dee09eb33cdd26260c5fd47fda19b0e2",
-        "version" : "1.7.3"
+        "revision" : "917b472dbe53ba699cbb0495f9a95a084bc6364d",
+        "version" : "1.7.4"
       }
     },
     {
@@ -96,8 +96,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kingpin-Apps/swift-kes.git",
       "state" : {
-        "revision" : "c79b68762e420d181a9144c6b77c9b24d9bb33e3",
-        "version" : "1.0.2"
+        "revision" : "fefaa18a5351ef85fc911a8c9bde75e5d6e86869",
+        "version" : "1.0.3"
       }
     },
     {
@@ -105,8 +105,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-log.git",
       "state" : {
-        "revision" : "9c6fb14227f55d8f711ce3847dc2f419fb0ecacb",
-        "version" : "1.15.1"
+        "revision" : "e3da04078777e6a1b72ce19981fbd6539b0847d8",
+        "version" : "1.17.0"
       }
     },
     {
@@ -114,8 +114,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kingpin-Apps/swift-mnemonic.git",
       "state" : {
-        "revision" : "7345f86daa9277b0510aaed9c5fd2fce5d41e89b",
-        "version" : "0.2.6"
+        "revision" : "97ac7a4a2dc7ef329fe0fb8d6e3e3400fedafbc4",
+        "version" : "0.2.7"
       }
     },
     {
@@ -123,8 +123,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kingpin-Apps/swift-nacl.git",
       "state" : {
-        "revision" : "03f8a9e2a7626fdc56f100da78f101fe05002298",
-        "version" : "1.0.3"
+        "revision" : "32aac9e9f00f362a359b198bc76eae4fa95f329f",
+        "version" : "1.1.0"
       }
     },
     {
