@@ -348,6 +348,8 @@ public struct ByronAttributes: Sendable, Equatable, Hashable {
     /// The exact bytes these attributes were decoded from.
     public var originalCBOR: Data? { _original.data }
 
+    /// Creates attributes from their entries.
+    /// - Parameter entries: The entries, in order. Defaults to none.
     public init(_ entries: OrderedDictionary<Primitive, Primitive> = [:]) {
         self.entries = entries
     }
@@ -355,6 +357,7 @@ public struct ByronAttributes: Sendable, Equatable, Hashable {
     /// An empty attributes map, `{}`.
     public static let empty = ByronAttributes()
 
+    /// Whether there are no entries.
     public var isEmpty: Bool { entries.isEmpty }
 
     static func decode(_ item: ByronCBORItem, _ what: String) throws -> ByronAttributes {

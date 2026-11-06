@@ -2,20 +2,27 @@ import Foundation
 
 /// Enum representing the different credential formats.
 public enum CredentialFormat {
+    /// Bech32 text.
     case bech32
+    /// Hexadecimal text.
     case hex
 }
 
 /// Enum representing the different ID formats.
 public enum IdFormat {
+    /// The CIP-105 form: the bare 28-byte hash, with `_script` in the Bech32 prefix of a script credential.
     case cip105
+    /// The CIP-129 form: a header byte that names the key type and credential type, then the 28-byte hash.
     case cip129
 }
 
-/// The credential can be  a verification key hash or a script hash.
+/// A credential: a verification key hash or a script hash.
 public protocol Credential: Serializable, CustomStringConvertible, CustomDebugStringConvertible {
+    /// The key hash or script hash.
     var credential: CredentialType { get }
     
+    /// Creates a credential from a key hash or script hash.
+    /// - Parameter credential: The key hash or script hash.
     init(credential: CredentialType)
 }
 
@@ -144,6 +151,7 @@ extension Credential {
     }
 }
 
+/// A stake credential: the key hash or script hash that controls a stake address.
 public struct StakeCredential: Credential {
     public let credential: CredentialType
     
@@ -152,6 +160,7 @@ public struct StakeCredential: Credential {
     }
 }
 
+/// The credential of a delegated representative (DRep).
 public struct DRepCredential: GovernanceCredential {
     public let credential: CredentialType
     
@@ -164,6 +173,7 @@ public struct DRepCredential: GovernanceCredential {
     }
 }
 
+/// The credential of a constitutional committee member's cold key.
 public struct CommitteeColdCredential: GovernanceCredential {
     public let credential: CredentialType
     
@@ -176,6 +186,7 @@ public struct CommitteeColdCredential: GovernanceCredential {
     }
 }
 
+/// The credential of a constitutional committee member's hot key.
 public struct CommitteeHotCredential: GovernanceCredential {
     public let credential: CredentialType
     

@@ -2,14 +2,28 @@ import Foundation
 import CBORCodable
 import OrderedCollections
 
+/// A value wrapped in a CBOR tag (major type 6).
+///
+/// Conforming types are written as `#6.<tag>(value)`. The protocol extension supplies the CBOR, `Codable` and dictionary conversions, so a conforming type only stores ``tag`` and ``value`` and provides ``init(tag:value:)``.
 public protocol CBORTaggable: Serializable, Sendable {
+    /// The CBOR tag number.
     var tag: UInt64 { get }
+    /// The tagged content.
     var value: Primitive { get set }
 
+    /// Creates the tagged value from a tag number and its content.
+    ///
+    /// - Parameters:
+    ///   - tag: The CBOR tag number.
+    ///   - value: The tagged content.
+    /// - Throws: When a conforming type does not accept the tag or the content.
     init(tag: UInt64, value: Primitive) throws
 }
 
 extension CBORTaggable {
+    /// This value as a tagged CBOR item, `#6.<tag>(value)`.
+    ///
+    /// The function traps if ``value`` cannot be converted to CBOR.
     public func taggedCBOR() -> CBOR {
         let cborData = try! value.toCBOR()
         return .tagged(
@@ -18,6 +32,11 @@ extension CBORTaggable {
         )
     }
 
+    /// Reads a value of this type from a tagged CBOR item.
+    ///
+    /// - Parameter cbor: A `.tagged` CBOR item.
+    /// - Returns: A new value built from the item's tag and content.
+    /// - Throws: When `cbor` is not tagged, or ``init(tag:value:)`` rejects it.
     public func fromCBOR(_ cbor: CBOR) throws -> Self {
         guard case let .tagged(tag, value) = cbor else {
             throw CardanoCoreError.valueError("CBOR value is not tagged")
@@ -82,10 +101,18 @@ extension CBORTaggable {
     }
 }
 
+/// A CBOR tag with any tag number and any content.
 public struct CBORTag: CBORTaggable {
+    /// The CBOR tag number.
     public var tag: UInt64
+    /// The tagged content.
     public var value: Primitive
 
+    /// Creates a tagged value.
+    ///
+    /// - Parameters:
+    ///   - tag: The CBOR tag number.
+    ///   - value: The tagged content.
     public init(tag: UInt64, value: Primitive) {
         self.tag = tag
         self.value = value

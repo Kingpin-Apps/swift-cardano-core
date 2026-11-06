@@ -2,12 +2,20 @@ import Foundation
 import OrderedCollections
 import CBORCodable
 
+/// The cost models of the Plutus languages, one per language version.
+///
+/// Each model maps parameter names to values, in parameter order; only the order of the values is written to CBOR. Language `0` is Plutus V1, `1` is Plutus V2 and `2` is Plutus V3.
+///
+/// Encoding with a CBOR encoder writes the ledger's language-views form, which the script integrity hash covers: the V1 key is a one-byte byte string and its value is the bytes of an indefinite-length array, while V2 and V3 have integer keys and definite-length arrays. ``toPrimitive()`` instead writes a map with integer keys and indefinite-length arrays for every language.
 public struct CostModels: CBORSerializable, Sendable {
     typealias KEY_TYPE = Int
     typealias VALUE_TYPE = OrderedDictionary<String, Int64>
 
+    /// The Plutus V1 cost model (language `0`), or `nil` when there is none.
     public let plutusV1: OrderedDictionary<String, Int64>?
+    /// The Plutus V2 cost model (language `1`), or `nil` when there is none.
     public let plutusV2: OrderedDictionary<String, Int64>?
+    /// The Plutus V3 cost model (language `2`), or `nil` when there is none.
     public let plutusV3: OrderedDictionary<String, Int64>?
 
     enum CodingKeys: Int, CodingKey {
@@ -16,12 +24,22 @@ public struct CostModels: CBORSerializable, Sendable {
         case plutusV3 = 2
     }
 
+    /// Creates cost models from named models, keyed by language: `0` for V1, `1` for V2, `2` for V3. Other keys are ignored.
+    ///
+    /// - Parameter data: The cost models by language.
+    /// - Throws: Never; the initializer is marked `throws` but accepts every value.
     public init(_ data: [Int: OrderedDictionary<String, Int64>]) throws {
         plutusV1 = data[0]
         plutusV2 = data[1]
         plutusV3 = data[2]
     }
 
+    /// Creates cost models from lists of values, keyed by language: `0` for V1, `1` for V2, `2` for V3. Other keys are ignored.
+    ///
+    /// Each value is named after the parameter at the same position in the built-in model for its language (``PLUTUS_V1_COST_MODEL``, ``PLUTUS_V2_COST_MODEL`` or ``PLUTUS_V3_COST_MODEL``). Values beyond the built-in model are kept and named `unnamedParam<index>`. An empty list gives the built-in model's parameters, all set to zero.
+    ///
+    /// - Parameter data: The cost model values by language, in parameter order.
+    /// - Throws: When building a model fails.
     public init(_ data: [Int: [Int64]]) throws {
         plutusV1 = try data[0].map { try Self.modelFromValues($0, version: 0) }
         plutusV2 = try data[1].map { try Self.modelFromValues($0, version: 1) }
@@ -108,12 +126,20 @@ public struct CostModels: CBORSerializable, Sendable {
         }
     }
 
+    /// Cost models holding only the built-in Plutus V1 model, ``PLUTUS_V1_COST_MODEL``.
+    ///
+    /// - Returns: The cost models.
+    /// - Throws: When building the cost models fails.
     public static func forScriptDataHash() throws -> CostModels {
         return try CostModels([
             0: PLUTUS_V1_COST_MODEL
         ])
     }
 
+    /// Cost models holding the built-in V1, V2 and V3 models.
+    ///
+    /// - Returns: The cost models.
+    /// - Throws: When building the cost models fails.
     public static func fromStaticData() throws -> CostModels {
         return try CostModels([
             0: PLUTUS_V1_COST_MODEL,
@@ -315,6 +341,9 @@ extension CostModels: CustomStringConvertible, CustomDebugStringConvertible {
     }
 }
 
+/// A built-in Plutus V1 cost model: every parameter name, in order, with a fixed set of values.
+///
+/// ``CostModels`` uses its names for positional values. Read current values from the protocol parameters of the network you use.
 public let PLUTUS_V1_COST_MODEL: OrderedDictionary<String, Int64> = [
     "addInteger-cpu-arguments-intercept": 197209,
     "addInteger-cpu-arguments-slope": 0,
@@ -484,6 +513,9 @@ public let PLUTUS_V1_COST_MODEL: OrderedDictionary<String, Int64> = [
     "verifySignature-memory-arguments": 1,
 ]
 
+/// A built-in Plutus V2 cost model: every parameter name, in order, with a fixed set of values.
+///
+/// ``CostModels`` uses its names for positional values. Read current values from the protocol parameters of the network you use.
 public let PLUTUS_V2_COST_MODEL: OrderedDictionary<String, Int64> = [
     "addInteger-cpu-arguments-intercept": 205665,
     "addInteger-cpu-arguments-slope": 812,
@@ -662,6 +694,9 @@ public let PLUTUS_V2_COST_MODEL: OrderedDictionary<String, Int64> = [
     "verifySchnorrSecp256k1Signature-memory-arguments": 20_000_000_000,
 ]
 
+/// A built-in Plutus V3 cost model: every parameter name, in order, with a fixed set of values.
+///
+/// ``CostModels`` uses its names for positional values. Read current values from the protocol parameters of the network you use.
 public let PLUTUS_V3_COST_MODEL: OrderedDictionary<String, Int64> = [
     "addInteger-cpu-arguments-intercept": 100788,
     "addInteger-cpu-arguments-slope": 420,

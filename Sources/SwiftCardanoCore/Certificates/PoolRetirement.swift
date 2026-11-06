@@ -3,6 +3,8 @@ import CBORCodable
 import OrderedCollections
 
 /// Stake pool retirement certificate: `pool_retirement_cert = (4, pool_keyhash, epoch)`.
+///
+/// Introduced in Shelley.
 public struct PoolRetirement: CertificateSerializable {
     public var _payload: Data
     public var _type: String
@@ -15,7 +17,9 @@ public struct PoolRetirement: CertificateSerializable {
     public static var DESCRIPTION: String { CertificateDescription.poolRetirement.rawValue }
     public static var CODE: CertificateCode { .poolRetirement }
 
+    /// The hash of the operator key of the pool to retire.
     public let poolKeyHash: PoolKeyHash
+    /// The epoch in which the pool retires.
     public let epoch: EpochNumber
 
     public enum CodingKeys: String, CodingKey {
@@ -25,6 +29,9 @@ public struct PoolRetirement: CertificateSerializable {
 
     /// Creates the certificate.
     ///
+    /// - Parameters:
+    ///   - poolKeyHash: The hash of the operator key of the pool to retire.
+    ///   - epoch: The epoch in which the pool retires.
     /// - Throws: When the certificate cannot be encoded for its payload.
     public init(poolKeyHash: PoolKeyHash, epoch: EpochNumber) throws {
         self.poolKeyHash = poolKeyHash

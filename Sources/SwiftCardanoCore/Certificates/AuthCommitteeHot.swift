@@ -3,6 +3,8 @@ import CBORCodable
 import OrderedCollections
 
 /// Constitutional committee hot key authorization: `committee_authorization_cert = (14, committee_cold_credential, committee_hot_credential)`.
+///
+/// Introduced in Conway. A committee member's cold credential authorizes a hot credential to vote for it.
 public struct AuthCommitteeHot: CertificateSerializable {
     public var _payload: Data
     public var _type: String
@@ -15,7 +17,9 @@ public struct AuthCommitteeHot: CertificateSerializable {
     public static var DESCRIPTION: String { CertificateDescription.authCommitteeHot.rawValue }
     public static var CODE: CertificateCode { .authCommitteeHot }
 
+    /// The cold credential of the committee member.
     public let committeeColdCredential: CommitteeColdCredential
+    /// The hot credential authorized to vote for the member.
     public let committeeHotCredential: CommitteeHotCredential
 
     public enum CodingKeys: String, CodingKey {
@@ -25,6 +29,9 @@ public struct AuthCommitteeHot: CertificateSerializable {
 
     /// Creates the certificate.
     ///
+    /// - Parameters:
+    ///   - committeeColdCredential: The cold credential of the committee member.
+    ///   - committeeHotCredential: The hot credential authorized to vote for the member.
     /// - Throws: When the certificate cannot be encoded for its payload.
     public init(committeeColdCredential: CommitteeColdCredential, committeeHotCredential: CommitteeHotCredential) throws {
         self.committeeColdCredential = committeeColdCredential

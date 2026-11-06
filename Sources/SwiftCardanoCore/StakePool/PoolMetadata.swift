@@ -6,13 +6,22 @@ import SwiftNaCl
 import FoundationNetworking
 #endif
 
+/// A stake pool's metadata: the off-chain fields of its CIP-6 JSON file and the on-chain URL and hash that point to it.
+///
+/// On chain, only ``url`` and ``poolMetadataHash`` are written: `pool_metadata = [url, pool_metadata_hash]`.
 public struct PoolMetadata: Serializable {
+    /// The pool's name, at most 50 characters.
     public let name: String?
+    /// The pool's description, at most 255 characters.
     public let desc: String?
+    /// The pool's ticker: 3 to 5 uppercase letters or digits.
     public let ticker: String?
+    /// The pool's homepage.
     public let homepage: Url?
     
+    /// The URL the metadata file is published at.
     public let url: Url?
+    /// The Blake2b-256 hash of the metadata file.
     public let poolMetadataHash: PoolMetadataHash?
 
     /// The file this was read from, byte for byte. A pool's metadata hash
@@ -50,6 +59,15 @@ public struct PoolMetadata: Serializable {
         try fromJSON(data: Data(json.utf8))
     }
     
+    /// Creates pool metadata, checking the lengths of its text fields.
+    /// - Parameters:
+    ///   - name: The pool's name, at most 50 characters.
+    ///   - description: The pool's description, at most 255 characters.
+    ///   - ticker: The pool's ticker: 3 to 5 uppercase letters or digits.
+    ///   - homepage: The pool's homepage.
+    ///   - url: The URL the metadata file is published at.
+    ///   - poolMetadataHash: The hash of the metadata file.
+    /// - Throws: `CardanoCoreError.valueError` when `name`, `description` or `ticker` breaks those limits.
     public init(
         name: String? = nil,
         description: String? = nil,
@@ -105,6 +123,8 @@ public struct PoolMetadata: Serializable {
         return hash.toHex
     }
     
+    /// Writes the metadata file's JSON with `name`, `description`, `ticker` and `homepage`.
+    /// - Returns: The JSON text.
     public func toJSON() throws -> String? {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
@@ -245,13 +265,18 @@ public struct PoolMetadata: Serializable {
         return computed == hash.payload
     }
 
+    #if !os(WASI)
     /// Downloads the pool metadata JSON from `url`, verifies it against `poolMetadataHash`,
     /// parses the content, and returns a fully-populated `PoolMetadata`.
     ///
     /// Not available on WASI — that platform has no networking primitives.
     ///
+    /// - Parameters:
+    ///   - url: The URL the metadata file is published at.
+    ///   - poolMetadataHash: The expected hash of the file, or `nil` to skip the check.
+    ///   - session: The URL session to download with.
+    /// - Returns: The metadata, keeping the downloaded bytes for ``hash()``.
     /// - Throws: `CardanoCoreError.valueError` if the downloaded content does not match the hash.
-    #if !os(WASI)
     public static func fetch(
         url: Url,
         poolMetadataHash: PoolMetadataHash? = nil,

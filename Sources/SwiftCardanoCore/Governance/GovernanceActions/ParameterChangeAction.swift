@@ -1,13 +1,22 @@
 import Foundation
 import OrderedCollections
 
+/// A proposal to change protocol parameters: `parameter_change_action = (0, gov_action_id / nil, protocol_param_update, policy_hash / nil)`.
 public struct ParameterChangeAction: GovernanceAction {
     public static var code: GovActionCode { .parameterChangeAction }
 
+    /// The previous parameter change action, which this one has to follow, or `nil` for none.
     public var id: GovActionID?
+    /// The parameters to change and their new values.
     public let protocolParamUpdate: ProtocolParamUpdate
+    /// The hash of the guardrails script, or `nil` when there is none.
     public let policyHash: PolicyHash?
 
+    /// Creates a parameter change action.
+    /// - Parameters:
+    ///   - id: The previous parameter change action.
+    ///   - protocolParamUpdate: The parameters to change and their new values.
+    ///   - policyHash: The hash of the guardrails script, or `nil` for none.
     public init(id: GovActionID, protocolParamUpdate: ProtocolParamUpdate, policyHash: PolicyHash?)
     {
         self.id = id
@@ -63,47 +72,82 @@ public struct ParameterChangeAction: GovernanceAction {
 
 // MARK: - ProtocolParamUpdate
 
+/// A protocol parameter update: `protocol_param_update`, a map from integer key to new value.
+///
+/// Each field is `nil` when the update leaves that parameter unchanged, and its doc names the CDDL key it is written under.
 public struct ProtocolParamUpdate: CBORSerializable, Sendable {
+    /// Key 0, `min_fee_a`: the fee per byte of transaction, in lovelace.
     public var minFeeA: Coin?
+    /// Key 1, `min_fee_b`: the fixed part of the fee, in lovelace.
     public var minFeeB: Coin?
+    /// Key 2: the maximum block body size, in bytes.
     public var maxBlockBodySize: UInt32?
+    /// Key 3: the maximum transaction size, in bytes.
     public var maxTransactionSize: UInt32?
+    /// Key 4: the maximum block header size, in bytes.
     public var maxBlockHeaderSize: UInt16?
 
+    /// Key 5: the stake credential registration deposit, in lovelace.
     public var keyDeposit: Coin?
+    /// Key 6: the stake pool registration deposit, in lovelace.
     public var poolDeposit: Coin?
+    /// Key 7, `e_max`: how many epochs ahead a pool may schedule its retirement.
     public var maximumEpoch: EpochInterval?
+    /// Key 8, `n_opt` (k): the target number of stake pools.
     public var nOpt: UInt16?
+    /// Key 9, `a0`: the pool pledge influence.
     public var poolPledgeInfluence: NonNegativeInterval?
 
+    /// Key 10, `rho`: the monetary expansion rate.
     public var expansionRate: UnitInterval?
+    /// Key 11, `tau`: the treasury growth rate.
     public var treasuryGrowthRate: UnitInterval?
+    /// Key 12, `d`: the decentralization parameter, Shelley to Alonzo.
     public var decentralizationConstant: UnitInterval?
-    /// `nonce = [0] / [1, bytes .size 32]`, Shelley to Alonzo.
+    /// Key 13: extra entropy, `nonce = [0] / [1, bytes .size 32]`, Shelley to Alonzo.
     public var extraEntropy: Nonce?
+    /// Key 14: the protocol version, Shelley to Babbage. Conway changes it with ``HardForkInitiationAction`` instead.
     public var protocolVersion: ProtocolVersion?
-    /// `min_utxo_value`, Shelley to Mary.
+    /// Key 15, `min_utxo_value`: the minimum lovelace in an output, Shelley to Mary.
     public var minUtxoValue: Coin?
 
+    /// Key 16: the minimum fixed cost of a stake pool, in lovelace.
     public var minPoolCost: Coin?
+    /// Key 17: the cost of UTxO storage, in lovelace per byte (per word in Alonzo).
     public var adaPerUtxoByte: Coin?
+    /// Key 18: the Plutus cost models.
     public var costModels: CostModels?
+    /// Key 19: the prices of script execution memory and steps.
     public var executionCosts: ExUnitPrices?
+    /// Key 20: the maximum execution units of one transaction.
     public var maxTxExUnits: ExUnits?
+    /// Key 21: the maximum execution units of one block.
     public var maxBlockExUnits: ExUnits?
+    /// Key 22: the maximum size of a serialized output value, in bytes.
     public var maxValueSize: UInt32?
+    /// Key 23: the collateral required, as a percentage of the transaction fee.
     public var collateralPercentage: UInt16?
 
+    /// Key 24: the maximum number of collateral inputs.
     public var maxCollateralInputs: UInt16?
+    /// Key 25: the stake pool voting thresholds.
     public var poolVotingThresholds: PoolVotingThresholds?
+    /// Key 26: the DRep voting thresholds.
     public var drepVotingThresholds: DrepVotingThresholds?
+    /// Key 27: the minimum size of the constitutional committee.
     public var minCommitteeSize: UInt16?
+    /// Key 28: the maximum term of a committee member, in epochs.
     public var committeeTermLimit: EpochInterval?
 
+    /// Key 29: how long a governance action stays open for votes, in epochs.
     public var governanceActionValidityPeriod: EpochInterval?
+    /// Key 30: the deposit for a governance proposal, in lovelace.
     public var governanceActionDeposit: Coin?
+    /// Key 31: the DRep registration deposit, in lovelace.
     public var drepDeposit: Coin?
+    /// Key 32: how many epochs a DRep can go without voting before it is inactive.
     public var drepInactivityPeriod: EpochInterval?
+    /// Key 33: the fee per byte of reference scripts, in lovelace.
     public var minFeeRefScriptCoinsPerByte: NonNegativeInterval?
 
     enum CodingKeys: Int, CodingKey {
@@ -149,6 +193,42 @@ public struct ProtocolParamUpdate: CBORSerializable, Sendable {
         case minFeeRefScriptCoinsPerByte = 33
     }
 
+    /// Creates a protocol parameter update. Leave a parameter `nil` to leave it unchanged.
+    /// - Parameters:
+    ///   - minFeeA: Key 0, the fee per byte, in lovelace.
+    ///   - minFeeB: Key 1, the fixed fee, in lovelace.
+    ///   - maxBlockBodySize: Key 2, in bytes.
+    ///   - maxTransactionSize: Key 3, in bytes.
+    ///   - maxBlockHeaderSize: Key 4, in bytes.
+    ///   - keyDeposit: Key 5, in lovelace.
+    ///   - poolDeposit: Key 6, in lovelace.
+    ///   - maximumEpoch: Key 7, `e_max`.
+    ///   - nOpt: Key 8, the target number of pools.
+    ///   - poolPledgeInfluence: Key 9, `a0`.
+    ///   - expansionRate: Key 10, `rho`.
+    ///   - treasuryGrowthRate: Key 11, `tau`.
+    ///   - decentralizationConstant: Key 12, `d`.
+    ///   - extraEntropy: Key 13.
+    ///   - protocolVersion: Key 14.
+    ///   - minUtxoValue: Key 15, in lovelace.
+    ///   - minPoolCost: Key 16, in lovelace.
+    ///   - adaPerUtxoByte: Key 17, in lovelace.
+    ///   - costModels: Key 18.
+    ///   - executionCosts: Key 19.
+    ///   - maxTxExUnits: Key 20.
+    ///   - maxBlockExUnits: Key 21.
+    ///   - maxValueSize: Key 22, in bytes.
+    ///   - collateralPercentage: Key 23, a percentage of the fee.
+    ///   - maxCollateralInputs: Key 24.
+    ///   - poolVotingThresholds: Key 25.
+    ///   - drepVotingThresholds: Key 26.
+    ///   - minCommitteeSize: Key 27.
+    ///   - committeeTermLimit: Key 28, in epochs.
+    ///   - governanceActionValidityPeriod: Key 29, in epochs.
+    ///   - governanceActionDeposit: Key 30, in lovelace.
+    ///   - drepDeposit: Key 31, in lovelace.
+    ///   - drepInactivityPeriod: Key 32, in epochs.
+    ///   - minFeeRefScriptCoinsPerByte: Key 33, in lovelace per byte.
     public init(
         minFeeA: Coin? = nil,
         minFeeB: Coin? = nil,

@@ -1,19 +1,31 @@
 import Foundation
 import OrderedCollections
 
+/// A reference to a transaction output: `[transaction_id, index]`.
 public struct TransactionInput: Serializable {
+    /// The id of the transaction that created the output.
     public let transactionId: TransactionId
+    /// The position of the output among that transaction's outputs.
     public let index: UInt16
     
     public var description: String { "\(transactionId.description)#\(index)" }
     
     public var debugDescription: String { self.description }
     
+    /// Creates an input from a transaction id and an output index.
+    ///
+    /// - Parameters:
+    ///   - transactionId: The id of the transaction that created the output.
+    ///   - index: The position of the output among that transaction's outputs.
     public init(transactionId: TransactionId, index: UInt16) {
         self.transactionId = transactionId
         self.index = index
     }
     
+    /// Creates an input from a string of the form `<transaction id in hex>#<index>`.
+    ///
+    /// - Parameter txId: The input, as ``description`` writes it.
+    /// - Throws: `CardanoCoreError.valueError` when the string is not of that form, or an error when the id is not a valid transaction id.
     public init(from txId: String) throws {
         let components = txId.split(separator: "#")
         guard components.count == 2,
@@ -23,6 +35,12 @@ public struct TransactionInput: Serializable {
         try self.init(from: String(components[0]), index: index)
     }
     
+    /// Creates an input from a transaction id in hex and an output index.
+    ///
+    /// - Parameters:
+    ///   - transactionId: The id of the transaction that created the output, in hex.
+    ///   - index: The position of the output among that transaction's outputs.
+    /// - Throws: An error when `transactionId` is not a valid transaction id.
     public init(from transactionId: String, index: UInt16) throws {
         self.transactionId = try TransactionId(from: .string(transactionId))
         self.index = index

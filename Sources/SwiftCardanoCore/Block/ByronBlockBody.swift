@@ -34,6 +34,13 @@ public struct ByronBlockBody: Sendable, Equatable, Hashable {
         set { _original.data = newValue }
     }
 
+    /// Creates a block body.
+    /// - Parameters:
+    ///   - transactions: The transactions with their witnesses. Defaults to none.
+    ///   - sscPayload: The shared seed computation payload. Defaults to no
+    ///     certificates.
+    ///   - delegationPayload: Heavy delegation certificates. Defaults to none.
+    ///   - updatePayload: The update payload. Defaults to no proposal and no votes.
     public init(
         transactions: [ByronTransactionAux] = [],
         sscPayload: ByronSscPayload = .certificates([]),
@@ -114,6 +121,8 @@ public enum ByronSscPayload: Sendable, Equatable, Hashable {
         }
     }
 
+    /// Encodes the payload as CBOR.
+    /// - Returns: The CBOR bytes.
     public func toCBORData() throws -> Data {
         var writer = ByronCBORWriter()
         switch self {
@@ -235,6 +244,12 @@ public struct ByronSscCommitment: Sendable, Equatable, Hashable {
     /// The exact bytes this commitment was decoded from.
     public var originalCBOR: Data? { _original.data }
 
+    /// Creates a VSS commitment.
+    /// - Parameters:
+    ///   - publicKey: The committing stakeholder's key.
+    ///   - shares: Encrypted shares, by participant VSS key.
+    ///   - proof: The VSS proof.
+    ///   - signature: The stakeholder's signature over the commitment.
     public init(
         publicKey: Data, shares: OrderedDictionary<Data, [Data]>, proof: ByronVssProof,
         signature: Data
@@ -245,6 +260,8 @@ public struct ByronSscCommitment: Sendable, Equatable, Hashable {
         self.signature = signature
     }
 
+    /// The bytes this commitment was decoded from, otherwise a fresh encoding.
+    /// - Returns: The CBOR bytes.
     public func toCBORData() throws -> Data {
         if let originalCBOR { return originalCBOR }
         var writer = ByronCBORWriter()
@@ -286,11 +303,21 @@ public struct ByronSscCommitment: Sendable, Equatable, Hashable {
 /// extra generator, the commitment proof, the parallel proofs and the
 /// commitments — kept as opaque bytes.
 public struct ByronVssProof: Sendable, Equatable, Hashable {
+    /// The extra generator, as opaque bytes.
     public let extraGenerator: Data
+    /// The commitment proof, as opaque bytes.
     public let proof: Data
+    /// The parallel proofs, as opaque bytes.
     public let parallelProofs: Data
+    /// The commitments, as opaque bytes.
     public let commitments: [Data]
 
+    /// Creates a VSS proof from its four parts.
+    /// - Parameters:
+    ///   - extraGenerator: The extra generator.
+    ///   - proof: The commitment proof.
+    ///   - parallelProofs: The parallel proofs.
+    ///   - commitments: The commitments.
     public init(extraGenerator: Data, proof: Data, parallelProofs: Data, commitments: [Data]) {
         self.extraGenerator = extraGenerator
         self.proof = proof
@@ -334,6 +361,12 @@ public struct ByronSscCertificate: Sendable, Equatable, Hashable {
     /// The stakeholder's signing key.
     public let signingKey: Data
 
+    /// Creates a VSS certificate.
+    /// - Parameters:
+    ///   - vssKey: The VSS public key being certified.
+    ///   - expiryEpoch: The last epoch the certificate is valid for.
+    ///   - signature: The stakeholder's signature.
+    ///   - signingKey: The stakeholder's signing key.
     public init(vssKey: Data, expiryEpoch: UInt64, signature: Data, signingKey: Data) {
         self.vssKey = vssKey
         self.expiryEpoch = expiryEpoch
@@ -381,11 +414,18 @@ public struct ByronUpdatePayload: Sendable, Equatable, Hashable {
         set { _original.data = newValue }
     }
 
+    /// Creates an update payload.
+    /// - Parameters:
+    ///   - proposal: The update proposal, if any.
+    ///   - votes: Votes on update proposals. Defaults to none.
     public init(proposal: ByronUpdateProposal? = nil, votes: [ByronUpdateVote] = []) {
         self.proposal = proposal
         self.votes = votes
     }
 
+    /// The bytes this payload was decoded from while it is unchanged,
+    /// otherwise a fresh encoding.
+    /// - Returns: The CBOR bytes.
     public func toCBORData() throws -> Data {
         if let originalCBOR { return originalCBOR }
         var writer = ByronCBORWriter()
@@ -436,9 +476,11 @@ public struct ByronUpdateProposal: Sendable, Equatable, Hashable {
     public let softwareVersion: ByronBlockHeader.SoftwareVersion
     /// Update data, by system tag such as `"macos64"` or `"win64"`.
     public let data: OrderedDictionary<String, ByronUpdateData>
+    /// The proposal's attributes.
     public let attributes: ByronAttributes
     /// The proposer's key.
     public let from: Data
+    /// The proposer's signature.
     public let signature: Data
 
     var _original = ByronOriginalBytes()
@@ -446,6 +488,15 @@ public struct ByronUpdateProposal: Sendable, Equatable, Hashable {
     /// The exact bytes this proposal was decoded from.
     public var originalCBOR: Data? { _original.data }
 
+    /// Creates an update proposal.
+    /// - Parameters:
+    ///   - blockVersion: The protocol version proposed.
+    ///   - blockVersionModification: The protocol parameters the proposal changes.
+    ///   - softwareVersion: The software version proposed.
+    ///   - data: Update data, by system tag.
+    ///   - attributes: The proposal's attributes. Defaults to an empty map.
+    ///   - from: The proposer's key.
+    ///   - signature: The proposer's signature.
     public init(
         blockVersion: ByronBlockHeader.BlockVersion,
         blockVersionModification: ByronBlockVersionModification,
@@ -469,6 +520,8 @@ public struct ByronUpdateProposal: Sendable, Equatable, Hashable {
         get throws { try ByronHash.blake2b256(toCBORData()) }
     }
 
+    /// The bytes this proposal was decoded from, otherwise a fresh encoding.
+    /// - Returns: The CBOR bytes.
     public func toCBORData() throws -> Data {
         if let originalCBOR { return originalCBOR }
         var writer = ByronCBORWriter()
@@ -524,24 +577,52 @@ public struct ByronUpdateProposal: Sendable, Equatable, Hashable {
 /// The `bigint` fields are read as the ledger reads them, as natural numbers of
 /// any size, written as bignums beyond 64 bits.
 public struct ByronBlockVersionModification: Sendable, Equatable, Hashable {
+    /// Script version.
     public let scriptVersion: UInt16?
     /// Slot duration, in milliseconds.
     public let slotDuration: BigUInt?
+    /// Maximum block size.
     public let maxBlockSize: BigUInt?
+    /// Maximum header size.
     public let maxHeaderSize: BigUInt?
+    /// Maximum transaction size.
     public let maxTxSize: BigUInt?
+    /// Maximum update proposal size.
     public let maxProposalSize: BigUInt?
     /// Thresholds, as lovelace portions (parts of 10^15).
     public let mpcThreshold: UInt64?
+    /// Heavy delegation threshold, as a lovelace portion.
     public let heavyDelegationThreshold: UInt64?
+    /// Update vote threshold, as a lovelace portion.
     public let updateVoteThreshold: UInt64?
+    /// Update proposal threshold, as a lovelace portion.
     public let updateProposalThreshold: UInt64?
     /// Slots after which a proposal is adopted implicitly.
     public let updateImplicit: UInt64?
+    /// Soft fork rule.
     public let softForkRule: ByronSoftForkRule?
+    /// Transaction fee policy.
     public let txFeePolicy: ByronTxFeePolicy?
+    /// Unlock stake epoch.
     public let unlockStakeEpoch: UInt64?
 
+    /// Creates a block version modification. Every parameter defaults to `nil`,
+    /// which leaves that parameter unchanged.
+    /// - Parameters:
+    ///   - scriptVersion: Script version.
+    ///   - slotDuration: Slot duration, in milliseconds.
+    ///   - maxBlockSize: Maximum block size.
+    ///   - maxHeaderSize: Maximum header size.
+    ///   - maxTxSize: Maximum transaction size.
+    ///   - maxProposalSize: Maximum update proposal size.
+    ///   - mpcThreshold: MPC threshold, as a lovelace portion.
+    ///   - heavyDelegationThreshold: Heavy delegation threshold.
+    ///   - updateVoteThreshold: Update vote threshold.
+    ///   - updateProposalThreshold: Update proposal threshold.
+    ///   - updateImplicit: Slots after which a proposal is adopted implicitly.
+    ///   - softForkRule: Soft fork rule.
+    ///   - txFeePolicy: Transaction fee policy.
+    ///   - unlockStakeEpoch: Unlock stake epoch.
     public init(
         scriptVersion: UInt16? = nil,
         slotDuration: BigUInt? = nil,
@@ -637,10 +718,18 @@ public struct ByronBlockVersionModification: Sendable, Equatable, Hashable {
 /// The soft fork rule: `[u64, u64, u64]` — the initial threshold, the
 /// minimum threshold and the threshold decrement, as lovelace portions.
 public struct ByronSoftForkRule: Sendable, Equatable, Hashable {
+    /// The initial threshold, as a lovelace portion.
     public let initThreshold: UInt64
+    /// The minimum threshold, as a lovelace portion.
     public let minThreshold: UInt64
+    /// The threshold decrement, as a lovelace portion.
     public let thresholdDecrement: UInt64
 
+    /// Creates a soft fork rule.
+    /// - Parameters:
+    ///   - initThreshold: The initial threshold.
+    ///   - minThreshold: The minimum threshold.
+    ///   - thresholdDecrement: The threshold decrement.
     public init(initThreshold: UInt64, minThreshold: UInt64, thresholdDecrement: UInt64) {
         self.initThreshold = initThreshold
         self.minThreshold = minThreshold
@@ -709,11 +798,21 @@ public enum ByronTxFeePolicy: Sendable, Equatable, Hashable {
 
 /// Hashes of an update for one system: `updata = [hash, hash, hash, hash]`.
 public struct ByronUpdateData: Sendable, Equatable, Hashable {
+    /// The application diff hash.
     public let appDiffHash: Data
+    /// The package hash.
     public let packageHash: Data
+    /// The updater hash.
     public let updaterHash: Data
+    /// The metadata hash.
     public let metadataHash: Data
 
+    /// Creates update data for one system.
+    /// - Parameters:
+    ///   - appDiffHash: The application diff hash.
+    ///   - packageHash: The package hash.
+    ///   - updaterHash: The updater hash.
+    ///   - metadataHash: The metadata hash.
     public init(appDiffHash: Data, packageHash: Data, updaterHash: Data, metadataHash: Data) {
         self.appDiffHash = appDiffHash
         self.packageHash = packageHash
@@ -746,13 +845,21 @@ public struct ByronUpdateData: Sendable, Equatable, Hashable {
 /// upvote = [voter : pubkey, proposalId : updid, vote : bool, signature : signature]
 /// ```
 public struct ByronUpdateVote: Sendable, Equatable, Hashable {
+    /// The voter's key.
     public let voter: Data
     /// The id of the proposal voted on: the hash of the proposal.
     public let proposalId: Data
     /// `true` for a vote in favour.
     public let vote: Bool
+    /// The voter's signature.
     public let signature: Data
 
+    /// Creates an update vote.
+    /// - Parameters:
+    ///   - voter: The voter's key.
+    ///   - proposalId: The id of the proposal voted on.
+    ///   - vote: `true` for a vote in favour.
+    ///   - signature: The voter's signature.
     public init(voter: Data, proposalId: Data, vote: Bool, signature: Data) {
         self.voter = voter
         self.proposalId = proposalId

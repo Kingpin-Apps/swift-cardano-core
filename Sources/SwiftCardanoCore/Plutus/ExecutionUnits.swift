@@ -8,9 +8,16 @@ import CBORCodable
 /// range read and written here.
 public struct ExecutionUnits: Serializable {
 
+    /// The memory units.
     public var mem: Int64
+    /// The CPU steps.
     public var steps: Int64
 
+    /// Creates execution units. Negative values are accepted here but rejected when written to CBOR.
+    ///
+    /// - Parameters:
+    ///   - mem: The memory units.
+    ///   - steps: The CPU steps.
     public init(mem: Int64, steps: Int64) {
         self.mem = mem
         self.steps = steps
@@ -47,6 +54,11 @@ public struct ExecutionUnits: Serializable {
             mem: saturatingSum(lhs.mem, rhs.mem), steps: saturatingSum(lhs.steps, rhs.steps))
     }
 
+    /// Adds execution units in place, holding each field at `Int64.max` (or `Int64.min`) rather than overflowing.
+    ///
+    /// - Parameters:
+    ///   - lhs: The units to add to.
+    ///   - rhs: The units to add.
     public static func += (lhs: inout ExecutionUnits, rhs: ExecutionUnits) {
         lhs = lhs + rhs
     }
@@ -57,6 +69,9 @@ public struct ExecutionUnits: Serializable {
         return rhs > 0 ? .max : .min
     }
 
+    /// Whether both fields are zero.
+    ///
+    /// - Returns: `true` when ``mem`` and ``steps`` are both zero.
     public func isEmpty() -> Bool {
         return mem == 0 && steps == 0
     }

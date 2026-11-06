@@ -3,6 +3,8 @@ import CBORCodable
 import OrderedCollections
 
 /// Stake registration and pool delegation: `account_registration_delegation_to_stake_pool_cert = (11, stake_credential, pool_keyhash, coin)`.
+///
+/// Introduced in Conway.
 public struct StakeRegisterDelegate: CertificateSerializable {
     public var _payload: Data
     public var _type: String
@@ -15,8 +17,11 @@ public struct StakeRegisterDelegate: CertificateSerializable {
     public static var DESCRIPTION: String { CertificateDescription.stakeRegisterDelegate.rawValue }
     public static var CODE: CertificateCode { .stakeRegisterDelegate }
 
+    /// The stake credential to register and delegate.
     public let stakeCredential: StakeCredential
+    /// The hash of the operator key of the pool to delegate stake to.
     public let poolKeyHash: PoolKeyHash
+    /// The deposit paid for the registration, in lovelace.
     public let coin: Coin
 
     public enum CodingKeys: String, CodingKey {
@@ -27,6 +32,10 @@ public struct StakeRegisterDelegate: CertificateSerializable {
 
     /// Creates the certificate.
     ///
+    /// - Parameters:
+    ///   - stakeCredential: The stake credential to register and delegate.
+    ///   - poolKeyHash: The hash of the operator key of the pool to delegate stake to.
+    ///   - coin: The deposit paid for the registration, in lovelace.
     /// - Throws: When the certificate cannot be encoded for its payload.
     public init(stakeCredential: StakeCredential, poolKeyHash: PoolKeyHash, coin: Coin) throws {
         self.stakeCredential = stakeCredential

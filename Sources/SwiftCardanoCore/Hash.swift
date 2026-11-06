@@ -1,6 +1,11 @@
 import Foundation
 import CBORCodable
 
+/// Byte sizes of the fixed-length hashes and payloads in this module.
+/// Key, script, pool key and genesis hashes are 28 bytes; transaction, datum,
+/// script data, metadata, VRF key, KES key and block hashes are 32 bytes. A reward
+/// account and a CIP-129 payload are 29 bytes: a header byte followed by a 28-byte
+/// credential.
 public let VERIFICATION_KEY_HASH_SIZE = 28,
 SCRIPT_HASH_SIZE = 28,
 SCRIPT_DATA_HASH_SIZE = 32,
@@ -25,10 +30,16 @@ KES_KEY_HASH_SIZE = 32
 /// A protocol for byte arrays with constraints on their size.
 public protocol ConstrainedBytes: Serializable {
     
+    /// The raw bytes.
     var payload: Data { get set }
+    /// The largest number of bytes ``payload`` may hold.
     static var maxSize: Int { get }
+    /// The smallest number of bytes ``payload`` may hold.
     static var minSize: Int { get }
     
+    /// Creates a value from raw bytes.
+    /// - Parameter payload: The raw bytes.
+    /// - Throws: When the type rejects `payload`.
     init(payload: Data) throws
 }
 
@@ -107,7 +118,7 @@ extension ConstrainedBytes {
     }
 }
 
-/// Hash of a Cardano verification key.
+/// A 28-byte Blake2b-224 hash of a verification key.
 public struct VerificationKeyHash: ConstrainedBytes, Hashable, Equatable {
     public var payload: Data
     public static var maxSize: Int { VERIFICATION_KEY_HASH_SIZE }
@@ -118,7 +129,7 @@ public struct VerificationKeyHash: ConstrainedBytes, Hashable, Equatable {
     }
 }
 
-/// Hash of a policy/plutus script.
+/// A 28-byte hash of a native or Plutus script.
 public struct ScriptHash: ConstrainedBytes, Hashable, Equatable {
     public var payload: Data
     public static var maxSize: Int { SCRIPT_HASH_SIZE }
@@ -129,10 +140,12 @@ public struct ScriptHash: ConstrainedBytes, Hashable, Equatable {
     }
 }
 
+/// The ID of a minting policy: the hash of its script.
 public typealias PolicyID = ScriptHash
+/// The hash of a minting policy script.
 public typealias PolicyHash = ScriptHash
 
-/// Hash of script data.
+/// A 32-byte hash of a transaction's script data.
 /// See: [alonzo.cddl](https://github.com/input-output-hk/cardano-ledger/blob/525844be05adae151e82069dcd0000f3301ca0d0/eras/alonzo/test-suite/cddl-files/alonzo.cddl#L79-L86)
 public struct ScriptDataHash: ConstrainedBytes {
     public var payload: Data
@@ -144,7 +157,7 @@ public struct ScriptDataHash: ConstrainedBytes {
     }
 }
 
-/// Hash of a transaction.
+/// A 32-byte Blake2b-256 hash of a transaction body, which identifies the transaction.
 public struct TransactionId: ConstrainedBytes {
     public var payload: Data
     public static var maxSize: Int { TRANSACTION_HASH_SIZE }
@@ -155,7 +168,7 @@ public struct TransactionId: ConstrainedBytes {
     }
 }
 
-/// Hash of a datum.
+/// A 32-byte Blake2b-256 hash of a datum's CBOR encoding.
 public struct DatumHash: ConstrainedBytes {
     public var payload: Data
     public static var maxSize: Int { DATUM_HASH_SIZE }
@@ -166,7 +179,7 @@ public struct DatumHash: ConstrainedBytes {
     }
 }
 
-/// Hash of auxiliary data.
+/// A 32-byte hash of a transaction's auxiliary data.
 public struct AuxiliaryDataHash: ConstrainedBytes {
     public var payload: Data
     public static var maxSize: Int { AUXILIARY_DATA_HASH_SIZE }
@@ -177,7 +190,7 @@ public struct AuxiliaryDataHash: ConstrainedBytes {
     }
 }
 
-/// Hash of a stake pool.
+/// A 28-byte Blake2b-224 hash of a stake pool's cold verification key; the pool ID.
 public struct PoolKeyHash: ConstrainedBytes {
     public var payload: Data
     public static var maxSize: Int { POOL_KEY_HASH_SIZE }
@@ -188,7 +201,7 @@ public struct PoolKeyHash: ConstrainedBytes {
     }
 }
 
-/// Hash of a stake pool metadata.
+/// A 32-byte hash of a stake pool's metadata file.
 public struct PoolMetadataHash: ConstrainedBytes {
     public var payload: Data
     public static var maxSize: Int { POOL_METADATA_HASH_SIZE }
@@ -199,7 +212,7 @@ public struct PoolMetadataHash: ConstrainedBytes {
     }
 }
 
-/// Hash of a Cardano VRF key.
+/// A 32-byte Blake2b-256 hash of a VRF verification key.
 public struct VrfKeyHash: ConstrainedBytes {
     public var payload: Data
     public static var maxSize: Int { VRF_KEY_HASH_SIZE }
@@ -210,7 +223,8 @@ public struct VrfKeyHash: ConstrainedBytes {
     }
 }
 
-/// Hash of a Cardano VRF key.
+/// A 29-byte reward account: a reward address in binary form, a header byte
+/// followed by a 28-byte stake credential. Despite the name, it is not a hash.
 public struct RewardAccountHash: ConstrainedBytes {
     public var payload: Data
     public static var maxSize: Int { REWARD_ACCOUNT_HASH_SIZE }
@@ -221,7 +235,7 @@ public struct RewardAccountHash: ConstrainedBytes {
     }
 }
 
-/// Hash of a genesis key.
+/// A 28-byte hash of a genesis key.
 public struct GenesisHash: ConstrainedBytes {
     public var payload: Data
     public static var maxSize: Int { GENESIS_HASH_SIZE }
@@ -232,7 +246,7 @@ public struct GenesisHash: ConstrainedBytes {
     }
 }
 
-/// Hash of a genesis delegate key.
+/// A 28-byte hash of a genesis delegate key.
 public struct GenesisDelegateHash: ConstrainedBytes {
     public var payload: Data
     public static var maxSize: Int { GENESIS_DELEGATE_HASH_SIZE }
@@ -243,7 +257,7 @@ public struct GenesisDelegateHash: ConstrainedBytes {
     }
 }
 
-/// Hash of a genesis delegate key.
+/// A 28-byte hash of an address key.
 public struct AddressKeyHash: ConstrainedBytes {
     public var payload: Data
     public static var maxSize: Int { ADDRESS_KEY_HASH_SIZE }
@@ -254,7 +268,7 @@ public struct AddressKeyHash: ConstrainedBytes {
     }
 }
 
-/// Hash of a genesis delegate key.
+/// A 32-byte hash of the document a governance anchor points to.
 public struct AnchorDataHash: ConstrainedBytes {
     public var payload: Data
     public static var maxSize: Int { ANCHOR_DATA_HASH_SIZE }
@@ -265,7 +279,7 @@ public struct AnchorDataHash: ConstrainedBytes {
     }
 }
 
-/// Hash of a block body (hash32, 32 bytes).
+/// A 32-byte hash of a block body.
 public struct BlockBodyHash: ConstrainedBytes {
     public var payload: Data
     public static var maxSize: Int { BLOCK_BODY_HASH_SIZE }
@@ -276,7 +290,7 @@ public struct BlockBodyHash: ConstrainedBytes {
     }
 }
 
-/// Hash of a block header (hash32, 32 bytes).
+/// A 32-byte hash of a block header.
 public struct BlockHeaderHash: ConstrainedBytes {
     public var payload: Data
     public static var maxSize: Int { BLOCK_HEADER_HASH_SIZE }

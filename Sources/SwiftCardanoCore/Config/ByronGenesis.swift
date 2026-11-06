@@ -31,6 +31,17 @@ public struct ByronGenesis: JSONLoadable {
     /// VSS certificates, a legacy field the ledger no longer reads.
     public let vssCerts: [String: VSSCert]?
 
+    /// Creates a Byron genesis from its fields.
+    /// - Parameters:
+    ///   - avvmDistr: AVVM balances by address, in lovelace.
+    ///   - blockVersionData: The Byron protocol parameters.
+    ///   - ftsSeed: The legacy FTS seed, or `nil`.
+    ///   - protocolConsts: The protocol constants.
+    ///   - startTime: The genesis start time, in POSIX seconds.
+    ///   - bootStakeholders: Boot stakeholders and their weights.
+    ///   - heavyDelegation: Heavy delegation certificates by key.
+    ///   - nonAvvmBalances: Non-AVVM balances by address, in lovelace.
+    ///   - vssCerts: The legacy VSS certificates, or `nil`.
     public init(
         avvmDistr: [String: Coin],
         blockVersionData: BlockVersionData,
@@ -66,6 +77,7 @@ public struct LovelacePortion: Codable, Equatable, Hashable, Sendable {
     /// `lovelacePortionDenominator`, 10^15.
     public static let denominator: UInt64 = 1_000_000_000_000_000
 
+    /// The numerator over 10^15, in `0 ... 10^15`.
     public let numerator: UInt64
 
     /// - Throws: When `numerator` is above 10^15.
@@ -128,7 +140,9 @@ public struct BlockVersionData: Codable, Equatable, Hashable {
     public let scriptVersion: UInt16
     /// Milliseconds: a `Natural`, refused above `Word64`.
     public let slotDuration: UInt64
+    /// The `softforkRule` thresholds.
     public let softforkRule: SoftforkRule
+    /// The `txFeePolicy`: the linear transaction fee.
     public let txFeePolicy: TxFeePolicy
     /// `EpochNumber`, a `Word64`.
     public let unlockStakeEpoch: EpochNumber
@@ -139,6 +153,22 @@ public struct BlockVersionData: Codable, Equatable, Hashable {
     /// `LovelacePortion`.
     public let updateVoteThd: LovelacePortion
 
+    /// Creates Byron protocol parameters from their fields.
+    /// - Parameters:
+    ///   - heavyDelThd: The `heavyDelThd` threshold.
+    ///   - maxBlockSize: The `maxBlockSize` limit.
+    ///   - maxHeaderSize: The `maxHeaderSize` limit.
+    ///   - maxProposalSize: The `maxProposalSize` limit.
+    ///   - maxTxSize: The `maxTxSize` limit.
+    ///   - mpcThd: The `mpcThd` threshold.
+    ///   - scriptVersion: The `scriptVersion`.
+    ///   - slotDuration: The slot duration, in milliseconds.
+    ///   - softforkRule: The `softforkRule` thresholds.
+    ///   - txFeePolicy: The linear transaction fee.
+    ///   - unlockStakeEpoch: The `unlockStakeEpoch`.
+    ///   - updateImplicit: The update proposal TTL, in slots.
+    ///   - updateProposalThd: The `updateProposalThd` threshold.
+    ///   - updateVoteThd: The `updateVoteThd` threshold.
     public init(
         heavyDelThd: LovelacePortion, maxBlockSize: UInt64, maxHeaderSize: UInt64, maxProposalSize: UInt64,
         maxTxSize: UInt64, mpcThd: LovelacePortion, scriptVersion: UInt16, slotDuration: UInt64,
@@ -209,10 +239,18 @@ public struct BlockVersionData: Codable, Equatable, Hashable {
 
 /// The Byron `SoftforkRule`: three `LovelacePortion`s.
 public struct SoftforkRule: Codable, Equatable, Hashable {
+    /// The `initThd` threshold.
     public let initThd: LovelacePortion
+    /// The `minThd` threshold.
     public let minThd: LovelacePortion
+    /// The `thdDecrement` step.
     public let thdDecrement: LovelacePortion
 
+    /// Creates a softfork rule from its three thresholds.
+    /// - Parameters:
+    ///   - initThd: The `initThd` threshold.
+    ///   - minThd: The `minThd` threshold.
+    ///   - thdDecrement: The `thdDecrement` step.
     public init(initThd: LovelacePortion, minThd: LovelacePortion, thdDecrement: LovelacePortion) {
         self.initThd = initThd
         self.minThd = minThd
@@ -300,6 +338,12 @@ public struct ProtocolConsts: Codable, Equatable, Hashable {
     /// Legacy `VssMinTTL`, a `Word32`; the ledger no longer reads it.
     public let vssMinTTL: UInt32?
 
+    /// Creates protocol constants.
+    /// - Parameters:
+    ///   - k: The security parameter `k`, in blocks.
+    ///   - protocolMagic: The protocol magic.
+    ///   - vssMaxTTL: The legacy `vssMaxTTL`, or `nil`.
+    ///   - vssMinTTL: The legacy `vssMinTTL`, or `nil`.
     public init(k: UInt64, protocolMagic: UInt32, vssMaxTTL: UInt32? = nil, vssMinTTL: UInt32? = nil) {
         self.k = k
         self.protocolMagic = protocolMagic
@@ -310,12 +354,21 @@ public struct ProtocolConsts: Codable, Equatable, Hashable {
 
 /// Heavy delegation certificate
 public struct HeavyDelegation: Codable, Equatable, Hashable {
+    /// The certificate signature, `cert`, as the file writes it.
     public let cert: String
+    /// The delegate's public key, `delegatePk`, as the file writes it.
     public let delegatePk: String
+    /// The issuer's public key, `issuerPk`, as the file writes it.
     public let issuerPk: String
     /// The certificate's epoch: an `EpochNumber`, a `Word64`.
     public let omega: EpochNumber
 
+    /// Creates a heavy delegation certificate.
+    /// - Parameters:
+    ///   - cert: The certificate signature.
+    ///   - delegatePk: The delegate's public key.
+    ///   - issuerPk: The issuer's public key.
+    ///   - omega: The certificate's epoch.
     public init(cert: String, delegatePk: String, issuerPk: String, omega: EpochNumber) {
         self.cert = cert
         self.delegatePk = delegatePk
@@ -328,10 +381,19 @@ public struct HeavyDelegation: Codable, Equatable, Hashable {
 public struct VSSCert: Codable, Equatable, Hashable {
     /// `EpochNumber`, a `Word64`.
     public let expiryEpoch: EpochNumber
+    /// The certificate `signature`, as the file writes it.
     public let signature: String
+    /// The `signingKey`, as the file writes it.
     public let signingKey: String
+    /// The `vssKey`, as the file writes it.
     public let vssKey: String
 
+    /// Creates a VSS certificate.
+    /// - Parameters:
+    ///   - expiryEpoch: The epoch the certificate expires.
+    ///   - signature: The certificate signature.
+    ///   - signingKey: The signing key.
+    ///   - vssKey: The VSS key.
     public init(expiryEpoch: EpochNumber, signature: String, signingKey: String, vssKey: String) {
         self.expiryEpoch = expiryEpoch
         self.signature = signature

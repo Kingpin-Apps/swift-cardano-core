@@ -3,8 +3,11 @@ import CryptoSwift
 import CBORCodable
 import OrderedCollections
 
+/// A script with its language tag, as written in a reference script: `[type, script]`.
 public struct Script: Codable, Equatable, Hashable, Sendable {
+    /// The language tag: 0 for a native script, 1 for Plutus V1, 2 for Plutus V2, 3 for Plutus V3.
     public var type: Int
+    /// The script itself.
     public var script: ScriptType
     
     enum CodingKeys: String, CodingKey {
@@ -12,6 +15,9 @@ public struct Script: Codable, Equatable, Hashable, Sendable {
         case script
     }
     
+    /// Creates a script, setting ``type`` from the kind of script.
+    ///
+    /// - Parameter script: The script.
     public init(script: ScriptType) {
         self.script = script
         switch script {
@@ -97,12 +103,24 @@ public struct Script: Codable, Equatable, Hashable, Sendable {
     }
 }
 
+/// An output's reference script: `#6.24(bytes .cbor script)`.
 public struct ScriptRef: CBORTaggable, Serializable {
+    /// The CBOR tag; always 24.
     public var tag: UInt64 = 24
+    /// The tagged value: the CBOR bytes of ``script``, which ``toPrimitive()`` writes.
     public var value: Primitive
     
+    /// The decoded script. Setting it does not update ``value``.
     public var script: Script
     
+    /// Creates a reference script from its tagged value, decoding the script it holds.
+    ///
+    /// A native script is read again from its own bytes and keeps them, since its
+    /// hash is taken over them.
+    /// - Parameters:
+    ///   - tag: The CBOR tag; must be 24.
+    ///   - value: The script's CBOR, as `.bytes`, or as `.string` whose UTF-8 bytes are decoded.
+    /// - Throws: `CardanoCoreError.valueError` when `tag` is not 24 or `value` is neither bytes nor a string; a decoding error when the bytes are not a script.
     public init(tag: UInt64 = 24, value: Primitive) throws {
         // script_ref = #6.24(bytes .cbor script)
         guard tag == 24 else {
@@ -133,6 +151,10 @@ public struct ScriptRef: CBORTaggable, Serializable {
         return script
     }
 
+    /// Creates a reference script by encoding `script` as the tagged value.
+    ///
+    /// - Parameter script: The script to reference.
+    /// - Throws: An error when the script cannot be encoded.
     public init(script: Script) throws {
         self.script = script
         self.value = .bytes(try CBOREncoder().encode(script))

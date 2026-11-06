@@ -25,6 +25,7 @@ public struct MapPairs<Key: Hashable, Value> {
         set { storage = NestedPairStorage(newValue) }
     }
 
+    /// Creates an empty map.
     public init() {
         storage = NestedPairStorage([])
     }
@@ -51,9 +52,13 @@ public struct MapPairs<Key: Hashable, Value> {
         NestedPairStorage.move(&storage, into: &pending)
     }
 
+    /// The number of pairs, repeated keys included.
     public var count: Int { elements.count }
+    /// Whether the map has no pairs.
     public var isEmpty: Bool { elements.isEmpty }
+    /// The key of every pair, in order, repeats included.
     public var keys: [Key] { elements.map(\.key) }
+    /// The value of every pair, in order.
     public var values: [Value] { elements.map(\.value) }
 
     /// Whether any key appears in more than one pair.
@@ -91,6 +96,11 @@ public struct MapPairs<Key: Hashable, Value> {
         hasDuplicateKeys ? nil : OrderedDictionary(uniqueKeysWithValues: elements.map { ($0.key, $0.value) })
     }
 
+    /// Appends a pair, even when a pair with the same key already exists.
+    ///
+    /// - Parameters:
+    ///   - key: The pair's key.
+    ///   - value: The pair's value.
     public mutating func append(key: Key, value: Value) {
         makeUnique()
         storage.pairs.append((key, value))

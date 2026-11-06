@@ -3,6 +3,8 @@ import CBORCodable
 import OrderedCollections
 
 /// Constitutional committee resignation: `committee_resignation_cert = (15, committee_cold_credential, anchor / nil)`.
+///
+/// Introduced in Conway.
 public struct ResignCommitteeCold: CertificateSerializable {
     public var _payload: Data
     public var _type: String
@@ -15,7 +17,9 @@ public struct ResignCommitteeCold: CertificateSerializable {
     public static var DESCRIPTION: String { CertificateDescription.resignCommitteeCold.rawValue }
     public static var CODE: CertificateCode { .resignCommitteeCold }
 
+    /// The cold credential of the resigning committee member.
     public let committeeColdCredential: CommitteeColdCredential
+    /// An optional anchor to off-chain metadata about the resignation.
     public let anchor: Anchor?
 
     public enum CodingKeys: String, CodingKey {
@@ -25,6 +29,9 @@ public struct ResignCommitteeCold: CertificateSerializable {
 
     /// Creates the certificate.
     ///
+    /// - Parameters:
+    ///   - committeeColdCredential: The cold credential of the resigning committee member.
+    ///   - anchor: an optional anchor to off-chain metadata about the resignation.
     /// - Throws: When the certificate cannot be encoded for its payload.
     public init(committeeColdCredential: CommitteeColdCredential, anchor: Anchor? = nil) throws {
         self.committeeColdCredential = committeeColdCredential

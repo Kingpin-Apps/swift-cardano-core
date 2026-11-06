@@ -1,9 +1,16 @@
 import Foundation
 
+/// A governance credential: a DRep or constitutional committee credential, with
+/// CIP-129 and CIP-105 IDs.
 public protocol GovernanceCredential: Credential {
+    /// The key hash or script hash.
     var credential: CredentialType { get }
+    /// The governance role this credential type is for, which sets its Bech32 prefix
+    /// and CIP-129 header.
     static var governanceKeyType: GovernanceKeyType { get }
     
+    /// Creates a credential from a key hash or script hash.
+    /// - Parameter credential: The key hash or script hash.
     init(credential: CredentialType)
 }
 
@@ -17,10 +24,17 @@ extension GovernanceCredential {
         }
     }
     
+    /// Reads a credential from its Bech32 ID, in CIP-129 or CIP-105 form.
+    /// - Parameter bech32: The Bech32 ID.
+    /// - Throws: When the ID is not valid Bech32 or is for another governance role.
     public init(from bech32: String) throws {
         self = try Self.fromBech32(bech32)
     }
     
+    /// Creates a credential from a raw hash.
+    /// - Parameters:
+    ///   - hex: The 28-byte hash bytes.
+    ///   - credentialType: Whether the hash is a key hash or a script hash.
     public init(from hex: Data, as credentialType: GovernanceCredentialType) throws {
         switch credentialType {
             case .keyHash:
@@ -85,6 +99,9 @@ extension GovernanceCredential {
         }
     }
     
+    /// The ID of this credential as bytes.
+    /// - Parameter format: The ID format, CIP-129 by default.
+    /// - Returns: For CIP-129, the header byte and the 28-byte hash; for CIP-105, the hash alone.
     public func toBytes(_ format: IdFormat = .cip129) throws -> Data {
         let payload: Data
         let credentialType: GovernanceCredentialType
@@ -109,11 +126,13 @@ extension GovernanceCredential {
         }
     }
     
-    /// Encode the in Bech32 format.
-    ///
-    /// More info about Bech32 (here)[https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki#Bech32].
     
-    /// - Returns: Encoded in Bech32.
+    /// The Bech32 ID of this credential.
+    ///
+    /// The human-readable part always comes from ``computeHrp(_:)`` with its
+    /// default CIP-129 format, whatever `format` is.
+    /// - Parameter format: The ID format of the data part, CIP-129 by default.
+    /// - Returns: The Bech32 ID.
     public func toBech32(_ format: IdFormat = .cip129) throws -> String {
         let hrp = self.computeHrp()
         

@@ -14,6 +14,7 @@ public struct Url: CBORSerializable, Sendable {
     /// it. The ledger does not require that it can.
     public var value: URL? { URL(string: text) }
 
+    /// The URL's text, exactly as written. The same as ``text``.
     public var absoluteString: String { text }
 
     /// - Throws: When `text` is longer than 128 bytes of UTF-8, which the

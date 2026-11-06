@@ -29,6 +29,7 @@ public enum ByronBlock: Sendable {
     /// Epoch Boundary Block — marks transitions between Byron epochs.
     /// EBBs carry no transactions; their body lists stakeholder ids.
     public struct EBB: Sendable, Equatable, Hashable {
+        /// The block header.
         public var header: ByronBlockHeader.EBBHead { didSet { _original.data = nil } }
         /// The stakeholder ids of `[* stakeholderid]` (Blake2b-224 hashes);
         /// `nil` when only the header was decoded.
@@ -48,6 +49,12 @@ public enum ByronBlock: Sendable {
             set { _original.data = newValue }
         }
 
+        /// Creates an epoch boundary block.
+        /// - Parameters:
+        ///   - header: The block header.
+        ///   - body: The stakeholder ids, or `nil` for a header-only block.
+        ///   - extra: The block's extra attributes. Defaults to one empty map.
+        ///   - blockSizeHint: The block size from the NtN header framing, if any.
         public init(
             header: ByronBlockHeader.EBBHead,
             body: [Data]?,
@@ -95,6 +102,7 @@ public enum ByronBlock: Sendable {
     /// A regular Byron block: a header signed by a BFT delegate, and a body
     /// of transactions, SSC, delegation and update payloads.
     public struct BFT: Sendable, Equatable, Hashable {
+        /// The block header.
         public var header: ByronBlockHeader.BFTHead { didSet { _original.data = nil } }
         /// The block body; `nil` when only the header was decoded.
         public var body: ByronBlockBody? { didSet { _original.data = nil } }
@@ -113,6 +121,12 @@ public enum ByronBlock: Sendable {
             set { _original.data = newValue }
         }
 
+        /// Creates a regular Byron block.
+        /// - Parameters:
+        ///   - header: The block header.
+        ///   - body: The block body, or `nil` for a header-only block.
+        ///   - extra: The block's extra attributes. Defaults to one empty map.
+        ///   - blockSizeHint: The block size from the NtN header framing, if any.
         public init(
             header: ByronBlockHeader.BFTHead,
             body: ByronBlockBody?,

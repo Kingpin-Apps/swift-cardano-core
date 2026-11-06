@@ -1,8 +1,19 @@
 import OrderedCollections
 
+/// A type that converts to and from ``PlutusData``.
+///
+/// A conforming type provides ``init(from:)-(PlutusData)`` and ``toPlutusData()``; the protocol extension builds the CBOR, dictionary and JSON conversions, the datum hash and equality on top of them.
 public protocol PlutusDataProtocol: Serializable {
+    /// Creates a value from Plutus data.
+    ///
+    /// - Parameter plutusData: The Plutus data.
+    /// - Throws: When the Plutus data does not describe a value of this type.
     init(from plutusData: PlutusData) throws
     
+    /// The value as Plutus data.
+    ///
+    /// - Returns: The Plutus data.
+    /// - Throws: When the value cannot be converted.
     func toPlutusData() throws -> PlutusData
 }
 
@@ -12,11 +23,19 @@ extension PlutusDataProtocol {
         try self.init(from: plutusData)
     }
     
+    /// Creates a value from the dictionary form of its Plutus data.
+    ///
+    /// - Parameter dict: The dictionary form, as ``PlutusData/fromDict(_:)`` reads it.
+    /// - Throws: When the dictionary is not valid Plutus data, or does not describe a value of this type.
     public init(from dict: OrderedDictionary<Primitive, Primitive>) throws {
         let plutusData = try PlutusData.fromDict(.orderedDict(dict))
         try self.init(from: plutusData)
     }
     
+    /// The datum hash of the value's Plutus data.
+    ///
+    /// - Returns: The datum hash.
+    /// - Throws: When the value cannot be converted or hashed.
     public func hash() throws -> DatumHash {
         let plutusData = try self.toPlutusData()
         return try datumHash(datum: .plutusData(plutusData))
@@ -26,6 +45,10 @@ extension PlutusDataProtocol {
         return try self.toPlutusData().toPrimitive()
     }
     
+    /// The value's Plutus data as JSON text.
+    ///
+    /// - Returns: The JSON text.
+    /// - Throws: When the value cannot be converted.
     public func toJSON() throws -> String? {
         let plutusData = try self.toPlutusData()
         return try plutusData.toJSON()
@@ -36,6 +59,11 @@ extension PlutusDataProtocol {
         return try plutusData.toDict()
     }
     
+    /// Creates a value from the JSON text of its Plutus data.
+    ///
+    /// - Parameter data: The JSON text.
+    /// - Returns: The value.
+    /// - Throws: When the text is not valid Plutus data JSON, or does not describe a value of this type.
     public static func fromJSON(_ data: String) throws -> Self {
         let plutusData = try PlutusData.fromJSON(data)
         return try Self.init(from: plutusData)

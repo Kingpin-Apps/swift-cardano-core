@@ -32,6 +32,12 @@ public struct SlotTimeline: Sendable, Hashable {
         /// How long each of this era's slots lasts, in milliseconds.
         public let slotLengthMilliseconds: Int64
 
+        /// Creates an era from its first slot, start time and slot length.
+        ///
+        /// - Parameters:
+        ///   - startSlot: The first slot of the era.
+        ///   - startMilliseconds: The POSIX time, in milliseconds, at which `startSlot` begins.
+        ///   - slotLengthMilliseconds: How long each slot of the era lasts, in milliseconds.
         public init(startSlot: UInt64, startMilliseconds: Int64, slotLengthMilliseconds: Int64) {
             self.startSlot = startSlot
             self.startMilliseconds = startMilliseconds

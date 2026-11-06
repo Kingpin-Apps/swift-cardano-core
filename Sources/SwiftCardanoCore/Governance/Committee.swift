@@ -1,8 +1,11 @@
 import Foundation
 import OrderedCollections
 
+/// A constitutional committee member and the epoch its term expires, written as a one-entry map from cold credential to epoch.
 public struct CommitteeMember: CBORSerializable, CustomStringConvertible, CustomDebugStringConvertible, Sendable {
+    /// The member's cold credential.
     public let coldCredential: CommitteeColdCredential
+    /// The epoch in which the member's term expires.
     public let epoch: EpochNumber
     
     public var description: String { "CommitteeMember(\(coldCredential), \(epoch))" }
@@ -40,9 +43,15 @@ public struct CommitteeMember: CBORSerializable, CustomStringConvertible, Custom
 /// Members are keyed by their cold credential written as the ledger writes a
 /// credential map key: `keyHash-<hex>` or `scriptHash-<hex>`.
 public struct Committee: Codable, Equatable, Hashable, Sendable {
+    /// Each member's expiry epoch, keyed by cold credential as `keyHash-<hex>` or `scriptHash-<hex>`.
     public let members: [String: EpochNumber]
+    /// The committee's quorum: the yes-vote ratio its decisions need.
     public let threshold: UnitInterval
 
+    /// Creates a committee.
+    /// - Parameters:
+    ///   - members: Each member's expiry epoch, keyed by cold credential as `keyHash-<hex>` or `scriptHash-<hex>`.
+    ///   - threshold: The committee's quorum.
     public init(members: [String: EpochNumber], threshold: UnitInterval) {
         self.members = members
         self.threshold = threshold

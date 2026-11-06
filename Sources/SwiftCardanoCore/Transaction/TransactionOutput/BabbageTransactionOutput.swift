@@ -2,6 +2,7 @@
 import OrderedCollections
 
 
+/// An output in the map form that arrived with Babbage: keys 0 (address), 1 (amount), 2 (datum option) and 3 (script reference).
 public struct BabbageTransactionOutput: Serializable {
     let address: Address
     let amount: Value
@@ -19,6 +20,13 @@ public struct BabbageTransactionOutput: Serializable {
         case scriptRef = 3
     }
     
+    /// Creates a map-form output.
+    ///
+    /// - Parameters:
+    ///   - address: The address that receives the output. Key 0.
+    ///   - amount: The lovelace and native assets the output holds. Key 1.
+    ///   - datumOption: The datum option, or `nil`. Key 2.
+    ///   - scriptRef: The reference script, or `nil`. Key 3.
     public init(
         address: Address,
         amount: Value,

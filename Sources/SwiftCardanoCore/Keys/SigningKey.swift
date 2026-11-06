@@ -7,16 +7,28 @@ import CryptoKit
 import Crypto
 #endif
 
+/// A signing key with a text-envelope type and description.
+/// The default ``sign(data:)``, ``toVerificationKey()`` and ``generate()`` use
+/// Ed25519 with the payload as the seed; the VRF and KES key types replace them.
 public protocol SigningKeyProtocol: PayloadCBORSerializable {}
+/// A BIP32-Ed25519 extended signing key, as derived from an HD wallet.
+/// Its payload is the 64-byte extended private key, the 32-byte public key
+/// and the 32-byte chain code, in that order.
 public protocol ExtendedSigningKeyProtocol: PayloadCBORSerializable {}
 
 public extension SigningKeyProtocol {
+    /// Signs data with Ed25519, using the payload as the key seed.
+    /// - Parameter data: The data to sign.
+    /// - Returns: The signature.
     func sign(data: Data) throws -> Data {
         let signingKey = try SwiftNaCl.SigningKey(seed: payload)
         let signedMessage = try signingKey.sign(message: data)
         return signedMessage.getSignature
     }
     
+    /// The verification key of this signing key.
+    /// The type and description are this key's, with "Signing" replaced by "Verification".
+    /// - Returns: The verification key, of the type the caller asks for.
     func toVerificationKey<T>() throws -> T where T: VerificationKeyProtocol {
         let signingKey = try SwiftNaCl.SigningKey(seed: payload)
         var vkey =  try T(
@@ -28,6 +40,7 @@ public extension SigningKeyProtocol {
         return vkey        
     }
     
+    /// A new signing key from fresh random bytes.
     static func generate() throws -> Self {
         let signingKey = try SwiftNaCl.SigningKey.generate()
         var sKey = try Self(payload: signingKey.bytes)
@@ -38,6 +51,9 @@ public extension SigningKeyProtocol {
 
 public extension ExtendedSigningKeyProtocol {
     
+    /// Signs data with the BIP32-Ed25519 extended private key in the first 64 bytes of the payload.
+    /// - Parameter data: The data to sign.
+    /// - Returns: The signature.
     func sign(data: Data) throws -> Data {        
         let privateKey = try BIP32ED25519PrivateKey(
             privateKey: payload.prefix(64),  // First 64 bytes
@@ -48,6 +64,9 @@ public extension ExtendedSigningKeyProtocol {
         return signedMessage
     }
 
+    /// The extended verification key of this signing key: the payload from byte 64 on,
+    /// which is the public key followed by the chain code.
+    /// - Returns: The extended verification key, of the type the caller asks for.
     func toVerificationKey<T>() throws -> T where T: ExtendedVerificationKeyProtocol {
         return try T(
             payload: payload.suffix(from: 64),
@@ -73,7 +92,8 @@ public extension ExtendedSigningKeyProtocol {
     }
 }
 
-/// Holds a cryptographic key and some metadata for a signing key.
+/// The bytes, type and description of a key, for use with
+/// ``SigningKeyType`` and as a base for the role-specific key types.
 public struct SigningKey: SigningKeyProtocol {
     public var _payload: Data
     public var _type: String
@@ -82,6 +102,11 @@ public struct SigningKey: SigningKeyProtocol {
     public static var TYPE: String { "" }
     public static var DESCRIPTION: String { "Signing Key" }
     
+    /// Creates a key from its bytes.
+    /// - Parameters:
+    ///   - payload: The key bytes.
+    ///   - type: The text-envelope type, or `nil` for the default.
+    ///   - description: The text-envelope description, or `nil` for the default.
     public init(payload: Data, type: String?, description: String?) {
         self._payload = payload
         self._type = type ?? Self.TYPE
@@ -89,7 +114,8 @@ public struct SigningKey: SigningKeyProtocol {
     }
 }
 
-/// Holds a cryptographic key and some metadata for an extended signing key.
+/// The bytes, type and description of an extended key, for use with
+/// ``SigningKeyType`` and as a base for the role-specific key types.
 public struct ExtendedSigningKey: ExtendedSigningKeyProtocol {
     public var _payload: Data
     public var _type: String
@@ -98,6 +124,11 @@ public struct ExtendedSigningKey: ExtendedSigningKeyProtocol {
     public static var TYPE: String { "" }
     public static var DESCRIPTION: String { "Extended Signing Key" }
     
+    /// Creates a key from its bytes.
+    /// - Parameters:
+    ///   - payload: The key bytes.
+    ///   - type: The text-envelope type, or `nil` for the default.
+    ///   - description: The text-envelope description, or `nil` for the default.
     public init(payload: Data, type: String?, description: String?) {
         self._payload = payload
         self._type = type ?? Self.TYPE
@@ -105,9 +136,12 @@ public struct ExtendedSigningKey: ExtendedSigningKeyProtocol {
     }
 }
 
+/// A signing key that is either a plain or an extended signing key.
 public enum SigningKeyType: CBORSerializable, Sendable {
 
+    /// An extended (BIP32-Ed25519) signing key.
     case extendedSigningKey(any ExtendedSigningKeyProtocol)
+    /// A plain Ed25519 signing key.
     case signingKey(any SigningKeyProtocol)
 
     public init(from primitive: Primitive) throws {
@@ -161,6 +195,11 @@ public enum SigningKeyType: CBORSerializable, Sendable {
         return lhsData == rhsData
     }
     
+    /// Signs data with the wrapped key.
+    /// - Parameter data: The data to sign.
+    /// - Returns: The signature.
+    /// - Throws: `CardanoCoreError.invalidKeyTypeError` when the wrapped key is not one of
+    ///   the key types this module knows.
     public func sign(data: Data) throws -> Data {
         switch self {
             case .extendedSigningKey(let key):
@@ -194,6 +233,11 @@ public enum SigningKeyType: CBORSerializable, Sendable {
         }
     }
     
+    /// The 32-byte verification key of the wrapped key.
+    /// An extended key gives its non-extended verification key, without the chain code.
+    /// - Returns: The verification key.
+    /// - Throws: `CardanoCoreError.invalidKeyTypeError` when the wrapped key is not one of
+    ///   the key types this module knows.
     public func toVerificationKey() throws -> any VerificationKeyProtocol {
         switch self {
             case .extendedSigningKey(let key):
@@ -240,6 +284,12 @@ public enum SigningKeyType: CBORSerializable, Sendable {
         }
     }
     
+    /// The 32-byte verification key of the wrapped key, as a ``VerificationKeyType``.
+    /// An extended key gives its non-extended verification key, without the chain code,
+    /// since a transaction witness must carry the 32-byte key.
+    /// - Returns: The verification key.
+    /// - Throws: `CardanoCoreError.invalidKeyTypeError` when the wrapped key is not one of
+    ///   the key types this module knows.
     public func toVerificationKeyType() throws -> VerificationKeyType {
         switch self {
             case .extendedSigningKey(let key):

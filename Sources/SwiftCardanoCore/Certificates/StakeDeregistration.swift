@@ -3,6 +3,8 @@ import CBORCodable
 import OrderedCollections
 
 /// Stake address deregistration certificate: `account_unregistration_cert = (1, stake_credential)`.
+///
+/// Introduced in Shelley. Conway adds ``Unregister`` (tag 8), which also states the refunded deposit.
 public struct StakeDeregistration: CertificateSerializable {
     public var _payload: Data
     public var _type: String
@@ -15,6 +17,7 @@ public struct StakeDeregistration: CertificateSerializable {
     public static var DESCRIPTION: String { CertificateDescription.stakeDeregistration.rawValue }
     public static var CODE: CertificateCode { .stakeDeregistration }
 
+    /// The stake credential to deregister.
     public let stakeCredential: StakeCredential
 
     public enum CodingKeys: String, CodingKey {
@@ -23,6 +26,8 @@ public struct StakeDeregistration: CertificateSerializable {
 
     /// Creates the certificate.
     ///
+    /// - Parameters:
+    ///   - stakeCredential: The stake credential to deregister.
     /// - Throws: When the certificate cannot be encoded for its payload.
     public init(stakeCredential: StakeCredential) throws {
         self.stakeCredential = stakeCredential

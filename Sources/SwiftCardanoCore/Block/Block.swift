@@ -50,6 +50,13 @@ public struct Block: Serializable {
         case invalidTransactions
     }
 
+    /// Creates a block from its parts.
+    /// - Parameters:
+    ///   - header: The block header.
+    ///   - transactionBodies: The transaction bodies.
+    ///   - transactionWitnessSets: The witness set of each transaction.
+    ///   - auxiliaryDataSet: Auxiliary data keyed by transaction index.
+    ///   - invalidTransactions: Indices of invalid transactions.
     public init(
         header: Header,
         transactionBodies: [TransactionBody],
@@ -113,6 +120,9 @@ public struct Block: Serializable {
         return block
     }
 
+    /// Decodes a block as the current era's ledger reads it, keeping the bytes
+    /// of it and of its parts.
+    /// - Parameter cbor: The block's CBOR bytes.
     public init(from cbor: Data) throws {
         self = try Self.fromCBOR(data: cbor)
     }

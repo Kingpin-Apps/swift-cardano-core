@@ -25,6 +25,11 @@ public struct ByronTransaction: Sendable, Equatable, Hashable {
         set { _original.data = newValue }
     }
 
+    /// Creates a transaction.
+    /// - Parameters:
+    ///   - inputs: The outputs the transaction spends.
+    ///   - outputs: The outputs the transaction creates.
+    ///   - attributes: The transaction attributes. Defaults to an empty map.
     public init(
         inputs: [ByronTransactionInput],
         outputs: [ByronTransactionOutput],
@@ -40,6 +45,8 @@ public struct ByronTransaction: Sendable, Equatable, Hashable {
         get throws { TransactionId(payload: try hash()) }
     }
 
+    /// Blake2b-256 of the transaction's bytes: the bytes of ``id``.
+    /// - Returns: The 32-byte hash.
     public func hash() throws -> Data {
         try ByronHash.blake2b256(toCBORData())
     }
@@ -136,6 +143,10 @@ public struct ByronTransactionOutput: Sendable, Equatable, Hashable {
     /// The amount, in lovelace.
     public var amount: UInt64
 
+    /// Creates a transaction output.
+    /// - Parameters:
+    ///   - address: The Byron address the output pays to.
+    ///   - amount: The amount, in lovelace.
     public init(address: ByronAddress, amount: UInt64) {
         self.address = address
         self.amount = amount
@@ -234,9 +245,15 @@ public enum ByronTransactionWitness: Sendable, Equatable, Hashable {
 
 /// A versioned Byron script: `[u16, bytes]`.
 public struct ByronScript: Sendable, Equatable, Hashable {
+    /// The script version.
     public var version: UInt16
+    /// The script bytes.
     public var script: Data
 
+    /// Creates a versioned script.
+    /// - Parameters:
+    ///   - version: The script version.
+    ///   - script: The script bytes.
     public init(version: UInt16, script: Data) {
         self.version = version
         self.script = script
@@ -262,6 +279,7 @@ public struct ByronScript: Sendable, Equatable, Hashable {
 /// A transaction with its witnesses, as one entry of a block's transaction
 /// payload: `[tx, [* twit]]`.
 public struct ByronTransactionAux: Sendable, Equatable, Hashable {
+    /// The transaction.
     public var transaction: ByronTransaction { didSet { _original.data = nil } }
     /// One witness per input, in input order.
     public var witnesses: [ByronTransactionWitness] { didSet { _original.data = nil } }
@@ -274,6 +292,10 @@ public struct ByronTransactionAux: Sendable, Equatable, Hashable {
         set { _original.data = newValue }
     }
 
+    /// Creates a transaction entry.
+    /// - Parameters:
+    ///   - transaction: The transaction.
+    ///   - witnesses: One witness per input, in input order.
     public init(transaction: ByronTransaction, witnesses: [ByronTransactionWitness]) {
         self.transaction = transaction
         self.witnesses = witnesses

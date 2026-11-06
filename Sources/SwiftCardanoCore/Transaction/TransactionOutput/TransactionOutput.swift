@@ -3,12 +3,24 @@ import Foundation
 import CBORCodable
 import OrderedCollections
 
+/// A transaction output: an address, a value, and optionally a datum and a reference script.
+///
+/// It is written in the legacy array form, `[address, amount, datum_hash?]`, or
+/// in the map form that arrived with Babbage, with keys 0 (address), 1
+/// (amount), 2 (datum option) and 3 (script reference). Setting any property
+/// clears ``TransactionOutput/originalCBOR``.
 public struct TransactionOutput: Serializable {
+    /// The address that receives the output.
     public var address: Address { didSet { originalCBOR = nil } }
+    /// The lovelace and native assets the output holds.
     public var amount: Value { didSet { originalCBOR = nil } }
+    /// The datum hash, if the output holds one. In the map form it is written as datum option `[0, hash]`. Set this or ``datumOption``, not both.
     public var datumHash: DatumHash? { didSet { originalCBOR = nil } }
+    /// The datum option, if the output holds an inline datum. Setting it makes the output use the map form.
     public var datumOption: DatumOption? { didSet { originalCBOR = nil } }
+    /// The reference script, if any. Setting it makes the output use the map form.
     public var script: ScriptType? { didSet { originalCBOR = nil } }
+    /// Whether the output is written in the map form even without a datum option or script; `true` for an output decoded from the map form.
     public var postAlonzo: Bool = false { didSet { originalCBOR = nil } }
 
     /// The exact bytes this output was decoded from, while it is unchanged.
@@ -39,6 +51,10 @@ public struct TransactionOutput: Serializable {
         try Era.$decoding.withValue(era) { try fromCBOR(data: data) }
     }
 
+    /// Decodes an output from CBOR bytes, keeping its bytes as ``fromCBOR(data:)`` does.
+    ///
+    /// - Parameter cbor: The CBOR bytes of the output.
+    /// - Throws: An error when bytes follow the output or it is not valid.
     public init(from cbor: Data) throws {
         self = try Self.fromCBOR(data: cbor)
     }
@@ -83,10 +99,20 @@ public struct TransactionOutput: Serializable {
         hasher.combine(amount)
     }
 
+    /// The amount of ADA in the output, in lovelace.
     public var lovelace: BigInt {
         return amount.coin
     }
 
+    /// Creates an output from its parts.
+    ///
+    /// - Parameters:
+    ///   - address: The address that receives the output.
+    ///   - amount: The lovelace and native assets the output holds.
+    ///   - datumHash: The datum hash, or `nil`.
+    ///   - datumOption: The datum option, or `nil`.
+    ///   - script: The reference script, or `nil`.
+    ///   - postAlonzo: Whether to write the map form even without a datum option or script.
     public init(
         address: Address,
         amount: Value,
@@ -103,6 +129,16 @@ public struct TransactionOutput: Serializable {
         self.postAlonzo = postAlonzo
     }
 
+    /// Creates an output that holds lovelace only, from an address string.
+    ///
+    /// - Parameters:
+    ///   - address: The address, as a string ``Address`` can parse.
+    ///   - amount: The amount, in lovelace.
+    ///   - datumHash: The datum hash in hex, or `nil`.
+    ///   - datumOption: The datum option, or `nil`.
+    ///   - script: The reference script, or `nil`.
+    ///   - postAlonzo: Whether to write the map form even without a datum option or script.
+    /// - Throws: An error when the address or the datum hash is not valid.
     public init<Amount: BinaryInteger>(from
                 address: String,
                 amount: Amount,

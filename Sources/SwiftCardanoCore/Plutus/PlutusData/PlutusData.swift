@@ -79,6 +79,10 @@ public enum PlutusData: Serializable, Sendable {
         try PlutusDataReader.read(data)
     }
 
+    /// Reads Plutus data from its bytes. The same as ``fromCBOR(data:)``.
+    ///
+    /// - Parameter cbor: The CBOR bytes of the Plutus data.
+    /// - Throws: When the bytes are not valid Plutus data.
     public init(from cbor: Data) throws {
         self = try PlutusDataReader.read(cbor)
     }

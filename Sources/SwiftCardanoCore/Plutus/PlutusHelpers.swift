@@ -4,28 +4,41 @@ import SwiftNaCl
 
 /// Protocol for types that can be parameterized with generic type arguments
 public protocol ParameterizedType {
+    /// The generic type itself.
     static var baseType: Any.Type { get }
+    /// The type arguments, in order.
     static var parameterTypes: [Any.Type] { get }
 }
 
 /// Generic list type
 public struct List<T>: ParameterizedType {
+    /// The type `List<T>`.
     public static var baseType: Any.Type { List<T>.self }
+    /// The element type, `T`.
     public static var parameterTypes: [Any.Type] { [T.self] }
 }
 
 /// Generic map type
 public struct Map<K, V>: ParameterizedType {
+    /// The type `Map<K, V>`.
     public static var baseType: Any.Type { Map<K, V>.self }
+    /// The key and value types, `K` and `V`.
     public static var parameterTypes: [Any.Type] { [K.self, V.self] }
 }
 
 /// Generic union type
 public struct Union<T, U>: ParameterizedType {
+    /// The type `Union<T, U>`.
     public static var baseType: Any.Type { Union<T, U>.self }
+    /// The two member types, `T` and `U`.
     public static var parameterTypes: [Any.Type] { [T.self, U.self] }
 }
 
+/// The hash of a datum: a Blake2b hash of its CBOR encoding, `DATUM_HASH_SIZE` bytes long.
+///
+/// - Parameter datum: The datum to hash.
+/// - Returns: The datum hash.
+/// - Throws: When the datum cannot be encoded or hashed.
 public func datumHash(datum: Datum) throws -> DatumHash {
     let cborBytes = try CBOREncoder().encode(datum)
     let hash = try Hash().blake2b(
@@ -36,6 +49,11 @@ public func datumHash(datum: Datum) throws -> DatumHash {
     return DatumHash(payload: hash)
 }
 
+/// The hash of a script. The same as ``scriptHash(script:)``.
+///
+/// - Parameter script: The script to hash.
+/// - Returns: The script hash.
+/// - Throws: When the script cannot be hashed.
 public func plutusScriptHash(script: ScriptType) throws -> ScriptHash {
     return try scriptHash(script: script)
 }
@@ -70,6 +88,12 @@ public func scriptHash(script: ScriptType) throws -> ScriptHash {
     }
 }
 
+/// The compact CBOR tag for a Plutus data constructor index.
+///
+/// Constructors 0 to 6 use tags 121 to 127, and constructors 7 to 127 use tags 1280 to 1400. Other constructors have no compact tag and are written with the general tag 102.
+///
+/// - Parameter constrID: The constructor index.
+/// - Returns: The tag, or `nil` when the constructor has no compact tag.
 public func getTag(constrID: Int) -> Int? {
     if 0 <= constrID && constrID < 7 {
         return 121 + constrID
@@ -80,6 +104,13 @@ public func getTag(constrID: Int) -> Int? {
     }
 }
 
+/// Reads the constructor index and fields of a tagged Plutus data constructor.
+///
+/// Accepts the compact tags 121 to 127 and 1280 to 1400, with a definite- or indefinite-length field array, and the general form `#6.102([constructor, [fields]])`.
+///
+/// - Parameter value: The tagged CBOR value.
+/// - Returns: The constructor index and its fields.
+/// - Throws: When the value is not tagged, the tag is not a constructor tag, or the content has the wrong shape.
 public func getConstructorIDAndFields(value: CBOR) throws -> (Int, [AnyValue]) {
     guard case let CBOR.tagged(tag, innerValue) = value else {
         throw CardanoCoreError.deserializeError(

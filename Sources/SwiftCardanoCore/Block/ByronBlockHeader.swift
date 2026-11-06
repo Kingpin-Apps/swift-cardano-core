@@ -63,6 +63,14 @@ public enum ByronBlockHeader: Sendable {
             set { _original.data = newValue }
         }
 
+        /// Creates an epoch boundary block header.
+        /// - Parameters:
+        ///   - protocolMagic: The network protocol magic.
+        ///   - prevBlock: The hash of the previous block.
+        ///   - bodyProof: The Blake2b-256 hash of the block body.
+        ///   - epoch: The epoch number.
+        ///   - difficulty: The chain difficulty.
+        ///   - attributes: The header attributes. Defaults to an empty map.
         public init(
             protocolMagic: UInt32,
             prevBlock: Data,
@@ -169,6 +177,19 @@ public enum ByronBlockHeader: Sendable {
             set { _original.data = newValue }
         }
 
+        /// Creates a regular block header.
+        /// - Parameters:
+        ///   - protocolMagic: The network protocol magic.
+        ///   - prevBlock: The hash of the previous block.
+        ///   - bodyProof: The proofs of the body's payloads.
+        ///   - slotId: The epoch and slot within it.
+        ///   - issuerKey: The block issuer's public key.
+        ///   - difficulty: The chain difficulty.
+        ///   - signature: The block signature.
+        ///   - blockVersion: The block version.
+        ///   - softwareVersion: The software version.
+        ///   - attributes: The header attributes. Defaults to an empty map.
+        ///   - extraProof: The Blake2b-256 hash of the block's extra body data.
         public init(
             protocolMagic: UInt32,
             prevBlock: Data,
@@ -270,6 +291,12 @@ public enum ByronBlockHeader: Sendable {
         /// Blake2b-256 hash of the update payload.
         public let updProof: Data
 
+        /// Creates a body proof.
+        /// - Parameters:
+        ///   - txProof: The proof of the transaction payload.
+        ///   - sscProof: The proof of the shared seed computation payload.
+        ///   - dlgProof: The hash of the delegation payload.
+        ///   - updProof: The hash of the update payload.
         public init(txProof: TxProof, sscProof: SscProof, dlgProof: Data, updProof: Data) {
             self.txProof = txProof
             self.sscProof = sscProof
@@ -301,10 +328,18 @@ public enum ByronBlockHeader: Sendable {
     /// `txproof = [u32, hash, hash]` — the number of transactions, the Merkle
     /// root of the transactions, and the hash of the list of witness lists.
     public struct TxProof: Sendable, Equatable, Hashable {
+        /// The number of transactions.
         public let transactionCount: UInt32
+        /// The Merkle root of the transactions.
         public let merkleRoot: Data
+        /// The hash of the list of witness lists.
         public let witnessesHash: Data
 
+        /// Creates a transaction payload proof.
+        /// - Parameters:
+        ///   - transactionCount: The number of transactions.
+        ///   - merkleRoot: The Merkle root of the transactions.
+        ///   - witnessesHash: The hash of the list of witness lists.
         public init(transactionCount: UInt32, merkleRoot: Data, witnessesHash: Data) {
             self.transactionCount = transactionCount
             self.merkleRoot = merkleRoot
@@ -403,9 +438,15 @@ public enum ByronBlockHeader: Sendable {
     ///
     /// `slotid = [epoch : epochid, slot : u64]`
     public struct SlotId: Sendable {
+        /// The epoch number.
         public let epoch: UInt64
+        /// The slot within the epoch.
         public let slot: UInt64
 
+        /// Creates a slot identifier.
+        /// - Parameters:
+        ///   - epoch: The epoch number.
+        ///   - slot: The slot within the epoch.
         public init(epoch: UInt64, slot: UInt64) {
             self.epoch = epoch
             self.slot = slot
@@ -430,16 +471,25 @@ public enum ByronBlockHeader: Sendable {
     ///
     /// `bver = [u16, u16, u8]`
     public struct BlockVersion: Sendable {
+        /// The major version.
         public let major: UInt16
+        /// The minor version.
         public let minor: UInt16
+        /// The alternative version.
         public let alt: UInt8
 
+        /// Creates a block version.
+        /// - Parameters:
+        ///   - major: The major version.
+        ///   - minor: The minor version.
+        ///   - alt: The alternative version.
         public init(major: UInt16, minor: UInt16, alt: UInt8) {
             self.major = major
             self.minor = minor
             self.alt = alt
         }
 
+        /// Version `0.0.0`.
         public static let zero = BlockVersion(major: 0, minor: 0, alt: 0)
 
         static func decode(_ item: ByronCBORItem) throws -> BlockVersion {
@@ -463,14 +513,21 @@ public enum ByronBlockHeader: Sendable {
     ///
     /// `softwareVersion = [text, u32]`
     public struct SoftwareVersion: Sendable {
+        /// The application name.
         public let appName: String
+        /// The application version number.
         public let number: UInt32
 
+        /// Creates a software version.
+        /// - Parameters:
+        ///   - appName: The application name.
+        ///   - number: The application version number.
         public init(appName: String, number: UInt32) {
             self.appName = appName
             self.number = number
         }
 
+        /// An empty application name with version number 0.
         public static let unknown = SoftwareVersion(appName: "", number: 0)
 
         static func decode(_ item: ByronCBORItem) throws -> SoftwareVersion {
@@ -533,9 +590,15 @@ public enum ByronBlockHeader: Sendable {
 
     /// Heavy delegation signature: `dlgsig = [dlg, signature]`
     public struct DlgSig: Sendable {
+        /// The heavy delegation certificate.
         public let delegation: Dlg
+        /// The signature bytes.
         public let signature: Data
 
+        /// Creates a heavy delegation signature.
+        /// - Parameters:
+        ///   - delegation: The heavy delegation certificate.
+        ///   - signature: The signature bytes.
         public init(delegation: Dlg, signature: Data) {
             self.delegation = delegation
             self.signature = signature
@@ -558,9 +621,15 @@ public enum ByronBlockHeader: Sendable {
 
     /// Lightweight delegation signature: `lwdlgsig = [lwdlg, signature]`
     public struct LwDlgSig: Sendable {
+        /// The lightweight delegation certificate.
         public let delegation: LwDlg
+        /// The signature bytes.
         public let signature: Data
 
+        /// Creates a lightweight delegation signature.
+        /// - Parameters:
+        ///   - delegation: The lightweight delegation certificate.
+        ///   - signature: The signature bytes.
         public init(delegation: LwDlg, signature: Data) {
             self.delegation = delegation
             self.signature = signature
@@ -597,6 +666,12 @@ public enum ByronBlockHeader: Sendable {
         /// Signature from the issuer over the delegation.
         public let certificate: Data
 
+        /// Creates a heavy delegation certificate.
+        /// - Parameters:
+        ///   - epoch: The epoch the delegation is valid from.
+        ///   - issuer: The issuer's cold verification key.
+        ///   - delegate: The delegate's hot verification key.
+        ///   - certificate: The issuer's signature over the delegation.
         public init(epoch: UInt64, issuer: Data, delegate: Data, certificate: Data) {
             self.epoch = epoch
             self.issuer = issuer
@@ -641,6 +716,13 @@ public enum ByronBlockHeader: Sendable {
         /// Signature from the issuer.
         public let certificate: Data
 
+        /// Creates a lightweight delegation certificate.
+        /// - Parameters:
+        ///   - epochFrom: The first epoch in the delegation range.
+        ///   - epochTo: The last epoch in the delegation range.
+        ///   - issuer: The issuer's cold key.
+        ///   - delegate: The delegate's hot key.
+        ///   - certificate: The issuer's signature.
         public init(
             epochFrom: UInt64, epochTo: UInt64, issuer: Data, delegate: Data, certificate: Data
         ) {

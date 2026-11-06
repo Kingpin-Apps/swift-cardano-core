@@ -1,13 +1,28 @@
 import Foundation
 import CBORCodable
 
+/// A ``PayloadSerializable`` value whose payload is its own CBOR, saved and
+/// loaded as a cardano-cli text envelope.
+///
+/// The envelope's `cborHex` is the hex of the payload as it is, with no
+/// extra byte-string wrapping.
 public protocol TextEnvelopable: PayloadSerializable {
     /// Decodes the envelope's CBOR. A type whose reading depends on the era
     /// its envelope `type` names — `Tx BabbageEra`, say — reads it here.
+    /// - Parameters:
+    ///   - data: The CBOR bytes from the envelope's `cborHex`.
+    ///   - type: The envelope's `type` field.
+    /// - Returns: The decoded value.
     static func fromEnvelopeCBOR(_ data: Data, type: String) throws -> Self
 }
 
 public extension TextEnvelopable {
+    /// Decodes the envelope's CBOR with ``CBORSerializable/fromCBOR(data:)``,
+    /// ignoring `type`.
+    /// - Parameters:
+    ///   - data: The CBOR bytes from the envelope's `cborHex`.
+    ///   - type: The envelope's `type` field.
+    /// - Returns: The decoded value.
     static func fromEnvelopeCBOR(_ data: Data, type: String) throws -> Self {
         try fromCBOR(data: data)
     }

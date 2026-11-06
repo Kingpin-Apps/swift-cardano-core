@@ -7,28 +7,49 @@ enum CertificateType: String, Codable {
     case conway = "CertificateConway"
 }
 
+/// The tag that starts a certificate's CBOR array, as the ledger CDDL numbers it.
 public enum CertificateCode: Int, Codable {
+    /// Tag 0, ``StakeRegistration`` (Shelley).
     case stakeRegistration = 0
+    /// Tag 1, ``StakeDeregistration`` (Shelley).
     case stakeDeregistration = 1
+    /// Tag 2, ``StakeDelegation`` (Shelley).
     case stakeDelegation = 2
+    /// Tag 3, ``PoolRegistration`` (Shelley).
     case poolRegistration = 3
+    /// Tag 4, ``PoolRetirement`` (Shelley).
     case poolRetirement = 4
+    /// Tag 5, ``GenesisKeyDelegation`` (Shelley; not valid in Conway).
     case genesisKeyDelegation = 5
+    /// Tag 6, ``MoveInstantaneousRewards`` (Shelley; not valid in Conway).
     case moveInstantaneousRewards = 6
+    /// Tag 7, ``Register`` (Conway).
     case register = 7
+    /// Tag 8, ``Unregister`` (Conway).
     case unregister = 8
+    /// Tag 9, ``VoteDelegate`` (Conway).
     case voteDelegate = 9
+    /// Tag 10, ``StakeVoteDelegate`` (Conway).
     case stakeVoteDelegate = 10
+    /// Tag 11, ``StakeRegisterDelegate`` (Conway).
     case stakeRegisterDelegate = 11
+    /// Tag 12, ``VoteRegisterDelegate`` (Conway).
     case voteRegisterDelegate = 12
+    /// Tag 13, ``StakeVoteRegisterDelegate`` (Conway).
     case stakeVoteRegisterDelegate = 13
+    /// Tag 14, ``AuthCommitteeHot`` (Conway).
     case authCommitteeHot = 14
+    /// Tag 15, ``ResignCommitteeCold`` (Conway).
     case resignCommitteeCold = 15
+    /// Tag 16, ``RegisterDRep`` (Conway).
     case registerDRep = 16
+    /// Tag 17, ``UnregisterDRep`` (Conway).
     case unRegisterDRep = 17
+    /// Tag 18, ``UpdateDRep`` (Conway).
     case updateDRep = 18
 }
 
+/// The default text-envelope `description` for each kind of certificate.
 public enum CertificateDescription: String, Codable {
     case stakeRegistration = "Stake Address Registration Certificate"
     case stakeDeregistration = "Stake Address Deregistration Certificate"
@@ -50,6 +71,9 @@ public enum CertificateDescription: String, Codable {
     case updateDRep = "DRep Update Certificate"
 }
 
+/// A ledger certificate of any kind, as it appears in a transaction body.
+///
+/// Each case wraps the certificate type for one ``CertificateCode``.
 public enum Certificate: Serializable {
     case stakeRegistration(StakeRegistration)
     case stakeDeregistration(StakeDeregistration)
@@ -274,6 +298,11 @@ public enum Certificate: Serializable {
         return .orderedDict(dict)
     }
 
+    /// Save the wrapped certificate's text envelope to a file.
+    /// - Parameters:
+    ///   - path: The path to save the file.
+    ///   - overwrite: Whether to overwrite the file if it already exists.
+    /// - Throws: `CardanoCoreError.ioError` when the file already exists and `overwrite` is false.
     public func save(to path: String, overwrite: Bool = false) throws {
         switch self {
             case .stakeRegistration(let stakeReg):
@@ -427,10 +456,16 @@ public enum Certificate: Serializable {
     }
 }
 
+/// A certificate type that serializes to CBOR, JSON and a text envelope.
+///
+/// Every certificate struct conforms. ``CODE`` names the certificate's CDDL tag.
 public protocol CertificateSerializable: TextEnvelopable, JSONSerializable, Sendable {
+    /// The certificate's tag: the integer that starts its CBOR array.
     static var CODE: CertificateCode { get }
     
+    /// The text-envelope `type` this certificate is written with.
     var type: String { get }
+    /// The text-envelope `description` this certificate is written with.
     var description: String { get }
 }
 

@@ -1,7 +1,9 @@
 import Foundation
 
+/// A stake pool's identity: the hash of its cold verification key, written as a bech32 `pool…` id.
 public struct PoolOperator: Serializable {
 
+    /// The hash of the pool's cold verification key.
     public let poolKeyHash: PoolKeyHash
 
     public var description: String {
@@ -24,10 +26,15 @@ public struct PoolOperator: Serializable {
         try Self.init(from: primitive)
     }
     
+    /// Creates a pool operator from its key hash.
+    /// - Parameter poolKeyHash: The hash of the pool's cold verification key.
     public init(poolKeyHash: PoolKeyHash) {
         self.poolKeyHash = poolKeyHash
     }
     
+    /// Creates a pool operator from a bech32 pool id.
+    /// - Parameter bech32: A bech32 string with the `pool` prefix.
+    /// - Throws: `CardanoCoreError.valueError` when the string is not a `pool` bech32 id.
     public init(from bech32: String) throws {
         let _bech32 = Bech32()
         let (hrp, checksum, _) = try _bech32.bech32Decode(bech32)
@@ -40,6 +47,8 @@ public struct PoolOperator: Serializable {
         try self.init(from: data)
     }
     
+    /// Creates a pool operator from the raw bytes of its key hash.
+    /// - Parameter hex: The 28 bytes of the pool key hash.
     /// - Throws: Unless `hex` is the 28 bytes of a pool key hash.
     public init(from hex: Data) throws {
         self.init(poolKeyHash: try PoolKeyHash.checked(hex))
@@ -82,10 +91,14 @@ public struct PoolOperator: Serializable {
         try container.encode(try self.toBech32())
     }
     
+    /// The raw bytes of the pool key hash.
     public func toBytes() throws -> Data {
         return self.poolKeyHash.payload
     }
         
+    /// The pool id as a string.
+    /// - Parameter format: `.bech32` for a `pool…` string or `.hex` for the hash in hex.
+    /// - Returns: The pool id in the requested format.
     public func id(_ format: CredentialFormat = .bech32) throws -> String {
         switch format {
             case .bech32:

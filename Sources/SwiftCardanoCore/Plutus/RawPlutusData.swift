@@ -2,7 +2,11 @@ import Foundation
 import OrderedCollections
 import CBORCodable
 
+/// Plutus data held without a schema, as a ``RawDatum``.
+///
+/// A value decoded from CBOR keeps the bytes it was read from in ``originalCBOR`` and writes them back unchanged, so its datum hash matches the original.
 public struct RawPlutusData: PlutusDataProtocol {
+    /// The datum.
     public let data: RawDatum
 
     /// The exact bytes this was decoded from.
@@ -13,6 +17,9 @@ public struct RawPlutusData: PlutusDataProtocol {
     /// keeps them: it encodes, and hashes, exactly as it was read.
     public private(set) var originalCBOR: Data? = nil
 
+    /// Creates raw Plutus data from a datum. The value has no ``originalCBOR`` and is encoded afresh.
+    ///
+    /// - Parameter data: The datum.
     public init(data: RawDatum) {
         self.data = data
     }
@@ -29,6 +36,10 @@ public struct RawPlutusData: PlutusDataProtocol {
         return RawPlutusData(data: raw, originalCBOR: Data(data))
     }
 
+    /// Decodes Plutus data, keeping the bytes it was read from. The same as ``fromCBOR(data:)``.
+    ///
+    /// - Parameter cbor: The CBOR bytes of the Plutus data.
+    /// - Throws: When the bytes are not valid Plutus data.
     public init(from cbor: Data) throws {
         self = try Self.fromCBOR(data: cbor)
     }
@@ -38,6 +49,11 @@ public struct RawPlutusData: PlutusDataProtocol {
         self.originalCBOR = originalCBOR
     }
 
+    /// The bytes this was decoded from, or a fresh encoding when it was built in code.
+    ///
+    /// - Parameter deterministic: Ignored.
+    /// - Returns: The CBOR bytes.
+    /// - Throws: When a fresh encoding fails.
     public func toCBORData(deterministic: Bool = false) throws -> Data {
         _ = deterministic
         return try originalCBOR ?? CBOREncoder().encode(self)
@@ -62,6 +78,12 @@ public struct RawPlutusData: PlutusDataProtocol {
         case data
     }
     
+    /// Creates raw Plutus data from typed Plutus data.
+    ///
+    /// An integer that fits `Int` is held as ``RawDatum/int(_:)`` and a byte string as ``RawDatum/bytes(_:)``; lists, maps and larger integers are held as the ``PlutusData`` itself.
+    ///
+    /// - Parameter plutusData: The Plutus data.
+    /// - Throws: When `plutusData` is a constructor, which this initializer does not support.
     public init(from plutusData: PlutusData) throws {
         switch plutusData {
             case .bigInt(let bigInt):
@@ -79,6 +101,10 @@ public struct RawPlutusData: PlutusDataProtocol {
         }
     }
     
+    /// The datum as typed Plutus data.
+    ///
+    /// - Returns: The Plutus data.
+    /// - Throws: When the datum cannot be read as Plutus data.
     public func toPlutusData() throws -> PlutusData {
         switch data {
             case let .plutusData(plutusData):
@@ -211,6 +237,10 @@ public struct RawPlutusData: PlutusDataProtocol {
     }
 
     // Convert to dictionary format
+    /// The datum in the detailed-schema JSON form: objects keyed `int`, `bytes`, `list`, `map` (with `k` and `v` entries) or `constructor` and `fields`.
+    ///
+    /// - Returns: The top-level object of that form.
+    /// - Throws: When the datum holds a value the form has no place for.
     public func toDict() throws -> OrderedDictionary<String, AnyValue> {
         
         func dfs(_ obj: Any) throws -> [String: Any] {
@@ -257,6 +287,11 @@ public struct RawPlutusData: PlutusDataProtocol {
     }
 
     // Convert to JSON string
+    /// The datum as a detailed-schema JSON string. See `toDict()`.
+    ///
+    /// - Parameter prettyPrinted: Whether to indent the JSON.
+    /// - Returns: The JSON text.
+    /// - Throws: When the datum cannot be converted.
     public func toJSON(prettyPrinted: Bool = false) throws -> String {
         let dict = try self.toDict()
         let jsonData = try JSONSerialization.data(
@@ -267,6 +302,13 @@ public struct RawPlutusData: PlutusDataProtocol {
     }
 
     // Create from primitive value
+    /// Creates raw Plutus data from a Swift value.
+    ///
+    /// Accepts ``PlutusData``, a dictionary of ``AnyValue``, `Int`, `Data`, an array, an ``IndefiniteList`` of ``AnyValue``, a CBOR value or a ``CBORTag``.
+    ///
+    /// - Parameter value: The value.
+    /// - Returns: The raw Plutus data.
+    /// - Throws: When `value` is of another type.
     public static func fromPrimitive(_ value: Any) throws -> RawPlutusData {
         if let plutusData = value as? PlutusData {
             return RawPlutusData(data: .plutusData(plutusData))
@@ -290,6 +332,13 @@ public struct RawPlutusData: PlutusDataProtocol {
     }
 
     // Create from dictionary
+    /// Creates raw Plutus data from the detailed-schema JSON form that `toDict()` writes.
+    ///
+    /// A constructor is given its compact tag when it has one, otherwise the general tag 102.
+    ///
+    /// - Parameter data: The top-level JSON object.
+    /// - Returns: The raw Plutus data.
+    /// - Throws: When the object is not in that form.
     public static func fromDict(_ data: [String: Any]) throws -> RawPlutusData {
         func dfs(_ obj: Any) throws -> Any {
             if let dict = obj as? [String: Any] {
@@ -341,6 +390,11 @@ public struct RawPlutusData: PlutusDataProtocol {
     }
 
     // Create from JSON string
+    /// Creates raw Plutus data from detailed-schema JSON text. See `fromDict(_:)`.
+    ///
+    /// - Parameter jsonString: The JSON text, whose top level must be an object.
+    /// - Returns: The raw Plutus data.
+    /// - Throws: When the text is not valid JSON in that form.
     public static func fromJSON(_ jsonString: String) throws -> RawPlutusData {
         guard let jsonData = jsonString.data(using: .utf8) else {
             throw CardanoCoreError.deserializeError("Invalid JSON string")
@@ -355,6 +409,10 @@ public struct RawPlutusData: PlutusDataProtocol {
     }
 
     // Deep copy support
+    /// A copy made by decoding this value's own CBOR bytes, so the copy keeps them.
+    ///
+    /// - Returns: The copy.
+    /// - Throws: When encoding or decoding fails.
     public func copy() throws -> RawPlutusData {
         return try Self.fromCBOR(data: try self.toCBORData())
     }

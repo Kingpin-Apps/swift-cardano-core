@@ -2,12 +2,21 @@ import Foundation
 import OrderedCollections
 
 
+/// A proposal to pay out of the treasury: `treasury_withdrawals_action = (2, { reward_account => coin }, policy_hash / nil)`.
+///
+/// It has no previous-action id.
 public struct TreasuryWithdrawalsAction: GovernanceAction {
     public static var code: GovActionCode { get { .treasuryWithdrawalsAction } }
     
+    /// The amount, in lovelace, to pay to each reward account.
     public let withdrawals: [RewardAccount: Coin] // reward_account => coin
+    /// The hash of the guardrails script, or `nil` when there is none.
     public let policyHash: PolicyHash?
     
+    /// Creates a treasury withdrawals action.
+    /// - Parameters:
+    ///   - withdrawals: The amount, in lovelace, to pay to each reward account.
+    ///   - policyHash: The hash of the guardrails script, or `nil` for none.
     public init(withdrawals: [RewardAccount: Coin], policyHash: PolicyHash?) {
         self.withdrawals = withdrawals
         self.policyHash = policyHash

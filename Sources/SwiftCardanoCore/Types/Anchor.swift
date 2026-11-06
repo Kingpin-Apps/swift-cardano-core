@@ -1,10 +1,20 @@
 import Foundation
 import OrderedCollections
 
+/// A link to off-chain data and the hash of that data, as the ledger holds one.
+///
+/// In CBOR it is `anchor = [anchor_url : url, anchor_data_hash : hash32]`.
 public struct Anchor: Serializable, Sendable {
+    /// The URL of the off-chain document.
     public let anchorUrl: Url
+    /// The 32-byte hash of the document at ``anchorUrl``.
     public let anchorDataHash: AnchorDataHash
 
+    /// Creates an anchor from its URL and data hash.
+    ///
+    /// - Parameters:
+    ///   - anchorUrl: The URL of the off-chain document.
+    ///   - anchorDataHash: The hash of the document.
     public init(anchorUrl: Url, anchorDataHash: AnchorDataHash) {
         self.anchorUrl = anchorUrl
         self.anchorDataHash = anchorDataHash

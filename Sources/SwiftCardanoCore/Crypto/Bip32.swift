@@ -15,15 +15,24 @@ import CryptoKit
 import Crypto
 #endif
 
+/// The BIP-39 wordlist languages that ``HDWallet/generateMnemonic(language:wordCount:)``
+/// and ``HDWallet/isMnemonic(mnemonic:language:)`` accept.
 public let SUPPORTED_MNEMONIC_LANGS = Language.allCases.filter { $0 != .unsupported }
 
+/// An error from HD wallet path parsing or derivation.
 public enum BIP32Error: Error, Equatable {
+    /// The mnemonic phrase is not valid.
     case invalidMnemonic(String)
+    /// The entropy is not valid.
     case invalidEntropy(String)
+    /// The derivation path is not valid, for example because it does not start with `m/`.
     case invalidPath(String)
+    /// A child key could not be derived.
     case derivationFailed(String)
 }
 
+/// A BIP32-Ed25519 extended private key: a 64-byte extended secret (`kL` then `kR`)
+/// and a 32-byte chain code.
 public class BIP32ED25519PrivateKey {
     var privateKey: Data
     var chainCode: Data
@@ -33,6 +42,11 @@ public class BIP32ED25519PrivateKey {
 
     private let sodium = Sodium()
 
+    /// Creates the key and computes its public key from the first 32 bytes, without clamping.
+    /// - Parameters:
+    ///   - privateKey: The 64-byte extended private key.
+    ///   - chainCode: The 32-byte chain code.
+    /// - Throws: When the public key cannot be computed.
     public init(privateKey: Data, chainCode: Data) throws {
         self.privateKey = privateKey
         self.chainCode = chainCode
@@ -41,6 +55,9 @@ public class BIP32ED25519PrivateKey {
         self.publicKey = try sodium.cryptoScalarmult.ed25519BaseNoclamp(n: self.left)
     }
 
+    /// Signs a message with Ed25519, using the extended key directly instead of hashing a seed.
+    /// - Parameter message: The message to sign.
+    /// - Returns: The 64-byte signature, `R` followed by `S`.
     public func sign(message: Data) throws -> Data {
         let r = try sodium.cryptoCore.ed25519ScalarReduce(
             Data(SHA512.hash(data: self.right + message))
@@ -61,28 +78,49 @@ public class BIP32ED25519PrivateKey {
     }
 }
 
+/// A BIP32-Ed25519 public key with its chain code.
 public class BIP32ED25519PublicKey {
+    /// The 32-byte Ed25519 public key.
     public var publicKey: Data
+    /// The 32-byte chain code.
     public var chainCode: Data
 
     private let sodium = Sodium()
 
+    /// Creates a public key from its bytes and chain code.
+    /// - Parameters:
+    ///   - publicKey: The 32-byte Ed25519 public key.
+    ///   - chainCode: The 32-byte chain code.
     public init(publicKey: Data, chainCode: Data) {
         self.publicKey = publicKey
         self.chainCode = chainCode
     }
 
+    /// The public key and chain code of an extended private key.
+    /// - Parameter privateKey: The extended private key.
+    /// - Returns: Its public key.
     public static func fromPrivateKey(privateKey: BIP32ED25519PrivateKey) -> BIP32ED25519PublicKey {
         return BIP32ED25519PublicKey(
             publicKey: privateKey.publicKey, chainCode: privateKey.chainCode)
     }
 
+    /// Checks an Ed25519 signature made by this key.
+    /// - Parameters:
+    ///   - signature: The 64-byte signature.
+    ///   - message: The signed message.
+    /// - Returns: The message, when the signature is valid.
+    /// - Throws: When the signature is not valid.
     public func verify(signature: Data, message: Data) throws -> Data {
         return try sodium.cryptoSign
             .open(signed: signature + message, pk: self.publicKey)
     }
 }
 
+/// HMAC-SHA512 of a message.
+/// - Parameters:
+///   - message: The data to authenticate.
+///   - secret: The HMAC key.
+/// - Returns: The 64-byte MAC.
 public func Fk(message: Data, secret: Data) throws -> Data {
     return try Data(
         HMAC(
@@ -92,17 +130,34 @@ public func Fk(message: Data, secret: Data) throws -> Data {
     )
 }
 
+/// A node of a BIP32-Ed25519 hierarchical deterministic wallet, as Cardano wallets use it.
+/// The root comes from BIP-39 entropy by PBKDF2-HMAC-SHA512 and bit clamping
+/// (see ``generateSeed(passphrase:entropy:)`` and ``tweakBits(seed:)``);
+/// child nodes come from ``derive(fromPath:isPrivate:)``, for example along a
+/// CIP-1852 path such as `m/1852'/1815'/0'/0/0`.
 public class HDWallet {
+    /// The 64-byte extended private key of the root node.
     public var rootXPrivateKey: Data
+    /// The 32-byte public key of the root node.
     public var rootPublicKey: Data
+    /// The 32-byte chain code of the root node.
     public var rootChainCode: Data
+    /// The 64-byte extended private key of this node. Public derivation does not change it.
     public var xPrivateKey: Data
+    /// The 32-byte public key of this node.
     public var publicKey: Data
+    /// The 32-byte chain code of this node.
     public var chainCode: Data
+    /// The path of this node, such as `m` for the root. Each index is written as a
+    /// number, with hardened indices including the `0x80000000` bit.
     public var path: String
+    /// The clamped 96-byte seed the root was made from, when known.
     public var seed: Data?
+    /// The mnemonic phrase the wallet was made from, NFKD-normalized, when known.
     public var mnemonic: String?
+    /// The BIP-39 passphrase the wallet was made with, when known.
     public var passphrase: String?
+    /// The BIP-39 entropy the wallet was made from, as hex, when known.
     public var entropy: String?
     
     private let sodium = Sodium()
@@ -131,6 +186,19 @@ public class HDWallet {
         return result
     }
 
+    /// Creates a wallet node from its keys and metadata.
+    /// - Parameters:
+    ///   - rootXPrivateKey: The 64-byte extended private key of the root node.
+    ///   - rootPublicKey: The 32-byte public key of the root node.
+    ///   - rootChainCode: The 32-byte chain code of the root node.
+    ///   - xPrivateKey: The 64-byte extended private key of this node.
+    ///   - publicKey: The 32-byte public key of this node.
+    ///   - chainCode: The 32-byte chain code of this node.
+    ///   - path: The derivation path of this node.
+    ///   - seed: The seed the root was made from, if known.
+    ///   - mnemonic: The mnemonic phrase, if known.
+    ///   - passphrase: The BIP-39 passphrase, if known.
+    ///   - entropy: The BIP-39 entropy as hex, if known.
     public init(
         rootXPrivateKey: Data, rootPublicKey: Data, rootChainCode: Data, xPrivateKey: Data,
         publicKey: Data, chainCode: Data, path: String, seed: Data?, mnemonic: String?,
@@ -149,6 +217,13 @@ public class HDWallet {
         self.entropy = entropy
     }
 
+    /// Builds a root wallet from a 96-byte seed given as hex.
+    /// - Parameters:
+    ///   - seed: The 96-byte seed, as hex.
+    ///   - entropy: Optional companion BIP-39 entropy (hex), stored in the wallet.
+    ///   - passphrase: Optional BIP-39 passphrase, stored in the wallet.
+    ///   - mnemonic: Optional companion BIP-39 mnemonic, stored in the wallet.
+    /// - Returns: The root wallet node, at path `m`.
     public static func fromSeed(
         seed: String, entropy: String? = nil, passphrase: String? = nil, mnemonic: String? = nil
     ) throws -> HDWallet {
@@ -209,14 +284,6 @@ public class HDWallet {
         )
     }
 
-    /// Build an HDWallet from a BIP-39 mnemonic phrase in any supported language.
-    ///
-    /// Language is auto-detected from the wordlist via ``SwiftMnemonic/Mnemonic/init(from:)``,
-    /// so the same call handles English, Japanese, Spanish, etc. Japanese phrases use
-    /// `U+3000 IDEOGRAPHIC SPACE` as their canonical word separator; NFKD normalization
-    /// (``Swift/String/decomposedStringWithCompatibilityMapping``) collapses that to ASCII
-    /// space, so the downstream split-and-decode pipeline doesn't need language-specific
-    /// handling.
     /// The entropy a BIP-39 phrase encodes, in whichever language's wordlist
     /// it was written.
     ///
@@ -247,6 +314,17 @@ public class HDWallet {
         return entropy
     }
 
+    /// Builds an HDWallet from a BIP-39 mnemonic phrase in any supported language.
+    /// The language is detected from the wordlist, so the same call handles English,
+    /// Japanese, Spanish, etc. Japanese phrases use `U+3000 IDEOGRAPHIC SPACE` as their
+    /// canonical word separator; NFKD normalization collapses that to an ASCII space.
+    /// When a phrase fits more than one wordlist, those wordlists must agree on its entropy.
+    /// - Parameters:
+    ///   - mnemonic: The mnemonic phrase.
+    ///   - passphrase: The BIP-39 passphrase, empty by default.
+    /// - Returns: The root wallet node, at path `m`.
+    /// - Throws: `CardanoCoreError.invalidDataError` when no wordlist holds the phrase
+    ///   with a valid checksum, or when wordlists read it as different entropy.
     public static func fromMnemonic(mnemonic: String, passphrase: String = "") throws -> HDWallet {
         let normalizedMnemonic = mnemonic.decomposedStringWithCompatibilityMapping
         let words = normalizedMnemonic
@@ -266,6 +344,12 @@ public class HDWallet {
         )
     }
 
+    /// Builds a root wallet from BIP-39 entropy.
+    /// - Parameters:
+    ///   - entropy: The entropy as hex: 16, 20, 24, 28 or 32 bytes.
+    ///   - passphrase: The BIP-39 passphrase, empty by default.
+    /// - Returns: The root wallet node, at path `m`.
+    /// - Throws: `CardanoCoreError.invalidDataError` when the entropy is not a valid length.
     public static func fromEntropy(entropy: String, passphrase: String = "") throws -> HDWallet {
         guard isEntropy(entropy: entropy) else {
             throw CardanoCoreError.invalidDataError("Invalid entropy")
@@ -275,6 +359,12 @@ public class HDWallet {
         return try fromSeed(seed: seed.hexEncodedString(), entropy: entropy)
     }
 
+    /// The 96-byte seed for a root key: PBKDF2-HMAC-SHA512 with the passphrase as the
+    /// password and the entropy as the salt, over 4096 iterations.
+    /// - Parameters:
+    ///   - passphrase: The BIP-39 passphrase.
+    ///   - entropy: The BIP-39 entropy.
+    /// - Returns: The 96-byte seed, before ``tweakBits(seed:)``.
     public static func generateSeed(passphrase: String, entropy: Data) -> Data {
         return Data(try! PKCS5.PBKDF2(
             password: Array(passphrase.utf8),
@@ -285,6 +375,10 @@ public class HDWallet {
         ).calculate())
     }
 
+    /// Clamps a seed for use as an Ed25519 extended private key: clears the low three
+    /// bits of byte 0, clears the top three bits of byte 31 and sets bit 6 of byte 31.
+    /// - Parameter seed: The seed.
+    /// - Returns: The clamped seed.
     public static func tweakBits(seed: Data) -> Data {
         var seedArray = seed.byteArray
         seedArray[0] &= 0b11111000
@@ -293,7 +387,7 @@ public class HDWallet {
         return Data(seedArray)
     }
 
-    /// Create a new instance of HDWallet
+    /// A copy of this wallet node.
     public func copyHDWallet() -> HDWallet {
         return HDWallet(
             rootXPrivateKey: self.rootXPrivateKey,
@@ -310,6 +404,15 @@ public class HDWallet {
         )
     }
 
+    /// Derives a descendant node along a path.
+    /// - Parameters:
+    ///   - path: A path that starts with `m/`, such as `m/1852'/1815'/0'/0/0`.
+    ///     A trailing `'` marks a hardened index.
+    ///   - isPrivate: Whether to derive from the private key (`true`) or the public key.
+    ///     Public derivation cannot derive hardened indices.
+    /// - Returns: The derived node.
+    /// - Throws: ``BIP32Error/invalidPath(_:)`` when the path is malformed, or an error
+    ///   when derivation fails.
     public func derive(fromPath path: String, isPrivate: Bool = true) throws -> HDWallet {
         guard path.hasPrefix("m/") else {
             throw BIP32Error.invalidPath(
@@ -354,6 +457,14 @@ public class HDWallet {
         return derivedWallet
     }
 
+    /// Derives a child node at one index.
+    /// - Parameters:
+    ///   - index: The child index, without the hardened bit.
+    ///   - isPrivate: Whether to derive from the private key (`true`) or the public key.
+    ///   - hardened: Whether to set the hardened bit (`0x80000000`) on `index`.
+    /// - Returns: The child node.
+    /// - Throws: `CardanoCoreError.invalidDataError` when the wallet has no root keys,
+    ///   or when a hardened index is derived from the public key.
     public func derive(index: UInt32, isPrivate: Bool = true, hardened: Bool = false) throws -> HDWallet {
         guard !self.rootXPrivateKey.isEmpty && !self.rootPublicKey.isEmpty else {
             throw CardanoCoreError.invalidDataError("Missing root keys. Can't do derivation.")
@@ -469,6 +580,12 @@ public class HDWallet {
         )
     }
 
+    /// Derives a non-hardened child node from a parent public key and chain code.
+    /// - Parameters:
+    ///   - publicNode: The parent public key, chain code and path.
+    ///   - index: The child index, which must be below `0x80000000`.
+    /// - Returns: The child node. Its extended private key is the parent's, unchanged.
+    /// - Throws: `CardanoCoreError.invalidDataError` when `index` is hardened.
     public func derivePublicChildKeyByIndex(publicNode: (Data, Data, String), index: UInt32) throws -> HDWallet {
         let (AP, cP, path) = publicNode
         let iBytes = Data(withUnsafeBytes(of: index.littleEndian, Array.init))
@@ -506,6 +623,12 @@ public class HDWallet {
         )
     }
 
+    /// A new random BIP-39 mnemonic phrase.
+    /// - Parameters:
+    ///   - language: The wordlist language, English by default.
+    ///   - wordCount: The number of words, 24 by default.
+    /// - Returns: The words of the phrase.
+    /// - Throws: `CardanoCoreError.invalidLanguage` when the language is not supported.
     public static func generateMnemonic(language: Language = .english, wordCount: WordCount = .twentyFour) throws -> [String] {
         guard SUPPORTED_MNEMONIC_LANGS.contains(language) else {
             throw CardanoCoreError.invalidLanguage(
@@ -518,6 +641,12 @@ public class HDWallet {
         return try mnemonic.generate(wordCount: wordCount)
     }
 
+    /// Whether a phrase is a valid BIP-39 mnemonic in a language.
+    /// - Parameters:
+    ///   - mnemonic: The mnemonic phrase.
+    ///   - language: The wordlist language, English by default.
+    /// - Returns: Whether the phrase is valid.
+    /// - Throws: `CardanoCoreError.invalidLanguage` when the language is not supported.
     public static func isMnemonic(mnemonic: String, language: Language = .english) throws -> Bool {
         guard SUPPORTED_MNEMONIC_LANGS.contains(language) else {
             throw CardanoCoreError.invalidLanguage(
@@ -528,6 +657,9 @@ public class HDWallet {
         return try Mnemonic(language: language).check(mnemonic: mnemonic)
     }
 
+    /// Whether a hex string is BIP-39 entropy of a valid length: 16, 20, 24, 28 or 32 bytes.
+    /// - Parameter entropy: The entropy as hex.
+    /// - Returns: Whether the length is valid.
     public static func isEntropy(entropy: String) -> Bool {
         let entropyData = Data(hex: entropy)
         return [16, 20, 24, 28, 32].contains(entropyData.count)

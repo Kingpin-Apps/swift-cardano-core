@@ -3,10 +3,22 @@ import CBORCodable
 
 
 // MARK: - NonNegativeInterval
+/// A non-negative rational number (`nonnegative_interval` in the CDDL), written as `#6.30([uint, positive_int])`.
+///
+/// The ledger uses it for values such as execution unit prices. Reading accepts the tagged form and also a bare two-element array.
 public struct NonNegativeInterval: CBORSerializable, Sendable {
+    /// The numerator. See ``numerator``.
     public var lowerBound: UInt64
+    /// The denominator. See ``denominator``.
     public var upperBound: UInt64
 
+    /// Creates an interval from its numerator and denominator.
+    ///
+    /// The initializer does not check the denominator; reading from CBOR rejects a zero one.
+    ///
+    /// - Parameters:
+    ///   - lowerBound: The numerator.
+    ///   - upperBound: The denominator.
     public init(lowerBound: UInt64, upperBound: UInt64) {
         self.lowerBound = lowerBound
         self.upperBound = upperBound
@@ -102,15 +114,25 @@ public struct NonNegativeInterval: CBORSerializable, Sendable {
 // MARK: - UnitInterval
 /// A unit interval is a number in the range between 0 and 1
 public struct UnitInterval: Serializable {
+    /// The numerator.
     public let numerator: UInt64
+    /// The denominator. Never zero.
     public let denominator: UInt64
 
+    /// The CBOR tag a unit interval is written with, 30.
     public static let tag = 30
 
     private enum CodingKeys: String, CodingKey {
         case numerator, denominator
     }
 
+    /// Creates a unit interval.
+    ///
+    /// The initializer traps (it uses `precondition`) when `denominator` is zero. It does not check that the value is at most one; reading from CBOR or JSON does.
+    ///
+    /// - Parameters:
+    ///   - numerator: The numerator.
+    ///   - denominator: The denominator, which must be greater than zero.
     public init(numerator: UInt64, denominator: UInt64) {
         precondition(denominator > 0, "Denominator must be greater than zero")
         self.numerator = numerator

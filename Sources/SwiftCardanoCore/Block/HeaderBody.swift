@@ -54,9 +54,9 @@ public struct HeaderBody: Serializable {
     public var issuerVKey: Data
     /// VRF verification key (32 bytes)
     public var vrfVKey: Data
-    /// Primary VRF result certificate (`leader_vrf` for Shelley–Mary, `vrf_result` for Alonzo+)
+    /// Primary VRF result certificate (`leader_vrf` for Shelley to Alonzo, `vrf_result` for Babbage and Conway)
     public var vrfResult: VRFCert
-    /// Nonce VRF certificate (Shelley / Allegra / Mary only — eras 1–3)
+    /// Nonce VRF certificate (Shelley to Alonzo only; `nil` for Babbage and Conway)
     public var nonceVrf: VRFCert?
     /// Size of the block body in bytes
     public var blockBodySize: UInt32
@@ -67,7 +67,9 @@ public struct HeaderBody: Serializable {
     /// Protocol version (fields inlined in the wire format)
     public var protocolVersion: ProtocolVersion
 
+    /// The size of ``issuerVKey`` in bytes.
     public static let VKEY_SIZE = 32
+    /// The size of ``vrfVKey`` in bytes.
     public static let VRF_VKEY_SIZE = 32
 
     enum CodingKeys: String, CodingKey {
@@ -84,6 +86,22 @@ public struct HeaderBody: Serializable {
         case protocolVersion
     }
 
+    /// Creates a header body from its fields.
+    ///
+    /// Pass a `nonceVrf` for the 15-element Shelley to Alonzo layout, and leave
+    /// it `nil` for the 10-element Babbage and Conway layout.
+    /// - Parameters:
+    ///   - blockNumber: The block number (height).
+    ///   - slot: The absolute slot number.
+    ///   - prevHash: The previous block header hash, or `nil` for none.
+    ///   - issuerVKey: The block issuer's verification key.
+    ///   - vrfVKey: The VRF verification key.
+    ///   - vrfResult: The leader or VRF result certificate.
+    ///   - nonceVrf: The nonce VRF certificate, for Shelley to Alonzo only.
+    ///   - blockBodySize: The size of the block body in bytes.
+    ///   - blockBodyHash: The hash of the block body.
+    ///   - operationalCert: The operational certificate.
+    ///   - protocolVersion: The protocol version.
     public init(
         blockNumber: BlockNumber,
         slot: SlotNumber,

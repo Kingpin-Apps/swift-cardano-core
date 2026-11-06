@@ -5,8 +5,11 @@ import OrderedCollections
 public enum ListOrOrderedSet<T: Serializable>: Serializable {
     public typealias Element = T
 
+    /// A definite-length array, without a set tag.
     case list([Element])
+    /// A `#6.258` set whose payload was written as a definite-length array.
     case orderedSet(OrderedSet<Element>)
+    /// An indefinite-length array, without a set tag.
     case indefiniteList(IndefiniteList<Element>)
     /// A `#6.258` set whose payload was written as an *indefinite-length* array.
     ///
@@ -15,6 +18,7 @@ public enum ListOrOrderedSet<T: Serializable>: Serializable {
     /// definite-length array and change the transaction hash.
     case indefiniteOrderedSet(IndefiniteList<Element>)
 
+    /// The number of elements.
     public var count: Int {
         switch self {
             case .list(let array):
@@ -26,6 +30,7 @@ public enum ListOrOrderedSet<T: Serializable>: Serializable {
         }
     }
 
+    /// The elements, in order.
     public var asArray: [Element] {
         switch self {
             case .list(let array):
@@ -37,6 +42,9 @@ public enum ListOrOrderedSet<T: Serializable>: Serializable {
         }
     }
     
+    /// The elements as an indefinite-length list.
+    ///
+    /// - Returns: The elements, in order.
     public func asIndefiniteList() throws -> IndefiniteList<Element> {
         switch self {
             case .list(let array):
@@ -48,6 +56,10 @@ public enum ListOrOrderedSet<T: Serializable>: Serializable {
         }
     }
 
+    /// The elements as an ordered set.
+    ///
+    /// - Returns: The elements, in order.
+    /// - Throws: When the set cannot be built from the elements.
     public func asOrderedSet() throws -> OrderedSet<Element> {
         switch self {
             case .list(let array):
@@ -60,6 +72,7 @@ public enum ListOrOrderedSet<T: Serializable>: Serializable {
     }
 
     // Add a non-throwing version that returns nil on error for convenience
+    /// The elements as an ordered set, or `nil` when ``asOrderedSet()`` throws.
     public func asOrderedSetSafe() -> OrderedSet<Element>? {
         do {
             return try asOrderedSet()
@@ -157,6 +170,10 @@ public enum ListOrOrderedSet<T: Serializable>: Serializable {
     }
 
 
+    /// Whether the collection holds an element.
+    ///
+    /// - Parameter element: The element to look for.
+    /// - Returns: `true` when the element is present.
     public func contains(_ element: Element) -> Bool {
         switch self {
             case .list(let array):
@@ -189,6 +206,9 @@ public enum ListOrOrderedSet<T: Serializable>: Serializable {
         }
     }
 
+    /// The element at a position, or `nil` when the index is out of range.
+    ///
+    /// - Parameter index: The zero-based position.
     public subscript(_ index: Int) -> Element? {
         switch self {
             case .list(let array):
@@ -211,8 +231,11 @@ public enum ListOrOrderedSet<T: Serializable>: Serializable {
 public enum ListOrNonEmptyOrderedSet<T: Serializable>: Serializable {
     public typealias Element = T
 
+    /// A definite-length array, without a set tag.
     case list([Element])
+    /// A `#6.258` non-empty set whose payload was written as a definite-length array.
     case nonEmptyOrderedSet(NonEmptyOrderedSet<Element>)
+    /// An indefinite-length array, without a set tag.
     case indefiniteList(IndefiniteList<Element>)
     /// A `#6.258` set whose payload was written as an *indefinite-length* array.
     ///
@@ -221,6 +244,7 @@ public enum ListOrNonEmptyOrderedSet<T: Serializable>: Serializable {
     /// a definite-length array and change `script_data_hash`.
     case indefiniteNonEmptyOrderedSet(IndefiniteList<Element>)
 
+    /// The number of elements.
     public var count: Int {
         switch self {
             case .list(let array):
@@ -232,6 +256,7 @@ public enum ListOrNonEmptyOrderedSet<T: Serializable>: Serializable {
         }
     }
 
+    /// The elements, in order.
     public var asList: [Element] {
         switch self {
             case .list(let array):
@@ -243,6 +268,9 @@ public enum ListOrNonEmptyOrderedSet<T: Serializable>: Serializable {
         }
     }
     
+    /// The elements as an indefinite-length list.
+    ///
+    /// - Returns: The elements, in order.
     public func asIndefiniteList() throws -> IndefiniteList<Element> {
         switch self {
             case .list(let array):
@@ -255,6 +283,10 @@ public enum ListOrNonEmptyOrderedSet<T: Serializable>: Serializable {
     }
 
     // Make this a throwing function since NonEmptyOrderedSet initialization may throw
+    /// The elements as a non-empty ordered set.
+    ///
+    /// - Returns: The elements, in order.
+    /// - Throws: When there are no elements.
     public func asNonEmptyOrderedSet() throws -> NonEmptyOrderedSet<Element> {
         switch self {
             case .list(let array):
@@ -267,6 +299,7 @@ public enum ListOrNonEmptyOrderedSet<T: Serializable>: Serializable {
     }
 
     // Add a non-throwing version that returns nil on error for convenience
+    /// The elements as a non-empty ordered set, or `nil` when ``asNonEmptyOrderedSet()`` throws.
     public func asNonEmptyOrderedSetSafe() -> NonEmptyOrderedSet<Element>? {
         do {
             return try asNonEmptyOrderedSet()
@@ -366,6 +399,10 @@ public enum ListOrNonEmptyOrderedSet<T: Serializable>: Serializable {
         return form.wrap(.list(try asList.map { try $0.toDict() }))
     }
 
+    /// Whether the collection holds an element.
+    ///
+    /// - Parameter element: The element to look for.
+    /// - Returns: `true` when the element is present.
     public func contains(_ element: Element) -> Bool {
         switch self {
             case .list(let array):
@@ -398,6 +435,9 @@ public enum ListOrNonEmptyOrderedSet<T: Serializable>: Serializable {
         }
     }
 
+    /// The element at a position, or `nil` when the index is out of range.
+    ///
+    /// - Parameter index: The zero-based position.
     public subscript(_ index: Int) -> Element? {
         switch self {
             case .list(let array):

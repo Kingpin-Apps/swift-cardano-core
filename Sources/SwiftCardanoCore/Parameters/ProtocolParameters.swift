@@ -3,6 +3,7 @@ import OrderedCollections
 import CBORCodable
 @preconcurrency import BigInt
 
+/// The value of ``ProtocolParameters/coinsPerUtxoWord`` when none is set, in lovelace.
 public let ALONZO_COINS_PER_UTXO_WORD = 34482
 
 /// An execution-unit count read from CBOR. The ledger holds it as a
@@ -18,7 +19,11 @@ internal func exUnitsParameter(_ primitive: Primitive, _ what: @autoclosure () -
 
 // MARK: - ProtocolParameters
 
+/// Protocol parameters as providers report them in JSON (camelCase keys, as in
+/// Ogmios and Blockfrost) and as the ledger writes them in CBOR (the Conway
+/// integer-keyed map, or the node-to-client 31-element list).
 public struct ProtocolParameters: Serializable, JSONLoadable {
+    /// `collateralPercentage`: the collateral required, as a percentage of the transaction fee (CBOR key 23).
     public let collateralPercentage: UInt16
 
     private var _coinsPerUtxoWord: Coin?
@@ -36,41 +41,69 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
         }
     }
 
+    /// `committeeMaxTermLength`: the longest committee term, in epochs (CBOR key 28).
     public let committeeMaxTermLength: EpochInterval
+    /// `committeeMinSize`: the smallest committee size (CBOR key 27).
     public let committeeMinSize: UInt16
+    /// `costModels`: the Plutus cost models (CBOR key 18).
     public let costModels: ProtocolParametersCostModels
+    /// `dRepActivity`: the DRep inactivity period, in epochs (CBOR key 32).
     public let dRepActivity: EpochInterval
+    /// `dRepDeposit`: the DRep registration deposit, in lovelace (CBOR key 31).
     public let dRepDeposit: Coin
+    /// `dRepVotingThresholds`: the DRep voting thresholds (CBOR key 26).
     public let dRepVotingThresholds: DRepVotingThresholds
+    /// `executionUnitPrices`: the prices of memory and CPU steps (CBOR key 19).
     public let executionUnitPrices: ExecutionUnitPrices
+    /// `govActionDeposit`: the governance action deposit, in lovelace (CBOR key 30).
     public let govActionDeposit: Coin
+    /// `govActionLifetime`: the governance action validity period, in epochs (CBOR key 29).
     public let govActionLifetime: EpochInterval
+    /// `maxBlockBodySize`: the largest block body, in bytes (CBOR key 2).
     public let maxBlockBodySize: UInt32
+    /// `maxBlockExecutionUnits`: the most execution units one block may use (CBOR key 21).
     public let maxBlockExecutionUnits: ProtocolParametersExecutionUnits
+    /// `maxBlockHeaderSize`: the largest block header, in bytes (CBOR key 4).
     public let maxBlockHeaderSize: UInt16
+    /// `maxCollateralInputs`: the most collateral inputs a transaction may have (CBOR key 24).
     public let maxCollateralInputs: UInt16
+    /// `maxTxExecutionUnits`: the most execution units one transaction may use (CBOR key 20).
     public let maxTxExecutionUnits: ProtocolParametersExecutionUnits
+    /// `maxTxSize`: the largest transaction, in bytes (CBOR key 3).
     public let maxTxSize: UInt32
+    /// `maxValueSize`: the largest serialized output value, in bytes (CBOR key 22).
     public let maxValueSize: UInt32
+    /// `maxReferenceScriptsSize`, as some providers report it. It has no CBOR key and is only read from and written to JSON.
     public let maxReferenceScriptsSize: Int64?
+    /// `minFeeReferenceScripts`: the reference-script fee constants, as some providers report them. Only read from and written to JSON.
     public let minFeeReferenceScripts: MinReferenceScriptsSize?
     /// A `NonNegativeInterval`, held exactly.
     public let minFeeRefScriptCostPerByte: NonNegativeInterval?
+    /// `minPoolCost`: the lowest fixed cost a pool may declare, in lovelace (CBOR key 16).
     public let minPoolCost: Coin
     /// `rho`, a `UnitInterval`, held exactly.
     public let monetaryExpansion: UnitInterval
     /// `a0`, a `NonNegativeInterval`, held exactly.
     public let poolPledgeInfluence: NonNegativeInterval
+    /// `poolRetireMaxEpoch`, the ledger's `eMax`: how many epochs ahead a pool retirement may be scheduled (CBOR key 7).
     public let poolRetireMaxEpoch: EpochInterval
+    /// `poolVotingThresholds`: the stake pool voting thresholds (CBOR key 25).
     public let poolVotingThresholds: ProtocolParametersPoolVotingThresholds
+    /// `protocolVersion`: the protocol version (CBOR key 14).
     public let protocolVersion: ProtocolParametersProtocolVersion
+    /// `stakeAddressDeposit`, the ledger's `keyDeposit`, in lovelace (CBOR key 5).
     public let stakeAddressDeposit: Coin
+    /// `stakePoolDeposit`, the ledger's `poolDeposit`, in lovelace (CBOR key 6).
     public let stakePoolDeposit: Coin
+    /// `stakePoolTargetNum`, the ledger's `nOpt`: the target number of stake pools (CBOR key 8).
     public let stakePoolTargetNum: UInt16
     /// `tau`, a `UnitInterval`, held exactly.
     public let treasuryCut: UnitInterval
+    /// `txFeeFixed`, the ledger's `minFeeB`: the constant part of the fee, in lovelace (CBOR key 1).
     public let txFeeFixed: Coin
+    /// `txFeePerByte`, the ledger's `minFeeA`: the fee per transaction byte, in lovelace (CBOR key 0).
     public let txFeePerByte: Coin
+    /// `utxoCostPerByte`, the ledger's `coinsPerUTxOByte`, in lovelace per byte (CBOR key 17).
     public let utxoCostPerByte: Coin
 
     // MARK: JSON CodingKeys — camelCase names matching the Ogmios/blockfrost API
@@ -148,6 +181,42 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
         case minFeeRefScriptCoinsPerByte = 33
     }
 
+    /// Creates protocol parameters from their fields.
+    /// - Parameters:
+    ///   - collateralPercentage: The `collateralPercentage`.
+    ///   - coinsPerUtxoWord: The Alonzo `coinsPerUtxoWord`, or `nil` for `ALONZO_COINS_PER_UTXO_WORD`.
+    ///   - committeeMaxTermLength: The longest committee term, in epochs.
+    ///   - committeeMinSize: The smallest committee size.
+    ///   - costModels: The Plutus cost models.
+    ///   - dRepActivity: The DRep inactivity period, in epochs.
+    ///   - dRepDeposit: The DRep deposit, in lovelace.
+    ///   - dRepVotingThresholds: The DRep voting thresholds.
+    ///   - executionUnitPrices: The prices of memory and CPU steps.
+    ///   - govActionDeposit: The governance action deposit, in lovelace.
+    ///   - govActionLifetime: The governance action validity period, in epochs.
+    ///   - maxBlockBodySize: The largest block body, in bytes.
+    ///   - maxBlockExecutionUnits: The per-block execution unit limit.
+    ///   - maxBlockHeaderSize: The largest block header, in bytes.
+    ///   - maxCollateralInputs: The most collateral inputs.
+    ///   - maxTxExecutionUnits: The per-transaction execution unit limit.
+    ///   - maxTxSize: The largest transaction, in bytes.
+    ///   - maxValueSize: The largest serialized output value, in bytes.
+    ///   - maxReferenceScriptsSize: The provider-reported `maxReferenceScriptsSize`, or `nil`.
+    ///   - minFeeReferenceScripts: The provider-reported reference-script fee constants, or `nil`.
+    ///   - minFeeRefScriptCostPerByte: The `minFeeRefScriptCostPerByte`, or `nil`.
+    ///   - minPoolCost: The lowest pool fixed cost, in lovelace.
+    ///   - monetaryExpansion: The monetary expansion, `rho`.
+    ///   - poolPledgeInfluence: The pool pledge influence, `a0`.
+    ///   - poolRetireMaxEpoch: The ledger's `eMax`, in epochs.
+    ///   - poolVotingThresholds: The stake pool voting thresholds.
+    ///   - protocolVersion: The protocol version.
+    ///   - stakeAddressDeposit: The stake address deposit, in lovelace.
+    ///   - stakePoolDeposit: The stake pool deposit, in lovelace.
+    ///   - stakePoolTargetNum: The target number of stake pools.
+    ///   - treasuryCut: The treasury cut, `tau`.
+    ///   - txFeeFixed: The constant part of the fee, in lovelace.
+    ///   - txFeePerByte: The fee per transaction byte, in lovelace.
+    ///   - utxoCostPerByte: The UTxO cost per byte, in lovelace.
     public init(collateralPercentage: UInt16,
                 coinsPerUtxoWord: Coin? = nil,
                 committeeMaxTermLength: EpochInterval,
@@ -856,17 +925,29 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
 
 // MARK: - Supporting types
 
+/// The Plutus cost models: each language's parameters, in order.
 public struct ProtocolParametersCostModels: Codable, Equatable, Hashable, Sendable {
+    /// The PlutusV1 cost model parameters, or empty when there are none.
     public let PlutusV1: [Int64]
+    /// The PlutusV2 cost model parameters, or empty when there are none.
     public let PlutusV2: [Int64]
+    /// The PlutusV3 cost model parameters, or empty when there are none.
     public let PlutusV3: [Int64]
 
+    /// Creates cost models from each language's parameters.
+    /// - Parameters:
+    ///   - PlutusV1: The PlutusV1 parameters.
+    ///   - PlutusV2: The PlutusV2 parameters.
+    ///   - PlutusV3: The PlutusV3 parameters.
     public init(PlutusV1: [Int64], PlutusV2: [Int64], PlutusV3: [Int64]) {
         self.PlutusV1 = PlutusV1
         self.PlutusV2 = PlutusV2
         self.PlutusV3 = PlutusV3
     }
 
+    /// Returns the cost model of a Plutus version.
+    /// - Parameter version: The Plutus version: 1, 2 or 3.
+    /// - Returns: That version's parameters, or `nil` for any other version.
     public func getVersion(_ version: Int) -> [Int64]? {
         switch version {
             case 1: return PlutusV1
@@ -879,17 +960,39 @@ public struct ProtocolParametersCostModels: Codable, Equatable, Hashable, Sendab
 
 /// The DRep voting thresholds: each a `UnitInterval`, held exactly.
 public struct DRepVotingThresholds: Codable, Equatable, Hashable, Sendable {
+    /// `committeeNoConfidence`: the threshold to elect a committee in a state of no confidence.
     public let committeeNoConfidence: UnitInterval
+    /// `committeeNormal`: the threshold to elect a committee in a normal state.
     public let committeeNormal: UnitInterval
+    /// `hardForkInitiation`: the threshold for a hard fork initiation.
     public let hardForkInitiation: UnitInterval
+    /// `motionNoConfidence`: the threshold for a motion of no confidence.
     public let motionNoConfidence: UnitInterval
+    /// `ppEconomicGroup`: the threshold for an economic-group parameter update.
     public let ppEconomicGroup: UnitInterval
+    /// `ppGovGroup`: the threshold for a governance-group parameter update.
     public let ppGovGroup: UnitInterval
+    /// `ppNetworkGroup`: the threshold for a network-group parameter update.
     public let ppNetworkGroup: UnitInterval
+    /// `ppTechnicalGroup`: the threshold for a technical-group parameter update.
     public let ppTechnicalGroup: UnitInterval
+    /// `treasuryWithdrawal`: the threshold for a treasury withdrawal.
     public let treasuryWithdrawal: UnitInterval
+    /// `updateToConstitution`: the threshold for a new constitution.
     public let updateToConstitution: UnitInterval
 
+    /// Creates DRep voting thresholds.
+    /// - Parameters:
+    ///   - committeeNoConfidence: The `committeeNoConfidence` threshold.
+    ///   - committeeNormal: The `committeeNormal` threshold.
+    ///   - hardForkInitiation: The `hardForkInitiation` threshold.
+    ///   - motionNoConfidence: The `motionNoConfidence` threshold.
+    ///   - ppEconomicGroup: The `ppEconomicGroup` threshold.
+    ///   - ppGovGroup: The `ppGovGroup` threshold.
+    ///   - ppNetworkGroup: The `ppNetworkGroup` threshold.
+    ///   - ppTechnicalGroup: The `ppTechnicalGroup` threshold.
+    ///   - treasuryWithdrawal: The `treasuryWithdrawal` threshold.
+    ///   - updateToConstitution: The `updateToConstitution` threshold.
     public init(committeeNoConfidence: UnitInterval, committeeNormal: UnitInterval, hardForkInitiation: UnitInterval,
                 motionNoConfidence: UnitInterval, ppEconomicGroup: UnitInterval, ppGovGroup: UnitInterval,
                 ppNetworkGroup: UnitInterval, ppTechnicalGroup: UnitInterval, treasuryWithdrawal: UnitInterval,
@@ -982,6 +1085,11 @@ public struct MinReferenceScriptsSize: Codable, Equatable, Hashable, Sendable {
     /// The stride in bytes: a `NonZero Word32` (25600 in Conway).
     public let range: UInt32?
 
+    /// Creates reference-script fee constants.
+    /// - Parameters:
+    ///   - base: Lovelace per byte, or `nil`.
+    ///   - multiplier: The cost growth per stride, or `nil`.
+    ///   - range: The stride in bytes, or `nil`.
     public init(base: NonNegativeInterval?, multiplier: NonNegativeInterval?, range: UInt32?) {
         self.base = base
         self.multiplier = multiplier
@@ -1011,9 +1119,15 @@ public struct MinReferenceScriptsSize: Codable, Equatable, Hashable, Sendable {
 /// The prices of execution units: the ledger's `Prices`, each a
 /// `NonNegativeInterval`, held exactly.
 public struct ExecutionUnitPrices: Codable, Equatable, Hashable, Sendable {
+    /// `priceMemory`: lovelace per memory unit.
     public let priceMemory: NonNegativeInterval
+    /// `priceSteps`: lovelace per CPU step.
     public let priceSteps: NonNegativeInterval
 
+    /// Creates execution unit prices.
+    /// - Parameters:
+    ///   - priceMemory: Lovelace per memory unit.
+    ///   - priceSteps: Lovelace per CPU step.
     public init(priceMemory: NonNegativeInterval, priceSteps: NonNegativeInterval) {
         self.priceMemory = priceMemory
         self.priceSteps = priceSteps
@@ -1077,12 +1191,18 @@ public struct ExecutionUnitPrices: Codable, Equatable, Hashable, Sendable {
     }
 }
 
+/// An execution unit limit: memory units and CPU steps.
 public struct ProtocolParametersExecutionUnits: Codable, Equatable, Hashable, Sendable {
     /// `Natural` in the ledger; its JSON reader accepts the full `Word64`
     /// range, its CBOR reader nothing above `Int64.max`.
     public let memory: UInt64
+    /// CPU steps; the same range as `memory`.
     public let steps: UInt64
 
+    /// Creates an execution unit limit.
+    /// - Parameters:
+    ///   - memory: Memory units.
+    ///   - steps: CPU steps.
     public init(memory: UInt64, steps: UInt64) {
         self.memory = memory
         self.steps = steps
@@ -1091,12 +1211,24 @@ public struct ProtocolParametersExecutionUnits: Codable, Equatable, Hashable, Se
 
 /// The stake pool voting thresholds: each a `UnitInterval`, held exactly.
 public struct ProtocolParametersPoolVotingThresholds: Codable, Equatable, Hashable, Sendable {
+    /// `committeeNoConfidence`: the threshold to elect a committee in a state of no confidence.
     public let committeeNoConfidence: UnitInterval
+    /// `committeeNormal`: the threshold to elect a committee in a normal state.
     public let committeeNormal: UnitInterval
+    /// `hardForkInitiation`: the threshold for a hard fork initiation.
     public let hardForkInitiation: UnitInterval
+    /// `motionNoConfidence`: the threshold for a motion of no confidence.
     public let motionNoConfidence: UnitInterval
+    /// `ppSecurityGroup`: the threshold for a security-group parameter update.
     public let ppSecurityGroup: UnitInterval
 
+    /// Creates stake pool voting thresholds.
+    /// - Parameters:
+    ///   - committeeNoConfidence: The `committeeNoConfidence` threshold.
+    ///   - committeeNormal: The `committeeNormal` threshold.
+    ///   - hardForkInitiation: The `hardForkInitiation` threshold.
+    ///   - motionNoConfidence: The `motionNoConfidence` threshold.
+    ///   - ppSecurityGroup: The `ppSecurityGroup` threshold.
     public init(committeeNoConfidence: UnitInterval, committeeNormal: UnitInterval, hardForkInitiation: UnitInterval,
                 motionNoConfidence: UnitInterval, ppSecurityGroup: UnitInterval) {
         self.committeeNoConfidence = committeeNoConfidence
@@ -1164,9 +1296,15 @@ public struct ProtocolParametersPoolVotingThresholds: Codable, Equatable, Hashab
 
 /// `ProtVer` in the ledger: a `Version` (a `Word32`) and a `Word32` minor.
 public struct ProtocolParametersProtocolVersion: Codable, Equatable, Hashable, Sendable {
+    /// The major protocol version.
     public let major: UInt32
+    /// The minor protocol version.
     public let minor: UInt32
 
+    /// Creates a protocol version.
+    /// - Parameters:
+    ///   - major: The major version.
+    ///   - minor: The minor version.
     public init(major: UInt32, minor: UInt32) {
         self.major = major
         self.minor = minor

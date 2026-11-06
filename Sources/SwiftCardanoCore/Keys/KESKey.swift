@@ -20,6 +20,11 @@ public struct KESSigningKey: SigningKeyProtocol {
     /// The current signing period (0-based, max 63 for Sum6KES)
     public private(set) var currentPeriod: UInt
 
+    /// Creates a key from its bytes, at period 0.
+    /// - Parameters:
+    ///   - payload: The raw secret key bytes.
+    ///   - type: The text-envelope type, or `nil` for ``TYPE``.
+    ///   - description: The text-envelope description, or `nil` for ``DESCRIPTION``.
     public init(payload: Data, type: String?, description: String?) {
         self._payload = payload
         self._type = type ?? Self.TYPE
@@ -41,6 +46,9 @@ public struct KESSigningKey: SigningKeyProtocol {
         self.currentPeriod = period
     }
 
+    /// Signs data with the key at its current period.
+    /// - Parameter data: The data to sign.
+    /// - Returns: The KES signature.
     public func sign(data: Data) throws -> Data {
         let kes = try Sum6KES(secretKeyBytes: payload, period: currentPeriod)
         let signature = try kes.sign(message: data)
@@ -80,10 +88,12 @@ public struct KESSigningKey: SigningKeyProtocol {
         return Sum6KES.totalPeriods
     }
 
+    /// The KES verification key of this signing key.
     public func toVerificationKey() throws -> KESVerificationKey {
         return try KESVerificationKey.fromSigningKey(self)
     }
 
+    /// A new, randomly generated KES signing key at period 0.
     public static func generate() throws -> Self {
         let keyPair = try KESKeyPair.generate()
         return keyPair.signingKey
@@ -116,15 +126,20 @@ public struct KESVerificationKey: VerificationKeyProtocol {
     public static var TYPE: String { "KesVerificationKey_ed25519_kes_2^6" }
     public static var DESCRIPTION: String { "KES Verification Key" }
 
+    /// Creates the key from its bytes.
+    /// - Parameters:
+    ///   - payload: The key bytes.
+    ///   - type: The text-envelope type, or `nil` for ``TYPE``.
+    ///   - description: The text-envelope description, or `nil` for ``DESCRIPTION``.
     public init(payload: Data, type: String?, description: String?) {
         self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
     }
 
-    /// Compute a blake2b hash from the key.
+    /// The 32-byte Blake2b-256 hash of this key.
     ///
-    /// - Returns: Hash output as a `KesKeyHash`
+    /// - Returns: The KES key hash.
     public func hash() throws -> KesKeyHash {
         return KesKeyHash(
             payload: try SwiftNaCl.Hash().blake2b(
@@ -160,6 +175,9 @@ public struct KESVerificationKey: VerificationKeyProtocol {
         )
     }
 
+    /// The KES verification key of a KES signing key.
+    /// - Parameter key: The KES signing key.
+    /// - Returns: Its verification key.
     public static func fromSigningKey(_ key: KESSigningKey) throws -> KESVerificationKey {
         let kes = try Sum6KES(secretKeyBytes: key.payload, period: key.currentPeriod)
         return try KESVerificationKey(payload: kes.publicKey.bytes)
@@ -168,9 +186,15 @@ public struct KESVerificationKey: VerificationKeyProtocol {
 
 /// A KES key pair containing both signing and verification keys.
 public struct KESKeyPair {
+    /// The KES signing key.
     public let signingKey: KESSigningKey
+    /// The KES verification key.
     public let verificationKey: KESVerificationKey
 
+    /// Creates a key pair from a signing key and its verification key.
+    /// - Parameters:
+    ///   - signingKey: The signing key.
+    ///   - verificationKey: The verification key that belongs to `signingKey`.
     public init(signingKey: KESSigningKey, verificationKey: KESVerificationKey) {
         self.signingKey = signingKey
         self.verificationKey = verificationKey
@@ -218,7 +242,7 @@ extension KESKeyPair: Equatable {
 
 // MARK: - KesKeyHash
 
-/// Hash of a Cardano KES verification key.
+/// A 32-byte Blake2b-256 hash of a KES verification key.
 public struct KesKeyHash: ConstrainedBytes, Hashable, Equatable {
     public var payload: Data
     public static var maxSize: Int { KES_KEY_HASH_SIZE }

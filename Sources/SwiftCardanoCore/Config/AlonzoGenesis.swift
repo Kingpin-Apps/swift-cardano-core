@@ -11,7 +11,9 @@ public struct AlonzoGenesis: JSONLoadable {
     public let lovelacePerUTxOWord: Coin
     /// `Prices`: each a `NonNegativeInterval`.
     public let executionPrices: ExecutionUnitPrices
+    /// `maxTxExUnits`: the most execution units one transaction may use.
     public let maxTxExUnits: AlonzoGenesisExUnits
+    /// `maxBlockExUnits`: the most execution units one block may use.
     public let maxBlockExUnits: AlonzoGenesisExUnits
     /// `Word32`.
     public let maxValueSize: UInt32
@@ -24,6 +26,17 @@ public struct AlonzoGenesis: JSONLoadable {
     /// `StrictMaybe AlonzoExtraConfig`.
     public let extraConfig: AlonzoExtraConfig?
 
+    /// Creates an Alonzo genesis from its fields.
+    /// - Parameters:
+    ///   - lovelacePerUTxOWord: The `lovelacePerUTxOWord` cost, in lovelace.
+    ///   - executionPrices: The `executionPrices` for memory and steps.
+    ///   - maxTxExUnits: The per-transaction execution unit limit.
+    ///   - maxBlockExUnits: The per-block execution unit limit.
+    ///   - maxValueSize: The `maxValueSize`, in bytes.
+    ///   - collateralPercentage: The `collateralPercentage`.
+    ///   - maxCollateralInputs: The `maxCollateralInputs`.
+    ///   - costModels: The PlutusV1 cost model.
+    ///   - extraConfig: The optional extra configuration.
     public init(
         lovelacePerUTxOWord: Coin,
         executionPrices: ExecutionUnitPrices,
@@ -51,9 +64,15 @@ public struct AlonzoGenesis: JSONLoadable {
 /// `ExUnits`: `Natural` counts. The ledger's JSON reader accepts the full
 /// `Word64` range; its CBOR reader nothing above `Int64.max`.
 public struct AlonzoGenesisExUnits: Codable, Equatable, Hashable {
+    /// Memory units, written as `memory` in JSON.
     public let exUnitsMem: UInt64
+    /// CPU steps, written as `steps` in JSON.
     public let exUnitsSteps: UInt64
 
+    /// Creates execution units.
+    /// - Parameters:
+    ///   - exUnitsMem: Memory units.
+    ///   - exUnitsSteps: CPU steps.
     public init(exUnitsMem: UInt64, exUnitsSteps: UInt64) {
         self.exUnitsMem = exUnitsMem
         self.exUnitsSteps = exUnitsSteps
@@ -87,6 +106,8 @@ public struct AlonzoCostModels: Codable, Equatable, Hashable {
     /// The 166 PlutusV1 parameters, in `ParamName` order.
     public let plutusV1: [Int64]
 
+    /// Creates a genesis cost model from the PlutusV1 parameters.
+    /// - Parameter plutusV1: The parameters, in `ParamName` order.
     public init(plutusV1: [Int64]) {
         self.plutusV1 = plutusV1
     }
@@ -153,6 +174,8 @@ public struct AlonzoExtraConfig: Codable, Equatable, Hashable {
     /// ascending order.
     public let costModels: OrderedDictionary<UInt8, [Int64]>?
 
+    /// Creates an extra configuration, sorting the cost models by language.
+    /// - Parameter costModels: Each language's parameters, keyed by its `Word8`, or `nil`.
     public init(costModels: OrderedDictionary<UInt8, [Int64]>?) {
         self.costModels = costModels.map { models in
             OrderedDictionary(uniqueKeysWithValues: models.sorted { $0.key < $1.key }.map { ($0.key, $0.value) })

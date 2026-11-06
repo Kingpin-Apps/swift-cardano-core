@@ -1,5 +1,7 @@
 import Foundation
 
+/// A `Codable` value that can be saved to and loaded from a JSON file with
+/// `JSONEncoder` and `JSONDecoder`.
 public protocol JSONLoadable: Codable, Hashable, Equatable, Sendable {}
 
 public extension JSONLoadable {

@@ -1,6 +1,7 @@
 import Foundation
 
 
+/// A motion of no confidence in the constitutional committee: `no_confidence = (3, gov_action_id / nil)`.
 public struct NoConfidence: GovernanceAction {
     public static var code: GovActionCode { get { .noConfidence } }
     
@@ -11,6 +12,8 @@ public struct NoConfidence: GovernanceAction {
     /// required.
     public let id: GovActionID?
     
+    /// Creates a no confidence action.
+    /// - Parameter id: The previous committee action, or `nil` for none.
     public init (id: GovActionID?) {
         self.id = id
     }

@@ -37,6 +37,12 @@ public struct Constr: Serializable, CustomStringConvertible, Sendable {
     /// indefinite length, which the ledger also accepts.
     var writtenGeneralIndefinite = false
 
+    /// Creates a constructor value.
+    ///
+    /// - Parameters:
+    ///   - tag: The constructor index, or `nil` to use the type's ``CONSTR_ID``.
+    ///   - fields: The constructor's fields, in order.
+    ///   - useIndefiniteList: Whether to write the fields as an indefinite-length array; `nil` means `true`. A constructor without fields is written as `[]` either way.
     public init(tag: UInt64?, fields: [PlutusData] = [], useIndefiniteList: Bool? = nil) {
         self.tag = tag
         self.fieldList = NestedList(fields)
@@ -54,6 +60,7 @@ public struct Constr: Serializable, CustomStringConvertible, Sendable {
         }
     }
 
+    /// A constructor index derived from the type's shape: the SHA-256 hash of its type description, modulo 2^32.
     public static var constrID: Int {
         let detString = try! idMap(cls: Self.self, skipConstructor: true)
         let detHash = SHA256.hash(data: Data(detString.utf8)).map { String(format: "%02x", $0) }
@@ -64,6 +71,7 @@ public struct Constr: Serializable, CustomStringConvertible, Sendable {
         return Int(calc)
     }
 
+    /// The constructor index used when ``tag`` is `nil`. The same as ``constrID``.
     public static var CONSTR_ID: Int {
         return Self.constrID
     }

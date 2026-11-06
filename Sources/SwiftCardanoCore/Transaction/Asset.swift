@@ -4,15 +4,26 @@ import CBORCodable
 import OrderedCollections
 
 
+/// The name of a native asset within its policy: a byte string of 0 to 32 bytes.
 public struct AssetName: ConstrainedBytes, Hashable, Equatable, Sendable {
+    /// The raw bytes of the name.
     public var payload: Data
     public static var maxSize: Int { 32 }
     public static var minSize: Int { 0 }
 
+    /// Creates an asset name from its raw bytes.
+    ///
+    /// - Parameter payload: The bytes of the name.
     public init(payload: Data) throws {
         self.payload = payload
     }
 
+    /// Creates an asset name from a string.
+    ///
+    /// A string that parses as non-empty hex is read as those bytes; any other
+    /// string is stored as its UTF-8 bytes.
+    ///
+    /// - Parameter name: The name in hex, or as text.
     public init(from name: String) {
         if !name.hexStringToData.isEmpty {
             self.payload = name.hexStringToData
@@ -87,10 +98,12 @@ enum AssetAmountRule: Sendable {
 /// differences of them never overflow. Decoding refuses what the ledger
 /// refuses; ``TransactionOutput/validate()`` checks an output's amounts.
 public struct Asset: Serializable, Comparable, AdditiveArithmetic {
+    /// An empty asset map.
     public static var zero: Asset {
         return Asset([:])
     }
 
+    /// The amounts, keyed by asset name. Setting it drops entries whose amount is zero.
     public var data: OrderedDictionary<AssetName, BigInt> {
         get { _data }
         set {
@@ -100,6 +113,10 @@ public struct Asset: Serializable, Comparable, AdditiveArithmetic {
     }
     private var _data: OrderedDictionary<AssetName, BigInt> = [:]
 
+    /// Gets or sets the amount of one asset.
+    ///
+    /// Setting `nil` or zero removes the asset from the map.
+    /// - Parameter key: The asset name.
     public subscript(key: AssetName) -> BigInt? {
         get { return _data[key] }
         set {
@@ -111,14 +128,19 @@ public struct Asset: Serializable, Comparable, AdditiveArithmetic {
         }
     }
 
+    /// Whether the map holds no assets.
     public var isEmpty: Bool {
         return data.isEmpty
     }
 
+    /// The number of assets in the map.
     public var count: Int {
         return data.count
     }
 
+    /// Creates an asset map, dropping entries whose amount is zero.
+    ///
+    /// - Parameter data: The amounts, keyed by asset name.
     public init(_ data: OrderedDictionary<AssetName, BigInt>) {
         self.data = data
     }
@@ -221,21 +243,36 @@ public struct Asset: Serializable, Comparable, AdditiveArithmetic {
         return data.filter { $0.value != 0 }
     }
 
+    /// Removes entries whose amount is zero.
+    ///
+    /// - Returns: The asset map after the change.
     public mutating func normalize() -> Asset {
         _data = normalizeData(_data)
         return self
     }
 
+    /// Returns a copy of the map without one asset.
+    ///
+    /// - Parameter key: The asset name to remove.
+    /// - Returns: The asset map without `key`.
     public func remove(_ key: AssetName) -> Asset {
         var result = self
         result.data.removeValue(forKey: key)
         return result
     }
 
+    /// Returns the per-asset sum of this map and `other`; the same as `self + other`.
+    ///
+    /// - Parameter other: The asset map to add.
+    /// - Returns: The combined asset map.
     public func union(_ other: Asset) -> Asset {
         return self + other
     }
 
+    /// Adds two asset maps per asset name.
+    ///
+    /// An asset missing from one side counts as zero, and an asset whose sum is
+    /// zero is removed from the result.
     public static func + (lhs: Asset, rhs: Asset) -> Asset {
         var result = lhs
         for (key, value) in rhs.data {
@@ -244,6 +281,10 @@ public struct Asset: Serializable, Comparable, AdditiveArithmetic {
         return result
     }
 
+    /// Subtracts `rhs` from `lhs` per asset name.
+    ///
+    /// An asset missing from `lhs` counts as zero, so the result can hold negative
+    /// amounts. An asset whose difference is zero is removed from the result.
     public static func - (lhs: Asset, rhs: Asset) -> Asset {
         var result = lhs
         for (key, value) in rhs.data {
@@ -252,11 +293,15 @@ public struct Asset: Serializable, Comparable, AdditiveArithmetic {
         return result
     }
 
+    /// Returns `true` when `lhs <= rhs` and the two maps are not equal.
     public static func < (lhs: Asset, rhs: Asset) -> Bool {
         // lhs < rhs means lhs <= rhs && lhs != rhs
         return lhs <= rhs && lhs != rhs
     }
 
+    /// Returns `true` when every asset in `lhs` is also in `rhs` with an amount at least as large.
+    ///
+    /// Assets only in `rhs` are ignored.
     public static func <= (lhs: Asset, rhs: Asset) -> Bool {
         // Check if lhs is a subset of rhs with all values <= corresponding rhs values
         for (key, value) in lhs.data {
@@ -272,11 +317,13 @@ public struct Asset: Serializable, Comparable, AdditiveArithmetic {
         return true
     }
 
+    /// Returns `true` when `rhs < lhs`.
     public static func > (lhs: Asset, rhs: Asset) -> Bool {
         // lhs > rhs means rhs < lhs
         return rhs < lhs
     }
 
+    /// Returns `true` when `rhs <= lhs`.
     public static func >= (lhs: Asset, rhs: Asset) -> Bool {
         // lhs >= rhs means rhs <= lhs
         return rhs <= lhs

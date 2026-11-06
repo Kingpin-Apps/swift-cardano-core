@@ -1,8 +1,10 @@
 import Foundation
 import OrderedCollections
 
+/// A native script that requires a signature by the key whose hash is ``ScriptPubkey/keyHash``: `[0, keyHash]`. cardano-cli JSON type `"sig"`.
 public struct ScriptPubkey: NativeScriptable, Sendable {
     public static let TYPE = NativeScriptType.scriptPubkey
+    /// The hash of the verification key that must sign.
     public let keyHash: VerificationKeyHash
 
     /// The bytes this script was decoded from, when it was decoded on its
@@ -10,6 +12,9 @@ public struct ScriptPubkey: NativeScriptable, Sendable {
     /// taken over them, as the ledger takes them, while they are kept.
     public internal(set) var originalCBOR: Data? = nil
     
+    /// Creates a script that requires a signature by the key whose hash is `keyHash`.
+    ///
+    /// - Parameter keyHash: The hash of the verification key that must sign.
     public init(keyHash: VerificationKeyHash) {
         self.keyHash = keyHash
     }

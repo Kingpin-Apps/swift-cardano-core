@@ -7,9 +7,12 @@ import OrderedCollections
 /// The first element is the VRF output (arbitrary bytes),
 /// and the second element is the VRF proof (80 bytes).
 public struct VRFCert: Serializable {
+    /// The VRF output.
     public var output: Data
+    /// The VRF proof, ``PROOF_SIZE`` bytes.
     public var proof: Data
 
+    /// The size of a VRF proof in bytes.
     public static let PROOF_SIZE = 80
 
     enum CodingKeys: String, CodingKey {
@@ -17,6 +20,12 @@ public struct VRFCert: Serializable {
         case proof
     }
 
+    /// Creates a VRF certificate.
+    /// - Parameters:
+    ///   - output: The VRF output.
+    ///   - proof: The VRF proof.
+    /// - Throws: `CardanoCoreError.invalidArgument` when `proof` is not
+    ///   ``PROOF_SIZE`` bytes.
     public init(output: Data, proof: Data) throws {
         guard proof.count == Self.PROOF_SIZE else {
             throw CardanoCoreError.invalidArgument(

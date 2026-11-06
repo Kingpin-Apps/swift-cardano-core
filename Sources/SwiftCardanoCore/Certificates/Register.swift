@@ -3,6 +3,8 @@ import CBORCodable
 import OrderedCollections
 
 /// Stake registration with a deposit: `account_registration_deposit_cert = (7, stake_credential, coin)`.
+///
+/// Introduced in Conway. Unlike ``StakeRegistration`` (tag 0), it states the deposit paid.
 public struct Register: CertificateSerializable {
     public var _payload: Data
     public var _type: String
@@ -15,7 +17,9 @@ public struct Register: CertificateSerializable {
     public static var DESCRIPTION: String { CertificateDescription.stakeRegistration.rawValue }
     public static var CODE: CertificateCode { .register }
 
+    /// The stake credential to register.
     public let stakeCredential: StakeCredential
+    /// The deposit paid for the registration, in lovelace.
     public let coin: Coin
 
     public enum CodingKeys: String, CodingKey {
@@ -25,6 +29,9 @@ public struct Register: CertificateSerializable {
 
     /// Creates the certificate.
     ///
+    /// - Parameters:
+    ///   - stakeCredential: The stake credential to register.
+    ///   - coin: The deposit paid for the registration, in lovelace.
     /// - Throws: When the certificate cannot be encoded for its payload.
     public init(stakeCredential: StakeCredential, coin: Coin) throws {
         self.stakeCredential = stakeCredential

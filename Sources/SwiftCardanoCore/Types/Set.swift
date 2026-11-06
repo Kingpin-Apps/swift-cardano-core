@@ -3,9 +3,13 @@ import CBORCodable
 
 
 // Generic wrapper for CBOR-tagged sets (tag 258)
+/// A set written as CBOR tag 258 around an array: `#6.258([* a])`.
+///
+/// Conway-era sets are written this way. A conforming type keeps its elements in the order they were given, so a set read from CBOR writes back in the same order. Reading accepts the tag around a definite- or indefinite-length array, and also an untagged array; ``toCBOR()`` always writes the tag around a definite-length array.
 public protocol SetTaggable<Element>: CBORTaggable {
     associatedtype Element: CBORSerializable & Hashable
 
+    /// The elements, unordered.
     var elements: Set<Element> { get set }
 
     /// The elements in the order they were given. For a set read off the wire
@@ -17,6 +21,7 @@ public protocol SetTaggable<Element>: CBORTaggable {
 }
 
 extension SetTaggable {
+    /// The CBOR tag of a set, 258.
     public var tag: UInt64 { 258 }
 
     /// The same elements in the same order, with the later of any duplicates
@@ -84,6 +89,7 @@ extension SetTaggable {
         return sorted
     }
 
+    /// The CBOR tag of a set, 258.
     public static var TAG: UInt64 { 258 }
 
     /// The elements inside a `#6.258` tag, in the order they were written.
@@ -100,6 +106,7 @@ extension SetTaggable {
         }
     }
 
+    /// The number of elements.
     public var count: Int { return elements.count }
 
     public init(from decoder: Decoder) throws {
@@ -145,10 +152,18 @@ extension SetTaggable {
         }
     }
 
+    /// Whether the set holds an element.
+    ///
+    /// - Parameter element: The element to look for.
+    /// - Returns: `true` when the element is present.
     public func contains(_ element: Element) -> Bool {
         return elements.contains(element)
     }
     
+    /// The set as `#6.258` around a definite-length array of ``elementsOrdered``.
+    ///
+    /// - Returns: The tagged CBOR value.
+    /// - Throws: When an element cannot be converted to CBOR.
     public func toCBOR() throws -> CBOR {
         return .tagged(
             UInt64(Self.TAG),
@@ -157,6 +172,9 @@ extension SetTaggable {
     }
 }
 
+/// A set of elements that keeps their order, written as `#6.258([* a])`.
+///
+/// Adding an element that is already present leaves the set unchanged, and building one from an array drops the later of any duplicates.
 public struct OrderedSet<T: CBORSerializable & Hashable & Sendable>: SetTaggable {
     public typealias Element = T
 
@@ -186,6 +204,12 @@ public struct OrderedSet<T: CBORSerializable & Hashable & Sendable>: SetTaggable
         members = Set(unique)
     }
 
+    /// Creates a set from the content of a `#6.258` tag.
+    ///
+    /// - Parameters:
+    ///   - tag: The tag number, which must be 258.
+    ///   - value: A definite- or indefinite-length list of elements.
+    /// - Throws: When the tag is not 258, `value` is not a list, or an element cannot be read.
     public init(tag: UInt64 = 258, value: Primitive) throws {
         guard tag == Self.TAG else {
             throw CardanoCoreError.valueError("Invalid CBOR tag: expected \(Self.TAG) but found \(tag)")
@@ -363,6 +387,9 @@ public struct OrderedSet<T: CBORSerializable & Hashable & Sendable>: SetTaggable
     }
 }
 
+/// A set of elements that keeps their order and is never empty (`nonempty_set` in the CDDL), written as `#6.258([+ a])`.
+///
+/// Building one from no elements throws, or traps for the initializers and setters that cannot throw.
 public struct NonEmptyOrderedSet<T: CBORSerializable & Hashable & Sendable>: SetTaggable {
     public typealias Element = T
 
@@ -397,6 +424,12 @@ public struct NonEmptyOrderedSet<T: CBORSerializable & Hashable & Sendable>: Set
         members = Set(unique)
     }
 
+    /// Creates a non-empty set from the content of a `#6.258` tag.
+    ///
+    /// - Parameters:
+    ///   - tag: The tag number, which must be 258.
+    ///   - value: A definite- or indefinite-length list of at least one element.
+    /// - Throws: When the tag is not 258, `value` is not a non-empty list, or an element cannot be read.
     public init(tag: UInt64 = Self.TAG, value: Primitive) throws {
         let list: [Primitive]
         switch value {

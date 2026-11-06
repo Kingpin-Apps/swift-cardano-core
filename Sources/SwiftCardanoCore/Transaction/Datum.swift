@@ -3,8 +3,11 @@ import SwiftNaCl
 import OrderedCollections
 import CBORCodable
 
+/// The datum an output's `datum_option` holds: a datum hash or an inline datum.
 public enum DatumType: Serializable {
+    /// The hash of a datum, written as its bytes.
     case datumHash(DatumHash)
+    /// An inline datum, written as its CBOR wrapped in a byte string under tag 24.
     case data(PlutusData)
 
     // MARK: - CBORSerializable
@@ -106,8 +109,11 @@ public enum DatumType: Serializable {
     //    }
 }
 
+/// An output's `datum_option`: `[0, datum_hash]` or `[1, #6.24(bytes .cbor plutus_data)]`.
 public struct DatumOption: Serializable {
+    /// The kind of datum: 0 for a datum hash, 1 for an inline datum. Setting it clears the kept bytes.
     public var type: Int { didSet { originalCBOR = nil; datumCBOR = nil } }
+    /// The datum hash or inline datum. Setting it clears the kept bytes.
     public var datum: DatumType { didSet { originalCBOR = nil; datumCBOR = nil } }
 
     /// The exact bytes this was decoded from, while it is unchanged.
@@ -145,6 +151,10 @@ public struct DatumOption: Serializable {
         return option
     }
 
+    /// Decodes a datum option from CBOR bytes, keeping the bytes as ``fromCBOR(data:)`` does.
+    ///
+    /// - Parameter cbor: The CBOR bytes of the datum option.
+    /// - Throws: `CardanoCoreError.deserializeError` when bytes follow the datum option or it is not valid.
     public init(from cbor: Data) throws {
         self = try Self.fromCBOR(data: cbor)
     }
@@ -187,6 +197,9 @@ public struct DatumOption: Serializable {
         return try originalCBOR ?? CBOREncoder().encode(self)
     }
 
+    /// Creates a datum option, setting ``type`` from the kind of datum.
+    ///
+    /// - Parameter datum: The datum hash or inline datum.
     public init(datum: DatumType) {
         self.datum = datum
         switch datum {
@@ -197,11 +210,17 @@ public struct DatumOption: Serializable {
         }
     }
 
+    /// Creates a datum option that holds a datum hash (``type`` 0).
+    ///
+    /// - Parameter datum: The datum hash.
     public init(datum: DatumHash) {
         self.datum = .datumHash(datum)
         self.type = 0
     }
 
+    /// Creates a datum option that holds an inline datum (``type`` 1).
+    ///
+    /// - Parameter datum: The inline datum.
     public init(datum: PlutusData) {
         self.datum = .data(datum)
         self.type = 1
@@ -294,13 +313,21 @@ public struct DatumOption: Serializable {
 }
 
 // MARK: - RawDatum
+/// A datum held in one of several raw forms, each convertible to Plutus data.
 public enum RawDatum: PlutusDataProtocol {
+    /// A datum that is already Plutus data.
     case plutusData(PlutusData)
+    /// A map of values.
     case dict([AnyValue: AnyValue])
+    /// An integer that fits `Int`.
     case int(Int)
+    /// A byte string.
     case bytes(Data)
+    /// An indefinite-length list of values.
     case indefiniteList(IndefiniteList<AnyValue>)
+    /// A CBOR item; as Plutus data, its encoding becomes a byte string.
     case cbor(CBOR)
+    /// A tagged CBOR item.
     case cborTag(CBORTag)
 
     public init(from plutusData: PlutusData) throws {
@@ -475,12 +502,19 @@ public enum RawDatum: PlutusDataProtocol {
 // MARK: - Datum
 /// Plutus Datum type. A Union type that contains all valid datum types.
 public enum Datum: PlutusDataProtocol {
+    /// A datum read or built as Plutus data. Decoding uses this case for maps, lists, tagged items and large integers, keeping how they were written.
     case plutusData(PlutusData)
+    /// A map of values.
     case dict([AnyValue: AnyValue])
+    /// An integer that fits `Int`.
     case int(Int)
+    /// A byte string.
     case bytes(Data)
+    /// An indefinite-length list of values.
     case indefiniteList(IndefiniteList<AnyValue>)
+    /// A CBOR item; as Plutus data, its encoding becomes a byte string.
     case cbor(CBOR)
+    /// A datum wrapped in `RawPlutusData`.
     case rawPlutusData(RawPlutusData)
 
     public init(from plutusData: PlutusData) throws {
@@ -576,6 +610,10 @@ public enum Datum: PlutusDataProtocol {
 
     }
 
+    /// Returns the same datum as a ``RawDatum``.
+    ///
+    /// A `rawPlutusData` datum returns the ``RawDatum`` it wraps.
+    /// - Returns: The datum as a ``RawDatum``.
     public func toRawDatum() throws -> RawDatum {
         switch self {
         case .plutusData(let data):

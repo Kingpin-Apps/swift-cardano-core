@@ -1,21 +1,28 @@
 import Foundation
 import OrderedCollections
 
-/// A disctionary of reward addresses to reward withdrawal amount.
+/// A dictionary of reward accounts to the amounts withdrawn from them.
 ///
-/// Key is address bytes, value is an integer.
+/// The key is the reward account's bytes; the value is the amount, in lovelace.
 public struct Withdrawals: Serializable {
+    /// The amounts withdrawn, in lovelace, keyed by reward account bytes.
     public var data: OrderedDictionary<RewardAccount, Coin> {
         get { _data }
         set { _data = newValue }
     }
     private var _data: OrderedDictionary<RewardAccount, Coin> = [:]
     
+    /// Creates a withdrawals map.
+    ///
+    /// - Parameter data: The amounts withdrawn, in lovelace, keyed by reward account bytes.
     public init(_ data: OrderedDictionary<RewardAccount, Coin>) {
         self._data = data
     }
     
     // Subscript for easier key-value access
+    /// Gets or sets the amount, in lovelace, withdrawn from one reward account.
+    ///
+    /// - Parameter key: The reward account bytes.
     public subscript(key: RewardAccount) -> Coin? {
         get { _data[key] }
         set { _data[key] = newValue }

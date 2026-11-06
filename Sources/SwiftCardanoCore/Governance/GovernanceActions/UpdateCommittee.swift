@@ -1,14 +1,25 @@
 import Foundation
 import OrderedCollections
 
+/// A proposal to change the constitutional committee: `update_committee = (4, gov_action_id / nil, set<committee_cold_credential>, { committee_cold_credential => epoch_no }, unit_interval)`.
 public struct UpdateCommittee: GovernanceAction {
     public static var code: GovActionCode { get { .updateCommittee } }
     
+    /// The previous committee action, which this one has to follow, or `nil` for none.
     public let id: GovActionID?
+    /// The cold credentials of the members to remove.
     public let coldCredentials: Set<CommitteeColdCredential>
+    /// The members to add, or whose terms change, each with the epoch its term expires.
     public let credentialEpochs: [CommitteeColdCredential: UInt64] // committee_cold_credential => epoch_no
+    /// The committee's new quorum threshold.
     public let interval: UnitInterval
     
+    /// Creates an update committee action.
+    /// - Parameters:
+    ///   - id: The previous committee action, or `nil` for none.
+    ///   - coldCredentials: The cold credentials of the members to remove.
+    ///   - credentialEpochs: The members to add, or whose terms change, each with the epoch its term expires.
+    ///   - interval: The committee's new quorum threshold.
     public init(id: GovActionID?, coldCredentials: Set<CommitteeColdCredential>, credentialEpochs: [CommitteeColdCredential: UInt64], interval: UnitInterval) {
         self.id = id
         self.coldCredentials = coldCredentials

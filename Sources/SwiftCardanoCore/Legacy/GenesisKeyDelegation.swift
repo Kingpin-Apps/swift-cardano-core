@@ -2,11 +2,13 @@ import Foundation
 import CBORCodable
 import OrderedCollections
 
+/// A genesis key delegation certificate: `(5, genesis_hash, genesis_delegate_hash, vrf_keyhash)`.
 public struct GenesisKeyDelegation: CertificateSerializable {
     public var _payload: Data
     public var _type: String
     public var _description: String
     
+    /// The text envelope `type` field: always ``GenesisKeyDelegation/TYPE``.
     public var type: String { get { return GenesisKeyDelegation.TYPE } }
     public var description: String { get { return GenesisKeyDelegation.DESCRIPTION } }
 
@@ -14,8 +16,11 @@ public struct GenesisKeyDelegation: CertificateSerializable {
     public static var DESCRIPTION: String { CertificateDescription.genesisKeyDelegation.rawValue }
     public static var CODE: CertificateCode { get { return .genesisKeyDelegation } }
     
+    /// The hash of the genesis key that delegates.
     public let genesisHash: GenesisHash
+    /// The hash of the genesis delegate key.
     public let genesisDelegateHash: GenesisDelegateHash
+    /// The hash of the genesis delegate's VRF verification key.
     public let vrfKeyHash: VrfKeyHash
     
     public enum CodingKeys: String, CodingKey {

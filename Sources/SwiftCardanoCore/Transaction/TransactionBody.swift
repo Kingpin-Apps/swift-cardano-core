@@ -3,6 +3,10 @@ import OrderedCollections
 import CBORCodable
 import SwiftNaCl
 
+/// The body of a transaction: a CBOR map from field numbers to fields.
+///
+/// Its Blake2b-256 hash is the transaction id, which every key witness signs.
+/// Setting any field clears ``TransactionBody/originalCBOR``.
 public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
 
     public static var TYPE: String { "Unsigned TxBody ConwayEra" }
@@ -16,26 +20,47 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
         self.debugDescription
     }
 
+    /// The outputs this transaction spends. Key 0 in the body map.
     public var inputs: ListOrOrderedSet<TransactionInput> { didSet { originalCBOR = nil } }
+    /// The outputs this transaction creates. Key 1 in the body map.
     public var outputs: [TransactionOutput] { didSet { originalCBOR = nil } }
+    /// The fee, in lovelace. Key 2 in the body map.
     public var fee: Coin { didSet { originalCBOR = nil } }
+    /// The time to live: the upper bound of the validity interval, as a slot number. Key 3 in the body map.
     public var ttl: SlotNumber? { didSet { originalCBOR = nil } }
+    /// The certificates. Key 4 in the body map.
     public var certificates: ListOrNonEmptyOrderedSet<Certificate>? { didSet { originalCBOR = nil } }
+    /// The reward withdrawals, in lovelace. Key 5 in the body map.
     public var withdrawals: Withdrawals? { didSet { originalCBOR = nil } }
+    /// The protocol-parameter update proposal. Key 6 in the body map.
     public var update: Update? { didSet { originalCBOR = nil } }
+    /// The hash of the transaction's auxiliary data. Key 7 in the body map.
     public var auxiliaryDataHash: AuxiliaryDataHash? { didSet { originalCBOR = nil } }
+    /// The lower bound of the validity interval, as a slot number. Key 8 in the body map.
     public var validityStart: SlotNumber? { didSet { originalCBOR = nil } }
+    /// The native assets minted (positive amounts) or burned (negative amounts). Key 9 in the body map.
     public var mint: MultiAsset? { didSet { originalCBOR = nil } }
+    /// The script data hash (`script_data_hash`). Key 11 in the body map.
     public var scriptDataHash: ScriptDataHash? { didSet { originalCBOR = nil } }
+    /// The collateral inputs. Key 13 in the body map.
     public var collateral: ListOrNonEmptyOrderedSet<TransactionInput>? { didSet { originalCBOR = nil } }
+    /// The hashes of the keys that must sign the transaction. Key 14 in the body map.
     public var requiredSigners: ListOrNonEmptyOrderedSet<VerificationKeyHash>? { didSet { originalCBOR = nil } }
+    /// The network id. Key 15 in the body map.
     public var networkId: Int? { didSet { originalCBOR = nil } }
+    /// The output that receives what is left of the collateral. Key 16 in the body map.
     public var collateralReturn: TransactionOutput? { didSet { originalCBOR = nil } }
+    /// The total collateral, in lovelace. Key 17 in the body map.
     public var totalCollateral: Coin? { didSet { originalCBOR = nil } }
+    /// The reference inputs: outputs read but not spent. Key 18 in the body map.
     public var referenceInputs: ListOrNonEmptyOrderedSet<TransactionInput>? { didSet { originalCBOR = nil } }
+    /// The governance votes. Key 19 in the body map.
     public var votingProcedures: VotingProcedures? { didSet { originalCBOR = nil } }
+    /// The governance proposals. Key 20 in the body map.
     public var proposalProcedures: ProposalProcedures? { didSet { originalCBOR = nil } }
+    /// The current treasury amount, in lovelace. Key 21 in the body map.
     public var currentTreasuryAmount: Coin? { didSet { originalCBOR = nil } }
+    /// The donation to the treasury, in lovelace. Key 22 in the body map.
     public var treasuryDonation: PositiveCoin? { didSet { originalCBOR = nil } }
 
     /// The field numbers in the order this body was written in, when it was
@@ -170,6 +195,10 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
         originalCBOR = scanner.bytes
     }
 
+    /// Decodes a body from CBOR bytes with Conway's ledger rules, keeping its bytes as ``fromCBOR(data:)`` does.
+    ///
+    /// - Parameter cbor: The CBOR bytes of the body.
+    /// - Throws: An error when the bytes are not a valid transaction body.
     public init(from cbor: Data) throws {
         self = try Self.fromCBOR(data: cbor)
     }
@@ -182,6 +211,31 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
         return try CBOREncoder().encode(self)
     }
 
+    /// Creates a transaction body from its fields.
+    ///
+    /// The text-envelope type is `Unsigned TxBody ConwayEra`.
+    /// - Parameters:
+    ///   - inputs: The outputs spent. Key 0.
+    ///   - outputs: The outputs created. Key 1.
+    ///   - fee: The fee, in lovelace. Key 2.
+    ///   - ttl: The upper bound of the validity interval, as a slot number. Key 3.
+    ///   - certificates: The certificates. Key 4.
+    ///   - withdrawals: The reward withdrawals. Key 5.
+    ///   - update: The protocol-parameter update proposal. Key 6.
+    ///   - auxiliaryDataHash: The hash of the auxiliary data. Key 7.
+    ///   - validityStart: The lower bound of the validity interval, as a slot number. Key 8.
+    ///   - mint: The native assets minted or burned. Key 9.
+    ///   - scriptDataHash: The script data hash. Key 11.
+    ///   - collateral: The collateral inputs. Key 13.
+    ///   - requiredSigners: The hashes of the keys that must sign. Key 14.
+    ///   - networkId: The network id. Key 15.
+    ///   - collateralReturn: The collateral return output. Key 16.
+    ///   - totalCollateral: The total collateral, in lovelace. Key 17.
+    ///   - referenceInputs: The reference inputs. Key 18.
+    ///   - votingProcedures: The governance votes. Key 19.
+    ///   - proposalProcedures: The governance proposals. Key 20.
+    ///   - currentTreasuryAmount: The current treasury amount, in lovelace. Key 21.
+    ///   - treasuryDonation: The donation to the treasury, in lovelace. Key 22.
     public init(
         inputs: ListOrOrderedSet<TransactionInput>,
         outputs: [TransactionOutput],
@@ -290,6 +344,9 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
         self._description = Self.DESCRIPTION
     }
 
+    /// Checks the mint amounts and every output.
+    ///
+    /// - Throws: `CardanoCoreError.invalidArgument` when a mint amount's magnitude exceeds 45,000,000,000,000,000, or the error ``TransactionOutput/validate()`` throws for an output.
     public func validate() throws {
         // Check mint asset bounds - values should be within reasonable bounds for Cardano
         // Cardano uses 64-bit signed integers, but very large values can cause issues

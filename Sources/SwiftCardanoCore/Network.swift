@@ -1,8 +1,11 @@
 import Foundation
 
-/// Network ID
+/// The network ID carried in a Shelley address header and a transaction body:
+/// `0` for any test network, `1` for mainnet.
 public enum NetworkId: Int, Codable, CaseIterable, Sendable {
+    /// Any test network.
     case testnet = 0
+    /// The Cardano mainnet.
     case mainnet = 1
     
     public init(from decoder: Decoder) throws {
@@ -21,13 +24,19 @@ public enum NetworkId: Int, Codable, CaseIterable, Sendable {
     }
 }
 
-/// Network
+/// A Cardano network, which sets the network ID and, for a test network, its magic.
 public enum Network: Sendable, Equatable {
+    /// The Cardano mainnet.
     case mainnet
+    /// The preprod test network, magic `1`.
     case preprod
+    /// The preview test network, magic `2`.
     case preview
+    /// The guildnet test network, magic `141`.
     case guildnet
+    /// The SanchoNet test network, magic `4`.
     case sanchonet
+    /// A test network with the given magic.
     case custom(Int)
     
     /// Returns the testnet magic for the network

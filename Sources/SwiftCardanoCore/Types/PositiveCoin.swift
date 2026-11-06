@@ -1,10 +1,17 @@
 import Foundation
 import OrderedCollections
 
+/// A coin amount that must be greater than zero (`positive_coin` in the CDDL).
 public struct PositiveCoin: Serializable {
 
+    /// The amount, in lovelace. Always greater than zero.
     public let value: UInt
 
+    /// Creates a positive coin amount.
+    ///
+    /// The initializer traps (it uses `precondition`) when `value` is zero.
+    ///
+    /// - Parameter value: The amount, which must be greater than zero.
     public init(_ value: UInt) {
         precondition(value > 0, "PositiveCoin must be greater than 0")
         self.value = value

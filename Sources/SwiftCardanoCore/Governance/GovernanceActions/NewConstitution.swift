@@ -1,6 +1,7 @@
 import Foundation
 
 
+/// A proposal to replace the constitution: `new_constitution = (5, gov_action_id / nil, constitution)`.
 public struct NewConstitution: GovernanceAction {
     public static var code: GovActionCode { get { .newConstitution } }
     
@@ -10,8 +11,13 @@ public struct NewConstitution: GovernanceAction {
     /// none — a transaction proposing one cannot be read at all if this is
     /// required.
     public let id: GovActionID?
+    /// The proposed constitution: its anchor and optional guardrails script hash.
     public let constitution: Constitution
     
+    /// Creates a new constitution action.
+    /// - Parameters:
+    ///   - id: The previous new constitution action, or `nil` for none.
+    ///   - constitution: The proposed constitution.
     public init(id: GovActionID?, constitution: Constitution) {
         self.id = id
         self.constitution = constitution

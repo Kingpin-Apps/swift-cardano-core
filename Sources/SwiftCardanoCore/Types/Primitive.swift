@@ -7,36 +7,69 @@ import CBORCodable
 /// a few other calls return, named here so callers need not import CBORCodable.
 public typealias AnyValue = CBORCodable.AnyValue
 
+/// A dynamically typed CBOR value, the intermediate form every serializable type in this module reads from and writes to.
+///
+/// Each case says how it is written to CBOR by ``toCBOR()``. Several cases exist only so that a value read from CBOR keeps how it was written (definite or indefinite length, map key order), so it encodes back to the same bytes.
 public indirect enum Primitive: CBORSerializable, Sendable {
+    /// A byte string.
     case bytes(Data)
+    /// A byte string held as an array of bytes. Written as a CBOR byte string.
     case byteArray([UInt8])
+    /// A text string.
     case string(String)
+    /// A signed 64-bit integer. Written as a CBOR unsigned or negative integer.
     case int(Int64)
+    /// An unsigned 64-bit integer.
     case uint(UInt64)
+    /// An arbitrary-precision integer. Written as a plain CBOR integer when it fits in 64 bits, otherwise as a tag 2 or tag 3 bignum.
     case bigInt(BigInt)
+    /// An arbitrary-precision unsigned integer. Written as for ``bigInt(_:)``.
     case bigUInt(BigUInt)
+    /// A floating-point number. Written as a CBOR double.
     case float(Double)
+    /// A decimal number. Written as a text string of its description.
     case decimal(Decimal)
+    /// A Boolean.
     case bool(Bool)
+    /// A tuple. Written as a definite-length array.
     case tuple(AnyTuple)
+    /// A definite-length array.
     case list([Primitive])
+    /// An indefinite-length array.
     case indefiniteList(IndefiniteList<Primitive>)
+    /// An unordered map. Written with its entries sorted bytewise by their encoded keys; use ``orderedDict(_:)`` to keep insertion order.
     case dict([Primitive: Primitive])
+    /// An indefinite-length map, in insertion order.
     case indefiniteDictionary(OrderedDictionary<Primitive, Primitive>)
+    /// A definite-length map, in insertion order.
     case orderedDict(OrderedDictionary<Primitive, Primitive>)
+    /// A date.
     case datetime(Date)
+    /// A regular expression. Written as a text string of its pattern.
     case regex(NSRegularExpression)
+    /// A raw CBOR value, written as is. It also carries values kept exactly as read, such as already-encoded bytes and chunked text strings.
     case cborSimpleValue(CBOR)
+    /// A tagged value.
     case cborTag(CBORTag)
+    /// An ordered set. Written as ``OrderedSet`` writes itself.
     case orderedSet(OrderedSet<Primitive>)
+    /// A non-empty ordered set. Written as ``NonEmptyOrderedSet`` writes itself.
     case nonEmptyOrderedSet(NonEmptyOrderedSet<Primitive>)
+    /// A unit interval. Written as tag 30 around `[numerator, denominator]`.
     case unitInterval(UnitInterval)
+    /// An unordered set. Written as a definite-length array, without a set tag.
     case frozenSet(Set<Primitive>)
+    /// A map. Written as a definite-length map in the dictionary's iteration order.
     case frozenDict([Primitive: Primitive])
+    /// A definite-length array. Written as ``list(_:)``.
     case frozenList([Primitive])
+    /// An indefinite-length array. Written as ``indefiniteList(_:)``.
     case indefiniteFrozenList(IndefiniteList<Primitive>)
+    /// A byte string that keeps its definite or chunked encoding. See ``ByteString``.
     case byteString(ByteString)
+    /// Plutus data. Written as its own CBOR encoding.
     case plutusData(PlutusData)
+    /// CBOR null.
     case null
 
     /// Decodes a primitive that keeps how it was written: indefinite-length
@@ -250,6 +283,10 @@ public indirect enum Primitive: CBORSerializable, Sendable {
         return .unitInterval(UnitInterval(numerator: numerator, denominator: denominator))
     }
 
+    /// This value as a CBOR value, as each case describes.
+    ///
+    /// - Returns: The CBOR value.
+    /// - Throws: When a nested value cannot be converted.
     public func toCBOR() throws -> CBOR {
         // Containers recurse once per nesting level, so their bodies live in
         // out-of-line helpers. That keeps this frame small in unoptimized
@@ -738,11 +775,13 @@ public indirect enum Primitive: CBORSerializable, Sendable {
         return self
     }
 
+    /// The string, when this is ``string(_:)``; otherwise `nil`.
     public var stringValue: String? {
         guard case .string(let value) = self else { return nil }
         return value
     }
 
+    /// The elements, when this is ``list(_:)``; otherwise `nil`.
     public var listValue: [Primitive]? {
         guard case .list(let value) = self else { return nil }
         return value
@@ -757,16 +796,19 @@ public indirect enum Primitive: CBORSerializable, Sendable {
         return try Primitive.from(cbor: CBORSerialization.cbor(from: bytes), preservingEncoding: true)
     }
 
+    /// The list, when this is ``indefiniteList(_:)``; otherwise `nil`.
     public var indefiniteListValue: IndefiniteList<Primitive>? {
         guard case .indefiniteList(let value) = self else { return nil }
         return value
     }
 
+    /// The dictionary, when this is ``orderedDict(_:)``; otherwise `nil`.
     public var orderedDictValue: OrderedDictionary<Primitive, Primitive>? {
         guard case .orderedDict(let value) = self else { return nil }
         return value
     }
 
+    /// The value as an `Int`, when this is ``int(_:)`` or ``uint(_:)``; otherwise `nil`. Out-of-range values are clamped.
     public var intValue: Int? {
         switch self {
         case .int(let value):
@@ -778,6 +820,7 @@ public indirect enum Primitive: CBORSerializable, Sendable {
         }
     }
 
+    /// The value as an `Int64`, when this is ``int(_:)`` or ``uint(_:)``; otherwise `nil`. Out-of-range values are clamped.
     public var int64Value: Int64? {
         switch self {
         case .int(let value):
@@ -789,6 +832,7 @@ public indirect enum Primitive: CBORSerializable, Sendable {
         }
     }
 
+    /// The value as a `UInt64`, when this is ``int(_:)`` or ``uint(_:)``; otherwise `nil`. Negative values are clamped to zero.
     public var uint64Value: UInt64? {
         switch self {
         case .int(let value):

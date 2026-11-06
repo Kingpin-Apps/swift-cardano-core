@@ -1,9 +1,11 @@
 import Foundation
 
 
+/// An info action, which proposes nothing and only records the votes cast on it: `info_action = 6`.
 public struct InfoAction: GovernanceAction {
     public static var code: GovActionCode { .infoAction }
     
+    /// Creates an info action.
     public init() {}
     
     // Codable goes through `init(from: Primitive)` and `toPrimitive()`, the

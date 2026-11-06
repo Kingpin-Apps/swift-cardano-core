@@ -3,8 +3,11 @@ import CBORCodable
 import OrderedCollections
 
 
+/// The bytes of a Plutus data byte string.
 public enum Bytes: Serializable, CustomStringConvertible, Sendable {
+    /// At most 64 bytes, the `bounded_bytes` size limit.
     case boundedBytes(BoundedBytes)
+    /// A byte string that is longer than 64 bytes or keeps the chunks it was read in. See ``ByteString``.
     case byteString(ByteString)
     
     public var description: String {
@@ -14,6 +17,7 @@ public enum Bytes: Serializable, CustomStringConvertible, Sendable {
         }
     }
     
+    /// The bytes, with any chunks joined.
     public var data : Data {
         switch self {
             case .boundedBytes(let b):
@@ -23,6 +27,7 @@ public enum Bytes: Serializable, CustomStringConvertible, Sendable {
         }
     }
     
+    /// The number of bytes.
     public var count : Int {
         switch self {
             case .boundedBytes(let boundedBytes):
@@ -32,6 +37,10 @@ public enum Bytes: Serializable, CustomStringConvertible, Sendable {
         }
     }
     
+    /// Creates bytes from data: ``boundedBytes(_:)`` for at most 64 bytes, otherwise ``byteString(_:)``.
+    ///
+    /// - Parameter data: The bytes.
+    /// - Throws: When the bounded bytes cannot be built.
     public init(from data: Data) throws {
         if data.count > 64 {
             self = .byteString(ByteString(bytes: data))

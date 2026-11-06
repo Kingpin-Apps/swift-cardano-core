@@ -5,16 +5,24 @@ import OrderedCollections
 
 /// Parameters required for registering a stake pool on the Cardano blockchain.
 public struct PoolParams: Serializable {
+    /// The hash of the pool's cold verification key, which identifies the pool.
     public let poolOperator: PoolKeyHash
+    /// The hash of the pool's VRF verification key.
     public let vrfKeyHash: VrfKeyHash
+    /// The stake the owners pledge to the pool, in lovelace.
     public let pledge: Coin
+    /// The fixed cost the pool takes from rewards each epoch, in lovelace.
     public let cost: Coin
+    /// The share of the remaining rewards the pool takes, between 0 and 1.
     public let margin: UnitInterval
+    /// The reward account that receives the pool's rewards.
     public let rewardAccount: RewardAccountHash
+    /// The hashes of the stake keys of the pool's owners.
     public let poolOwners: ListOrOrderedSet<VerificationKeyHash>
     /// The pool's relays. The CDDL field is `[* relay]`, which has no null, so
     /// `nil` encodes as an empty array and a decoded pool always has an array.
     public let relays: [Relay]?
+    /// The URL and hash of the pool's off-chain metadata, or `nil` for none.
     public let poolMetadata: PoolMetadata?
     
     public enum CodingKeys: String, CodingKey {
@@ -29,6 +37,17 @@ public struct PoolParams: Serializable {
         case poolMetadata
     }
     
+    /// Creates pool parameters.
+    /// - Parameters:
+    ///   - poolOperator: The hash of the pool's cold verification key.
+    ///   - vrfKeyHash: The hash of the pool's VRF verification key.
+    ///   - pledge: The owners' pledge, in lovelace.
+    ///   - cost: The fixed cost per epoch, in lovelace.
+    ///   - margin: The pool's share of the remaining rewards, between 0 and 1.
+    ///   - rewardAccount: The reward account for the pool's rewards.
+    ///   - poolOwners: The hashes of the owners' stake keys.
+    ///   - relays: The pool's relays; `nil` encodes as an empty array.
+    ///   - poolMetadata: The pool's metadata URL and hash, or `nil` for none.
     public init(
         poolOperator: PoolKeyHash,
         vrfKeyHash: VrfKeyHash,

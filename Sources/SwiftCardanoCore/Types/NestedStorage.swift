@@ -98,10 +98,14 @@ final class NestedPairStorage<Key, Value>: @unchecked Sendable {
 public struct NestedList<Element> {
     var storage: NestedStorage<Element>
 
+    /// Creates an empty list.
     public init() {
         storage = NestedStorage([])
     }
 
+    /// Creates a list holding the elements of a sequence.
+    ///
+    /// - Parameter elements: The elements, in order.
     public init<S: Sequence>(_ elements: S) where S.Element == Element {
         storage = NestedStorage(Array(elements))
     }
@@ -133,12 +137,20 @@ extension NestedList: RandomAccessCollection, MutableCollection, RangeReplaceabl
         }
     }
 
+    /// Replaces the elements in a range with new elements, copying the storage first if it is shared.
+    ///
+    /// - Parameters:
+    ///   - subrange: The range of elements to replace.
+    ///   - newElements: The elements to insert in their place.
     public mutating func replaceSubrange<C: Collection>(_ subrange: Range<Int>, with newElements: C)
     where C.Element == Element {
         makeUnique()
         storage.items.replaceSubrange(subrange, with: newElements)
     }
 
+    /// Reserves room for at least the given number of elements, copying the storage first if it is shared.
+    ///
+    /// - Parameter minimumCapacity: The number of elements to make room for.
     public mutating func reserveCapacity(_ minimumCapacity: Int) {
         makeUnique()
         storage.items.reserveCapacity(minimumCapacity)
@@ -156,6 +168,12 @@ extension NestedList: Equatable where Element: Equatable {
         lhs.storage === rhs.storage || lhs.array == rhs.array
     }
 
+    /// Whether the list holds the same elements as an array, in the same order.
+    ///
+    /// - Parameters:
+    ///   - lhs: The list.
+    ///   - rhs: The array to compare with.
+    /// - Returns: `true` when the elements are equal.
     public static func == (lhs: NestedList, rhs: [Element]) -> Bool {
         lhs.array == rhs
     }

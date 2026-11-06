@@ -1,12 +1,19 @@
 import Foundation
 
 
+/// A proposal to start a hard fork: `hard_fork_initiation_action = (1, gov_action_id / nil, protocol_version)`.
 public struct HardForkInitiationAction: GovernanceAction {
     public static var code: GovActionCode { get { .hardForkInitiationAction } }
     
+    /// The previous action of the same kind, which this one has to follow, or `nil` for none.
     public let id: GovActionID?
+    /// The protocol version to move to.
     public let protocolVersion: ProtocolVersion
     
+    /// Creates a hard fork initiation action.
+    /// - Parameters:
+    ///   - id: The previous hard fork initiation action, or `nil` for none.
+    ///   - protocolVersion: The protocol version to move to.
     public init(id: GovActionID?, protocolVersion: ProtocolVersion) {
         self.id = id
         self.protocolVersion = protocolVersion

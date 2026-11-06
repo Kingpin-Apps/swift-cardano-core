@@ -6,6 +6,8 @@
 import Foundation
 import SwiftMnemonic
 
+/// The errors this package throws. Each case carries an optional message
+/// describing what went wrong.
 public enum CardanoCoreError: Error, CustomStringConvertible, Equatable, Sendable {
     case encodingError(String?)
     case decodingError(String?)

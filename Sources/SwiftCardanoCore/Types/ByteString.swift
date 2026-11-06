@@ -3,9 +3,13 @@ import CBORCodable
 
 
 // MARK: - ByteString
+/// A byte string that remembers whether it was written as one definite-length string or as an indefinite-length string of chunks.
+///
+/// The ledger accepts both forms and a hash covers the bytes as written, so a value read from chunks has to be written back in the same chunks. Equality and hashing compare only ``bytes``.
 public struct ByteString: CBORSerializable, CustomStringConvertible, Sendable {
     public static var preservesEncoding: Bool { true }
 
+    /// The bytes, with any chunks joined.
     public let bytes: Data
     /// The widths of the chunks this was read with, when it was written as an
     /// indefinite-length string; nil when it was written definite or built in
@@ -17,6 +21,7 @@ public struct ByteString: CBORSerializable, CustomStringConvertible, Sendable {
     /// back the way it was read.
     public let chunks: [Int]?
     
+    /// The bytes as a hexadecimal string.
     public var toHex: String {
         return self.bytes.toHex
     }
@@ -25,6 +30,9 @@ public struct ByteString: CBORSerializable, CustomStringConvertible, Sendable {
         "ByteString(length: \(bytes.count))"
     }
 
+    /// Creates a byte string written as one definite-length string.
+    ///
+    /// - Parameter bytes: The bytes.
     public init(bytes: Data) {
         self.bytes = bytes
         self.chunks = nil
@@ -73,6 +81,10 @@ public struct ByteString: CBORSerializable, CustomStringConvertible, Sendable {
         hasher.combine(bytes)
     }
 
+    /// Whether another value holds the same bytes.
+    ///
+    /// - Parameter other: A ``ByteString`` or `Data` to compare with.
+    /// - Returns: `true` when `other` is a ``ByteString`` or `Data` with the same bytes; otherwise `false`.
     public func isEqual(to other: Any) -> Bool {
         if let otherByteString = other as? ByteString {
             return self.bytes == otherByteString.bytes
@@ -89,6 +101,7 @@ public struct ByteString: CBORSerializable, CustomStringConvertible, Sendable {
 /// Bounded bytes with enforced maximum length (0..64).
 /// Mirrors the CDDL `bounded_bytes = bytes .size (0 .. 64)`
 public struct BoundedBytes: CBORSerializable, CustomStringConvertible, Sendable {
+    /// The bytes, at most 64 of them.
     public let bytes: Data
     
     /// Creates a `BoundedBytes` if `bytes.count` is <= 64. Returns nil otherwise.
@@ -108,6 +121,7 @@ public struct BoundedBytes: CBORSerializable, CustomStringConvertible, Sendable 
         "BoundedBytes(length: \(bytes.count))"
     }
     
+    /// The bytes as a hexadecimal string.
     public var toHex: String {
         return self.bytes.toHex
     }

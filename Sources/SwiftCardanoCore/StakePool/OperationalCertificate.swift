@@ -43,6 +43,7 @@ public struct OperationalCertificate: TextEnvelopable, JSONSerializable, Sendabl
     /// The pool's cold verification key (present when loaded from a text envelope).
     public var coldVerificationKey: StakePoolVerificationKey?
 
+    /// The size of ``sigma`` in bytes.
     public static let SIGMA_SIZE = 64
 
     enum CodingKeys: String, CodingKey {
@@ -54,6 +55,14 @@ public struct OperationalCertificate: TextEnvelopable, JSONSerializable, Sendabl
 
     // MARK: - Initialization
 
+    /// Creates an operational certificate from its fields and computes its payload.
+    /// - Parameters:
+    ///   - hotVKey: The KES hot verification key the certificate delegates to.
+    ///   - sequenceNumber: The certificate's issue counter value.
+    ///   - kesPeriod: The KES period the certificate starts from.
+    ///   - sigma: The cold key's 64-byte signature over the certificate body.
+    ///   - coldVerificationKey: The pool's cold verification key, written into the text envelope when present.
+    /// - Throws: `CardanoCoreError.invalidArgument` when `sigma` is not ``SIGMA_SIZE`` bytes.
     public init(
         hotVKey: KESVerificationKey,
         sequenceNumber: UInt64,

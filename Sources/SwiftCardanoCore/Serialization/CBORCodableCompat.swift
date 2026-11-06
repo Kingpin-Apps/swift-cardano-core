@@ -29,6 +29,7 @@ extension CBORDecoder {
     }
 }
 
+/// Helpers that convert between CBOR bytes and a `CBOR` value.
 public enum CBORSerialization {
 
     /// Decode the bytes as a single CBOR data item. Lenient (matches

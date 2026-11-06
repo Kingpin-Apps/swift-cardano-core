@@ -4,6 +4,7 @@ import OrderedCollections
 /// `invalid_before` (code 4): valid only from `slot` onwards. cardano-cli JSON type `"after"`.
 public struct BeforeScript: NativeScriptable {
     public static let TYPE = NativeScriptType.invalidBefore
+    /// The first slot in which the script is valid.
     public let slot: SlotNumber
 
     /// The bytes this script was decoded from, when it was decoded on its
@@ -11,6 +12,9 @@ public struct BeforeScript: NativeScriptable {
     /// taken over them, as the ledger takes them, while they are kept.
     public internal(set) var originalCBOR: Data? = nil
 
+    /// Creates a script that is valid only from `slot` onwards.
+    ///
+    /// - Parameter slot: The first slot in which the script is valid.
     public init (slot: SlotNumber) {
         self.slot = slot
     }

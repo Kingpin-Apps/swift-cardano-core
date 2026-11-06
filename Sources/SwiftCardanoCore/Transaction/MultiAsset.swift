@@ -3,7 +3,9 @@ import Foundation
 import CBORCodable
 import OrderedCollections
 
+/// Native assets grouped by policy: policy id (a ``ScriptHash``) to an ``Asset`` map.
 public struct MultiAsset: Serializable, Comparable {
+    /// The asset maps, keyed by policy id. Setting it does not drop empty maps or zero amounts; see ``normalize()``.
     public var data: [ScriptHash: Asset] {
         get { _data }
         set { _data = newValue }
@@ -11,15 +13,23 @@ public struct MultiAsset: Serializable, Comparable {
     private var _data: [ScriptHash: Asset] = [:]
     
     // Subscript for easier key-value access
+    /// Gets or sets the asset map of one policy.
+    ///
+    /// - Parameter key: The policy id.
     public subscript(key: ScriptHash) -> Asset? {
         get { _data[key] }
         set { _data[key] = newValue }
     }
     
+    /// The number of policies.
     public var count: Int { data.count }
     
+    /// Whether there are no policies.
     public var isEmpty: Bool { data.isEmpty }
     
+    /// Creates a multi-asset, dropping zero amounts and policies left with no assets.
+    ///
+    /// - Parameter data: The asset maps, keyed by policy id.
     public init(_ data: [ScriptHash: Asset]) {
         self._data = data
         self._data = self.normalizeData()
@@ -36,6 +46,11 @@ public struct MultiAsset: Serializable, Comparable {
         return normalizedData
     }
     
+    /// Creates a multi-asset from string keys.
+    ///
+    /// Each policy id is read as hex; each asset name as described in
+    /// `AssetName.init(from:)`.
+    /// - Parameter dict: Amounts keyed by policy id, then by asset name.
     public init<T: BinaryInteger>(from dict: [String: [String: T]]) throws {
         var data: [ScriptHash: Asset] = [:]
 
@@ -159,10 +174,15 @@ public struct MultiAsset: Serializable, Comparable {
         }
     }
 
+    /// Returns the per-asset sum of this multi-asset and `other`; the same as `self + other`.
+    ///
+    /// - Parameter other: The multi-asset to add.
+    /// - Returns: The combined multi-asset.
     public func union(_ other: MultiAsset) -> MultiAsset {
         return self + other
     }
     
+    /// Returns a copy with zero amounts removed and policies left with no assets dropped.
     public func normalize() -> MultiAsset {
         var newMultiAsset = self
         for (key, var value) in data {
@@ -176,6 +196,10 @@ public struct MultiAsset: Serializable, Comparable {
         return newMultiAsset
     }
 
+    /// Adds two multi-assets per policy and asset name.
+    ///
+    /// A policy or asset missing from one side counts as zero. The result is
+    /// normalized: zero amounts and empty policies are removed.
     public static func + (lhs: MultiAsset, rhs: MultiAsset) -> MultiAsset {
         var newMultiAsset = lhs
         for (key, value) in rhs.data {
@@ -185,10 +209,16 @@ public struct MultiAsset: Serializable, Comparable {
         return newMultiAsset.normalize()
     }
 
+    /// Adds `rhs` to `lhs` per policy and asset name.
     public static func += (lhs: inout MultiAsset, rhs: MultiAsset) {
         lhs = lhs + rhs
     }
 
+    /// Subtracts `rhs` from `lhs` per policy and asset name.
+    ///
+    /// A policy or asset missing from `lhs` counts as zero, so the result can hold
+    /// negative amounts. The result is normalized: zero amounts and empty policies
+    /// are removed.
     public static func - (lhs: MultiAsset, rhs: MultiAsset) -> MultiAsset {
         var newMultiAsset = lhs
         for (key, value) in rhs.data {
@@ -221,6 +251,9 @@ public struct MultiAsset: Serializable, Comparable {
         return true
     }
 
+    /// Returns `true` when every policy in `lhs` is also in `rhs` and its asset map is `<=` the one in `rhs`.
+    ///
+    /// Policies only in `rhs` are ignored.
     public static func <= (lhs: MultiAsset, rhs: MultiAsset) -> Bool {
         for (key, value) in lhs.data {
             guard let rhsData = rhs.data[key] else {
@@ -234,6 +267,9 @@ public struct MultiAsset: Serializable, Comparable {
         return true
     }
 
+    /// Returns `true` when, for every policy in both multi-assets, the asset map in `lhs` is `>=` the one in `rhs`.
+    ///
+    /// Policies in only one of the two are skipped.
     public static func >= (lhs: MultiAsset, rhs: MultiAsset) -> Bool {
         for (key, value) in lhs.data {
             guard let rhsData = rhs.data[key] else {
@@ -246,6 +282,10 @@ public struct MultiAsset: Serializable, Comparable {
         return true
     }
     
+    /// Returns `true` when, for every policy in both multi-assets, the asset map in `lhs` is `<` the one in `rhs`.
+    ///
+    /// Policies in only one of the two are skipped, so two multi-assets with no
+    /// policy in common compare as `true`.
     public static func < (lhs: MultiAsset, rhs: MultiAsset) -> Bool {
         for (key, value) in lhs.data {
             guard let rhsData = rhs.data[key] else {
@@ -258,6 +298,10 @@ public struct MultiAsset: Serializable, Comparable {
         return true
     }
     
+    /// Returns `true` when, for every policy in both multi-assets, the asset map in `lhs` is `>` the one in `rhs`.
+    ///
+    /// Policies in only one of the two are skipped, so two multi-assets with no
+    /// policy in common compare as `true`.
     public static func > (lhs: MultiAsset, rhs: MultiAsset) -> Bool {
         for (key, value) in lhs.data {
             guard let rhsData = rhs.data[key] else {
@@ -299,6 +343,10 @@ public struct MultiAsset: Serializable, Comparable {
         return newMultiAsset
     }
 
+    /// Counts the assets that match a predicate.
+    ///
+    /// - Parameter criteria: A function that takes the policy id, asset name and amount, and returns `true` to count the asset.
+    /// - Returns: The number of assets for which `criteria` returned `true`.
     public func count(criteria: (ScriptHash, AssetName, BigInt) -> Bool) throws -> Int {
         var count = 0
         for (policyId, asset) in data {

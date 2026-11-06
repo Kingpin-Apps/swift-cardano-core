@@ -8,6 +8,7 @@ import OrderedCollections
 public struct ShelleyGenesis: JSONLoadable {
     /// `PositiveUnitInterval`: in `1/10^19 ... 1`.
     public let activeSlotsCoeff: UnitInterval
+    /// `protocolParams`: the initial Shelley protocol parameters.
     public let protocolParams: ProtocolParams
     /// `Map (KeyHash GenesisRole) GenDelegPair`, keyed by the hex key hash.
     public let genDelegs: [String: GenDelegation]
@@ -41,6 +42,24 @@ public struct ShelleyGenesis: JSONLoadable {
     /// `StrictMaybe ShelleyExtraConfig`.
     public let extraConfig: ShelleyExtraConfig?
 
+    /// Creates a Shelley genesis from its fields.
+    /// - Parameters:
+    ///   - activeSlotsCoeff: The `activeSlotsCoeff`.
+    ///   - protocolParams: The initial protocol parameters.
+    ///   - genDelegs: The genesis delegations, keyed by the hex key hash.
+    ///   - updateQuorum: The `updateQuorum`.
+    ///   - networkId: `"Mainnet"` or `"Testnet"`.
+    ///   - initialFunds: Each hex address's initial balance, in lovelace.
+    ///   - maxLovelaceSupply: The `maxLovelaceSupply`, in lovelace.
+    ///   - networkMagic: The `networkMagic`.
+    ///   - epochLength: The `epochLength`, in slots.
+    ///   - systemStart: The `systemStart` time, as the ledger writes it in JSON.
+    ///   - slotsPerKESPeriod: The `slotsPerKESPeriod`.
+    ///   - slotLength: The `slotLength`, in seconds.
+    ///   - maxKESEvolutions: The `maxKESEvolutions`.
+    ///   - securityParam: The `securityParam`, which must not be zero.
+    ///   - staking: The pools to register and the stake to delegate.
+    ///   - extraConfig: The optional extra configuration.
     public init(
         activeSlotsCoeff: UnitInterval,
         protocolParams: ProtocolParams,
@@ -90,9 +109,15 @@ public struct ShelleyGenesis: JSONLoadable {
 public struct ProtocolParams: Codable, Equatable, Hashable {
     /// `ProtVer`: a `Version` (a `Word32`) and a `Word32` minor.
     public struct ProtocolVersion: Codable, Equatable, Hashable {
+        /// The minor protocol version.
         public let minor: UInt32
+        /// The major protocol version.
         public let major: UInt32
 
+        /// Creates a protocol version.
+        /// - Parameters:
+        ///   - minor: The minor version.
+        ///   - major: The major version.
         public init(minor: UInt32, major: UInt32) {
             self.minor = minor
             self.major = major
@@ -106,8 +131,13 @@ public struct ProtocolParams: Codable, Equatable, Hashable {
         /// The nonce's hex hash when ``tag`` is `"Nonce"`.
         public let contents: String?
 
+        /// The neutral nonce, `NeutralNonce`.
         public static let neutral = ExtraEntropy(tag: "NeutralNonce", contents: nil)
 
+        /// Creates extra entropy from its JSON tag and contents.
+        /// - Parameters:
+        ///   - tag: `"NeutralNonce"` or `"Nonce"`.
+        ///   - contents: The nonce's hex hash when `tag` is `"Nonce"`.
         public init(tag: String, contents: String? = nil) {
             self.tag = tag
             self.contents = contents
@@ -166,11 +196,13 @@ public struct ProtocolParams: Codable, Equatable, Hashable {
         }
     }
 
+    /// `protocolVersion`: the initial protocol version.
     public let protocolVersion: ProtocolVersion
     /// `UnitInterval`.
     public let decentralisationParam: UnitInterval
     /// `EpochInterval`, a `Word32`.
     public let eMax: EpochInterval
+    /// `extraEntropy`: the extra entropy nonce.
     public let extraEntropy: ExtraEntropy
     /// `Word32`.
     public let maxTxSize: UInt32
@@ -199,6 +231,25 @@ public struct ProtocolParams: Codable, Equatable, Hashable {
     /// `NonNegativeInterval`.
     public let a0: NonNegativeInterval
 
+    /// Creates Shelley protocol parameters from their fields.
+    /// - Parameters:
+    ///   - protocolVersion: The `protocolVersion`.
+    ///   - decentralisationParam: The `decentralisationParam`.
+    ///   - eMax: The `eMax`, in epochs.
+    ///   - extraEntropy: The `extraEntropy` nonce.
+    ///   - maxTxSize: The `maxTxSize`, in bytes.
+    ///   - maxBlockBodySize: The `maxBlockBodySize`, in bytes.
+    ///   - maxBlockHeaderSize: The `maxBlockHeaderSize`, in bytes.
+    ///   - minFeeA: The `minFeeA` fee per byte, in lovelace.
+    ///   - minFeeB: The `minFeeB` constant fee, in lovelace.
+    ///   - minUTxOValue: The `minUTxOValue`, in lovelace.
+    ///   - poolDeposit: The `poolDeposit`, in lovelace.
+    ///   - minPoolCost: The `minPoolCost`, in lovelace.
+    ///   - keyDeposit: The `keyDeposit`, in lovelace.
+    ///   - nOpt: The `nOpt`.
+    ///   - rho: The `rho`.
+    ///   - tau: The `tau`.
+    ///   - a0: The `a0`.
     public init(
         protocolVersion: ProtocolVersion, decentralisationParam: UnitInterval, eMax: EpochInterval,
         extraEntropy: ExtraEntropy, maxTxSize: UInt32, maxBlockBodySize: UInt32, maxBlockHeaderSize: UInt16,
@@ -281,9 +332,15 @@ public struct ProtocolParams: Codable, Equatable, Hashable {
 
 /// `GenDelegPair`: a genesis delegate's key hash and VRF key hash, in hex.
 public struct GenDelegation: Codable, Equatable, Hashable {
+    /// The genesis delegate's key hash, in hex.
     public let delegate: String
+    /// The genesis delegate's VRF key hash, in hex.
     public let vrf: String
 
+    /// Creates a genesis delegation.
+    /// - Parameters:
+    ///   - delegate: The delegate's key hash, in hex.
+    ///   - vrf: The delegate's VRF key hash, in hex.
     public init(delegate: String, vrf: String) {
         self.delegate = delegate
         self.vrf = vrf
@@ -301,6 +358,10 @@ public struct ShelleyGenesisStaking: Codable, Equatable, Hashable, Sendable {
     /// hash and the hex pool key hash it delegates to.
     public let stake: OrderedDictionary<String, String>
 
+    /// Creates genesis staking.
+    /// - Parameters:
+    ///   - pools: Each pool's parameters as CBOR, keyed by the hex pool key hash.
+    ///   - stake: Each hex staking key hash and the hex pool key hash it delegates to.
     public init(pools: OrderedDictionary<String, Primitive> = [:], stake: OrderedDictionary<String, String> = [:]) {
         self.pools = pools
         self.stake = stake
@@ -358,6 +419,11 @@ public struct ShelleyExtraConfig: Codable, Equatable, Hashable, Sendable {
     /// `InjectionData (KeyHash Staking) (KeyHash StakePool)`.
     public let stakeCredentials: ShelleyGenesisInjection<String>
 
+    /// Creates a Shelley extra configuration.
+    /// - Parameters:
+    ///   - initialFunds: The injected initial funds.
+    ///   - stakePools: The injected stake pools, their parameters as CBOR.
+    ///   - stakeCredentials: The injected stake delegations.
     public init(
         initialFunds: ShelleyGenesisInjection<Coin> = .none,
         stakePools: ShelleyGenesisInjection<Primitive> = .none,

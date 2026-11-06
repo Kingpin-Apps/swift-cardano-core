@@ -1,13 +1,18 @@
 import Foundation
 
 // MARK: - IPv4Address Extensions
+/// An IPv4 address, written to CBOR as its 4 bytes in network order.
+///
+/// Reading also accepts the dotted-decimal text form. JSON uses the dotted-decimal text.
 public struct IPv4Address: CBORSerializable, LosslessStringConvertible, Sendable {
+    /// The address as a 32-bit number, most significant octet first.
     public let ip: UInt32
     
     public var description: String {
         return address
     }
     
+    /// The address in dotted-decimal form, such as `192.168.0.1`.
     public var address: String {
         return "\( (ip >> 24) & 0xFF ).\( (ip >> 16) & 0xFF ).\( (ip >> 8) & 0xFF ).\( ip & 0xFF )"
     }
@@ -20,10 +25,14 @@ public struct IPv4Address: CBORSerializable, LosslessStringConvertible, Sendable
                 UInt8(ip & 0xFF)]
     }
     
+    /// The address's 4 bytes, in network order.
     public var rawValue: Data {
         return Data(octets)
     }
     
+    /// Creates an address from its dotted-decimal form, or returns `nil` when the text is not one.
+    ///
+    /// - Parameter description: The address, such as `192.168.0.1`.
     public init?(_ description: String) {
         do {
             try self.init(address: description)
@@ -32,14 +41,26 @@ public struct IPv4Address: CBORSerializable, LosslessStringConvertible, Sendable
         }
     }
     
+    /// Creates an address from its 32-bit value.
+    ///
+    /// - Parameter ip: The address, most significant octet first.
+    /// - Throws: Never; the initializer is marked `throws` but accepts every value.
     public init (from ip: UInt32) throws {
         self.ip = ip
     }
     
+    /// Creates an address from its octets.
+    ///
+    /// - Parameter octets: The 4 octets, in network order.
+    /// - Throws: Unless there are exactly 4 octets.
     public init (from octets: [UInt8]) throws {
         try self.init(Data(octets))
     }
 
+    /// Creates an address from its bytes.
+    ///
+    /// - Parameter data: The 4 bytes, in network order.
+    /// - Throws: Unless `data` is exactly 4 bytes.
     public init(_ data: Data) throws {
         guard data.count == 4 else {
             throw CardanoCoreError.valueError("Data must be exactly 4 bytes to represent an IPv4 address.")
@@ -48,6 +69,10 @@ public struct IPv4Address: CBORSerializable, LosslessStringConvertible, Sendable
         self.ip = data.withUnsafeBytes { $0.load(as: UInt32.self).bigEndian }
     }
     
+    /// Creates an address from its dotted-decimal form.
+    ///
+    /// - Parameter address: The address, such as `192.168.0.1`.
+    /// - Throws: Unless the text is four decimal numbers from 0 to 255 separated by dots.
     public init(address: String) throws {
         let chunks = address.split(separator: ".")
         guard chunks.count == 4 else {
@@ -111,13 +136,18 @@ public struct IPv4Address: CBORSerializable, LosslessStringConvertible, Sendable
 }
 
 // MARK: - IPv6Address Extensions
+/// An IPv6 address, written to CBOR as its 16 bytes in network order.
+///
+/// Reading also accepts the colon-separated text form. JSON uses the text form.
 public struct  IPv6Address: CBORSerializable, LosslessStringConvertible, Sendable {
+    /// The address's first and last 64 bits, most significant first.
     public let high, low: UInt64
     
     public var description: String {
         return address
     }
     
+    /// The address as eight colon-separated groups of lowercase hex, without `::` shortening.
     public var address: String {
         var segments: [String] = []
         for i in 0..<8 {
@@ -135,6 +165,7 @@ public struct  IPv6Address: CBORSerializable, LosslessStringConvertible, Sendabl
     }
         
     
+    /// The address's 16 bytes, in network order.
     public var octets: [UInt8] {
         return [UInt8(high >> 56), UInt8((high >> 48) & 0xFF),
                 UInt8((high >> 40) & 0xFF), UInt8((high >> 32) & 0xFF),
@@ -147,10 +178,14 @@ public struct  IPv6Address: CBORSerializable, LosslessStringConvertible, Sendabl
     }
     
     
+    /// The address's 16 bytes, in network order.
     public var rawValue: Data {
         return Data(octets)
     }
     
+    /// Creates an address from its text form, or returns `nil` when the text is not one.
+    ///
+    /// - Parameter description: The address, such as `2001:db8::1`.
     public init?(_ description: String) {
         do {
             try self.init(address: description)
@@ -159,10 +194,18 @@ public struct  IPv6Address: CBORSerializable, LosslessStringConvertible, Sendabl
         }
     }
     
+    /// Creates an address from its octets.
+    ///
+    /// - Parameter octets: The 16 octets, in network order.
+    /// - Throws: Unless there are exactly 16 octets.
     public init (from octets: [UInt8]) throws {
         try self.init(Data(octets))
     }
     
+    /// Creates an address from its bytes.
+    ///
+    /// - Parameter data: The 16 bytes, in network order.
+    /// - Throws: Unless `data` is exactly 16 bytes.
     public init(_ data: Data) throws {
         guard data.count == 16 else {
             throw CardanoCoreError.valueError("Data must be exactly 16 bytes to represent an IPv6 address.")
@@ -172,6 +215,10 @@ public struct  IPv6Address: CBORSerializable, LosslessStringConvertible, Sendabl
         self.low = data.suffix(8).withUnsafeBytes { $0.load(as: UInt64.self).bigEndian }
     }
     
+    /// Creates an address from its text form, with or without `::` shortening.
+    ///
+    /// - Parameter address: The address, such as `2001:db8::1`.
+    /// - Throws: Unless the text expands to eight hex groups of at most 16 bits.
     public init(address: String) throws {
         // Handle IPv6 address with :: shorthand notation
         let normalizedAddress = try Self.normalizeIPv6(address)
@@ -245,6 +292,11 @@ public struct  IPv6Address: CBORSerializable, LosslessStringConvertible, Sendabl
     
     // MARK: - Helper Methods
     
+    /// Expands `::` in an IPv6 address to the zero groups it stands for.
+    ///
+    /// - Parameter address: The address in text form.
+    /// - Returns: The address with `::` replaced by `0` groups, or the text unchanged when it has no `::`.
+    /// - Throws: When the text has more than one `::`, or too many groups to have one.
     public static func normalizeIPv6(_ address: String) throws -> String {
         // Handle :: shorthand notation by expanding it
         if address.contains("::") {

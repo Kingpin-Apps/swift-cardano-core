@@ -2,6 +2,7 @@ import Foundation
 import CBORCodable
 
 
+/// A governance proposal: `proposal_procedure = [deposit, reward_account, gov_action, anchor]`.
 public struct ProposalProcedure: TextEnvelopable, CBORSerializable, Sendable {
     public var _payload: Data
     public var _type: String
@@ -10,13 +11,22 @@ public struct ProposalProcedure: TextEnvelopable, CBORSerializable, Sendable {
     public static var TYPE: String { "Governance proposal" }
     public static var DESCRIPTION: String { "New constitutional committee and/or threshold and/or terms proposal" }
     
+    /// The deposit paid for the proposal, in lovelace.
     public let deposit: Coin
+    /// The reward account the deposit is returned to.
     public let rewardAccount: RewardAccount
+    /// The governance action being proposed.
     public let govAction: GovAction
+    /// The anchor to the proposal's off-chain rationale.
     public let anchor: Anchor
     
     /// Creates a proposal procedure.
     ///
+    /// - Parameters:
+    ///   - deposit: The deposit paid for the proposal, in lovelace.
+    ///   - rewardAccount: The reward account the deposit is returned to.
+    ///   - govAction: The governance action being proposed.
+    ///   - anchor: The anchor to the proposal's off-chain rationale.
     /// - Throws: When the proposal cannot be encoded for its payload.
     public init(
         deposit: Coin,
@@ -34,6 +44,11 @@ public struct ProposalProcedure: TextEnvelopable, CBORSerializable, Sendable {
         self._payload = try toCBORData()
     }
     
+    /// Initialize the proposal from its text-envelope payload.
+    /// - Parameters:
+    ///   - payload: The CBOR of the proposal
+    ///   - type: The text-envelope type
+    ///   - description: The text-envelope description
     public init(payload: Data, type: String?, description: String?) throws {
         self._payload = payload
         self._type = type ?? Self.TYPE
@@ -100,4 +115,5 @@ public struct ProposalProcedure: TextEnvelopable, CBORSerializable, Sendable {
     }
 }
 
+/// The proposals in a transaction body: a non-empty ordered set.
 public typealias ProposalProcedures = NonEmptyOrderedSet<ProposalProcedure>

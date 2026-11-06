@@ -28,13 +28,21 @@ public enum MoveInstantaneousRewardTarget: Hashable, Sendable {
 /// for the treasury. A map sends them to stake credentials; a coin moves them
 /// to the other pot.
 public struct MoveInstantaneousReward: Serializable, Sendable {
+    /// The pot the funds come from.
     public let source: MoveInstantaneousRewardSource
+    /// Where the funds go: the reward accounts of stake credentials, or the other pot.
     public let target: MoveInstantaneousRewardTarget
     /// Whether the credential map is written with an indefinite length, as
     /// the ledger itself wrote it in the Shelley era. Ignored when the funds
     /// go to the other pot.
     public let indefiniteLengthMap: Bool
 
+    /// Creates a move instantaneous reward.
+    ///
+    /// - Parameters:
+    ///   - source: The pot the funds come from.
+    ///   - target: Where the funds go.
+    ///   - indefiniteLengthMap: Whether to write the credential map with an indefinite length. Defaults to `false`.
     public init(
         source: MoveInstantaneousRewardSource,
         target: MoveInstantaneousRewardTarget,
@@ -245,6 +253,7 @@ public struct MoveInstantaneousRewards: CertificateSerializable {
     public var _type: String
     public var _description: String
 
+    /// The text envelope `type` field: always ``MoveInstantaneousRewards/TYPE``.
     public var type: String { return MoveInstantaneousRewards.TYPE }
     public var description: String { return MoveInstantaneousRewards.DESCRIPTION }
 
@@ -254,6 +263,7 @@ public struct MoveInstantaneousRewards: CertificateSerializable {
     }
     public static var CODE: CertificateCode { return .moveInstantaneousRewards }
 
+    /// The move instantaneous reward the certificate carries.
     public let moveInstantaneousRewards: MoveInstantaneousReward
 
     public enum CodingKeys: String, CodingKey {

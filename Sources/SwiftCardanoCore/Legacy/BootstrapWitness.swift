@@ -1,10 +1,15 @@
 import Foundation
 
 // Define a struct for BootstrapWitness
+/// A Byron bootstrap witness: `[public_key, signature, chain_code, attributes]`.
 public struct BootstrapWitness: Serializable {
+    /// The 32-byte verification key.
     public let publicKey: Data // $vkey - bytes of size 32
+    /// The 64-byte signature.
     public let signature: Data // $signature - bytes of size 64
+    /// The 32-byte chain code.
     public let chainCode: Data // bytes of size 32
+    /// The attributes, as bytes of any length.
     public let attributes: Data // bytes of variable size
     
     public enum CodingKeys: String, CodingKey {
@@ -14,6 +19,14 @@ public struct BootstrapWitness: Serializable {
         case attributes
     }
     
+    /// Creates a bootstrap witness.
+    ///
+    /// - Parameters:
+    ///   - publicKey: The 32-byte verification key.
+    ///   - signature: The 64-byte signature.
+    ///   - chainCode: The 32-byte chain code.
+    ///   - attributes: The attributes, as bytes of any length.
+    /// - Throws: `CardanoCoreError.invalidArgument` when `publicKey`, `signature` or `chainCode` has the wrong length.
     public init(publicKey: Data, signature: Data, chainCode: Data, attributes: Data) throws {
         // Validate data sizes according to comments
         guard publicKey.count == 32 else {

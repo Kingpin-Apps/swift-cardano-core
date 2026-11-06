@@ -1,8 +1,11 @@
 import Foundation
 import OrderedCollections
 
+/// A protocol-parameter update proposal, as a transaction body's `update` field holds it: `[proposed_protocol_parameter_updates, epoch]`.
 public struct Update: Serializable {
+    /// The proposed parameter changes, keyed by genesis key hash.
     public let proposedprotocolParamUpdates: ProposedProtocolParamUpdates
+    /// The epoch number written with the proposal.
     public let epoch: EpochNumber
 
     public enum CodingKeys: String, CodingKey {
@@ -10,6 +13,11 @@ public struct Update: Serializable {
         case epoch
     }
 
+    /// Creates an update proposal.
+    ///
+    /// - Parameters:
+    ///   - proposedprotocolParamUpdates: The proposed parameter changes, keyed by genesis key hash.
+    ///   - epoch: The epoch number written with the proposal.
     public init(
         proposedprotocolParamUpdates: ProposedProtocolParamUpdates,
         epoch: EpochNumber
@@ -74,9 +82,14 @@ public struct Update: Serializable {
 
 }
 
+/// The parameter changes of an update proposal: genesis key hash to `ProtocolParamUpdate`.
 public struct ProposedProtocolParamUpdates: Serializable {
+    /// The proposed parameter changes, keyed by genesis key hash.
     public let data: [GenesisHash: ProtocolParamUpdate]
 
+    /// Creates the parameter changes of an update proposal.
+    ///
+    /// - Parameter data: The proposed parameter changes, keyed by genesis key hash.
     public init(_ data: [GenesisHash: ProtocolParamUpdate]) {
         self.data = data
     }

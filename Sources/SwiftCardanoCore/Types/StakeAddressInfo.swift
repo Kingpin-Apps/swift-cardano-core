@@ -39,6 +39,17 @@ public struct StakeAddressInfo: Codable, Equatable, Sendable {
         case voteDelegation
     }
     
+    /// Creates stake address info from its fields.
+    ///
+    /// - Parameters:
+    ///   - active: Whether the stake address is active.
+    ///   - activeEpoch: The epoch in which the stake address became active.
+    ///   - address: The stake address.
+    ///   - govActionDeposits: Governance action deposits.
+    ///   - rewardAccountBalance: The reward account balance.
+    ///   - stakeDelegation: The pool the stake address delegates to.
+    ///   - stakeRegistrationDeposit: The stake registration deposit.
+    ///   - voteDelegation: The DRep the stake address delegates its vote to.
     public init(
         active: Bool = true,
         activeEpoch: EpochNumber? = nil,

@@ -7,7 +7,9 @@ import OrderedCollections
 /// delegations and DReps, and the optional extra configuration. Each integer
 /// field has the width of its ledger type, and each rational is held exactly.
 public struct ConwayGenesis: JSONLoadable {
+    /// `poolVotingThresholds`: the stake pool voting thresholds.
     public let poolVotingThresholds: ConwayGenesisPoolVotingThresholds
+    /// `dRepVotingThresholds`: the DRep voting thresholds.
     public let dRepVotingThresholds: ConwayGenesisDRepVotingThresholds
     /// `Word16`.
     public let committeeMinSize: UInt16
@@ -25,7 +27,9 @@ public struct ConwayGenesis: JSONLoadable {
     public let minFeeRefScriptCostPerByte: NonNegativeInterval
     /// The PlutusV3 `CostModel`: its `Int64` parameters, in order.
     public let plutusV3CostModel: [Int64]
+    /// `constitution`: the initial constitution.
     public let constitution: ConwayGenesisConstitution
+    /// `committee`: the initial constitutional committee.
     public let committee: Committee
     /// `ListMap (Credential Staking) Delegatee`, in its order.
     public let delegs: [ConwayGenesisDelegation]
@@ -34,6 +38,23 @@ public struct ConwayGenesis: JSONLoadable {
     /// `StrictMaybe ConwayExtraConfig`.
     public let extraConfig: ConwayGenesisExtraConfig?
 
+    /// Creates a Conway genesis from its fields.
+    /// - Parameters:
+    ///   - poolVotingThresholds: The stake pool voting thresholds.
+    ///   - dRepVotingThresholds: The DRep voting thresholds.
+    ///   - committeeMinSize: The `committeeMinSize`.
+    ///   - committeeMaxTermLength: The `committeeMaxTermLength`, in epochs.
+    ///   - govActionLifetime: The `govActionLifetime`, in epochs.
+    ///   - govActionDeposit: The `govActionDeposit`, in lovelace.
+    ///   - dRepDeposit: The `dRepDeposit`, in lovelace.
+    ///   - dRepActivity: The `dRepActivity`, in epochs.
+    ///   - minFeeRefScriptCostPerByte: The `minFeeRefScriptCostPerByte`.
+    ///   - plutusV3CostModel: The PlutusV3 cost model parameters, in order.
+    ///   - constitution: The initial constitution.
+    ///   - committee: The initial committee.
+    ///   - delegs: The initial delegations, in order.
+    ///   - initialDReps: The initial DReps, in order.
+    ///   - extraConfig: The optional extra configuration.
     public init(
         poolVotingThresholds: ConwayGenesisPoolVotingThresholds,
         dRepVotingThresholds: ConwayGenesisDRepVotingThresholds,
@@ -73,12 +94,24 @@ public struct ConwayGenesis: JSONLoadable {
 
 /// The ledger's `PoolVotingThresholds`: five `UnitInterval`s.
 public struct ConwayGenesisPoolVotingThresholds: Codable, Equatable, Hashable, Sendable {
+    /// `committeeNormal`: the threshold to elect a committee in a normal state.
     public let committeeNormal: UnitInterval
+    /// `committeeNoConfidence`: the threshold to elect a committee in a state of no confidence.
     public let committeeNoConfidence: UnitInterval
+    /// `hardForkInitiation`: the threshold for a hard fork initiation.
     public let hardForkInitiation: UnitInterval
+    /// `motionNoConfidence`: the threshold for a motion of no confidence.
     public let motionNoConfidence: UnitInterval
+    /// `ppSecurityGroup`: the threshold for a security-group parameter update.
     public let ppSecurityGroup: UnitInterval
 
+    /// Creates stake pool voting thresholds.
+    /// - Parameters:
+    ///   - committeeNormal: The `committeeNormal` threshold.
+    ///   - committeeNoConfidence: The `committeeNoConfidence` threshold.
+    ///   - hardForkInitiation: The `hardForkInitiation` threshold.
+    ///   - motionNoConfidence: The `motionNoConfidence` threshold.
+    ///   - ppSecurityGroup: The `ppSecurityGroup` threshold.
     public init(committeeNormal: UnitInterval, committeeNoConfidence: UnitInterval,
                 hardForkInitiation: UnitInterval, motionNoConfidence: UnitInterval,
                 ppSecurityGroup: UnitInterval) {
@@ -134,17 +167,39 @@ public struct ConwayGenesisPoolVotingThresholds: Codable, Equatable, Hashable, S
 
 /// The ledger's `DRepVotingThresholds`: ten `UnitInterval`s.
 public struct ConwayGenesisDRepVotingThresholds: Codable, Equatable, Hashable, Sendable {
+    /// `motionNoConfidence`: the threshold for a motion of no confidence.
     public let motionNoConfidence: UnitInterval
+    /// `committeeNormal`: the threshold to elect a committee in a normal state.
     public let committeeNormal: UnitInterval
+    /// `committeeNoConfidence`: the threshold to elect a committee in a state of no confidence.
     public let committeeNoConfidence: UnitInterval
+    /// `updateToConstitution`: the threshold for a new constitution.
     public let updateToConstitution: UnitInterval
+    /// `hardForkInitiation`: the threshold for a hard fork initiation.
     public let hardForkInitiation: UnitInterval
+    /// `ppNetworkGroup`: the threshold for a network-group parameter update.
     public let ppNetworkGroup: UnitInterval
+    /// `ppEconomicGroup`: the threshold for an economic-group parameter update.
     public let ppEconomicGroup: UnitInterval
+    /// `ppTechnicalGroup`: the threshold for a technical-group parameter update.
     public let ppTechnicalGroup: UnitInterval
+    /// `ppGovGroup`: the threshold for a governance-group parameter update.
     public let ppGovGroup: UnitInterval
+    /// `treasuryWithdrawal`: the threshold for a treasury withdrawal.
     public let treasuryWithdrawal: UnitInterval
 
+    /// Creates DRep voting thresholds.
+    /// - Parameters:
+    ///   - motionNoConfidence: The `motionNoConfidence` threshold.
+    ///   - committeeNormal: The `committeeNormal` threshold.
+    ///   - committeeNoConfidence: The `committeeNoConfidence` threshold.
+    ///   - updateToConstitution: The `updateToConstitution` threshold.
+    ///   - hardForkInitiation: The `hardForkInitiation` threshold.
+    ///   - ppNetworkGroup: The `ppNetworkGroup` threshold.
+    ///   - ppEconomicGroup: The `ppEconomicGroup` threshold.
+    ///   - ppTechnicalGroup: The `ppTechnicalGroup` threshold.
+    ///   - ppGovGroup: The `ppGovGroup` threshold.
+    ///   - treasuryWithdrawal: The `treasuryWithdrawal` threshold.
     public init(motionNoConfidence: UnitInterval, committeeNormal: UnitInterval,
                 committeeNoConfidence: UnitInterval, updateToConstitution: UnitInterval,
                 hardForkInitiation: UnitInterval, ppNetworkGroup: UnitInterval,
@@ -212,10 +267,15 @@ public struct ConwayGenesisDRepVotingThresholds: Codable, Equatable, Hashable, S
 /// The ledger's `Constitution`: an anchor and an optional guardrails script
 /// hash (`StrictMaybe ScriptHash`).
 public struct ConwayGenesisConstitution: Codable, Equatable, Hashable, Sendable {
+    /// The constitution's anchor: its URL and data hash.
     public let anchor: ConwayGenesisAnchor
     /// The guardrails script hash as hex (28 bytes), when there is one.
     public let script: String?
 
+    /// Creates a constitution.
+    /// - Parameters:
+    ///   - anchor: The constitution's anchor.
+    ///   - script: The guardrails script hash as hex, or `nil`.
     public init(anchor: ConwayGenesisAnchor, script: String?) {
         self.anchor = anchor
         self.script = script
@@ -260,8 +320,13 @@ public struct ConwayGenesisConstitution: Codable, Equatable, Hashable, Sendable 
 public struct ConwayGenesisAnchor: Codable, Equatable, Hashable, Sendable {
     /// The 32-byte data hash, as hex.
     public let dataHash: String
+    /// The URL, at most 128 bytes.
     public let url: String
 
+    /// Creates an anchor. The values are checked when the anchor is encoded, not here.
+    /// - Parameters:
+    ///   - dataHash: The 32-byte data hash, as hex.
+    ///   - url: The URL.
     public init(dataHash: String, url: String) {
         self.dataHash = dataHash
         self.url = url
@@ -305,12 +370,19 @@ public struct ConwayGenesisAnchor: Codable, Equatable, Hashable, Sendable {
 /// It orders as the ledger's `Credential` does: script hashes first, then by
 /// hash bytes.
 public struct GenesisCredential: Hashable, Comparable, Sendable {
+    /// Whether a credential is a key hash or a script hash.
     public enum Kind: Hashable, Sendable { case keyHash, scriptHash }
 
+    /// Whether the credential is a key hash or a script hash.
     public let kind: Kind
     /// 28 bytes.
     public let hash: Data
 
+    /// Creates a credential.
+    /// - Parameters:
+    ///   - kind: Whether the hash is a key hash or a script hash.
+    ///   - hash: The 28-byte hash.
+    /// - Throws: When `hash` is not 28 bytes.
     public init(kind: Kind, hash: Data) throws {
         guard hash.count == 28 else {
             throw CardanoCoreError.valueError("Credential: a hash has 28 bytes, got \(hash.count)")
@@ -367,7 +439,9 @@ public enum GenesisDRep: Hashable, Sendable {
     case keyHash(Data)
     /// A 28-byte script hash.
     case scriptHash(Data)
+    /// The predefined DRep that always abstains.
     case alwaysAbstain
+    /// The predefined DRep that always votes no confidence.
     case alwaysNoConfidence
 
     /// `drep-keyHash-<hex>`, `drep-scriptHash-<hex>`, `drep-alwaysAbstain` or
@@ -381,6 +455,10 @@ public enum GenesisDRep: Hashable, Sendable {
         }
     }
 
+    /// Parses a DRep as the ledger writes it: `drep-keyHash-<hex>`,
+    /// `drep-scriptHash-<hex>`, `drep-alwaysAbstain` or `drep-alwaysNoConfidence`.
+    /// - Parameter text: The DRep text.
+    /// - Throws: When `text` is not one of those forms.
     public init(text: String) throws {
         switch text {
         case "drep-alwaysAbstain": self = .alwaysAbstain
@@ -422,7 +500,9 @@ public enum GenesisDRep: Hashable, Sendable {
 public enum GenesisDelegatee: Hashable, Sendable {
     /// A stake pool's 28-byte key hash.
     case stake(pool: Data)
+    /// Delegation of votes to a DRep.
     case vote(GenesisDRep)
+    /// Delegation of stake to a pool and of votes to a DRep.
     case stakeVote(pool: Data, dRep: GenesisDRep)
 
     // CBOR (cardano-ledger `EncCBOR Delegatee`): [0, pool] / [1, drep] / [2, pool, drep].
@@ -494,6 +574,7 @@ extension GenesisDelegatee: Codable {
 public struct GenesisDRepState: Codable, Hashable, Sendable {
     /// `EpochNo`, a `Word64`.
     public let expiry: EpochNumber
+    /// The DRep's metadata anchor, when it has one.
     public let anchor: ConwayGenesisAnchor?
     /// `CompactForm Coin`, a `Word64`.
     public let deposit: Coin
@@ -501,6 +582,12 @@ public struct GenesisDRepState: Codable, Hashable, Sendable {
     /// neither reads nor writes it.
     public let delegs: [GenesisCredential]
 
+    /// Creates a DRep state. The delegators are deduplicated and sorted.
+    /// - Parameters:
+    ///   - expiry: The epoch the DRep expires.
+    ///   - anchor: The DRep's metadata anchor, or `nil`.
+    ///   - deposit: The DRep's deposit, in lovelace.
+    ///   - delegs: The staking credentials delegated to the DRep.
     public init(expiry: EpochNumber, anchor: ConwayGenesisAnchor?, deposit: Coin, delegs: [GenesisCredential] = []) {
         self.expiry = expiry
         self.anchor = anchor
@@ -554,9 +641,15 @@ public struct GenesisDRepState: Codable, Hashable, Sendable {
 
 /// One entry of the genesis `delegs` list map.
 public struct ConwayGenesisDelegation: Hashable, Sendable {
+    /// The delegating staking credential.
     public let credential: GenesisCredential
+    /// What the credential delegates to.
     public let delegatee: GenesisDelegatee
 
+    /// Creates a genesis delegation.
+    /// - Parameters:
+    ///   - credential: The delegating staking credential.
+    ///   - delegatee: What the credential delegates to.
     public init(credential: GenesisCredential, delegatee: GenesisDelegatee) {
         self.credential = credential
         self.delegatee = delegatee
@@ -565,9 +658,15 @@ public struct ConwayGenesisDelegation: Hashable, Sendable {
 
 /// One entry of the genesis `initialDReps` list map.
 public struct ConwayGenesisInitialDRep: Hashable, Sendable {
+    /// The DRep's credential.
     public let credential: GenesisCredential
+    /// The DRep's initial state.
     public let state: GenesisDRepState
 
+    /// Creates an initial DRep entry.
+    /// - Parameters:
+    ///   - credential: The DRep's credential.
+    ///   - state: The DRep's initial state.
     public init(credential: GenesisCredential, state: GenesisDRepState) {
         self.credential = credential
         self.state = state
@@ -579,17 +678,25 @@ public struct ConwayGenesisInitialDRep: Hashable, Sendable {
 /// The ledger's `InjectionData`: nothing, a file with its Blake2b-256 hash,
 /// or embedded entries.
 public enum GenesisInjectionData<Entry: Hashable & Sendable>: Hashable, Sendable {
+    /// Nothing is injected.
     case noInjection
     /// The file's path segments and its 32-byte hash.
     case fromFile(path: [String], hash: Data)
+    /// The entries themselves, embedded in the genesis file.
     case embedded([Entry])
 }
 
 /// The ledger's `ConwayExtraConfig`.
 public struct ConwayGenesisExtraConfig: Hashable, Sendable {
+    /// The delegations to inject.
     public let delegs: GenesisInjectionData<ConwayGenesisDelegation>
+    /// The initial DReps to inject.
     public let initialDReps: GenesisInjectionData<ConwayGenesisInitialDRep>
 
+    /// Creates a Conway extra configuration.
+    /// - Parameters:
+    ///   - delegs: The delegations to inject.
+    ///   - initialDReps: The initial DReps to inject.
     public init(delegs: GenesisInjectionData<ConwayGenesisDelegation> = .noInjection,
                 initialDReps: GenesisInjectionData<ConwayGenesisInitialDRep> = .noInjection) {
         self.delegs = delegs

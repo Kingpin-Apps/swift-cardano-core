@@ -2,9 +2,12 @@ import Foundation
 
 /// The payment part of an address.
 public enum PaymentPart: Sendable {
+    /// A payment part locked by a verification key hash.
     case verificationKeyHash(VerificationKeyHash)
+    /// A payment part locked by a script hash.
     case scriptHash(ScriptHash)
     
+    /// The bytes of the payment part: the 28-byte key or script hash.
     public func hash() -> Data {
         switch self {
             case .verificationKeyHash(let verificationKeyHash):
@@ -17,10 +20,15 @@ public enum PaymentPart: Sendable {
 
 /// The staking part of an address.
 public enum StakingPart: Sendable {
+    /// A staking part that is a stake verification key hash.
     case verificationKeyHash(VerificationKeyHash)
+    /// A staking part that is a script hash.
     case scriptHash(ScriptHash)
+    /// A staking part that points to a stake registration certificate.
     case pointerAddress(PointerAddress)
     
+    /// The bytes of the staking part: the 28-byte key or script hash, or the
+    /// encoded pointer for a pointer address.
     public func hash() -> Data {
         switch self {
             case .verificationKeyHash(let verificationKeyHash):
@@ -33,8 +41,11 @@ public enum StakingPart: Sendable {
     }
 }
 
+/// Raw input an address can be read from: bytes or a string.
 public enum AddressFromPrimitiveData {
+    /// The address in binary form.
     case bytes(Data)
+    /// The address as a string.
     case string(String)
 }
 

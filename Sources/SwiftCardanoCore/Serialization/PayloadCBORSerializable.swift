@@ -1,6 +1,10 @@
 import Foundation
 import CBORCodable
 
+/// A ``PayloadSerializable`` value whose CBOR form is its payload as a
+/// single CBOR byte string.
+///
+/// Its JSON form is a text envelope whose `cborHex` is that byte string.
 public protocol PayloadCBORSerializable: PayloadSerializable {}
 
 public extension PayloadCBORSerializable where Self: Codable {
@@ -20,10 +24,17 @@ public extension PayloadCBORSerializable where Self: Codable {
         try container.encode(payload)
     }
     
+    /// Returns the payload as a CBOR byte string.
+    /// - Returns: `.bytes` holding the payload.
     func toPrimitive() -> Primitive {
         return .bytes(payload)
     }
     
+    /// Creates a value from a CBOR byte string, with the default envelope
+    /// type and description.
+    /// - Parameter primitive: A `.bytes` primitive holding the payload.
+    /// - Throws: `CardanoCoreError.deserializeError` when the primitive is
+    ///   not bytes.
     init(from primitive: Primitive) throws {
         guard case let .bytes(payload) = primitive else {
             throw CardanoCoreError.deserializeError("Invalid payload for \(Self.self): expected bytes but got \(primitive) type")
@@ -39,6 +50,11 @@ public extension PayloadCBORSerializable where Self: Codable {
         return try self.toTextEnvelope()
     }
     
+    /// Returns the value as text envelope JSON.
+    ///
+    /// The JSON has three fields: `type`, `description`, and `cborHex`, the
+    /// hex of the payload encoded as a CBOR byte string.
+    /// - Returns: The text envelope JSON.
     func toTextEnvelope() throws -> String? {
         let cborData = try CBOREncoder().encode(payload)
         let jsonString = """

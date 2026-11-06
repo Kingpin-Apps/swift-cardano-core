@@ -1,11 +1,18 @@
 import Foundation
 
+/// What a stake credential delegates its vote to: `drep = [0, addr_keyhash] / [1, script_hash] / [2] / [3]`.
 public enum DRepType: CBORSerializable, Hashable, Sendable {
+    /// A DRep identified by a key hash (tag 0).
     case verificationKeyHash(VerificationKeyHash)
+    /// A DRep identified by a script hash (tag 1).
     case scriptHash(ScriptHash)
+    /// The predefined DRep that always abstains (tag 2).
     case alwaysAbstain
+    /// The predefined DRep that always votes no confidence (tag 3).
     case alwaysNoConfidence
     
+    /// Creates a key-hash or script-hash DRep type from a DRep credential.
+    /// - Parameter drepCredential: The DRep's credential.
     public init(from drepCredential: DRepCredential) throws {
         switch drepCredential.credential {
             case .verificationKeyHash(let verificationKeyHash):
@@ -69,6 +76,8 @@ public enum DRepType: CBORSerializable, Hashable, Sendable {
         }
     }
     
+    /// The DRep credential for a key-hash or script-hash DRep.
+    /// - Throws: `CardanoCoreError.typeError` for ``DRepType/alwaysAbstain`` and ``DRepType/alwaysNoConfidence``, which have no credential.
     public func toDRepCredential() throws -> DRepCredential {
         switch self {
             case .verificationKeyHash(let verificationKeyHash):
@@ -80,6 +89,8 @@ public enum DRepType: CBORSerializable, Hashable, Sendable {
         }
     }
     
+    /// The CIP-129 credential type for a key-hash or script-hash DRep.
+    /// - Throws: `CardanoCoreError.typeError` for ``DRepType/alwaysAbstain`` and ``DRepType/alwaysNoConfidence``.
     public func toGovernanceCredentialType() throws -> GovernanceCredentialType {
         switch self {
             case .verificationKeyHash:
@@ -122,12 +133,17 @@ public struct DRep: CBORSerializable, CustomStringConvertible, CustomDebugString
     
     public var debugDescription: String { self.description }
     
+    /// What this DRep is: a key hash, a script hash, or one of the two predefined DReps.
     public let credential: DRepType
     
+    /// Creates a DRep.
+    /// - Parameter credential: What the DRep is.
     public init(credential: DRepType) {
         self.credential = credential
     }
     
+    /// Creates a DRep from its id string.
+    /// - Parameter bech32: A bech32 DRep id, `drep_always_abstain`, or `drep_always_no_confidence`.
     public init(from bech32: String) throws {
         if bech32 == "drep_always_abstain" {
             self.credential = .alwaysAbstain
@@ -141,11 +157,18 @@ public struct DRep: CBORSerializable, CustomStringConvertible, CustomDebugString
         }
     }
     
+    /// Creates a DRep from the bytes of its credential, as ``DRepCredential`` reads them.
+    /// - Parameter hex: The credential's bytes.
     public init(from hex: Data) throws {
         let drepCredential = try DRepCredential(from: hex)
         self.credential = try DRepType(from: drepCredential)
     }
     
+    /// Creates a key-hash or script-hash DRep from a raw hash.
+    /// - Parameters:
+    ///   - hex: The hash's bytes.
+    ///   - credentialType: Whether the hash is a key hash or a script hash.
+    /// - Throws: When `hex` is not the size of that kind of hash.
     public init(from hex: Data, as credentialType: GovernanceCredentialType) throws {
         switch credentialType {
             case .keyHash:
@@ -224,6 +247,9 @@ public struct DRep: CBORSerializable, CustomStringConvertible, CustomDebugString
         }
     }
     
+    /// The DRep id as a string.
+    /// - Parameter format: The encoding, bech32 or hex, and the id format, CIP-105 or CIP-129.
+    /// - Returns: The id in the requested format.
     public func id(_ format: (CredentialFormat, IdFormat) = (.bech32, .cip105)) throws -> String {
         switch format {
             case (.bech32, let idFormat):
@@ -233,10 +259,17 @@ public struct DRep: CBORSerializable, CustomStringConvertible, CustomDebugString
         }
     }
     
+    /// The DRep id's bytes in hex.
+    /// - Parameter format: The id format, CIP-105 or CIP-129.
     public func idHex(_ format: IdFormat = .cip105) throws -> String {
         return try self.toBytes(format).toHex
     }
     
+    /// The DRep id's bytes.
+    ///
+    /// CIP-129 adds a header byte. The predefined DReps are the single byte `2` or `3` under CIP-105.
+    /// - Parameter format: The id format, CIP-105 or CIP-129.
+    /// - Throws: For the predefined DReps under CIP-129, which have no header byte.
     public func toBytes(_ format: IdFormat = .cip105) throws -> Data {
         let payload: Data
         switch credential {

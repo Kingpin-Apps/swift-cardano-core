@@ -4,6 +4,7 @@ import CBORCodable
 import SwiftNaCl
 @preconcurrency import BigInt
 
+/// A label in transaction metadata: the unsigned integer key of a top-level metadata entry.
 public typealias TransactionMetadatumLabel = UInt64
 
 /// A value in transaction metadata.
@@ -12,13 +13,18 @@ public typealias TransactionMetadatumLabel = UInt64
 /// integer CBOR can carry, and the rest are held as ``bigInt(_:)``. The two
 /// compare and hash alike when they hold the same value.
 public enum TransactionMetadatum: Serializable, Hashable, Equatable {
+    /// A map, kept as its ordered list of pairs. See ``MapPairs``.
     case map(MapPairs<TransactionMetadatum, TransactionMetadatum>)
     /// A list. Its elements are kept in a ``NestedList``, which reads like an
     /// array and is freed without recursion however deep the metadata nests.
     case list(NestedList<TransactionMetadatum>)
+    /// An integer that fits `Int`.
     case int(Int)
+    /// An integer too large for `Int`.
     case bigInt(BigInt)
+    /// A byte string.
     case bytes(Data)
+    /// A text string.
     case text(String)
 
     /// A list of `elements`.
@@ -238,9 +244,15 @@ public enum TransactionMetadatum: Serializable, Hashable, Equatable {
 }
 
 // MARK: - MetadataType
+/// The three forms the auxiliary data of a transaction can take.
+///
+/// Reading from CBOR picks the form from the shape of the value: a map is ``metadata(_:)``, an array is ``shelleyMaryMetadata(_:)``, and tag 259 is ``alonzoMetadata(_:)``. A ``metadata(_:)`` value equals an ``alonzoMetadata(_:)`` value that holds the same metadata and no scripts.
 public enum MetadataType: Serializable, Equatable {
+    /// The Shelley form: a bare metadata map.
     case metadata(Metadata)
+    /// The Shelley-MA form: an array of metadata and, optionally, native scripts.
     case shelleyMaryMetadata(ShelleyMaryMetadata)
+    /// The Alonzo form: a tag 259 map that can also hold native and Plutus scripts.
     case alonzoMetadata(AlonzoMetadata)
 
     // Custom Equatable to handle semantic comparison
@@ -368,10 +380,14 @@ public enum MetadataType: Serializable, Equatable {
 }
 
 // MARK: - Metadata
+/// Transaction metadata: a map from labels to metadata values, `{ * transaction_metadatum_label => transaction_metadatum }`.
 public struct Metadata: Serializable, Equatable {
+    /// The type of a metadata label.
     public typealias KEY_TYPE = TransactionMetadatumLabel
+    /// The type of a metadata value.
     public typealias VALUE_TYPE = TransactionMetadatum
 
+    /// The most bytes a byte string or text string in metadata may hold, 64.
     public static let MAX_ITEM_SIZE = 64
 
     /// The metadata by label, in the order it is written.
@@ -394,6 +410,9 @@ public struct Metadata: Serializable, Equatable {
         }
     }
 
+    /// The value under a label, or `nil` when there is none. Setting `nil` removes the label.
+    ///
+    /// - Parameter key: The metadata label.
     public subscript(key: KEY_TYPE) -> VALUE_TYPE? {
         get {
             return data[key]
@@ -536,10 +555,20 @@ public struct Metadata: Serializable, Equatable {
 }
 
 // MARK: - ShelleyMaryMetadata
+/// Auxiliary data in the Shelley-MA form: `[metadata, [* native_script]]`.
+///
+/// Reading accepts a definite- or indefinite-length array of one or two elements. Writing gives a one-element array when ``nativeScripts`` is `nil`.
 public struct ShelleyMaryMetadata: Serializable, Equatable {
+    /// The metadata.
     public var metadata: Metadata
+    /// The native scripts, or `nil` when there are none.
     public var nativeScripts: [NativeScript]?
 
+    /// Creates Shelley-MA auxiliary data.
+    ///
+    /// - Parameters:
+    ///   - metadata: The metadata.
+    ///   - nativeScripts: The native scripts, or `nil` for none.
     public init(metadata: Metadata, nativeScripts: [NativeScript]?) {
         self.metadata = metadata
         self.nativeScripts = nativeScripts
@@ -617,13 +646,22 @@ public struct ShelleyMaryMetadata: Serializable, Equatable {
 }
 
 // MARK: - AlonzoMetadata
+/// Auxiliary data in the Alonzo form: tag 259 around a map with optional fields.
+///
+/// The keys are `0` for metadata, `1` for native scripts, `2` for Plutus V1 scripts, `3` for Plutus V2 scripts and `4` for Plutus V3 scripts. Fields that are `nil` are left out when writing.
 public struct AlonzoMetadata: Serializable, Equatable {
+    /// The CBOR tag of Alonzo-form auxiliary data, 259.
     public static let TAG: UInt64 = 259
 
+    /// The metadata, under key `0`.
     public var metadata: Metadata?
+    /// The native scripts, under key `1`.
     public var nativeScripts: [NativeScript]?
+    /// The Plutus V1 scripts, under key `2`.
     public var plutusV1Script: [PlutusV1Script]?
+    /// The Plutus V2 scripts, under key `3`.
     public var plutusV2Script: [PlutusV2Script]?
+    /// The Plutus V3 scripts, under key `4`.
     public var plutusV3Script: [PlutusV3Script]?
 
     enum CodingKeys: Int, CodingKey {
@@ -634,6 +672,14 @@ public struct AlonzoMetadata: Serializable, Equatable {
         case plutusV3Script = 4
     }
 
+    /// Creates Alonzo-form auxiliary data. Every field is optional.
+    ///
+    /// - Parameters:
+    ///   - metadata: The metadata.
+    ///   - nativeScripts: The native scripts.
+    ///   - plutusV1Script: The Plutus V1 scripts.
+    ///   - plutusV2Script: The Plutus V2 scripts.
+    ///   - plutusV3Script: The Plutus V3 scripts.
     public init(
         metadata: Metadata? = nil,
         nativeScripts: [NativeScript]? = nil,
@@ -832,7 +878,11 @@ public struct AlonzoMetadata: Serializable, Equatable {
 }
 
 // MARK: - AuxiliaryData
+/// The auxiliary data of a transaction, in any of the forms ``MetadataType`` covers.
+///
+/// A value decoded from CBOR keeps the bytes it was read from in ``originalCBOR`` until ``data`` changes, so writing it and hashing it give the same result as the original.
 public struct AuxiliaryData: Serializable, Equatable {
+    /// The auxiliary data. Setting it clears ``originalCBOR``.
     public var data: MetadataType { didSet { originalCBOR = nil } }
 
     /// The exact bytes this was decoded from, while it is unchanged.
@@ -843,6 +893,9 @@ public struct AuxiliaryData: Serializable, Equatable {
     /// returns these bytes and ``hash()`` hashes them.
     public internal(set) var originalCBOR: Data? = nil
 
+    /// Creates auxiliary data from one of its forms.
+    ///
+    /// - Parameter data: The auxiliary data.
     public init(data: MetadataType) {
         self.data = data
     }
@@ -946,6 +999,10 @@ public struct AuxiliaryData: Serializable, Equatable {
         originalCBOR = scanner.bytes
     }
 
+    /// Decodes auxiliary data as the Conway ledger reads it, keeping the bytes it was read from.
+    ///
+    /// - Parameter cbor: The CBOR bytes of the auxiliary data, with nothing after them.
+    /// - Throws: When the bytes are not valid auxiliary data, break the ledger's duplicate rules, or have trailing bytes.
     public init(from cbor: Data) throws {
         self = try Self.fromCBOR(data: cbor)
     }

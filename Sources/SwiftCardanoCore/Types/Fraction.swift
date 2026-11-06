@@ -2,15 +2,29 @@ import Foundation
 import CBORCodable
 
 
+/// A signed rational number, written as `#6.30([numerator, denominator])`.
+///
+/// Unlike ``UnitInterval`` it allows negative values and values above one.
 public struct Fraction: CBORSerializable, Sendable {
+    /// The numerator.
     public let numerator: Int64
+    /// The denominator. Never zero.
     public let denominator: Int64
 
+    /// The CBOR tag a fraction is written with, 30.
     public static let tag = 30
 
+    /// The fraction as a `Double`.
     public var quotient: Double {
         return Double(numerator) / Double(denominator)
     }
+    /// Creates a fraction.
+    ///
+    /// The initializer traps (it uses `precondition`) when `denominator` is zero.
+    ///
+    /// - Parameters:
+    ///   - numerator: The numerator.
+    ///   - denominator: The denominator, which must not be zero.
     public init(numerator: Int64, denominator: Int64) {
         precondition(denominator != 0, "Denominator must not be zero")
         self.numerator = numerator

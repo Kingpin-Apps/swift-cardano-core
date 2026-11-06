@@ -1,9 +1,13 @@
 import Foundation
 import OrderedCollections
 
+/// A vote on a governance action: `vote = 0 .. 2`.
 public enum Vote: Int, Serializable {
+    /// Vote against the action (0).
     case no = 0
+    /// Vote for the action (1).
     case yes = 1
+    /// Abstain (2).
     case abstain = 2
 
     public init(from primitive: Primitive) throws {
@@ -19,11 +23,17 @@ public enum Vote: Int, Serializable {
     }
 }
 
+/// Who casts a vote: `voter = [0, addr_keyhash] / [1, script_hash] / [2, addr_keyhash] / [3, script_hash] / [4, addr_keyhash]`.
 public enum VoterType: Serializable {
+    /// A constitutional committee member's hot key hash (tag 0).
     case constitutionalCommitteeHotKeyhash(VerificationKeyHash)
+    /// A constitutional committee member's hot script hash (tag 1).
     case constitutionalCommitteeHotScriptHash(ScriptHash)
+    /// A DRep's key hash (tag 2).
     case drepKeyhash(VerificationKeyHash)
+    /// A DRep's script hash (tag 3).
     case drepScriptHash(ScriptHash)
+    /// A stake pool's key hash (tag 4).
     case stakePoolKeyhash(VerificationKeyHash)
     
     // MARK: - CBORSerializable
@@ -123,10 +133,17 @@ public enum VoterType: Serializable {
 
 }
 
+/// One vote: `voting_procedure = [vote, anchor / nil]`.
 public struct VotingProcedure: Serializable {
+    /// The vote cast.
     public let vote: Vote
+    /// An optional anchor to the vote's off-chain rationale.
     public let anchor: Anchor?
     
+    /// Creates a voting procedure.
+    /// - Parameters:
+    ///   - vote: The vote cast.
+    ///   - anchor: An optional anchor to the vote's rationale.
     public init(vote: Vote, anchor: Anchor? = nil) {
         self.vote = vote
         self.anchor = anchor
@@ -203,6 +220,7 @@ public struct VotingProcedure: Serializable {
 
 }
 
+/// A voter in a transaction's voting procedures.
 public struct Voter: Serializable {
     public var code: Int {
         get {
@@ -220,8 +238,11 @@ public struct Voter: Serializable {
             }
         }
     }
+    /// Who the voter is and the hash that identifies them.
     public let credential: VoterType
     
+    /// Creates a voter.
+    /// - Parameter credential: Who the voter is and the hash that identifies them.
     public init(credential: VoterType) {
         self.credential = credential
     }
@@ -253,19 +274,24 @@ public struct Voter: Serializable {
     }
 }
 
+/// The votes in a transaction body: `voting_procedures = { + voter => { + gov_action_id => voting_procedure } }`.
 public struct VotingProcedures: Serializable {
     private var procedures: [Voter: [GovActionID: VotingProcedure]]
     
+    /// Creates an empty set of voting procedures.
     public init() {
         self.procedures = [:]
     }
     
+    /// Creates voting procedures from each voter's votes.
+    /// - Parameter procedures: Each voter's votes, keyed by governance action id.
     public init(_ procedures: [Voter: [GovActionID: VotingProcedure]]) {
         self.procedures = procedures
     }
     
     // MARK: - Dictionary-like access
     
+    /// Each vote a voter casts, keyed by governance action id, or `nil` when the voter has none.
     public subscript(voter: Voter) -> [GovActionID: VotingProcedure]? {
         get {
             return procedures[voter]
@@ -275,6 +301,7 @@ public struct VotingProcedures: Serializable {
         }
     }
     
+    /// The vote a voter casts on a governance action, or `nil` when there is none.
     public subscript(voter: Voter, govActionID: GovActionID) -> VotingProcedure? {
         get {
             return procedures[voter]?[govActionID]
@@ -289,18 +316,22 @@ public struct VotingProcedures: Serializable {
     
     // MARK: - Collection properties
     
+    /// Whether there are no voters.
     public var isEmpty: Bool {
         return procedures.isEmpty
     }
     
+    /// The number of voters.
     public var count: Int {
         return procedures.count
     }
     
+    /// The voters, in no particular order.
     public var voters: [Voter] {
         return Array(procedures.keys)
     }
     
+    /// Every vote as a voter, action id and procedure, in no particular order.
     public var allVotes: [(Voter, GovActionID, VotingProcedure)] {
         var votes: [(Voter, GovActionID, VotingProcedure)] = []
         for (voter, actions) in procedures {

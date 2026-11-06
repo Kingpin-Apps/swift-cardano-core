@@ -7,12 +7,17 @@ import CryptoKit
 import Crypto
 #endif
 
+/// A verification key with a text-envelope type and description.
+/// The default ``hash()``, ``fromSigningKey(_:)`` and ``verify(signature:data:)``
+/// treat the payload as an Ed25519 key; the VRF and KES key types replace them.
 public protocol VerificationKeyProtocol: PayloadCBORSerializable {}
+/// A BIP32-Ed25519 extended verification key: a 32-byte public key followed by a
+/// 32-byte chain code.
 public protocol ExtendedVerificationKeyProtocol: PayloadCBORSerializable {}
 
 public extension VerificationKeyProtocol {
-    /// Compute a blake2b hash from the key
-    /// - Returns: Hash output in bytes.
+    /// The 28-byte Blake2b-224 hash of this key.
+    /// - Returns: The verification key hash.
     func hash() throws -> VerificationKeyHash {
         return VerificationKeyHash(
             payload: try SwiftNaCl.Hash().blake2b(
@@ -53,8 +58,8 @@ func ed25519Verify(publicKey: Data, signature: Data, data: Data) throws -> Bool 
 }
 
 public extension ExtendedVerificationKeyProtocol {
-    /// Compute a blake2b hash from the key, excluding chain code
-    /// - Returns: VerificationKeyHash as the hash output in bytes
+    /// The 28-byte Blake2b-224 hash of the 32-byte public key, without the chain code.
+    /// - Returns: The hash and the non-extended key it was computed from.
     func hash<T: VerificationKeyProtocol>() throws -> (VerificationKeyHash, T) {
         let nonExtendedKey: T = try self.toNonExtended()
         return (try nonExtendedKey.hash(), nonExtendedKey)
@@ -84,7 +89,8 @@ public extension ExtendedVerificationKeyProtocol {
     }
 }
 
-/// Holds a cryptographic key and some metadata for a verification key.
+/// The bytes, type and description of a verification key, for use with
+/// ``VerificationKeyType`` and as a base for the role-specific key types.
 public struct VerificationKey: VerificationKeyProtocol {
     public var _payload: Data
     public var _type: String
@@ -93,6 +99,11 @@ public struct VerificationKey: VerificationKeyProtocol {
     public static var TYPE: String { "" }
     public static var DESCRIPTION: String { "Verification Key" }
     
+    /// Creates a key from its bytes.
+    /// - Parameters:
+    ///   - payload: The key bytes.
+    ///   - type: The text-envelope type, or `nil` for the default.
+    ///   - description: The text-envelope description, or `nil` for the default.
     public init(payload: Data, type: String?, description: String?) {
         self._payload = payload
         self._type = type ?? Self.TYPE
@@ -101,7 +112,8 @@ public struct VerificationKey: VerificationKeyProtocol {
 }
 
 
-/// Holds a cryptographic key and some metadata for an extended verification key.
+/// The bytes, type and description of an extended verification key, for use with
+/// ``VerificationKeyType`` and as a base for the role-specific key types.
 public struct ExtendedVerificationKey: ExtendedVerificationKeyProtocol {
     public var _payload: Data
     public var _type: String
@@ -110,6 +122,11 @@ public struct ExtendedVerificationKey: ExtendedVerificationKeyProtocol {
     public static var TYPE: String { "" }
     public static var DESCRIPTION: String { "Extended Verification Key" }
     
+    /// Creates a key from its bytes.
+    /// - Parameters:
+    ///   - payload: The key bytes.
+    ///   - type: The text-envelope type, or `nil` for the default.
+    ///   - description: The text-envelope description, or `nil` for the default.
     public init(payload: Data, type: String?, description: String?) {
         self._payload = payload
         self._type = type ?? Self.TYPE
@@ -118,11 +135,16 @@ public struct ExtendedVerificationKey: ExtendedVerificationKeyProtocol {
 }
 
 
+/// A verification key that is either a plain or an extended verification key.
+/// From a primitive, 32 bytes give a plain key and 64 bytes an extended key.
 public enum VerificationKeyType: CBORSerializable, Sendable {
 
+    /// An extended verification key: public key and chain code.
     case extendedVerificationKey(any ExtendedVerificationKeyProtocol)
+    /// A plain 32-byte Ed25519 verification key.
     case verificationKey(any VerificationKeyProtocol)
     
+    /// The raw bytes of the wrapped key.
     public var payload: Data {
         switch self {
             case .extendedVerificationKey(let key):

@@ -40,6 +40,10 @@ public struct ByronAddressAttributes: Equatable, Sendable {
     /// Present for testnet addresses; absent for mainnet.
     public let protocolMagic: UInt32?
 
+    /// Creates Byron address attributes.
+    /// - Parameters:
+    ///   - derivationPath: The encrypted HD derivation path, or `nil` for none.
+    ///   - protocolMagic: The protocol magic of a test network, or `nil` for mainnet.
     public init(derivationPath: Data? = nil, protocolMagic: UInt32? = nil) {
         self.derivationPath = derivationPath
         self.protocolMagic = protocolMagic

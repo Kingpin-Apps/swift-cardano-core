@@ -3,6 +3,8 @@ import CBORCodable
 import OrderedCollections
 
 /// Stake and vote delegation certificate: `delegation_to_stake_pool_and_drep_cert = (10, stake_credential, pool_keyhash, drep)`.
+///
+/// Introduced in Conway.
 public struct StakeVoteDelegate: CertificateSerializable {
     public var _payload: Data
     public var _type: String
@@ -15,8 +17,11 @@ public struct StakeVoteDelegate: CertificateSerializable {
     public static var DESCRIPTION: String { CertificateDescription.stakeVoteDelegate.rawValue }
     public static var CODE: CertificateCode { .stakeVoteDelegate }
 
+    /// The stake credential being delegated.
     public let stakeCredential: StakeCredential
+    /// The hash of the operator key of the pool to delegate stake to.
     public let poolKeyHash: PoolKeyHash
+    /// The DRep to delegate voting power to.
     public let drep: DRep
 
     public enum CodingKeys: String, CodingKey {
@@ -27,6 +32,10 @@ public struct StakeVoteDelegate: CertificateSerializable {
 
     /// Creates the certificate.
     ///
+    /// - Parameters:
+    ///   - stakeCredential: The stake credential being delegated.
+    ///   - poolKeyHash: The hash of the operator key of the pool to delegate stake to.
+    ///   - drep: The DRep to delegate voting power to.
     /// - Throws: When the certificate cannot be encoded for its payload.
     public init(stakeCredential: StakeCredential, poolKeyHash: PoolKeyHash, drep: DRep) throws {
         self.stakeCredential = stakeCredential

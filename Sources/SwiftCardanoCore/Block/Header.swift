@@ -26,6 +26,10 @@ public struct Header: Serializable {
         case bodySignature
     }
 
+    /// Creates a header from its body and KES signature.
+    /// - Parameters:
+    ///   - headerBody: The header body.
+    ///   - bodySignature: The KES signature over the header body.
     public init(headerBody: HeaderBody, bodySignature: SwiftKES.KESSignature) {
         self.headerBody = headerBody
         self.bodySignature = bodySignature
@@ -42,6 +46,10 @@ public struct Header: Serializable {
         return header
     }
 
+    /// Decodes a header, keeping the bytes it was read from.
+    /// - Parameter cbor: The header's CBOR bytes.
+    /// - Throws: `CardanoCoreError.deserializeError` when bytes follow the
+    ///   header, or a decoding error.
     public init(from cbor: Data) throws {
         self = try Self.fromCBOR(data: cbor)
     }

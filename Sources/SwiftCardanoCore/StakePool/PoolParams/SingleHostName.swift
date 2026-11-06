@@ -5,7 +5,9 @@ import OrderedCollections
 public struct SingleHostName: Serializable, Sendable {
     public static var code: Int { get { return 1 } }
     
+    /// The relay's port, or `nil` when not given.
     public let port: Int?
+    /// The relay's DNS name (an A or AAAA record).
     public let dnsName: String?
     
     /// The longest DNS name a relay may give, in bytes of UTF-8:
@@ -14,6 +16,10 @@ public struct SingleHostName: Serializable, Sendable {
     /// `libs/cardano-ledger-core/src/Cardano/Ledger/BaseTypes.hs`).
     public static let maxDnsNameSize = 128
 
+    /// Creates a single host name relay.
+    /// - Parameters:
+    ///   - port: The relay's port, or `nil`.
+    ///   - dnsName: The relay's DNS name.
     /// - Throws: When `dnsName` is longer than ``maxDnsNameSize`` bytes.
     public init(port: Int?, dnsName: String?) throws {
         self.port = port

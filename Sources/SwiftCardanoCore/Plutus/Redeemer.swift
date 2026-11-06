@@ -4,13 +4,22 @@ import CBORCodable
 
 /// Redeemer tag, which indicates the type of redeemer.
 public enum RedeemerTag: Int, Serializable {
+    /// Spends a script-locked input. The index is the input's position among the transaction's inputs in sorted order.
     case spend = 0
+    /// Mints or burns under a script policy. The index is the policy's position among the minted policy IDs in sorted order.
     case mint = 1
+    /// Validates a certificate. The index is the certificate's position in the transaction's certificate list.
     case cert = 2
+    /// Withdraws rewards from a script stake address. The index is the withdrawal's position among the withdrawals in sorted order.
     case reward = 3
+    /// Casts votes as a script voter. The index is the voter's position among the transaction's voters in sorted order.
     case voting = 4
+    /// Runs a proposal's guardrail script. The index is the proposal's position in the transaction's proposal procedures.
     case proposing = 5
 
+    /// The tag's name, such as `spend` or `mint`.
+    ///
+    /// - Returns: The lowercase name of the tag.
     public func description() -> String {
         switch self {
         case .spend: return "spend"
@@ -84,6 +93,7 @@ fileprivate func redeemerIndex(_ primitive: Primitive) throws -> Int {
     Int(try primitive.integer("Redeemer index", as: UInt32.self))
 }
 
+/// The keys of a redeemer's dictionary form, used by `toDict()` and `fromDict(_:)`.
 public enum RedeemerCodingKeys: String, CodingKey {
     case tag
     case index
@@ -91,17 +101,37 @@ public enum RedeemerCodingKeys: String, CodingKey {
     case exUnits
 }
 
+/// A redeemer in the list form: `redeemer = [tag, index, data, ex_units]`.
+///
+/// The protocol extension reads and writes that four-element array and the dictionary form, so a conforming type only stores the fields and provides ``init(tag:index:data:exUnits:)``. Reading requires all four elements. Writing puts CBOR null in place of a `nil` ``tag`` or ``exUnits``.
 public protocol RedeemerProtocol: Serializable {
+    /// What the redeemer is for, which says what ``index`` points at.
     var tag: RedeemerTag? { get set }
+    /// The position of the item the redeemer is for, among the items its ``tag`` names. The ledger reads it as a 32-bit unsigned integer.
     var index: Int { get set }
+    /// The redeemer data passed to the script.
     var data: PlutusData { get set }
+    /// The execution budget the script may use.
     var exUnits: ExecutionUnits? { get set }
 
+    /// Creates a redeemer from its fields.
+    ///
+    /// - Parameters:
+    ///   - tag: What the redeemer is for.
+    ///   - index: The position of the item the redeemer is for.
+    ///   - data: The redeemer data passed to the script.
+    ///   - exUnits: The execution budget the script may use.
     init(tag: RedeemerTag?, index: Int, data: PlutusData, exUnits: ExecutionUnits?)
 }
 
 extension RedeemerProtocol {
 
+    /// Whether a redeemer has the same tag, index, data and execution units as a redeemer of any conforming type.
+    ///
+    /// - Parameters:
+    ///   - lhs: A redeemer.
+    ///   - rhs: A redeemer of any conforming type.
+    /// - Returns: `true` when all four fields are equal.
     public static func == (lhs: Self, rhs: any RedeemerProtocol) -> Bool {
         return lhs.tag == rhs.tag && lhs.index == rhs.index && lhs.data == rhs.data
             && lhs.exUnits == rhs.exUnits
@@ -195,12 +225,26 @@ extension RedeemerProtocol {
     }
 }
 
+/// A redeemer in the list form: `[tag, index, data, ex_units]`.
 public struct Redeemer: RedeemerProtocol {
+    /// What the redeemer is for, which says what ``index`` points at.
     public var tag: RedeemerTag?
+    /// The position of the item the redeemer is for, among the items its ``tag`` names.
     public var index: Int = 0
+    /// The redeemer data passed to the script.
     public var data: PlutusData
+    /// The execution budget the script may use.
     public var exUnits: ExecutionUnits?
 
+    /// Creates a redeemer.
+    ///
+    /// The tag and execution units are optional so that they can be filled in later, for example after evaluating the script. Both must be set before the redeemer is written for the ledger.
+    ///
+    /// - Parameters:
+    ///   - tag: What the redeemer is for.
+    ///   - index: The position of the item the redeemer is for.
+    ///   - data: The redeemer data passed to the script.
+    ///   - exUnits: The execution budget the script may use.
     public init(
         tag: RedeemerTag? = nil,
         index: Int = 0,
@@ -216,9 +260,16 @@ public struct Redeemer: RedeemerProtocol {
 
 /// Represents a unique key for a Redeemer.
 public struct RedeemerKey: Serializable {
+    /// What the redeemer is for, which says what ``index`` points at.
     public var tag: RedeemerTag
+    /// The position of the item the redeemer is for, among the items its ``tag`` names. The ledger reads it as a 32-bit unsigned integer.
     public var index: Int = 0
 
+    /// Creates a redeemer key.
+    ///
+    /// - Parameters:
+    ///   - tag: What the redeemer is for.
+    ///   - index: The position of the item the redeemer is for.
     public init(tag: RedeemerTag, index: Int = 0) {
         self.tag = tag
         self.index = index
@@ -276,9 +327,16 @@ public struct RedeemerKey: Serializable {
 
 /// Represents the value of a Redeemer, including data and execution units.
 public struct RedeemerValue: Serializable {
+    /// The redeemer data passed to the script.
     public var data: PlutusData
+    /// The execution budget the script may use.
     public var exUnits: ExecutionUnits
 
+    /// Creates a redeemer value.
+    ///
+    /// - Parameters:
+    ///   - data: The redeemer data passed to the script.
+    ///   - exUnits: The execution budget the script may use.
     public init(data: PlutusData, exUnits: ExecutionUnits) {
         self.data = data
         self.exUnits = exUnits
@@ -346,10 +404,14 @@ public struct RedeemerMap: Serializable {
     /// so a decoded map has to keep it to be re-encoded unchanged.
     public var isIndefinite: Bool = false
 
+    /// Creates an empty map, written with a definite-length header.
     public init() {
         self.storage = [:]
     }
 
+    /// Creates a map that keeps the order of an ordered dictionary.
+    ///
+    /// - Parameter map: The redeemers, in the order to write them.
     public init(_ map: OrderedDictionary<RedeemerKey, RedeemerValue>) {
         self.storage = map
     }
@@ -363,6 +425,9 @@ public struct RedeemerMap: Serializable {
         self.storage = Self.canonicallyOrdered(map.map { ($0.key, $0.value) })
     }
 
+    /// Creates a map from key–value pairs, in the order given. A later pair with the same key replaces the earlier pair's value.
+    ///
+    /// - Parameter elements: The redeemers, in the order to write them.
     public init(uniqueKeysWithValues elements: [(RedeemerKey, RedeemerValue)]) {
         self.storage = [:]
         for (key, value) in elements {
@@ -384,6 +449,9 @@ public struct RedeemerMap: Serializable {
         return result
     }
 
+    /// The value for a key, or `nil` when there is none. Setting `nil` removes the entry; setting a new key appends it.
+    ///
+    /// - Parameter key: The redeemer key.
     public subscript(key: RedeemerKey) -> RedeemerValue? {
         get { storage[key] }
         set { storage[key] = newValue }
@@ -399,10 +467,12 @@ public struct RedeemerMap: Serializable {
         return storage.map { (key: $0.key, value: $0.value) }
     }
 
+    /// Whether the map has no entries.
     public var isEmpty: Bool {
         return storage.isEmpty
     }
 
+    /// The number of entries.
     public var count: Int {
         return storage.count
     }
@@ -533,7 +603,9 @@ public struct RedeemerMap: Serializable {
 
 /// Redeemers can be a list of Redeemer objects or a map of Redeemer keys to values.
 public enum Redeemers: Serializable {
+    /// The list form, `[* redeemer]`. An indefinite-length list is read but written back definite-length.
     case list([any RedeemerProtocol])
+    /// The map form, `{ * [tag, index] => [data, ex_units] }`.
     case map(RedeemerMap)
 
     // MARK: - CBORSerializable

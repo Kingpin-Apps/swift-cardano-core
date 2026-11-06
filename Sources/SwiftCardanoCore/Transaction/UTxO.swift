@@ -3,8 +3,11 @@ import Foundation
 import OrderedCollections
 import SwiftNaCl
 
+/// An unspent transaction output together with the input that refers to it.
 public struct UTxO: Serializable {
+    /// The reference to the output.
     public var input: TransactionInput
+    /// The output itself.
     public var output: TransactionOutput
     
 //    public var debugDescription: String { self.description }
@@ -38,11 +41,22 @@ public struct UTxO: Serializable {
 //        return String(data: prettyData, encoding: .utf8) ?? jsonString
 //    }
     
+    /// Creates a UTxO from an input and the output it refers to.
+    ///
+    /// - Parameters:
+    ///   - input: The reference to the output.
+    ///   - output: The output.
     public init(input: TransactionInput, output: TransactionOutput) {
         self.input = input
         self.output = output
     }
     
+    /// Creates a UTxO from plain values.
+    ///
+    /// - Parameters:
+    ///   - inputPrimitives: The transaction id in hex and the output index.
+    ///   - outputPrimitives: The address string, the amount in lovelace, an optional datum option, an optional script, and whether the output uses the post-Alonzo map form (`true` when `nil`).
+    /// - Throws: An error when the transaction id or the address is not valid.
     public init(from
                 inputPrimitives: (String, UInt16),
                 outputPrimitives: (String, Int, DatumOption?, ScriptType?, Bool?)) throws {
@@ -121,6 +135,10 @@ public struct UTxO: Serializable {
     
     // MARK: - Hashable
     
+    /// Returns the Blake2b-256 hash of the input's CBOR followed by the output's CBOR.
+    ///
+    /// - Returns: The hash, in hex.
+    /// - Throws: An error when the input or output cannot be encoded.
     public func hash() throws -> String {
         let hash =  try SwiftNaCl.Hash().blake2b(
             data: input.toCBORData() + output.toCBORData(),

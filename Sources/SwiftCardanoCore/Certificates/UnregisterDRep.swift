@@ -3,6 +3,8 @@ import CBORCodable
 import OrderedCollections
 
 /// DRep retirement: `drep_unregistration_cert = (17, drep_credential, coin)`.
+///
+/// Introduced in Conway.
 public struct UnregisterDRep: CertificateSerializable {
     public var _payload: Data
     public var _type: String
@@ -15,7 +17,9 @@ public struct UnregisterDRep: CertificateSerializable {
     public static var DESCRIPTION: String { CertificateDescription.unRegisterDRep.rawValue }
     public static var CODE: CertificateCode { .unRegisterDRep }
 
+    /// The credential of the DRep to retire.
     public let drepCredential: DRepCredential
+    /// The DRep deposit refunded, in lovelace.
     public let coin: Coin
 
     public enum CodingKeys: String, CodingKey {
@@ -25,6 +29,9 @@ public struct UnregisterDRep: CertificateSerializable {
 
     /// Creates the certificate.
     ///
+    /// - Parameters:
+    ///   - drepCredential: The credential of the DRep to retire.
+    ///   - coin: The DRep deposit refunded, in lovelace.
     /// - Throws: When the certificate cannot be encoded for its payload.
     public init(drepCredential: DRepCredential, coin: Coin) throws {
         self.drepCredential = drepCredential

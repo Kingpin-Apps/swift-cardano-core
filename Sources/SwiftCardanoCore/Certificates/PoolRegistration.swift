@@ -3,7 +3,9 @@ import CBORCodable
 import FractionNumber
 import OrderedCollections
 
-/// Stake Pool Registration Certificate
+/// Stake pool registration certificate: `pool_registration_cert = (3, pool_params)`.
+///
+/// Introduced in Shelley. Registers a new pool or updates the parameters of a registered one.
 public struct PoolRegistration: CertificateSerializable {
     public var _payload: Data
     public var _type: String
@@ -16,6 +18,7 @@ public struct PoolRegistration: CertificateSerializable {
     public static var DESCRIPTION: String { CertificateDescription.poolRegistration.rawValue }
     public static var CODE: CertificateCode { get { return .poolRegistration } }
     
+    /// The parameters of the pool being registered.
     public let poolParams: PoolParams
     
     public enum CodingKeys: String, CodingKey {

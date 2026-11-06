@@ -5,10 +5,18 @@ import OrderedCollections
 public struct SingleHostAddr: Serializable, Sendable {
     public static var code: Int { get { return 0 } }
     
+    /// The relay's port, or `nil` when not given.
     public let port: Int?
+    /// The relay's IPv4 address, or `nil` when not given.
     public let ipv4: IPv4Address?
+    /// The relay's IPv6 address, or `nil` when not given.
     public let ipv6: IPv6Address?
     
+    /// Creates a single host address relay.
+    /// - Parameters:
+    ///   - port: The relay's port, or `nil`.
+    ///   - ipv4: The relay's IPv4 address, or `nil`.
+    ///   - ipv6: The relay's IPv6 address, or `nil`.
     public init(port: Int?, ipv4: IPv4Address?, ipv6: IPv6Address?) {
         self.port = port
         self.ipv4 = ipv4

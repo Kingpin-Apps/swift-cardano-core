@@ -1,8 +1,10 @@
 import Foundation
 import OrderedCollections
 
+/// A native script that requires at least one of its scripts: `[2, [scripts]]`. cardano-cli JSON type `"any"`.
 public struct ScriptAny: NativeScriptable {
     public static let TYPE = NativeScriptType.scriptAny
+    /// The scripts, at least one of which must be satisfied.
     public var scripts: [NativeScript] { scriptList.array }
 
     /// The scripts, kept so that scripts nested however deep are freed
@@ -14,6 +16,9 @@ public struct ScriptAny: NativeScriptable {
     /// taken over them, as the ledger takes them, while they are kept.
     public internal(set) var originalCBOR: Data? = nil
     
+    /// Creates a script that requires at least one of `scripts`.
+    ///
+    /// - Parameter scripts: The scripts, at least one of which must be satisfied.
     public init (scripts: [NativeScript]) {
         self.scriptList = NestedList(scripts)
     }

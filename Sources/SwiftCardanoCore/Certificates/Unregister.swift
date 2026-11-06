@@ -3,6 +3,8 @@ import CBORCodable
 import OrderedCollections
 
 /// Stake deregistration with its deposit refund: `account_unregistration_deposit_cert = (8, stake_credential, coin)`.
+///
+/// Introduced in Conway. Unlike ``StakeDeregistration`` (tag 1), it states the deposit refunded.
 public struct Unregister: CertificateSerializable {
     public var _payload: Data
     public var _type: String
@@ -15,7 +17,9 @@ public struct Unregister: CertificateSerializable {
     public static var DESCRIPTION: String { CertificateDescription.stakeDeregistration.rawValue }
     public static var CODE: CertificateCode { .unregister }
 
+    /// The stake credential to deregister.
     public let stakeCredential: StakeCredential
+    /// The deposit refunded on deregistration, in lovelace.
     public let coin: Coin
 
     public enum CodingKeys: String, CodingKey {
@@ -25,6 +29,9 @@ public struct Unregister: CertificateSerializable {
 
     /// Creates the certificate.
     ///
+    /// - Parameters:
+    ///   - stakeCredential: The stake credential to deregister.
+    ///   - coin: The deposit refunded on deregistration, in lovelace.
     /// - Throws: When the certificate cannot be encoded for its payload.
     public init(stakeCredential: StakeCredential, coin: Coin) throws {
         self.stakeCredential = stakeCredential

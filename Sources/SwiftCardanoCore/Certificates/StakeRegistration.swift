@@ -3,6 +3,8 @@ import CBORCodable
 import OrderedCollections
 
 /// Stake address registration certificate: `account_registration_cert = (0, stake_credential)`.
+///
+/// Introduced in Shelley. Registers a stake credential without stating the deposit; Conway adds ``Register`` (tag 7), which carries it.
 public struct StakeRegistration: CertificateSerializable {
     public var _payload: Data
     public var _type: String
@@ -15,6 +17,7 @@ public struct StakeRegistration: CertificateSerializable {
     public static var DESCRIPTION: String { CertificateDescription.stakeRegistration.rawValue }
     public static var CODE: CertificateCode { .stakeRegistration }
 
+    /// The stake credential to register.
     public let stakeCredential: StakeCredential
 
     public enum CodingKeys: String, CodingKey {
@@ -23,6 +26,8 @@ public struct StakeRegistration: CertificateSerializable {
 
     /// Creates the certificate.
     ///
+    /// - Parameters:
+    ///   - stakeCredential: The stake credential to register.
     /// - Throws: When the certificate cannot be encoded for its payload.
     public init(stakeCredential: StakeCredential) throws {
         self.stakeCredential = stakeCredential

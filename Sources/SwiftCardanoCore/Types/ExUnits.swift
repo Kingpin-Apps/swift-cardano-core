@@ -3,10 +3,20 @@ import OrderedCollections
 import CBORCodable
 
 // MARK: - ExUnitPrices
+/// The prices of execution units: `ex_unit_prices = [mem_price, step_price]`.
+///
+/// Each price is a ``NonNegativeInterval``.
 public struct ExUnitPrices: CBORSerializable, Sendable {
+    /// The price of a unit of memory.
     public var memPrice: NonNegativeInterval
+    /// The price of a CPU step.
     public var stepPrice: NonNegativeInterval
 
+    /// Creates execution unit prices.
+    ///
+    /// - Parameters:
+    ///   - memPrice: The price of a unit of memory.
+    ///   - stepPrice: The price of a CPU step.
     public init(memPrice: NonNegativeInterval, stepPrice: NonNegativeInterval) {
         self.memPrice = memPrice
         self.stepPrice = stepPrice
@@ -69,12 +79,19 @@ public struct ExUnitPrices: CBORSerializable, Sendable {
 /// (`libs/cardano-ledger-core/src/Cardano/Ledger/Plutus/ExUnits.hs`) fails on
 /// a larger value, so this type refuses one when it reads or writes CBOR.
 public struct ExUnits: CBORSerializable, Sendable {
+    /// The memory units.
     public var mem: UInt64
+    /// The CPU steps.
     public var steps: UInt64
 
     /// The largest value either field may hold on chain.
     public static let maxValue = UInt64(Int64.max)
 
+    /// Creates execution units. Values above ``maxValue`` are accepted here but rejected by ``validate()`` and when written to CBOR.
+    ///
+    /// - Parameters:
+    ///   - mem: The memory units.
+    ///   - steps: The CPU steps.
     public init(mem: UInt64, steps: UInt64) {
         self.mem = mem
         self.steps = steps

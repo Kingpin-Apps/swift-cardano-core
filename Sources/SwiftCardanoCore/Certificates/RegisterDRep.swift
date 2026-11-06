@@ -3,6 +3,8 @@ import CBORCodable
 import OrderedCollections
 
 /// DRep registration: `drep_registration_cert = (16, drep_credential, coin, anchor / nil)`.
+///
+/// Introduced in Conway.
 public struct RegisterDRep: CertificateSerializable {
     public var _payload: Data
     public var _type: String
@@ -22,8 +24,11 @@ public struct RegisterDRep: CertificateSerializable {
     public static var DESCRIPTION: String { CertificateDescription.registerDRep.rawValue }
     public static var CODE: CertificateCode { .registerDRep }
 
+    /// The credential of the DRep to register.
     public let drepCredential: DRepCredential
+    /// The DRep deposit paid, in lovelace.
     public let coin: Coin
+    /// An optional anchor to the DRep's off-chain metadata.
     public let anchor: Anchor?
 
     public enum CodingKeys: String, CodingKey {
@@ -34,6 +39,10 @@ public struct RegisterDRep: CertificateSerializable {
 
     /// Creates the certificate.
     ///
+    /// - Parameters:
+    ///   - drepCredential: The credential of the DRep to register.
+    ///   - coin: The DRep deposit paid, in lovelace.
+    ///   - anchor: an optional anchor to the DRep's off-chain metadata.
     /// - Throws: When the certificate cannot be encoded for its payload.
     public init(drepCredential: DRepCredential, coin: Coin, anchor: Anchor? = nil) throws {
         self.drepCredential = drepCredential

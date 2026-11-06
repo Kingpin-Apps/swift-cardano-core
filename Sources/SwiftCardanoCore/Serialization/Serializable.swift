@@ -1,6 +1,11 @@
 import Foundation
 import OrderedCollections
 
+/// A value that reads from and writes to both CBOR and JSON.
+///
+/// Its JSON form comes from the default ``JSONSerializable`` implementation
+/// for CBOR types unless the type supplies its own `toDict()` and
+/// `fromDict(_:)`.
 public protocol Serializable: CBORSerializable, JSONSerializable, Sendable  {}
 
 /// Default `JSONSerializable` implementation for any `CBORSerializable` type.
@@ -12,6 +17,12 @@ public protocol Serializable: CBORSerializable, JSONSerializable, Sendable  {}
 /// by text — and otherwise the hex of its CBOR. Either reads back as the same
 /// value. A type with a more readable JSON form implements its own pair.
 public extension JSONSerializable where Self: CBORSerializable {
+    /// Creates a value from its JSON primitive form.
+    ///
+    /// A string that is hex of CBOR this type decodes is read as that CBOR;
+    /// anything else is passed to `init(from primitive:)`.
+    /// - Parameter primitive: The JSON as a primitive.
+    /// - Returns: The value the primitive describes.
     static func fromDict(_ primitive: Primitive) throws -> Self {
         if case .string(let hex) = primitive, let data = Data(hexString: hex),
            let value = try? Self.fromCBOR(data: data) {
@@ -20,6 +31,9 @@ public extension JSONSerializable where Self: CBORSerializable {
         return try Self.init(from: primitive)
     }
 
+    /// Returns the value's CBOR primitive when JSON carries it without loss,
+    /// and otherwise the hex of its CBOR as a string.
+    /// - Returns: The JSON primitive form of the value.
     func toDict() throws -> Primitive {
         let primitive = try toPrimitive()
         return primitive.survivesJSON ? primitive : .string(try toCBORHex())
@@ -54,6 +68,9 @@ extension Primitive {
 }
 
 public extension Serializable {
+    /// Decodes the value from a JSON string when the decoder is a
+    /// `JSONDecoder`, and from a CBOR primitive otherwise.
+    /// - Parameter decoder: The decoder to read from.
     init(from decoder: Decoder) throws {
         if String(describing: type(of: decoder)).contains("JSONDecoder") {
             let container = try decoder.singleValueContainer()
@@ -66,6 +83,9 @@ public extension Serializable {
     }
     
     
+    /// Encodes the value as a JSON string (the output of ``JSONDescribable/toJSON()``) when
+    /// the encoder is a `JSONEncoder`, and as its CBOR primitive otherwise.
+    /// - Parameter encoder: The encoder to write to.
     func encode(to encoder: Encoder) throws {
         if String(describing: type(of: encoder)).contains("JSONEncoder") {
             var container = encoder.singleValueContainer()

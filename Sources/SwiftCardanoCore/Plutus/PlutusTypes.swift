@@ -2,17 +2,30 @@ import Foundation
 import CBORCodable
 
 // MARK: - PlutusScript
+/// A Plutus script of one language version.
 public protocol PlutusScriptable: Serializable {
+    /// The script bytes.
     var data: Data { get set }
+    /// The Plutus language version: 1, 2 or 3.
     var version: Int { get }
+    /// The byte put before the script bytes when hashing the script. It identifies the language version.
+    ///
+    /// - Returns: The one-byte prefix.
     func getScriptHashPrefix() -> Data
 }
 
+/// A Plutus script of any language version.
+///
+/// In CBOR it is `[version, script_bytes]`, where `version` is 1, 2 or 3.
 public enum PlutusScript: Serializable {
+    /// A Plutus V1 script, written with version `1`.
     case plutusV1Script(PlutusV1Script)
+    /// A Plutus V2 script, written with version `2`.
     case plutusV2Script(PlutusV2Script)
+    /// A Plutus V3 script, written with version `3`.
     case plutusV3Script(PlutusV3Script)
     
+    /// The same script as a ``ScriptType``.
     public var toScriptType: ScriptType {
         switch self {
             case .plutusV1Script(let data):
@@ -111,14 +124,25 @@ public enum PlutusScript: Serializable {
     }
 }
 
+/// A Plutus V1 script.
+///
+/// In CBOR it is a byte string holding the script bytes. Its script hash is taken over the prefix byte `0x01` followed by those bytes.
 public struct PlutusV1Script: PlutusScriptable {
+    /// The script bytes.
     public var data: Data
+    /// The Plutus language version, 1.
     public var version: Int = 1
     
+    /// Creates a Plutus V1 script.
+    ///
+    /// - Parameter data: The script bytes.
     public init(data: Data) {
         self.data = data
     }
 
+    /// The byte put before the script bytes when hashing the script, `0x01`.
+    ///
+    /// - Returns: The one-byte prefix.
     public func getScriptHashPrefix() -> Data {
         Data([0x01])
     }
@@ -163,14 +187,25 @@ public struct PlutusV1Script: PlutusScriptable {
     }
 }
 
+/// A Plutus V2 script.
+///
+/// In CBOR it is a byte string holding the script bytes. Its script hash is taken over the prefix byte `0x02` followed by those bytes.
 public struct PlutusV2Script: PlutusScriptable {
+    /// The script bytes.
     public var data: Data
+    /// The Plutus language version, 2.
     public var version: Int = 2
     
+    /// Creates a Plutus V2 script.
+    ///
+    /// - Parameter data: The script bytes.
     public init(data: Data) {
         self.data = data
     }
 
+    /// The byte put before the script bytes when hashing the script, `0x02`.
+    ///
+    /// - Returns: The one-byte prefix.
     public func getScriptHashPrefix() -> Data {
         Data([0x02])
     }
@@ -215,14 +250,25 @@ public struct PlutusV2Script: PlutusScriptable {
     }
 }
 
+/// A Plutus V3 script.
+///
+/// In CBOR it is a byte string holding the script bytes. Its script hash is taken over the prefix byte `0x03` followed by those bytes.
 public struct PlutusV3Script: PlutusScriptable {
+    /// The script bytes.
     public var data: Data
+    /// The Plutus language version, 3.
     public var version: Int = 3
     
+    /// Creates a Plutus V3 script.
+    ///
+    /// - Parameter data: The script bytes.
     public init(data: Data) {
         self.data = data
     }
 
+    /// The byte put before the script bytes when hashing the script, `0x03`.
+    ///
+    /// - Returns: The one-byte prefix.
     public func getScriptHashPrefix() -> Data {
         Data([0x03])
     }
@@ -269,12 +315,19 @@ public struct PlutusV3Script: PlutusScriptable {
 
 
 // MARK: - ScriptType
+/// A script of any kind: a native script or a Plutus script.
+///
+/// A Plutus script is written as `[version, script_bytes]`, with `version` 1, 2 or 3. A native script is written in its own form. Reading treats an array whose first element is an unsigned integer as a Plutus script and anything else as a native script.
 public enum ScriptType: Serializable {
     
 //    case bytes(Data)
+    /// A native script.
     case nativeScript(NativeScript)
+    /// A Plutus V1 script.
     case plutusV1Script(PlutusV1Script)
+    /// A Plutus V2 script.
     case plutusV2Script(PlutusV2Script)
+    /// A Plutus V3 script.
     case plutusV3Script(PlutusV3Script)
     
     // MARK: - CBORSerializable

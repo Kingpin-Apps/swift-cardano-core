@@ -15,7 +15,7 @@ public struct Value: CBORSerializable, Comparable, Sendable {
     /// Amount of ADA, in lovelace.
     public var coin: BigInt
 
-    /// Multi-assets associated with the UTx
+    /// The native assets, by policy.
     public var multiAsset: MultiAsset
 
     enum CodingKeys: CodingKey {
@@ -23,6 +23,11 @@ public struct Value: CBORSerializable, Comparable, Sendable {
         case multiAsset
     }
 
+    /// Creates a value from a coin amount and native assets.
+    ///
+    /// - Parameters:
+    ///   - coin: The amount of ADA, in lovelace.
+    ///   - multiAsset: The native assets.
     public init(coin: BigInt = 0, multiAsset: MultiAsset = MultiAsset([:])) {
         self.coin = coin
         self.multiAsset = multiAsset
@@ -33,6 +38,13 @@ public struct Value: CBORSerializable, Comparable, Sendable {
         self.init(coin: BigInt(coin), multiAsset: multiAsset)
     }
 
+    /// Creates a value from a two-element array: `[coin, multiAsset]`.
+    ///
+    /// The coin may be a `BigInt`, `Int64`, `Int` or `UInt64`; the multi-asset a
+    /// dictionary of amounts keyed by hex policy id, then by asset name, as
+    /// `MultiAsset.init(from:)` takes.
+    /// - Parameter list: The coin, then the multi-asset.
+    /// - Throws: `CardanoCoreError.invalidArgument` when the array does not have two elements or either element has another type.
     public init(from list: [Any]) throws {
         guard list.count == 2 else {
             throw CardanoCoreError.invalidArgument("Invalid Value data: \(list)")
@@ -145,10 +157,15 @@ public struct Value: CBORSerializable, Comparable, Sendable {
         ])
     }
 
+    /// Returns the sum of this value and `other`; the same as `self + other`.
+    ///
+    /// - Parameter other: The value to add.
+    /// - Returns: The combined value.
     public func union(_ other: Value) -> Value {
         return self + other
     }
 
+    /// Adds the coins and the multi-assets of two values; see ``MultiAsset`` `+`.
     public static func + (lhs: Value, rhs: Value) -> Value {
         return Value(
             coin: lhs.coin + rhs.coin,
@@ -156,6 +173,7 @@ public struct Value: CBORSerializable, Comparable, Sendable {
         )
     }
 
+    /// Adds lovelace to the coin of a value, leaving its multi-asset unchanged.
     public static func + (lhs: Value, rhs: Coin) -> Value {
         return Value(
             coin: lhs.coin + BigInt(rhs),
@@ -163,18 +181,24 @@ public struct Value: CBORSerializable, Comparable, Sendable {
         )
     }
 
+    /// Adds `rhs` to `lhs`.
     public static func += (lhs: inout Value, rhs: Value) {
         lhs = lhs + rhs
     }
 
+    /// Subtracts `rhs` from `lhs`.
     public static func -= (lhs: inout Value, rhs: Value) {
         lhs = lhs - rhs
     }
 
+    /// Subtracts the coin and the multi-asset of `rhs` from those of `lhs`; see ``MultiAsset`` `-`.
+    ///
+    /// The result can hold a negative coin or negative asset amounts.
     public static func - (lhs: Value, rhs: Value) -> Value {
         return Value(coin: lhs.coin - rhs.coin, multiAsset: lhs.multiAsset - rhs.multiAsset)
     }
     
+    /// Subtracts lovelace from the coin of a value, leaving its multi-asset unchanged.
     public static func - (lhs: Value, rhs: Coin) -> Value {
         return Value(
             coin: lhs.coin - BigInt(rhs),
@@ -186,18 +210,22 @@ public struct Value: CBORSerializable, Comparable, Sendable {
         return lhs.coin == rhs.coin && lhs.multiAsset == rhs.multiAsset
     }
 
+    /// Returns `true` when the coin of `lhs` is `<=` that of `rhs` and the multi-asset of `lhs` is `<=` that of `rhs`.
     public static func <= (lhs: Value, rhs: Value) -> Bool {
         return lhs.coin <= rhs.coin && lhs.multiAsset <= rhs.multiAsset
     }
 
+    /// Returns `true` when the coin of `lhs` is `>=` that of `rhs` and the multi-asset of `lhs` is `>=` that of `rhs`.
     public static func >= (lhs: Value, rhs: Value) -> Bool {
         return lhs.coin >= rhs.coin && lhs.multiAsset >= rhs.multiAsset
     }
 
+    /// Returns `true` when the coin of `lhs` is `<` that of `rhs` and the multi-asset of `lhs` is `<` that of `rhs`.
     public static func < (lhs: Value, rhs: Value) -> Bool {
         return lhs.coin < rhs.coin && lhs.multiAsset < rhs.multiAsset
     }
 
+    /// Returns `true` when the coin of `lhs` is `>` that of `rhs` and the multi-asset of `lhs` is `>` that of `rhs`.
     public static func > (lhs: Value, rhs: Value) -> Bool {
         return lhs.coin > rhs.coin && lhs.multiAsset > rhs.multiAsset
     }

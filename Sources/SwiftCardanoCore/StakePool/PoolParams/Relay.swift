@@ -2,9 +2,13 @@ import Foundation
 import OrderedCollections
 
 
+/// A stake pool relay: `relay = [single_host_addr // single_host_name // multi_host_name]`.
 public enum Relay: Serializable, Sendable {
+    /// A relay given by IP address and port (tag 0).
     case singleHostAddr(SingleHostAddr)
+    /// A relay given by a DNS name and port (tag 1).
     case singleHostName(SingleHostName)
+    /// A relay given by a DNS name only (tag 2).
     case multiHostName(MultiHostName)
     
     // MARK: - CBORSerializable

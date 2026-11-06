@@ -3,6 +3,8 @@ import CBORCodable
 import OrderedCollections
 
 /// Stake delegation certificate: `delegation_to_stake_pool_cert = (2, stake_credential, pool_keyhash)`.
+///
+/// Introduced in Shelley.
 public struct StakeDelegation: CertificateSerializable {
     public var _payload: Data
     public var _type: String
@@ -15,7 +17,9 @@ public struct StakeDelegation: CertificateSerializable {
     public static var DESCRIPTION: String { CertificateDescription.stakeDelegation.rawValue }
     public static var CODE: CertificateCode { .stakeDelegation }
 
+    /// The stake credential whose stake is delegated.
     public let stakeCredential: StakeCredential
+    /// The hash of the operator key of the pool to delegate to.
     public let poolKeyHash: PoolKeyHash
 
     public enum CodingKeys: String, CodingKey {
@@ -25,6 +29,9 @@ public struct StakeDelegation: CertificateSerializable {
 
     /// Creates the certificate.
     ///
+    /// - Parameters:
+    ///   - stakeCredential: The stake credential whose stake is delegated.
+    ///   - poolKeyHash: The hash of the operator key of the pool to delegate to.
     /// - Throws: When the certificate cannot be encoded for its payload.
     public init(stakeCredential: StakeCredential, poolKeyHash: PoolKeyHash) throws {
         self.stakeCredential = stakeCredential

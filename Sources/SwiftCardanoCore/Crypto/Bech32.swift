@@ -12,8 +12,11 @@
 import Foundation
 
 
+/// The checksum variant of a Bech32 string.
 public enum Bech32Encoding: Int {
+    /// Bech32, as in BIP-173.
     case bech32 = 1
+    /// Bech32m, as in BIP-350.
     case bech32m = 2
 }
 
@@ -38,6 +41,7 @@ public class Bech32 {
     /// Bech32m Constant
     private let bech32mConst: UInt32 = 0x2BC830A3
     
+    /// Creates a Bech32 codec.
     public init() {}
     
     /// Find the polynomial with value coefficients mod the generator as 30-bit.
@@ -200,6 +204,9 @@ public class Bech32 {
         return ret
     }
 
+    /// Decodes a Bech32 or Bech32m string to bytes, dropping the human-readable part.
+    /// - Parameter addr: The Bech32 string.
+    /// - Returns: The data part as 8-bit bytes, or `nil` when the string is not valid Bech32.
     public func decode(addr: String) -> Data? {
         do {
             let (_, data, _) = try bech32Decode(addr)
@@ -210,6 +217,12 @@ public class Bech32 {
         
     }
 
+    /// Encodes bytes as a Bech32 string.
+    /// Unlike BIP-173, this has no length limit, so it can encode Cardano addresses and keys.
+    /// - Parameters:
+    ///   - hrp: The human-readable part, such as `addr` or `stake_test`.
+    ///   - witprog: The bytes to encode.
+    /// - Returns: The Bech32 string, or `nil` when the bytes cannot be encoded.
     public func encode(hrp: String, witprog: Data) -> String? {
         guard let data = convertBits(data: witprog, fromBits: 8, toBits: 5) else {
             return nil
@@ -226,16 +239,26 @@ public class Bech32 {
 }
 
 extension Bech32 {
+    /// A reason a string is not valid Bech32.
     public enum DecodingError: LocalizedError {
+        /// The string is not UTF-8.
         case nonUTF8String
+        /// The string has a character outside the printable ASCII range.
         case nonPrintableCharacter
+        /// The string mixes upper and lower case.
         case invalidCase
+        /// The string has no `1` separator.
         case noChecksumMarker
+        /// The human-readable part is empty.
         case incorrectHrpSize
+        /// The data part is shorter than the six-character checksum.
         case incorrectChecksumSize
+        /// The string is too long. This decoder does not throw it.
         case stringLengthExceeded
         
+        /// The data part has a character outside the Bech32 alphabet.
         case invalidCharacter
+        /// The checksum does not match the Bech32 or Bech32m constant.
         case checksumMismatch
         
         public var errorDescription: String? {

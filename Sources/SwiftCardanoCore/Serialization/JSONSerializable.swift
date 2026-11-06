@@ -1,13 +1,23 @@
 import Foundation
 import OrderedCollections
 
+/// A value that can describe itself as JSON.
+///
+/// The protocol's extension uses the JSON for ``description`` and
+/// ``debugDescription``, pretty-printed with sorted keys.
 public protocol JSONDescribable: Codable, CustomStringConvertible, CustomDebugStringConvertible {
+    /// Returns the value as a JSON string.
+    /// - Returns: The JSON text, or `nil` when it cannot be produced as UTF-8.
     func toJSON() throws -> String?
     /// Returns a JSON string used for display (e.g. `description`). Defaults to `toJSON()`.
     func toDisplayJSON() throws -> String?
 }
 
 extension JSONDescribable {
+    /// The value's display JSON, pretty-printed with sorted keys.
+    ///
+    /// `{}` when there is no JSON to show, or an error message when producing
+    /// it throws.
     public var debugDescription: String {
         do {
             guard let json = try self.toDisplayJSON() else { return "{}" }
@@ -38,14 +48,29 @@ extension JSONDescribable {
         }
     }
 
+    /// The same text as ``debugDescription``.
     public var description: String { self.debugDescription }
 
     /// Default implementation: delegates to `toJSON()`.
     public func toDisplayJSON() throws -> String? { try toJSON() }
 }
 
+/// A value that reads from and writes to JSON through a ``Primitive``
+/// dictionary form.
+///
+/// A conforming type converts itself to and from the primitive that mirrors
+/// its JSON; the protocol's extension turns that into JSON text and back.
 public protocol JSONSerializable: JSONDescribable, Hashable, Equatable {
+    /// Creates a value from the primitive form of its JSON.
+    /// - Parameter primitive: The JSON as a primitive, as ``fromJSON(_:)``
+    ///   builds it: objects as `.orderedDict` with string keys, non-negative
+    ///   integers as `.uint`.
+    /// - Returns: The value the primitive describes.
+    /// - Throws: `CardanoCoreError` when the primitive does not have the
+    ///   shape this type expects.
     static func fromDict(_ primitive: Primitive) throws -> Self
+    /// Returns the value as the primitive form of its JSON.
+    /// - Returns: A primitive that ``JSONDescribable/toJSON()`` writes as JSON.
     func toDict() throws -> Primitive
 }
 
@@ -228,7 +253,7 @@ extension JSONSerializable {
 
 extension Primitive {
     /// The bytes of a field read from JSON: raw bytes, or a string of hex —
-    /// what ``JSONSerializable/toJSON()`` writes — or of base64, which earlier
+    /// what ``JSONDescribable/toJSON()`` writes — or of base64, which earlier
     /// versions wrote. Hex is tried
     /// first, and either reading must give `count` bytes when it is set, so a
     /// hex string that also happens to be valid base64 is not misread.

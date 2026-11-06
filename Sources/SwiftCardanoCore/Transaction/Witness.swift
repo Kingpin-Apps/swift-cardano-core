@@ -2,6 +2,7 @@ import Foundation
 import CBORCodable
 import OrderedCollections
 
+/// A key witness: a verification key and its signature over the transaction id, written as `[vkey, signature]`.
 public struct VerificationKeyWitness: Serializable, TextEnvelopable {
     public static var TYPE: String { "TxWitness ConwayEra" }
     public static var DESCRIPTION: String { "Key Witness ShelleyEra" }
@@ -10,11 +11,15 @@ public struct VerificationKeyWitness: Serializable, TextEnvelopable {
     public var _type: String
     public var _description: String
     
+    /// The text envelope `type` field.
     public var type: String { get { return _type } }
     public var description: String { get { return _description } }
+    /// The CBOR of `[vkey, signature]`, as the text envelope holds it.
     public var payload: Data { get { return _payload } }
     
+    /// The verification key that made the signature.
     public var vkey: VerificationKeyType
+    /// The signature bytes.
     public var signature: Data
     
     enum CodingKeys: String, CodingKey {
@@ -32,6 +37,11 @@ public struct VerificationKeyWitness: Serializable, TextEnvelopable {
         self.signature = cbor.signature
     }
     
+    /// Creates a key witness, with the default text envelope `type` and `description`.
+    ///
+    /// - Parameters:
+    ///   - vkey: The verification key that made the signature.
+    ///   - signature: The signature bytes.
     public init(vkey: VerificationKeyType, signature: Data) {
         self.vkey = vkey
         self.signature = signature
@@ -148,28 +158,39 @@ public struct VerificationKeyWitness: Serializable, TextEnvelopable {
 
 }
 
+/// The witnesses of a transaction: a CBOR map from field numbers to lists or sets of witnesses.
+///
+/// Setting any property clears ``TransactionWitnessSet/originalCBOR``.
 public struct TransactionWitnessSet: Serializable, Equatable {
+    /// The key witnesses. Key 0 in the witness set map.
     public var vkeyWitnesses: ListOrNonEmptyOrderedSet<VerificationKeyWitness>? {
         didSet { originalCBOR = nil }
     }
+    /// The native scripts. Key 1 in the witness set map.
     public var nativeScripts: ListOrNonEmptyOrderedSet<NativeScript>? {
         didSet { originalCBOR = nil }
     }
+    /// The Byron bootstrap witnesses. Key 2 in the witness set map.
     public var bootstrapWitness: ListOrNonEmptyOrderedSet<BootstrapWitness>? {
         didSet { originalCBOR = nil }
     }
+    /// The Plutus V1 scripts. Key 3 in the witness set map.
     public var plutusV1Script: ListOrNonEmptyOrderedSet<PlutusV1Script>? {
         didSet { originalCBOR = nil }
     }
+    /// The datums. Key 4 in the witness set map. Setting it also clears ``originalPlutusDataCBOR``.
     public var plutusData: ListOrNonEmptyOrderedSet<PlutusData>? {
         didSet { originalCBOR = nil; originalPlutusDataCBOR = nil }
     }
+    /// The redeemers. Key 5 in the witness set map. Setting it also clears ``originalRedeemersCBOR``.
     public var redeemers: Redeemers? {
         didSet { originalCBOR = nil; originalRedeemersCBOR = nil }
     }
+    /// The Plutus V2 scripts. Key 6 in the witness set map.
     public var plutusV2Script: ListOrNonEmptyOrderedSet<PlutusV2Script>? {
         didSet { originalCBOR = nil }
     }
+    /// The Plutus V3 scripts. Key 7 in the witness set map.
     public var plutusV3Script: ListOrNonEmptyOrderedSet<PlutusV3Script>? {
         didSet { originalCBOR = nil }
     }
@@ -259,6 +280,10 @@ public struct TransactionWitnessSet: Serializable, Equatable {
         return witnessSet
     }
 
+    /// Decodes a witness set from CBOR bytes with Conway's ledger rules, keeping its bytes as ``fromCBOR(data:)`` does.
+    ///
+    /// - Parameter cbor: The CBOR bytes of the witness set.
+    /// - Throws: An error when bytes follow the witness set or it is not valid.
     public init(from cbor: Data) throws {
         self = try Self.fromCBOR(data: cbor)
     }
@@ -367,6 +392,17 @@ public struct TransactionWitnessSet: Serializable, Equatable {
         return data
     }
 
+    /// Creates a witness set from its parts; every part defaults to `nil`.
+    ///
+    /// - Parameters:
+    ///   - vkeyWitnesses: The key witnesses. Key 0.
+    ///   - nativeScripts: The native scripts. Key 1.
+    ///   - bootstrapWitness: The Byron bootstrap witnesses. Key 2.
+    ///   - plutusV1Script: The Plutus V1 scripts. Key 3.
+    ///   - plutusV2Script: The Plutus V2 scripts. Key 6.
+    ///   - plutusData: The datums. Key 4.
+    ///   - redeemers: The redeemers. Key 5.
+    ///   - plutusV3Script: The Plutus V3 scripts. Key 7.
     public init(
         vkeyWitnesses: ListOrNonEmptyOrderedSet<VerificationKeyWitness>? = nil,
         nativeScripts: ListOrNonEmptyOrderedSet<NativeScript>? = nil,
@@ -411,6 +447,7 @@ public struct TransactionWitnessSet: Serializable, Equatable {
         }
     }
     
+    /// Returns `true` when the witness set holds no part at all.
     public func isEmpty() -> Bool {
         return vkeyWitnesses == nil && nativeScripts == nil && bootstrapWitness == nil && plutusV1Script == nil && plutusData == nil && redeemers == nil && plutusV2Script == nil && plutusV3Script == nil
     }

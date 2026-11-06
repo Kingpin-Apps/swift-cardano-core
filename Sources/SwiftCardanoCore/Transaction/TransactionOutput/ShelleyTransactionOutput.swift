@@ -2,11 +2,18 @@ import Foundation
 import OrderedCollections
 
 
+/// An output in the legacy array form: `[address, amount]`, or `[address, amount, datum_hash]` from Alonzo.
 public struct ShelleyTransactionOutput: Serializable {
     let address: Address
     let amount: Value
     let datumHash: DatumHash?
     
+    /// Creates a legacy-form output.
+    ///
+    /// - Parameters:
+    ///   - address: The address that receives the output.
+    ///   - amount: The lovelace and native assets the output holds.
+    ///   - datumHash: The datum hash, or `nil`.
     public init(address: Address, amount: Value, datumHash: DatumHash? = nil) {
         self.address = address
         self.amount = amount

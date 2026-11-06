@@ -4,8 +4,11 @@ import OrderedCollections
 /// MultiHostName structure representing a multi-host name with DNS name.
 public struct MultiHostName: Serializable, Sendable {
     public static var code: Int { get { return 2 } }
+    /// The relay's DNS name (an SRV record).
     public let dnsName: String?
     
+    /// Creates a multi-host name relay.
+    /// - Parameter dnsName: The relay's DNS name.
     /// - Throws: When `dnsName` is longer than
     ///   ``SingleHostName/maxDnsNameSize`` bytes of UTF-8.
     public init(dnsName: String?) throws {

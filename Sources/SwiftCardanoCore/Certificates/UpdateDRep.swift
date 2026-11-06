@@ -3,6 +3,8 @@ import CBORCodable
 import OrderedCollections
 
 /// DRep update: `drep_update_cert = (18, drep_credential, anchor / nil)`.
+///
+/// Introduced in Conway. Replaces the DRep's metadata anchor.
 public struct UpdateDRep: CertificateSerializable {
     public var _payload: Data
     public var _type: String
@@ -15,7 +17,9 @@ public struct UpdateDRep: CertificateSerializable {
     public static var DESCRIPTION: String { CertificateDescription.updateDRep.rawValue }
     public static var CODE: CertificateCode { .updateDRep }
 
+    /// The credential of the registered DRep.
     public let drepCredential: DRepCredential
+    /// The new anchor to the DRep's off-chain metadata, or `nil` for none.
     public let anchor: Anchor?
 
     public enum CodingKeys: String, CodingKey {
@@ -25,6 +29,9 @@ public struct UpdateDRep: CertificateSerializable {
 
     /// Creates the certificate.
     ///
+    /// - Parameters:
+    ///   - drepCredential: The credential of the registered DRep.
+    ///   - anchor: The new anchor to the DRep's off-chain metadata, or `nil` for none.
     /// - Throws: When the certificate cannot be encoded for its payload.
     public init(drepCredential: DRepCredential, anchor: Anchor? = nil) throws {
         self.drepCredential = drepCredential

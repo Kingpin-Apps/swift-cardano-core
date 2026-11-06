@@ -43,6 +43,7 @@ public enum BigInteger: Serializable, CustomStringConvertible, Sendable {
         return value.magnitude
     }
     
+    /// The integer itself, with its sign. The same as ``value``.
     public var bigNIntValue : BigInt {
         return value
     }

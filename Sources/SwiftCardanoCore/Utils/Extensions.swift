@@ -11,6 +11,14 @@ import BigInt
 // is preserved by CBORCodable's own Codable implementation.)
 
 extension CBOR {
+    /// Converts a Swift value to a `CBOR` value.
+    ///
+    /// Strings, booleans, integers, floats, arrays, dictionaries, `Data`,
+    /// `AnyValue`, ``CBORTag`` and `(UInt64, CBOR)` tag pairs map to their
+    /// CBOR counterparts. Any other `Codable` value is encoded and carried
+    /// as a byte string. A value it cannot convert becomes `.null`.
+    /// - Parameter value: The value to convert.
+    /// - Returns: The CBOR value.
     public static func fromAnyCardano(_ value: Any) -> CBOR {
         if let anyValue = value as? AnyValue {
             guard let unwrapped = anyValue.unwrapped else { return .null }
@@ -153,14 +161,18 @@ extension CBOR {
 
 // MARK: - Data Extensions
 extension Data {
+    /// The bytes as an array.
     public var toBytes: [UInt8] {
         return [UInt8](self)
     }
     
+    /// The bytes as a lowercase hex string.
     public var toHex: String {
         return map { String(format: "%02hhx", $0) }.joined()
     }
     
+    /// The bytes decoded as UTF-8, falling back to ASCII and then Unicode,
+    /// or an empty string when none of them decode.
     public var toString: String {
         return String(data: self, encoding: .utf8)
         ?? String(data: self, encoding: .ascii)
@@ -173,6 +185,12 @@ extension Data {
         return (try? CBORSerialization.cbor(from: self)) ?? .encoded(self)
     }
     
+    /// Returns cryptographically secure random bytes.
+    ///
+    /// Uses `SecRandomCopyBytes` where the Security framework is available,
+    /// and `SystemRandomNumberGenerator` otherwise.
+    /// - Parameter count: The number of bytes.
+    /// - Returns: `count` random bytes.
     public static func randomBytes(count: Int) -> Data {
 #if canImport(Security)
         // Use Security framework on Apple platforms
@@ -203,6 +221,11 @@ extension Data {
         return data
     }
     
+    /// Creates data from a hex string.
+    ///
+    /// Reads two characters per byte; an odd trailing character is ignored.
+    /// - Parameter hexString: The hex string, with no prefix or separators.
+    /// - Returns: `nil` when a pair of characters is not valid hex.
     public init?(hexString: String) {
         let length = hexString.count / 2
         var data = Data(capacity: length)
@@ -222,6 +245,8 @@ extension Data {
 
 // MARK: - Dictionary Extensions
 extension Dictionary where Key == AnyHashable, Value == Any {
+    /// The dictionary with every key and value converted by
+    /// `CBOR.fromAnyCardano(_:)`.
     public var mapKeysToCbor: OrderedDictionary<CBOR, CBOR> {
         return self.reduce(into: [:]) { result, element in
             result[CBOR.fromAnyCardano(element.key)] = CBOR.fromAnyCardano(element.value)
@@ -230,6 +255,8 @@ extension Dictionary where Key == AnyHashable, Value == Any {
 }
 
 extension OrderedDictionary where Key == AnyHashable, Value == AnyHashable {
+    /// The dictionary with every key and value converted by
+    /// `CBOR.fromAnyCardano(_:)`, in the same order.
     public var mapKeysToCbor: OrderedDictionary<CBOR, CBOR> {
         return self.reduce(into: [:]) { result, element in
             result[CBOR.fromAnyCardano(element.key.base)] = CBOR.fromAnyCardano(element.value.base)
@@ -239,10 +266,15 @@ extension OrderedDictionary where Key == AnyHashable, Value == AnyHashable {
 
 // MARK: - String Extensions
 extension String {
+    /// The string's UTF-8 bytes.
     public var toData: Data {
         return Data(self.utf8)
     }
     
+    /// The bytes this hex string spells.
+    ///
+    /// An odd-length string is padded with a leading `0`, and spaces and
+    /// newlines are removed. Invalid hex gives empty data.
     public var hexStringToData: Data {
         var tempHex = self
         

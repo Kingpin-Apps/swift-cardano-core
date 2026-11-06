@@ -5,18 +5,31 @@ import OrderedCollections
 
 
 // MARK: - MetadataType
+/// A native (timelock) script: a signature requirement, a slot bound, or a combination of other native scripts.
+///
+/// It is written as `[type, …]`, where `type` is a ``NativeScriptType`` code.
 public enum NativeScript: Serializable {
+    /// Requires a signature by a key: code 0.
     case scriptPubkey(ScriptPubkey)
+    /// Requires all of its scripts: code 1.
     case scriptAll(ScriptAll)
+    /// Requires at least one of its scripts: code 2.
     case scriptAny(ScriptAny)
+    /// Requires at least n of its scripts: code 3.
     case scriptNofK(ScriptNofK)
+    /// Valid only from a slot onwards: `invalid_before`, code 4.
     case invalidBefore(BeforeScript)
+    /// Valid only before a slot: `invalid_hereafter`, code 5.
     case invalidHereAfter(AfterScript)
     
     enum CodingKeys: String, CodingKey {
         case type
     }
     
+    /// Returns the script hash: Blake2b-224 of the byte 0x00 followed by the script's CBOR.
+    ///
+    /// - Returns: The script hash.
+    /// - Throws: An error when the script cannot be encoded.
     public func scriptHash() throws -> ScriptHash {
         switch self {
             case .scriptPubkey(let script): return try script.hash()
@@ -59,6 +72,10 @@ public enum NativeScript: Serializable {
         try NativeScriptReader.read(data)
     }
 
+    /// Reads a script from CBOR bytes as ``fromCBOR(data:)`` does, keeping its bytes.
+    ///
+    /// - Parameter cbor: The CBOR bytes of the script.
+    /// - Throws: An error when the bytes are not a valid native script.
     public init(from cbor: Data) throws {
         self = try NativeScriptReader.read(cbor)
     }
@@ -189,14 +206,24 @@ public enum NativeScript: Serializable {
 }
 
 // MARK: - NativeScriptType
+/// The kind of a native script, with its CBOR code as the raw value.
 public enum NativeScriptType: Int, Sendable {
+    /// Requires a signature by a key.
     case scriptPubkey = 0
+    /// Requires all of its scripts.
     case scriptAll = 1
+    /// Requires at least one of its scripts.
     case scriptAny = 2
+    /// Requires at least n of its scripts.
     case scriptNofK = 3
+    /// Valid only from a slot onwards (`invalid_before`).
     case invalidBefore = 4
+    /// Valid only before a slot (`invalid_hereafter`).
     case invalidHereAfter = 5
     
+    /// Returns the cardano-cli JSON `type` name of this kind.
+    ///
+    /// - Returns: `"sig"`, `"all"`, `"any"` or `"atLeast"`; `"after"` for ``NativeScriptType/invalidBefore`` and `"before"` for ``NativeScriptType/invalidHereAfter``.
     public func description() -> String {
         switch self {
             case .scriptPubkey: return "sig"
@@ -210,13 +237,18 @@ public enum NativeScriptType: Int, Sendable {
 }
 
 // MARK: - NativeScript Protocol
-/// The metadata for a native script.
+/// One kind of native script, which reads and writes itself as CBOR and JSON.
 public protocol NativeScriptable: Serializable, Sendable {
+    /// The kind of native script this type represents.
     static var TYPE: NativeScriptType { get }
 }
 
 // Extend the protocol for JSON encoding
 public extension NativeScriptable {    
+    /// Returns the script hash: Blake2b-224 of the byte 0x00 followed by the script's CBOR.
+    ///
+    /// - Returns: The script hash.
+    /// - Throws: An error when the script cannot be encoded.
     func hash() throws -> ScriptHash {
         let cbor = try self.toCBORData()
         let hash = try Hash().blake2b(

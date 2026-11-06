@@ -1,9 +1,19 @@
 import Foundation
 
+/// A protocol version: `protocol_version = [major, minor]`.
+///
+/// Both parts are written as CBOR unsigned integers and must fit in 32 bits when read.
 public struct ProtocolVersion: CBORSerializable, Sendable {
+    /// The major protocol version.
     public var major: Int?
+    /// The minor protocol version.
     public var minor: Int?
 
+    /// Creates a protocol version from its major and minor parts.
+    ///
+    /// - Parameters:
+    ///   - major: The major protocol version.
+    ///   - minor: The minor protocol version.
     public init(major: Int, minor: Int) {
         self.major = major
         self.minor = minor
