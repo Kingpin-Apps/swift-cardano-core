@@ -1,8 +1,10 @@
 import Foundation
 
-public let SIGNATURE_SIZE = 28
+/// The number of bytes in a ``Signature``.
+public let SIGNATURE_SIZE = 64
 
 
+/// A fixed-size signature of ``SIGNATURE_SIZE`` bytes.
 public struct Signature: ConstrainedBytes {
     public var payload: Data
     public static var maxSize: Int { SIGNATURE_SIZE }

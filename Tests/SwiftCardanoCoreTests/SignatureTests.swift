@@ -52,4 +52,14 @@ let signatureTestsArguments: Zip2Sequence<[any ConstrainedBytes.Type], [Int]> = 
         }
     }
     
+    @Test("Signature reads an Ed25519 signature and rejects 28 bytes")
+    func ed25519SignatureSize() throws {
+        let signature = try PaymentKeyPair.generate().signingKey.sign(data: Data("message".utf8))
+        #expect(signature.count == 64)
+        let decoded = try Signature.fromCBOR(data: try CBOREncoder().encode(signature))
+        #expect(decoded.payload == signature)
+        #expect(throws: (any Error).self) {
+            _ = try Signature.fromCBOR(data: try CBOREncoder().encode(Data(repeating: 0, count: 28)))
+        }
+    }
 }

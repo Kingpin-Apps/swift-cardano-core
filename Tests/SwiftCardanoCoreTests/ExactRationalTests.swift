@@ -102,6 +102,12 @@ private let mainnetStepPrice = nonNegative(721, 10_000_000)
         #expect(parameters.activeSlotsCoefficient == unit(1, 20))
         #expect(parameters.alonzoGenesis?.executionPrices.priceMemory == mainnetMemPrice)
     }
+
+    @Test("GenesisParameters keeps the era it is given with a config path")
+    func genesisParametersEra() throws {
+        let parameters = try GenesisParameters(nodeConfigFilePath: path("config", "data/config/mainnet"), era: .babbage)
+        #expect(parameters.era == .babbage)
+    }
 }
 
 // MARK: - Reading JSON numbers exactly
