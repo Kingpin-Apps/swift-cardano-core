@@ -97,14 +97,33 @@ public struct Address: CBORSerializable, CustomStringConvertible, Equatable, Sen
     /// let address = try Address(from: "addr_test1vr2p8st5t5cxqglyjky7vk98k7jtfhdpvhl4e97cezuhn0cqcexl7")
     /// ```
     /// - Parameter primitive: The bytes or bech32 string.
+    /// A Bech32 string's human-readable part has to be the one its header
+    /// gives: `addr` or `addr_test` for a payment address, `stake` or
+    /// `stake_test` for a reward address.
+    ///
     /// - Throws: `CardanoCoreError.decodingError` when the input is not a valid Shelley Address.
+    /// - Throws: `CardanoCoreError.invalidAddressInputError` when a Bech32 string's
+    ///   human-readable part does not match the network and type in its header.
     /// - Throws: `CardanoCoreError.valueError` when the input is not a `Data` or `String`.
     public init(from primitive: Primitive) throws {
         let data: Data
         if case let .string(value) = primitive {
-            if let bech32 = Bech32().decode(addr: value) {
-                // Shelley address — Bech32 decoded successfully
-                data = Data(bech32)
+            let bech32 = Bech32()
+            if let decoded = try? bech32.bech32Decode(value),
+               let bytes = bech32.convertBits(
+                   data: decoded.checksum, fromBits: 5, toBits: 8, pad: false) {
+                // Shelley address — Bech32 decoded successfully. The text
+                // prefix is what a reader trusts, so it has to agree with the
+                // header: a testnet prefix on a mainnet header, or a stake
+                // prefix on a payment address, is refused.
+                let address = try Address(from: .bytes(bytes))
+                guard address._byronAddress == nil, address._hrp == decoded.hrp else {
+                    throw CardanoCoreError.invalidAddressInputError(
+                        "Bech32 prefix \"\(decoded.hrp)\" does not match the address header, "
+                        + "which gives \"\(address._hrp)\"")
+                }
+                self = address
+                return
             } else {
                 // Not a Bech32 string; attempt Base58 decoding (Byron address)
                 do {

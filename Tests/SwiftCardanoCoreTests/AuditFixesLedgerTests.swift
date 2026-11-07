@@ -303,3 +303,41 @@ import FoundationNetworking
         #expect(try Self.decode("764824073").networkId == .mainnet)
     }
 }
+
+// MARK: - Address prefixes
+
+@Suite struct AuditAddressPrefixTests {
+    static let base = Data([0x01]) + Data(repeating: 0xAA, count: 28) + Data(repeating: 0xBB, count: 28)
+    static let testnetReward = Data([0xE0]) + Data(repeating: 0xCC, count: 28)
+
+    @Test(
+        "A Bech32 prefix that does not match the header is refused",
+        arguments: [
+            ("addr_test", base), ("stake", base), ("drep", base),
+            ("addr", testnetReward), ("stake", testnetReward),
+        ]
+    )
+    func mismatchedPrefix(hrp: String, bytes: Data) throws {
+        let text = try #require(Bech32().encode(hrp: hrp, witprog: bytes))
+        #expect(throws: CardanoCoreError.self) { try Address.fromBech32(text) }
+        #expect(throws: CardanoCoreError.self) { try Address(from: .string(text)) }
+    }
+
+    @Test(
+        "A Bech32 prefix that matches the header is read",
+        arguments: [("addr", base), ("stake_test", testnetReward)]
+    )
+    func matchingPrefix(hrp: String, bytes: Data) throws {
+        let text = try #require(Bech32().encode(hrp: hrp, witprog: bytes))
+        let address = try Address.fromBech32(text)
+        #expect(try address.toBech32() == text)
+    }
+
+    @Test("A Byron address's bytes in Bech32 are refused")
+    func byronInBech32() throws {
+        let byron = try Address(
+            from: .string("Ae2tdPwUPEZFRbyhz3cpfC2CumGzNkFBN2L42rcUc2yjQpEkxDbkPodpMAi"))
+        let text = try #require(Bech32().encode(hrp: "addr", witprog: byron.toBytes()))
+        #expect(throws: CardanoCoreError.self) { try Address.fromBech32(text) }
+    }
+}
