@@ -428,7 +428,10 @@ final class AuditMetadataURLProtocol: URLProtocol {
         lock.withLock { requested.contains(url) }
     }
 
-    private let stopped = NSLock()
+    /// Recursive, so a client callback that stops the task on the same
+    /// thread does not deadlock; held across each callback so none is made
+    /// after `stopLoading()`, which FoundationNetworking traps on.
+    private let stopped = NSRecursiveLock()
     nonisolated(unsafe) private var isStopped = false
 
     override class func canInit(with request: URLRequest) -> Bool { true }
@@ -453,14 +456,21 @@ final class AuditMetadataURLProtocol: URLProtocol {
         nonisolated(unsafe) let this = self
         DispatchQueue.global().async {
             var offset = 0
-            while offset < reply.body.count, !this.stopped.withLock({ this.isStopped }) {
+            while offset < reply.body.count {
                 let end = min(offset + 4096, reply.body.count)
-                this.client?.urlProtocol(this, didLoad: reply.body.subdata(in: offset..<end))
+                let sent = this.stopped.withLock { () -> Bool in
+                    guard !this.isStopped else { return false }
+                    this.client?.urlProtocol(this, didLoad: reply.body.subdata(in: offset..<end))
+                    return true
+                }
+                guard sent else { break }
                 offset = end
                 usleep(200)
             }
             Self.lock.withLock { Self.delivered[key] = offset }
-            this.client?.urlProtocolDidFinishLoading(this)
+            this.stopped.withLock {
+                if !this.isStopped { this.client?.urlProtocolDidFinishLoading(this) }
+            }
         }
     }
 
