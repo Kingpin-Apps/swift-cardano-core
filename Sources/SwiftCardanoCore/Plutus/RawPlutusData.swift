@@ -59,6 +59,17 @@ public struct RawPlutusData: PlutusDataProtocol {
         return try originalCBOR ?? CBOREncoder().encode(self)
     }
 
+    /// The datum hash: Blake2b-256 of the bytes this was decoded from, which
+    /// ``toCBORData(deterministic:)`` returns, or of a fresh encoding when it
+    /// was built in code.
+    ///
+    /// - Returns: The datum hash.
+    /// - Throws: When a fresh encoding fails.
+    public func hash() throws -> DatumHash {
+        // A raw datum is written as ``toCBORData(deterministic:)`` gives it.
+        try datumHash(datum: .rawPlutusData(self))
+    }
+
     /// Equal when they hold the same Plutus data, however each holds it.
     public static func == (lhs: RawPlutusData, rhs: RawPlutusData) -> Bool {
         if lhs.data == rhs.data { return true }

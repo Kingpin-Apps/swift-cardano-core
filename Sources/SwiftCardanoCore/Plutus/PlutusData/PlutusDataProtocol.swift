@@ -15,6 +15,14 @@ public protocol PlutusDataProtocol: Serializable {
     /// - Returns: The Plutus data.
     /// - Throws: When the value cannot be converted.
     func toPlutusData() throws -> PlutusData
+
+    /// The datum hash of the value. The default hashes a fresh encoding of
+    /// ``toPlutusData()``; a type that keeps the bytes it was read from
+    /// hashes those.
+    ///
+    /// - Returns: The datum hash.
+    /// - Throws: When the value cannot be converted or hashed.
+    func hash() throws -> DatumHash
 }
 
 extension PlutusDataProtocol {

@@ -329,3 +329,30 @@ private func poolMetadataJSON(extraDepth: Int) -> String {
         #expect(params.margin == UnitInterval(numerator: 3, denominator: 10))
     }
 }
+
+// MARK: - RawPlutusData hash
+
+@Suite struct AuditRawPlutusDataHashTests {
+    @Test("RawPlutusData.hash() hashes the bytes it keeps")
+    func rawHashUsesKeptBytes() throws {
+        // 121([5]) with a non-minimal one-byte integer head for 5.
+        let bytes = Data(hexString: "d879811805")!
+        let raw = try RawPlutusData.fromCBOR(data: bytes)
+        let expected = "0a3893be21942c19a6922f07116ce2b1eb1a6b990f98682a3a312b061917a0fa"
+
+        #expect(try raw.toCBORData() == bytes)
+        #expect(try raw.hash().payload.toHex == expected)
+        #expect(try Datum.rawPlutusData(raw).hash().payload.toHex == expected)
+        #expect(try datumHash(datum: .rawPlutusData(raw)).payload.toHex == expected)
+
+        func genericHash<T: PlutusDataProtocol>(_ value: T) throws -> DatumHash { try value.hash() }
+        #expect(try genericHash(raw).payload.toHex == expected)
+    }
+
+    @Test("Other datums hash as before")
+    func otherDatumsUnchanged() throws {
+        let plutus = PlutusData.constructor(Constr(tag: 0, fields: [.bigInt(.int(5))]))
+        #expect(try Datum.plutusData(plutus).hash() == datumHash(datum: .plutusData(plutus)))
+        #expect(try Datum.int(5).hash() == datumHash(datum: .plutusData(.bigInt(.int(5)))))
+    }
+}

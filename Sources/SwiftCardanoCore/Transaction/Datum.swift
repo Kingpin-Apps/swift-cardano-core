@@ -523,6 +523,17 @@ public enum Datum: PlutusDataProtocol {
 
     public static var preservesEncoding: Bool { true }
 
+    /// The datum hash. A ``rawPlutusData(_:)`` datum hashes the bytes its
+    /// ``RawPlutusData`` keeps; any other hashes a fresh encoding of
+    /// ``toPlutusData()``.
+    ///
+    /// - Returns: The datum hash.
+    /// - Throws: When the datum cannot be converted or hashed.
+    public func hash() throws -> DatumHash {
+        if case .rawPlutusData(let raw) = self { return try raw.hash() }
+        return try datumHash(datum: .plutusData(try toPlutusData()))
+    }
+
     public func toPlutusData() throws -> PlutusData {
         switch self {
         case .plutusData(let data):
