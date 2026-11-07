@@ -47,3 +47,67 @@ import FoundationNetworking
         #expect(models.plutusV2?.values.first == Int64.max)
     }
 }
+
+// MARK: - Nested cost-model byte strings
+
+@Suite struct AuditCostModelWrapperTests {
+    /// `item` wrapped `depth` times in a CBOR byte string.
+    static func wrapped(_ item: Data, depth: Int) -> Data {
+        var data = item
+        for _ in 0..<depth {
+            var header = Data()
+            let count = data.count
+            switch count {
+            case 0..<24: header.append(0x40 | UInt8(count))
+            case 24..<256: header.append(contentsOf: [0x58, UInt8(count)])
+            case 256..<65_536: header.append(contentsOf: [0x59, UInt8(count >> 8), UInt8(count & 0xFF)])
+            default:
+                header.append(0x5A)
+                header.append(contentsOf: withUnsafeBytes(of: UInt32(count).bigEndian, Array.init))
+            }
+            data = header + data
+        }
+        return data
+    }
+
+    /// The ledger's protocol parameters with cost models `{0: B^depth([1])}`.
+    static func parameters(depth: Int) throws -> Data {
+        let hex = ProtocolParametersLedgerCBORTests.ledgerHex
+        let start = try #require(hex.range(of: "a2009f"))
+        let end = try #require(hex.range(of: "82d81e82190241192710"))
+        let costModels = Data([0xA1, 0x00]) + wrapped(Data([0x81, 0x01]), depth: depth)
+        return try #require(Data(hexString: String(hex[..<start.lowerBound])
+            + costModels.toHex + String(hex[end.lowerBound...])))
+    }
+
+    @Test("One byte-string wrapper around a cost model is read")
+    func oneWrapper() throws {
+        let params = try ProtocolParameters.fromCBOR(data: try Self.parameters(depth: 1))
+        #expect(params.costModels.PlutusV1 == [1])
+    }
+
+    @Test("A byte-string wrapper inside another is refused")
+    func twoWrappers() throws {
+        let bytes = try Self.parameters(depth: 2)
+        #expect(throws: CardanoCoreError.self) { try ProtocolParameters.fromCBOR(data: bytes) }
+    }
+
+    @Test("A thousand nested wrappers throw on a 512 KB stack instead of overflowing it")
+    func deepWrappersOnSmallStack() throws {
+        let bytes = try Self.parameters(depth: 1000)
+        nonisolated(unsafe) var outcome: Result<ProtocolParameters, Error>?
+        let done = DispatchSemaphore(value: 0)
+        let thread = Thread {
+            outcome = Result { try ProtocolParameters.fromCBOR(data: bytes) }
+            done.signal()
+        }
+        thread.stackSize = 512 * 1024
+        thread.start()
+        done.wait()
+        guard case .failure(let error)? = outcome else {
+            Issue.record("Expected an error, got \(String(describing: outcome))")
+            return
+        }
+        #expect(error is CardanoCoreError)
+    }
+}

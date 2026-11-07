@@ -848,7 +848,13 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
             PlutusV1: raw[0] ?? [], PlutusV2: raw[1] ?? [], PlutusV3: raw[2] ?? [])
     }
 
-    private static func costModelInts(_ primitive: Primitive) throws -> [Int64] {
+    /// Reads one language's cost-model values.
+    ///
+    /// - Parameter allowWrapped: Whether `primitive` may be a byte string
+    ///   holding the list as nested CBOR. Only the outer value may be wrapped:
+    ///   a byte string inside the decoded content throws, so a hostile input
+    ///   cannot nest wrappers until the stack overflows.
+    private static func costModelInts(_ primitive: Primitive, allowWrapped: Bool = true) throws -> [Int64] {
         let items: [Primitive]
         switch primitive {
         case .list(let arr):
@@ -856,9 +862,14 @@ public struct ProtocolParameters: Serializable, JSONLoadable {
         case .indefiniteList(let indef):
             items = indef.getAll()
         case .bytes(let data):
-            // PlutusV1 in n2c is wrapped in a byte string containing nested CBOR.
+            // PlutusV1 in n2c is wrapped in a byte string containing nested
+            // CBOR, once. A wrapper inside a wrapper has no legitimate use.
+            guard allowWrapped else {
+                throw CardanoCoreError.deserializeError(
+                    "Invalid cost model value: a byte-string wrapper may appear only once")
+            }
             let nested = try Primitive.from(cbor: CBORDecoder.ledger().decode(CBOR.self, from: data))
-            return try costModelInts(nested)
+            return try costModelInts(nested, allowWrapped: false)
         default:
             throw CardanoCoreError.deserializeError("Invalid cost model value: \(primitive)")
         }
