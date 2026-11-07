@@ -143,9 +143,25 @@ extension GovernanceCredential {
         return encoded
     }
     
+    /// The Bech32 prefix of this credential type's role: `drep`, `cc_hot` or
+    /// `cc_cold`.
+    static var rolePrefix: String {
+        switch governanceKeyType {
+            case .ccHot: return "cc_hot"
+            case .ccCold: return "cc_cold"
+            case .drep: return "drep"
+        }
+    }
+
     /// Decode a bech32 string into an Credential object.
+    ///
+    /// The prefix has to be this type's role: for a CIP-105 ID, the role
+    /// prefix for a key hash or the role prefix and `_script` for a script
+    /// hash; for a CIP-129 ID, the role prefix, with a header for the same role.
     /// - Parameter bech32: Bech32-encoded string.
     /// - Returns: Decoded Credential.
+    /// - Throws: When the string is not valid Bech32, or its prefix or header
+    ///   is for another governance role or for something else entirely.
     public static func fromBech32(_ bech32: String) throws -> Self {
         let _bech32 = Bech32()
         let (hrp, checksum, _) = try _bech32.bech32Decode(bech32)
@@ -156,15 +172,23 @@ extension GovernanceCredential {
         }
         
         if data.count == VERIFICATION_KEY_HASH_SIZE {
-            // CIP-0105
-            if hrp.contains("script") {
-                return try Self.init(from: data, as: .scriptHash)
-            } else {
-                return try Self.init(from: data, as: .keyHash)
+            // CIP-0105: the prefix alone says key hash or script hash.
+            switch hrp {
+                case rolePrefix:
+                    return try Self.init(from: data, as: .keyHash)
+                case rolePrefix + "_script":
+                    return try Self.init(from: data, as: .scriptHash)
+                default:
+                    throw CardanoCoreError.decodingError(
+                        "Invalid Bech32 prefix for \(String(describing: Self.self)): \(hrp)")
             }
         }
         else if data.count == CIP129_PAYLOAD_SIZE {
             // CIP-0129
+            guard hrp == rolePrefix else {
+                throw CardanoCoreError.decodingError(
+                    "Invalid Bech32 prefix for \(String(describing: Self.self)): \(hrp)")
+            }
             let header = data[0]
             let payload = data.dropFirst()
             

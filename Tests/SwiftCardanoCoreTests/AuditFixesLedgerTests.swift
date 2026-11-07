@@ -341,3 +341,61 @@ import FoundationNetworking
         #expect(throws: CardanoCoreError.self) { try Address.fromBech32(text) }
     }
 }
+
+// MARK: - Governance credential prefixes
+
+@Suite struct AuditGovernancePrefixTests {
+    static let hash = Data(repeating: 0x5A, count: 28)
+
+    static func bech32(_ hrp: String, _ bytes: Data) throws -> String {
+        try #require(Bech32().encode(hrp: hrp, witprog: bytes))
+    }
+
+    static func cip129(_ keyType: GovernanceKeyType, _ credentialType: GovernanceCredentialType) -> Data {
+        DRepCredential.computeHeaderByte(keyType: keyType, credentialType: credentialType) + hash
+    }
+
+    @Test(
+        "A CIP-105 ID with another role's or a made-up prefix is refused",
+        arguments: ["cc_hot", "cc_hot_script", "cc_cold", "pool", "addr_vkh", "notascriptatall", "drepscript", "drep_script_x"]
+    )
+    func wrongCIP105PrefixForDRep(hrp: String) throws {
+        let text = try Self.bech32(hrp, Self.hash)
+        #expect(throws: CardanoCoreError.self) { try DRepCredential(from: text) }
+        #expect(throws: CardanoCoreError.self) { try DRep(from: text) }
+    }
+
+    @Test("A DRep ID is refused as a committee credential")
+    func drepAsCommittee() throws {
+        let text = try Self.bech32("drep", Self.hash)
+        #expect(throws: CardanoCoreError.self) { try CommitteeColdCredential(from: text) }
+        #expect(throws: CardanoCoreError.self) { try CommitteeHotCredential(from: text) }
+        let script = try Self.bech32("notascriptatall", Self.hash)
+        #expect(throws: CardanoCoreError.self) { try CommitteeHotCredential(from: script) }
+    }
+
+    @Test("A CIP-129 ID needs the role's prefix as well as its header")
+    func cip129PrefixBound() throws {
+        let mislabelled = try Self.bech32("cc_hot", Self.cip129(.drep, .keyHash))
+        #expect(throws: CardanoCoreError.self) { try DRepCredential(from: mislabelled) }
+        let scriptPrefix = try Self.bech32("drep_script", Self.cip129(.drep, .scriptHash))
+        #expect(throws: CardanoCoreError.self) { try DRepCredential(from: scriptPrefix) }
+    }
+
+    @Test("The role's own IDs are still read")
+    func validIDs() throws {
+        let key = try DRepCredential(from: try Self.bech32("drep", Self.hash))
+        #expect(key.credential == .verificationKeyHash(VerificationKeyHash(payload: Self.hash)))
+        let script = try DRepCredential(from: try Self.bech32("drep_script", Self.hash))
+        #expect(script.credential == .scriptHash(ScriptHash(payload: Self.hash)))
+        let cip129 = try DRepCredential(from: try Self.bech32("drep", Self.cip129(.drep, .scriptHash)))
+        #expect(cip129.credential == .scriptHash(ScriptHash(payload: Self.hash)))
+        let hot = try CommitteeHotCredential(from: try Self.bech32("cc_hot_script", Self.hash))
+        #expect(hot.credential == .scriptHash(ScriptHash(payload: Self.hash)))
+        let cold = try CommitteeColdCredential(from: try Self.bech32("cc_cold", Self.cip129(.ccCold, .keyHash)))
+        #expect(cold.credential == .verificationKeyHash(VerificationKeyHash(payload: Self.hash)))
+        #expect(try DRep(from: "drep_always_abstain").credential == .alwaysAbstain)
+        #expect(try DRep(from: "drep_always_no_confidence").credential == .alwaysNoConfidence)
+        #expect(try key.toBech32() == (try DRepCredential(from: key.toBech32()).toBech32()))
+    }
+}
