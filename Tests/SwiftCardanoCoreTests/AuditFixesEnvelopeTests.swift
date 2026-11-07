@@ -201,3 +201,67 @@ private func blake2b256(_ data: Data) throws -> Data {
         }
     }
 }
+
+// MARK: - serialization/save:signing-key-default-file-permissions
+
+@Suite struct OwnerOnlySaveTests {
+    @Test("A saved signing key is 0600, and stays 0600 when overwritten")
+    func signingKeyIsOwnerOnly() throws {
+        let directory = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let path = directory.appendingPathComponent("payment.skey").path
+        let key = try PaymentSigningKey.generate()
+
+        try key.save(to: path)
+        #expect(try mode(of: path) == 0o600)
+
+        try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: path)
+        try key.save(to: path, overwrite: true)
+        #expect(try mode(of: path) == 0o600)
+        #expect(try PaymentSigningKey.load(from: path) == key)
+
+        #expect(throws: CardanoCoreError.ioError("File already exists: \(path)")) {
+            try key.save(to: path)
+        }
+        let leftovers = try FileManager.default.contentsOfDirectory(atPath: directory.path)
+        #expect(leftovers == ["payment.skey"])
+    }
+
+    @Test("Saving without overwrite does not write through a symbolic link")
+    func symbolicLinkIsNotFollowed() throws {
+        let directory = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let target = directory.appendingPathComponent("target").path
+        let link = directory.appendingPathComponent("link.skey").path
+        try FileManager.default.createSymbolicLink(atPath: link, withDestinationPath: target)
+
+        #expect(throws: CardanoCoreError.self) {
+            try PaymentSigningKey.generate().save(to: link)
+        }
+        #expect(!FileManager.default.fileExists(atPath: target))
+    }
+
+    @Test("TextEnvelopable, saveJSON and JSONLoadable saves are 0600 too")
+    func otherSaversAreOwnerOnly() throws {
+        let directory = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let tx = Transaction(transactionBody: testBody(), transactionWitnessSet: TransactionWitnessSet())
+        let txPath = directory.appendingPathComponent("tx.raw").path
+        try tx.save(to: txPath)
+        #expect(try mode(of: txPath) == 0o600)
+        try tx.save(to: txPath, overwrite: true)
+        #expect(try mode(of: txPath) == 0o600)
+
+        let jsonPath = directory.appendingPathComponent("tx.json").path
+        try tx.saveJSON(to: jsonPath)
+        #expect(try mode(of: jsonPath) == 0o600)
+
+        let loadablePath = directory.appendingPathComponent("topology.json").path
+        let topology = Topology(bootstrapPeers: [], localRoots: [], publicRoots: [], useLedgerAfterSlot: 1)
+        try topology.save(to: loadablePath)
+        #expect(try mode(of: loadablePath) == 0o600)
+        try topology.save(to: loadablePath, overwrite: true)
+        #expect(try mode(of: loadablePath) == 0o600)
+    }
+}

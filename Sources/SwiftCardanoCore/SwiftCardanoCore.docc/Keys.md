@@ -258,20 +258,14 @@ do {
 
 ### Secure Key Storage
 
-```swift
-// Store keys securely with proper file permissions
-func saveKeySecurely<T: SigningKeyProtocol>(_ key: T, to path: String) throws {
-    try key.save(to: path)
-    
-    // Set restrictive file permissions (Unix-like systems)
-    let fileURL = URL(fileURLWithPath: path)
-    try FileManager.default.setAttributes(
-        [.posixPermissions: 0o600], // Owner read/write only
-        ofItemAtPath: fileURL.path
-    )
-}
+`save(to:overwrite:)` creates key files owner-only (mode `0600`) from the
+start, as cardano-cli does, so there is no need to change their mode
+afterwards. Without `overwrite` it never writes through an existing file or a
+symbolic link; with it, the new file is written next to the old one and
+renamed over it, so the key file is never readable by other accounts.
 
-try saveKeySecurely(paymentKeyPair.signingKey, to: "secure_payment.skey")
+```swift
+try paymentKeyPair.signingKey.save(to: "secure_payment.skey")
 ```
 
 

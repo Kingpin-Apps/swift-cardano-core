@@ -77,17 +77,20 @@ public extension PayloadCBORSerializable where Self: Codable {
     }
     
     /// Save the JSON representation to a file.
+    ///
+    /// The envelope of a signing key holds the key itself, so the file is
+    /// created owner-only (mode `0600`) and never exists with a looser mode.
+    /// Without `overwrite` an existing file, or a symbolic link, at `path`
+    /// is left alone; with it, the new file is written next to `path` and
+    /// renamed over it.
     /// - Parameters:
     ///  - path: The path to save the file
     ///  - overwrite: Whether to overwrite the file if it already exists.
-    /// - Throws: `CardanoCoreError.ioError` when the file already exists and overwrite is false.
+    /// - Throws: `CardanoCoreError.ioError` when the file already exists and
+    ///   overwrite is false, or when it cannot be written.
     func save(to path: String, overwrite: Bool = false) throws {
-        if !overwrite, FileManager.default.fileExists(atPath: path) {
-            throw CardanoCoreError.ioError("File already exists: \(path)")
-        }
-        
         if let jsonString = try toTextEnvelope() {
-            try jsonString.write(toFile: path, atomically: true, encoding: .utf8)
+            try writeOwnerOnlyFile(Data(jsonString.utf8), to: path, overwrite: overwrite)
         }
     }
     

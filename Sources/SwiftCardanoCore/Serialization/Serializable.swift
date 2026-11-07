@@ -101,14 +101,14 @@ public extension Serializable {
     /// - Parameters:
     ///  - path: The path to save the file
     ///  - overwrite: Whether to overwrite the file if it already exists.
-    /// - Throws: `CardanoCoreError.ioError` when the file already exists and overwrite is false.  
+    /// - Throws: `CardanoCoreError.ioError` when the file already exists and
+    ///   overwrite is false, or when it cannot be written.
+    ///
+    /// The file is created owner-only (mode `0600`), as the JSON may hold
+    /// secrets; see ``PayloadCBORSerializable/save(to:overwrite:)``.
     func saveJSON(to path: String, overwrite: Bool = false) throws {
-        if !overwrite, FileManager.default.fileExists(atPath: path) {
-            throw CardanoCoreError.ioError("File already exists: \(path)")
-        }
-        
         if let jsonString = try toJSON() {
-            try jsonString.write(toFile: path, atomically: true, encoding: .utf8)
+            try writeOwnerOnlyFile(Data(jsonString.utf8), to: path, overwrite: overwrite)
         }
     }
     

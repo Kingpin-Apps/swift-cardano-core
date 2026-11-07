@@ -10,19 +10,14 @@ public extension JSONLoadable {
     /// - Parameters:
     ///  - path: The path to save the file
     ///  - overwrite: Whether to overwrite the file if it already exists
-    /// - Throws: An error if the file already exists and overwrite is false
+    /// - Throws: `CardanoCoreError.ioError` if the file already exists and
+    ///   overwrite is false, or when it cannot be written
+    ///
+    /// The file is created owner-only (mode `0600`), as the JSON may hold
+    /// secrets; see ``PayloadCBORSerializable/save(to:overwrite:)``.
     func save(to path: String, overwrite: Bool = false) throws {
-        if !overwrite, FileManager.default.fileExists(atPath: path) {
-            throw CardanoCoreError.ioError("File already exists: \(path)")
-        }
-        
         let data = try JSONEncoder().encode(self)
-        // `.atomic` writes via a temp file, which WASI doesn't support.
-        #if os(WASI)
-        try data.write(to: URL(fileURLWithPath: path))
-        #else
-        try data.write(to: URL(fileURLWithPath: path), options: .atomic)
-        #endif
+        try writeOwnerOnlyFile(data, to: path, overwrite: overwrite)
     }
     
     /// Load the object from a JSON file.

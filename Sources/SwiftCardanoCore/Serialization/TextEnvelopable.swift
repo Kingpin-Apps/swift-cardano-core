@@ -81,17 +81,17 @@ public extension TextEnvelopable {
     }
     
     /// Save the JSON representation to a file.
+    ///
+    /// The file is created owner-only (mode `0600`); see
+    /// ``PayloadCBORSerializable/save(to:overwrite:)``.
     /// - Parameters:
     ///  - path: The path to save the file
     ///  - overwrite: Whether to overwrite the file if it already exists.
-    /// - Throws: `CardanoCoreError.ioError` when the file already exists and overwrite is false.
+    /// - Throws: `CardanoCoreError.ioError` when the file already exists and
+    ///   overwrite is false, or when it cannot be written.
     func save(to path: String, overwrite: Bool = false) throws {
-        if !overwrite, FileManager.default.fileExists(atPath: path) {
-            throw CardanoCoreError.ioError("File already exists: \(path)")
-        }
-        
         if let jsonString = try toTextEnvelope() {
-            try jsonString.write(toFile: path, atomically: true, encoding: .utf8)
+            try writeOwnerOnlyFile(Data(jsonString.utf8), to: path, overwrite: overwrite)
         }
     }
     
