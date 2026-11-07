@@ -96,3 +96,39 @@ private func temporaryKeyPath(_ suffix: String) -> String {
         }
     }
 }
+
+@Suite struct HDWalletSeedLengthTests {
+    @Test("fromSeed(seed:) rejects empty, odd-length and non-hex strings",
+          arguments: ["", "zz", "abc", "+1" + String(repeating: "11", count: 95),
+                      String(repeating: "zz", count: 96), String(repeating: "1", count: 191)])
+    func rejectsInvalidHex(seed: String) {
+        #expect(throws: CardanoCoreError.self) { _ = try HDWallet.fromSeed(seed: seed) }
+    }
+
+    @Test("fromSeed(seedData:) requires exactly 96 bytes",
+          arguments: [0, 31, 32, 40, 64, 95, 97, 128])
+    func rejectsWrongLengths(count: Int) {
+        let seed = Data(repeating: 1, count: count)
+        #expect(throws: CardanoCoreError.self) { _ = try HDWallet.fromSeed(seedData: seed) }
+        #expect(throws: CardanoCoreError.self) {
+            _ = try HDWallet.fromSeed(seed: seed.hexEncodedString())
+        }
+    }
+
+    @Test("tweakBits throws on a seed shorter than 32 bytes", arguments: [0, 1, 31])
+    func tweakBitsRejectsShortSeed(count: Int) {
+        #expect(throws: CardanoCoreError.self) {
+            _ = try HDWallet.tweakBits(seed: Data(repeating: 0xFF, count: count))
+        }
+    }
+
+    @Test("A 96-byte seed gives a 32-byte chain code, as from a mnemonic")
+    func ninetySixByteSeedWorks() throws {
+        let fromData = try HDWallet.fromSeed(seedData: Data(repeating: 1, count: 96))
+        #expect(fromData.chainCode.count == 32)
+        #expect(fromData.xPrivateKey.count == 64)
+        let fromHex = try HDWallet.fromSeed(seed: Data(repeating: 1, count: 96).hexEncodedString())
+        #expect(fromHex.chainCode == fromData.chainCode)
+        #expect(fromHex.xPrivateKey == fromData.xPrivateKey)
+    }
+}

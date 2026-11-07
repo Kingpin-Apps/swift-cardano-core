@@ -224,11 +224,18 @@ public class HDWallet {
     ///   - passphrase: Optional BIP-39 passphrase, stored in the wallet.
     ///   - mnemonic: Optional companion BIP-39 mnemonic, stored in the wallet.
     /// - Returns: The root wallet node, at path `m`.
+    /// - Throws: `CardanoCoreError.invalidDataError` when `seed` is not valid
+    ///   even-length hex or is not 96 bytes.
     public static func fromSeed(
         seed: String, entropy: String? = nil, passphrase: String? = nil, mnemonic: String? = nil
     ) throws -> HDWallet {
+        guard seed.count % 2 == 0,
+              seed.allSatisfy(\.isHexDigit),
+              let seedData = Data(hexString: seed) else {
+            throw CardanoCoreError.invalidDataError("Seed is not valid hex")
+        }
         return try fromSeed(
-            seedData: Data(hex: seed),
+            seedData: seedData,
             entropy: entropy,
             passphrase: passphrase,
             mnemonic: mnemonic
@@ -257,13 +264,18 @@ public class HDWallet {
     ///     informational.
     ///   - mnemonic: Optional companion BIP-39 mnemonic — purely
     ///     informational.
+    /// - Throws: `CardanoCoreError.invalidDataError` when `seedData` is not 96 bytes.
     public static func fromSeed(
         seedData: Data,
         entropy: String? = nil,
         passphrase: String? = nil,
         mnemonic: String? = nil
     ) throws -> HDWallet {
-        let seedModified = tweakBits(seed: seedData)
+        guard seedData.count == 96 else {
+            throw CardanoCoreError.invalidDataError(
+                "A seed is 96 bytes, got \(seedData.count)")
+        }
+        let seedModified = try tweakBits(seed: seedData)
 
         let kL = seedModified.prefix(32)
         let c = seedModified.suffix(from: 64)  // Changed from suffix(32)
@@ -377,9 +389,14 @@ public class HDWallet {
 
     /// Clamps a seed for use as an Ed25519 extended private key: clears the low three
     /// bits of byte 0, clears the top three bits of byte 31 and sets bit 6 of byte 31.
-    /// - Parameter seed: The seed.
+    /// - Parameter seed: The seed, at least 32 bytes.
     /// - Returns: The clamped seed.
-    public static func tweakBits(seed: Data) -> Data {
+    /// - Throws: `CardanoCoreError.invalidDataError` when the seed is shorter than 32 bytes.
+    public static func tweakBits(seed: Data) throws -> Data {
+        guard seed.count >= 32 else {
+            throw CardanoCoreError.invalidDataError(
+                "A seed to clamp is at least 32 bytes, got \(seed.count)")
+        }
         var seedArray = seed.byteArray
         seedArray[0] &= 0b11111000
         seedArray[31] &= 0b00011111
