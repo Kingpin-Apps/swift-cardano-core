@@ -111,3 +111,97 @@ import FoundationNetworking
         #expect(error is CardanoCoreError)
     }
 }
+
+// MARK: - Duplicate keys
+
+@Suite struct AuditDuplicateRulesCostTests {
+    /// `[{0: [], 1: [], 2: item}, {}, true, null]`: a transaction whose fee
+    /// field is `item`.
+    static func transaction(fee item: Data) -> Data {
+        Data([0x84, 0xA3, 0x00, 0x80, 0x01, 0x80, 0x02]) + item + Data([0xA0, 0xF5, 0xF6])
+    }
+
+    static func rules(_ item: Data, era: Era = .conway) -> LedgerDuplicateRules {
+        LedgerDuplicateRules(transaction(fee: item), era: era)
+    }
+
+    @Test("A 16 KB chain of maps nested in map keys is rejected well within a second")
+    func nestedMapKeyChain() throws {
+        let n = 8000
+        let item = Data(repeating: 0xA1, count: n) + Data(repeating: 0x00, count: n + 1)
+        let bytes = Self.transaction(fee: item)
+        #expect(bytes.count == 16_011)
+        let clock = ContinuousClock()
+        let elapsed = clock.measure {
+            #expect(throws: (any Error).self) { try Transaction.fromCBOR(data: bytes) }
+        }
+        #expect(elapsed < .seconds(1), "took \(elapsed)")
+        // The duplicate check alone is linear too.
+        let checkElapsed = try clock.measure {
+            try Self.rules(item).checkTransaction()
+        }
+        #expect(checkElapsed < .milliseconds(500), "took \(checkElapsed)")
+    }
+
+    @Test("A chain whose every map has two keys is checked in linear time")
+    func nestedChainWithSiblings() throws {
+        // {chain: 0, 1: 0} at each level.
+        let n = 3000
+        var item = Data([0x00])
+        for _ in 0..<n { item = Data([0xA2]) + item + Data([0x00, 0x01, 0x00]) }
+        let clock = ContinuousClock()
+        let elapsed = try clock.measure { try Self.rules(item).checkTransaction() }
+        #expect(elapsed < .milliseconds(500), "took \(elapsed)")
+    }
+
+    @Test(
+        "Keys equal by value but written differently are still repeats from Conway",
+        arguments: [
+            // 1 and 1 in a two-byte header.
+            ("01", "1801"),
+            // "a" definite and in indefinite chunks.
+            ("6161", "7f6161ff"),
+            // h'01' definite and indefinite.
+            ("4101", "5f4101ff"),
+            // 1.0 as a single and as a double.
+            ("fa3f800000", "fb3ff0000000000000"),
+            // 1.5 as a single and as a double.
+            ("fa3fc00000", "fb3ff8000000000000"),
+            // null and undefined.
+            ("f6", "f7"),
+            // A map definite and indefinite.
+            ("a10102", "bf0102ff"),
+            // A map key nested in a map key, written two ways.
+            ("a1a1010200", "a1a118010200"),
+            // A unit interval over a definite and an indefinite array.
+            ("d81e820102", "d81e9f0102ff"),
+            // A tag over equal values written two ways.
+            ("d9010281a10102", "d9010281bf0102ff"),
+        ]
+    )
+    func equalByValue(first: String, second: String) throws {
+        let item = try #require(Data(hexString: "a2" + first + "00" + second + "00"))
+        #expect(throws: CardanoCoreError.self) { try Self.rules(item).checkTransaction() }
+        try Self.rules(item, era: .babbage).checkTransaction()
+        // In a set too.
+        let set = try #require(Data(hexString: "d9010282" + first + second))
+        #expect(throws: CardanoCoreError.self) { try Self.rules(set).checkTransaction() }
+    }
+
+    @Test(
+        "Keys that differ by value are not repeats",
+        arguments: [
+            ("01", "02"),
+            ("6161", "6162"),
+            ("4101", "6101"),
+            ("f93c00", "f94000"),
+            ("a10102", "a10103"),
+            ("820102", "9f0102ff"),
+            ("d81e820102", "d81e820103"),
+        ]
+    )
+    func differentByValue(first: String, second: String) throws {
+        let item = try #require(Data(hexString: "a2" + first + "00" + second + "00"))
+        try Self.rules(item).checkTransaction()
+    }
+}
