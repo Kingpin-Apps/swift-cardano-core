@@ -14,6 +14,16 @@ public protocol TextEnvelopable: PayloadSerializable {
     ///   - type: The envelope's `type` field.
     /// - Returns: The decoded value.
     static func fromEnvelopeCBOR(_ data: Data, type: String) throws -> Self
+
+    /// Returns the value as text envelope JSON, with three fields: `type`,
+    /// `description`, and `cborHex`.
+    ///
+    /// A requirement, so that ``save(to:overwrite:)`` writes what the
+    /// conforming type's own implementation returns. A type whose fields can
+    /// change after it is made derives `cborHex` from them rather than from
+    /// the payload it was made with.
+    /// - Returns: The text envelope JSON.
+    func toTextEnvelope() throws -> String?
 }
 
 public extension TextEnvelopable {

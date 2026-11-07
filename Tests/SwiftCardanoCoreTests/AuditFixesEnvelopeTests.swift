@@ -99,6 +99,74 @@ private func blake2b256(_ data: Data) throws -> Data {
     }
 }
 
+// MARK: - SwiftCardanoCore/TextEnvelopable/stale-init-payload
+
+@Suite struct EnvelopeCurrentFieldsTests {
+    @Test("A body's envelope carries its current fee and the id it hashes to")
+    func bodyEnvelopeUsesCurrentFields() throws {
+        var body = testBody()
+        body.fee = 999_999
+        let reloaded = try TransactionBody.fromTextEnvelope(try #require(try body.toTextEnvelope()))
+        #expect(reloaded.fee == 999_999)
+        #expect(try reloaded.id == body.id)
+    }
+
+    @Test("save(to:) writes the transaction's own envelope, with current witnesses and fee")
+    func transactionSaveMatchesToTextEnvelope() throws {
+        let keyPair = try PaymentKeyPair.generate()
+        var tx = Transaction(transactionBody: testBody(), transactionWitnessSet: TransactionWitnessSet())
+        tx.transactionBody.fee = 300_000
+        tx.transactionWitnessSet = TransactionWitnessSet(vkeyWitnesses: .list([VerificationKeyWitness(
+            vkey: .verificationKey(keyPair.verificationKey),
+            signature: try keyPair.signingKey.sign(data: tx.transactionBody.hash()))]))
+
+        let directory = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let path = directory.appendingPathComponent("tx.signed").path
+        try tx.save(to: path)
+        let written = try String(contentsOfFile: path, encoding: .utf8)
+        #expect(written == (try tx.toTextEnvelope()))
+
+        let reloaded = try Transaction.load(from: path)
+        #expect(reloaded.type == "Tx ConwayEra")
+        #expect(reloaded.transactionBody.fee == 300_000)
+        #expect(reloaded.transactionWitnessSet.vkeyWitnesses?.count == 1)
+        #expect(try reloaded.id == tx.id)
+    }
+
+    @Test("A key witness compares, hashes and saves its current signature")
+    func witnessUsesCurrentFields() throws {
+        let keyPair = try PaymentKeyPair.generate()
+        let original = VerificationKeyWitness(
+            vkey: .verificationKey(keyPair.verificationKey), signature: Data(repeating: 1, count: 64))
+        var copy = original
+        copy.signature = Data(repeating: 2, count: 64)
+        #expect(copy != original)
+        #expect(copy.hashValue != original.hashValue)
+
+        let reloaded = try VerificationKeyWitness.fromTextEnvelope(try #require(try copy.toTextEnvelope()))
+        #expect(reloaded.signature == Data(repeating: 2, count: 64))
+        #expect(reloaded == copy)
+    }
+
+    @Test("An operational certificate's envelope carries its current fields and keeps the cold key")
+    func operationalCertificateUsesCurrentFields() throws {
+        let coldKey = try StakePoolKeyPair.generate().verificationKey
+        var cert = try OperationalCertificate(
+            hotVKey: KESVerificationKey(payload: Data(repeating: 0x01, count: KESConstants.publicKeySize)),
+            sequenceNumber: 1, kesPeriod: 10, sigma: Data(repeating: 3, count: 64),
+            coldVerificationKey: coldKey)
+        cert.kesPeriod = 42
+        cert.sequenceNumber = 7
+
+        let reloaded = try OperationalCertificate.fromTextEnvelope(try #require(try cert.toTextEnvelope()))
+        #expect(reloaded.kesPeriod == 42)
+        #expect(reloaded.sequenceNumber == 7)
+        #expect(reloaded.coldVerificationKey == coldKey)
+        #expect(reloaded == cert)
+    }
+}
+
 // MARK: - SwiftCardanoCore/Serialization/CBORSerializable.swift:fromCBORHex:secret-hex-in-error
 
 @Suite struct HexErrorRedactionTests {

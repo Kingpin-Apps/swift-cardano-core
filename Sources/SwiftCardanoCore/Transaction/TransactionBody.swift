@@ -151,6 +151,15 @@ public struct TransactionBody: Serializable, TextEnvelopable, Equatable {
         try fromCBOR(data: data, era: Transaction.ledgerEra(ofEnvelopeType: type))
     }
 
+    /// Returns the body as text envelope JSON, with `cborHex` its current
+    /// CBOR: the bytes ``toCBORData(deterministic:)`` returns and ``id``
+    /// hashes, so a field changed since the body was made is saved as it is
+    /// now.
+    /// - Returns: The text envelope JSON.
+    public func toTextEnvelope() throws -> String? {
+        textEnvelopeJSON(type: _type, description: _description, cborHex: try toCBORHex())
+    }
+
     /// Decodes a body as the current era's ledger reads it, keeping the bytes
     /// it was read from as ``originalCBOR``.
     public static func fromCBOR(data: Data) throws -> TransactionBody {

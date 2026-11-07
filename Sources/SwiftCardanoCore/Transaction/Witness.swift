@@ -77,6 +77,30 @@ public struct VerificationKeyWitness: Serializable, TextEnvelopable {
         return try VerificationKeyWitness(from: elements[1])
     }
 
+    /// Returns the witness as a text envelope, with `cborHex` the
+    /// `[vkey, signature]` of its current fields, the bytes a witness set
+    /// holds it as.
+    /// - Returns: The text envelope JSON.
+    public func toTextEnvelope() throws -> String? {
+        textEnvelopeJSON(type: _type, description: _description, cborHex: try toCBORHex())
+    }
+
+    // MARK: - Equatable
+
+    /// Equal when they hold the same verification key and signature, the
+    /// fields a witness set encodes. The text envelope `type` and
+    /// `description` are left out.
+    public static func == (lhs: VerificationKeyWitness, rhs: VerificationKeyWitness) -> Bool {
+        lhs.vkey == rhs.vkey && lhs.signature == rhs.signature
+    }
+
+    /// Hashes what `==` compares.
+    /// - Parameter hasher: The hasher.
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(vkey)
+        hasher.combine(signature)
+    }
+
     // MARK: - CBORSerializable
 
     public init(from primitive: Primitive) throws {

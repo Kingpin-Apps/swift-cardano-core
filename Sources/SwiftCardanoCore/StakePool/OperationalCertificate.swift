@@ -146,6 +146,24 @@ public struct OperationalCertificate: TextEnvelopable, JSONSerializable, Sendabl
         self._description = description ?? Self.DESCRIPTION
     }
 
+    // MARK: - TextEnvelopable
+
+    /// Returns the certificate as a `NodeOperationalCertificate` text
+    /// envelope, with `cborHex` encoded from its current fields:
+    /// `[[hot_vkey, sequence_number, kes_period, sigma], cold_vkey]`, or the
+    /// bare body when it carries no cold key.
+    /// - Returns: The text envelope JSON.
+    public func toTextEnvelope() throws -> String? {
+        let payload = try Self.computePayload(
+            hotVKey: hotVKey,
+            sequenceNumber: sequenceNumber,
+            kesPeriod: kesPeriod,
+            sigma: sigma,
+            coldVerificationKey: coldVerificationKey
+        )
+        return textEnvelopeJSON(type: _type, description: _description, cborHex: payload.toHex)
+    }
+
     // MARK: - CBORSerializable
 
     /// Deserialize from a Primitive.

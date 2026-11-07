@@ -386,7 +386,9 @@ public struct Transaction: Serializable, TextEnvelopable {
     /// - Returns: JSON representation
     ///
     /// The type names the era this transaction was read with, when it came from
-    /// a text envelope, and whether it carries any witness yet.
+    /// a text envelope, and whether it carries any witness yet. `cborHex` is
+    /// this transaction's current CBOR, the bytes ``toCBORData(deterministic:)``
+    /// returns, so fields changed since it was made are saved as they are now.
     public func toTextEnvelope() throws -> String? {
         let updatedType = Self.envelopeType(
             era: Self.era(ofEnvelopeType: _type),
