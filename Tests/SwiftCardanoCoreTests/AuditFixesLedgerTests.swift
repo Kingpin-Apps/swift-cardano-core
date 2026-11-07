@@ -399,3 +399,178 @@ import FoundationNetworking
         #expect(try key.toBech32() == (try DRepCredential(from: key.toBech32()).toBech32()))
     }
 }
+
+// MARK: - Pool metadata fetch
+
+/// Serves a preset status, headers and body for each URL, in chunks.
+final class AuditMetadataURLProtocol: URLProtocol {
+    struct Reply: Sendable {
+        var status = 200
+        var headers: [String: String] = [:]
+        var body: Data
+    }
+
+    nonisolated(unsafe) private static var replies: [String: Reply] = [:]
+    nonisolated(unsafe) private static var requested: Set<String> = []
+    /// How many body bytes were handed over for each URL, once delivery ends.
+    nonisolated(unsafe) private static var delivered: [String: Int] = [:]
+    private static let lock = NSLock()
+
+    static func deliveredBytes(_ url: String) -> Int? {
+        lock.withLock { delivered[url] }
+    }
+
+    static func set(_ reply: Reply?, for url: String) {
+        lock.withLock { replies[url] = reply }
+    }
+
+    static func wasRequested(_ url: String) -> Bool {
+        lock.withLock { requested.contains(url) }
+    }
+
+    private let stopped = NSLock()
+    nonisolated(unsafe) private var isStopped = false
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        let key = request.url?.absoluteString ?? ""
+        let reply = Self.lock.withLock {
+            Self.requested.insert(key)
+            return Self.replies[key]
+        }
+        guard let reply else {
+            client?.urlProtocol(self, didFailWithError: URLError(.fileDoesNotExist))
+            return
+        }
+        let response = HTTPURLResponse(
+            url: request.url!, statusCode: reply.status, httpVersion: "HTTP/1.1",
+            headerFields: reply.headers)!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        // Delivered off the loading thread, a chunk at a time, so that
+        // cancelling the task stops it part way.
+        nonisolated(unsafe) let this = self
+        DispatchQueue.global().async {
+            var offset = 0
+            while offset < reply.body.count, !this.stopped.withLock({ this.isStopped }) {
+                let end = min(offset + 4096, reply.body.count)
+                this.client?.urlProtocol(this, didLoad: reply.body.subdata(in: offset..<end))
+                offset = end
+                usleep(200)
+            }
+            Self.lock.withLock { Self.delivered[key] = offset }
+            this.client?.urlProtocolDidFinishLoading(this)
+        }
+    }
+
+    override func stopLoading() {
+        stopped.withLock { isStopped = true }
+    }
+
+    static func makeSession() -> URLSession {
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [AuditMetadataURLProtocol.self]
+        return URLSession(configuration: config)
+    }
+}
+
+@Suite struct AuditPoolMetadataFetchTests {
+    /// Metadata JSON padded with spaces to `size` bytes.
+    static func body(size: Int) -> Data {
+        let prefix = #"{"name":"P","description":"d","ticker":"ABC","homepage":"https://x""#
+        return Data((prefix + String(repeating: " ", count: max(0, size - prefix.utf8.count - 1)) + "}").utf8)
+    }
+
+    static func fetch(
+        _ reply: AuditMetadataURLProtocol.Reply, path: String, maximumBytes: Int = 512
+    ) async throws -> PoolMetadata {
+        let url = "https://pool.example.com/\(path)"
+        AuditMetadataURLProtocol.set(reply, for: url)
+        defer { AuditMetadataURLProtocol.set(nil, for: url) }
+        return try await PoolMetadata.fetch(
+            url: try Url(url), session: AuditMetadataURLProtocol.makeSession(),
+            maximumBytes: maximumBytes)
+    }
+
+    @Test("A 512-byte body is read")
+    func atLimit() async throws {
+        let body = Self.body(size: 512)
+        #expect(body.count == 512)
+        let metadata = try await Self.fetch(.init(body: body), path: "512.json")
+        #expect(metadata.name == "P")
+        #expect(try metadata.hash().count == 64)
+    }
+
+    @Test("A 513-byte body is refused")
+    func overLimit() async throws {
+        let body = Self.body(size: 513)
+        #expect(body.count == 513)
+        await #expect(throws: CardanoCoreError.self) {
+            try await Self.fetch(.init(body: body), path: "513.json")
+        }
+    }
+
+    @Test("A larger limit can be asked for, within bounds")
+    func customLimit() async throws {
+        let body = Self.body(size: 2000)
+        let metadata = try await Self.fetch(.init(body: body), path: "2000.json", maximumBytes: 4096)
+        #expect(metadata.ticker == "ABC")
+        await #expect(throws: CardanoCoreError.self) {
+            try await Self.fetch(.init(body: body), path: "2000b.json", maximumBytes: 0)
+        }
+        await #expect(throws: CardanoCoreError.self) {
+            try await Self.fetch(.init(body: body), path: "2000c.json", maximumBytes: 1 << 30)
+        }
+    }
+
+    @Test("A 4 MiB body is refused, and its transfer stopped part way")
+    func largeBody() async throws {
+        let body = Self.body(size: 4 * 1024 * 1024)
+        await #expect(throws: CardanoCoreError.self) {
+            try await Self.fetch(.init(body: body), path: "big.json")
+        }
+        // The server side stops once the task is cancelled.
+        let url = "https://pool.example.com/big.json"
+        var delivered: Int?
+        for _ in 0..<500 where delivered == nil {
+            delivered = AuditMetadataURLProtocol.deliveredBytes(url)
+            if delivered == nil { try await Task.sleep(nanoseconds: 10_000_000) }
+        }
+        let count = try #require(delivered)
+        #expect(count < body.count / 4, "delivered \(count) of \(body.count) bytes")
+    }
+
+    @Test("A declared length over the limit is refused")
+    func declaredLength() async throws {
+        await #expect(throws: CardanoCoreError.self) {
+            try await Self.fetch(
+                .init(headers: ["Content-Length": "100000"], body: Self.body(size: 100)),
+                path: "declared.json")
+        }
+    }
+
+    @Test("A response that is not 2xx is refused, whatever its body")
+    func serverError() async throws {
+        await #expect(throws: CardanoCoreError.self) {
+            try await Self.fetch(.init(status: 500, body: Self.body(size: 100)), path: "500.json")
+        }
+        await #expect(throws: CardanoCoreError.self) {
+            try await Self.fetch(.init(status: 404, body: Self.body(size: 100)), path: "404.json")
+        }
+    }
+
+    @Test(
+        "Only http and https URLs are fetched",
+        arguments: ["ftp://internal.example/x.json", "file:///etc/hosts", "gopher://10.0.0.1/x", "data:,x"]
+    )
+    func schemes(url: String) async throws {
+        AuditMetadataURLProtocol.set(.init(body: Self.body(size: 100)), for: url)
+        defer { AuditMetadataURLProtocol.set(nil, for: url) }
+        await #expect(throws: CardanoCoreError.self) {
+            try await PoolMetadata.fetch(
+                url: try Url(url), session: AuditMetadataURLProtocol.makeSession())
+        }
+        #expect(!AuditMetadataURLProtocol.wasRequested(url))
+    }
+}

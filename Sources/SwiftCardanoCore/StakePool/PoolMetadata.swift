@@ -266,28 +266,55 @@ public struct PoolMetadata: Serializable {
     }
 
     #if !os(WASI)
+    /// The most bytes ``fetch(url:poolMetadataHash:session:maximumBytes:)``
+    /// can be asked to accept: 64 KiB, far above the 512 bytes CIP-6 allows.
+    public static let maximumFetchBytes = 65_536
+
     /// Downloads the pool metadata JSON from `url`, verifies it against `poolMetadataHash`,
     /// parses the content, and returns a fully-populated `PoolMetadata`.
+    ///
+    /// A pool operator chooses the URL and runs the server behind it, so the
+    /// download is guarded: only `http` and `https` URLs are fetched, and
+    /// redirects only to those; a status outside 200–299 is refused; and the
+    /// body is refused as soon as its declared length or the bytes received
+    /// pass `maximumBytes`, before any more is buffered, hashed or parsed.
+    ///
+    /// The download runs in a session with `session`'s configuration (so its
+    /// protocol classes, headers and timeouts apply) but not its delegate.
     ///
     /// Not available on WASI — that platform has no networking primitives.
     ///
     /// - Parameters:
     ///   - url: The URL the metadata file is published at.
     ///   - poolMetadataHash: The expected hash of the file, or `nil` to skip the check.
-    ///   - session: The URL session to download with.
+    ///   - session: The URL session whose configuration to download with.
+    ///   - maximumBytes: The largest body accepted, 512 by default (the CIP-6
+    ///     limit). From 1 to ``maximumFetchBytes``.
     /// - Returns: The metadata, keeping the downloaded bytes for ``hash()``.
-    /// - Throws: `CardanoCoreError.valueError` if the downloaded content does not match the hash.
+    /// - Throws: `CardanoCoreError.valueError` if the URL is not `http` or
+    ///   `https`, `maximumBytes` is out of range, the response is not a 2xx
+    ///   HTTP response, the body is too large, or the content does not match
+    ///   the hash.
     public static func fetch(
         url: Url,
         poolMetadataHash: PoolMetadataHash? = nil,
-        session: URLSession = .shared
+        session: URLSession = .shared,
+        maximumBytes: Int = 512
     ) async throws -> PoolMetadata {
-        let data: Data
         guard let location = url.value else {
             throw CardanoCoreError.valueError("Pool metadata URL is not one Foundation can fetch: \(url.text)")
         }
+        guard LimitedDownload.isAllowed(location) else {
+            throw CardanoCoreError.valueError(
+                "Pool metadata URL has to be http or https: \(url.text)")
+        }
+        guard (1...maximumFetchBytes).contains(maximumBytes) else {
+            throw CardanoCoreError.valueError(
+                "maximumBytes has to be from 1 to \(maximumFetchBytes), got \(maximumBytes)")
+        }
 
-        (data, _) = try await session.data(from: location)
+        let data = try await LimitedDownload.data(
+            from: location, configuration: session.configuration, limit: maximumBytes)
 
         if let poolMetadataHash = poolMetadataHash {
             guard try matches(data: data, hash: poolMetadataHash) else {
@@ -311,3 +338,116 @@ public struct PoolMetadata: Serializable {
 
 }
 
+
+#if !os(WASI)
+/// One download whose body is counted as it arrives and cut off at a limit.
+///
+/// `URLSession.data(from:)` buffers the whole body, and `bytes(from:)` is not
+/// in FoundationNetworking, so this is a data-task delegate, which both have.
+private final class LimitedDownload: NSObject, URLSessionDataDelegate, @unchecked Sendable {
+    private let limit: Int
+    /// Guards everything below: the delegate is called on the session's queue.
+    private let lock = NSLock()
+    private var received = Data()
+    private var failure: Error?
+    private var continuation: CheckedContinuation<Data, Error>?
+
+    private init(limit: Int) {
+        self.limit = limit
+    }
+
+    /// Whether a URL's scheme is one pool metadata may be fetched from.
+    static func isAllowed(_ url: URL) -> Bool {
+        guard let scheme = url.scheme?.lowercased() else { return false }
+        return scheme == "http" || scheme == "https"
+    }
+
+    /// Downloads `url`'s body, refusing more than `limit` bytes.
+    static func data(from url: URL, configuration: URLSessionConfiguration, limit: Int) async throws -> Data {
+        let download = LimitedDownload(limit: limit)
+        let session = URLSession(configuration: configuration, delegate: download, delegateQueue: nil)
+        defer { session.finishTasksAndInvalidate() }
+        let task = session.dataTask(with: url)
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                download.lock.withLock { download.continuation = continuation }
+                task.resume()
+            }
+        } onCancel: {
+            task.cancel()
+        }
+    }
+
+    /// Records the first reason to stop, and cancels the transfer.
+    private func fail(_ message: String, _ task: URLSessionTask) {
+        lock.withLock {
+            if failure == nil { failure = CardanoCoreError.valueError(message) }
+        }
+        task.cancel()
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        dataTask: URLSessionDataTask,
+        didReceive response: URLResponse,
+        completionHandler: @escaping @Sendable (URLSession.ResponseDisposition) -> Void
+    ) {
+        guard let http = response as? HTTPURLResponse else {
+            fail("Pool metadata response is not an HTTP response.", dataTask)
+            completionHandler(.cancel)
+            return
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            fail("Pool metadata request failed with HTTP status \(http.statusCode).", dataTask)
+            completionHandler(.cancel)
+            return
+        }
+        guard response.expectedContentLength <= Int64(limit) else {
+            fail("Pool metadata declares \(response.expectedContentLength) bytes, "
+                + "more than the \(limit) allowed.", dataTask)
+            completionHandler(.cancel)
+            return
+        }
+        completionHandler(.allow)
+    }
+
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        let tooLarge: Bool = lock.withLock {
+            guard failure == nil else { return false }
+            if data.count > limit - received.count { return true }
+            received.append(data)
+            return false
+        }
+        if tooLarge {
+            fail("Pool metadata is more than the \(limit) bytes allowed.", dataTask)
+        }
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest,
+        completionHandler: @escaping @Sendable (URLRequest?) -> Void
+    ) {
+        // A redirect may not leave http and https either.
+        if let target = request.url, Self.isAllowed(target) {
+            completionHandler(request)
+        } else {
+            fail("Pool metadata redirects to a URL that is not http or https.", task)
+            completionHandler(nil)
+        }
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        let (continuation, result): (CheckedContinuation<Data, Error>?, Result<Data, Error>) = lock.withLock {
+            let continuation = self.continuation
+            self.continuation = nil
+            if let failure { return (continuation, .failure(failure)) }
+            if let error { return (continuation, .failure(error)) }
+            return (continuation, .success(received))
+        }
+        continuation?.resume(with: result)
+    }
+}
+#endif
