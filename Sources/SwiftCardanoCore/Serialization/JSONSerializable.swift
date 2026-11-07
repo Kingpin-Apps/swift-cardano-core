@@ -87,38 +87,7 @@ extension JSONSerializable {
 
         do {
             let jsonObject = try JSONSerialization.jsonObject(with: data, options: .fragmentsAllowed)
-
-            // Convert Any to Primitive
-            func anyToPrimitive(_ value: Any) throws -> Primitive {
-                // JSONSerialization gives every number and boolean as an
-                // NSNumber, which casts to Int as readily as to Bool: ask
-                // which it is before casting. `objCType` is "c" for a
-                // boolean on Darwin and on swift-corelibs-foundation alike.
-                if let number = value as? NSNumber, String(cString: number.objCType) == "c" {
-                    return .bool(number.boolValue)
-                }
-                switch value {
-                case let str as String: return .string(str)
-                // A non-negative integer is read as CBOR reads one, as .uint.
-                case let i as Int: return i < 0 ? .int(Int64(i)) : .uint(UInt64(i))
-                case let u as UInt: return .uint(UInt64(u))
-                case let f as Double: return .float(f)
-                case let f as Float: return .float(Double(f))
-                case let arr as [Any]: return .list(try arr.map { try anyToPrimitive($0) })
-                case let dict as [String: Any]:
-                    var result: OrderedDictionary<Primitive, Primitive> = [:]
-                    // Sort keys to ensure deterministic ordering when loading from JSON
-                    for k in dict.keys.sorted() {
-                        result[.string(k)] = try anyToPrimitive(dict[k]!)
-                    }
-                    return .orderedDict(result)
-                case is NSNull: return .null
-                default:
-                    throw CardanoCoreError.valueError("Unsupported JSON type: \(type(of: value))")
-                }
-            }
-
-            let primitive = try anyToPrimitive(jsonObject)
+            let primitive = try JSONPrimitiveReader.read(jsonObject)
             return try fromDict(primitive)
         } catch let error as CardanoCoreError {
             throw error
@@ -249,6 +218,123 @@ extension JSONSerializable {
         }
     }
 
+}
+
+/// Converts a `JSONSerialization` value to the primitive
+/// ``JSONSerializable/fromDict(_:)`` reads: objects as `.orderedDict` with
+/// their keys sorted, non-negative integers as `.uint`.
+///
+/// It works in a loop rather than recursing, so JSON nested as deeply as the
+/// parser accepts cannot exhaust a small thread stack. A conforming type whose
+/// `fromDict(_:)` recurses bounds the depth it reads.
+enum JSONPrimitiveReader {
+    /// A container being filled: its children, the next one to convert and
+    /// those already converted.
+    private enum Frame {
+        case list(items: [Any], next: Int, built: [Primitive])
+        case object(keys: [String], values: [String: Any], next: Int,
+                    built: OrderedDictionary<Primitive, Primitive>)
+    }
+
+    /// The primitive for a JSON value.
+    ///
+    /// - Throws: When the value holds a type JSON does not have.
+    static func read(_ root: Any) throws -> Primitive {
+        var stack: [Frame] = []
+        var current = root
+        while true {
+            let produced: Primitive
+            if let items = current as? [Any] {
+                if let first = items.first {
+                    stack.append(.list(items: items, next: 1, built: []))
+                    current = first
+                    continue
+                }
+                produced = .list([])
+            } else if let values = current as? [String: Any] {
+                // Sort keys to ensure deterministic ordering when loading from JSON
+                let keys = values.keys.sorted()
+                if let first = keys.first {
+                    stack.append(.object(keys: keys, values: values, next: 1, built: [:]))
+                    current = values[first]!
+                    continue
+                }
+                produced = .orderedDict([:])
+            } else {
+                produced = try scalar(current)
+            }
+            if let result = finish(produced, &stack, &current) { return result }
+        }
+    }
+
+    /// Hands `value` to the containers above it, closing each one it
+    /// completes. Returns the root once it is complete; otherwise sets
+    /// `current` to the next child to convert and returns `nil`.
+    private static func finish(_ value: Primitive, _ stack: inout [Frame], _ current: inout Any) -> Primitive? {
+        var value = value
+        while let frame = stack.popLast() {
+            switch frame {
+            case .list(let items, let next, var built):
+                built.append(value)
+                if next < items.count {
+                    stack.append(.list(items: items, next: next + 1, built: built))
+                    current = items[next]
+                    return nil
+                }
+                value = .list(built)
+            case .object(let keys, let values, let next, var built):
+                built[.string(keys[next - 1])] = value
+                if next < keys.count {
+                    stack.append(.object(keys: keys, values: values, next: next + 1, built: built))
+                    current = values[keys[next]]!
+                    return nil
+                }
+                value = .orderedDict(built)
+            }
+        }
+        return value
+    }
+
+    /// A JSON value that is not an array or an object, as a primitive.
+    private static func scalar(_ value: Any) throws -> Primitive {
+        // JSONSerialization gives every number and boolean as an
+        // NSNumber, which casts to Int as readily as to Bool: ask
+        // which it is before casting. `objCType` is "c" for a
+        // boolean on Darwin and on swift-corelibs-foundation alike.
+        if let number = value as? NSNumber, String(cString: number.objCType) == "c" {
+            return .bool(number.boolValue)
+        }
+        switch value {
+        case let str as String: return .string(str)
+        // A non-negative integer is read as CBOR reads one, as .uint.
+        case let i as Int: return i < 0 ? .int(Int64(i)) : .uint(UInt64(i))
+        case let u as UInt: return .uint(UInt64(u))
+        case let f as Double: return .float(f)
+        case let f as Float: return .float(Double(f))
+        case is NSNull: return .null
+        default:
+            throw CardanoCoreError.valueError("Unsupported JSON type: \(type(of: value))")
+        }
+    }
+}
+
+/// The deepest value the recursive JSON readers read, counting the outermost
+/// value as level 1: ``PlutusData/maxConversionDepth``, the depth the
+/// conversions to JSON allow, which fits a 512 KB thread stack.
+let maxJSONDecodeDepth = 128
+
+/// Throws when `level` is past `limit`.
+///
+/// - Parameters:
+///   - level: The depth of the value being read; the outermost is level 1.
+///   - limit: The deepest level allowed.
+///   - what: What is being read, for the error message.
+/// - Throws: `CardanoCoreError.deserializeError` when `level` is past `limit`.
+func checkJSONDepth(_ level: Int, limit: Int = maxJSONDecodeDepth, _ what: @autoclosure () -> String) throws {
+    guard level <= limit else {
+        throw CardanoCoreError.deserializeError(
+            "\(what()) nests deeper than \(limit) levels, too deep to read")
+    }
 }
 
 extension Primitive {

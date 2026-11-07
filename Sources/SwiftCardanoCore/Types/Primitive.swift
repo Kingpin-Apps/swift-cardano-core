@@ -116,7 +116,15 @@ public indirect enum Primitive: CBORSerializable, Sendable {
 
     /// Reconstruct a Primitive from a Foundation JSON value (the output
     /// of `JSONSerialization.jsonObject(with:)`).
+    ///
+    /// - Throws: When the value holds a type JSON does not have, or nests
+    ///   deeper than 128 levels.
     public static func from(json: Any) throws -> Primitive {
+        try from(json: json, level: 1)
+    }
+
+    private static func from(json: Any, level: Int) throws -> Primitive {
+        try checkJSONDepth(level, "A JSON value")
         if json is NSNull {
             return .null
         }
@@ -137,7 +145,7 @@ public indirect enum Primitive: CBORSerializable, Sendable {
             return .string(s)
         }
         if let arr = json as? [Any] {
-            return .list(try arr.map { try from(json: $0) })
+            return .list(try arr.map { try from(json: $0, level: level + 1) })
         }
         if let dict = json as? [String: Any] {
             // Reconstruct cborTag: Primitive.toJSON() encodes .cborTag as
@@ -151,11 +159,11 @@ public indirect enum Primitive: CBORSerializable, Sendable {
                 guard let tagRaw = UInt64(exactly: tagNum.int64Value), tagNum.int64Value >= 0 else {
                     throw CardanoCoreError.valueError("Invalid CBOR tag in JSON: \(tagNum)")
                 }
-                let valuePrimitive = try from(json: valueAny)
+                let valuePrimitive = try from(json: valueAny, level: level + 1)
                 return .cborTag(CBORTag(tag: tagRaw, value: valuePrimitive))
             }
             var result: OrderedDictionary<Primitive, Primitive> = [:]
-            for (k, v) in dict { result[.string(k)] = try from(json: v) }
+            for (k, v) in dict { result[.string(k)] = try from(json: v, level: level + 1) }
             return .orderedDict(result)
         }
         throw CardanoCoreError.valueError("Cannot convert JSON value to Primitive: \(json)")
@@ -600,7 +608,15 @@ public indirect enum Primitive: CBORSerializable, Sendable {
     }
 
     /// Convert an arbitrary value to a Primitive.
+    ///
+    /// - Throws: When the value, or a value inside it, has no primitive form,
+    ///   or arrays and dictionaries nest deeper than 128 levels.
     public static func fromAny(_ value: Any) throws -> Primitive {
+        try fromAny(value, level: 1)
+    }
+
+    private static func fromAny(_ value: Any, level: Int) throws -> Primitive {
+        try checkJSONDepth(level, "A value")
         switch value {
         case let v as Primitive:
             return v
@@ -647,20 +663,20 @@ public indirect enum Primitive: CBORSerializable, Sendable {
         case let v as [UInt8]:
             return .byteArray(v)
         case let v as [Any]:
-            return .list(try v.map { try Primitive.fromAny($0) })
+            return .list(try v.map { try Primitive.fromAny($0, level: level + 1) })
         case let v as OrderedDictionary<AnyHashable, Any>:
             var dict: OrderedDictionary<Primitive, Primitive> = [:]
             for (key, value) in v {
-                let keyPrimitive = try Primitive.fromAny(key)
-                let valuePrimitive = try Primitive.fromAny(value)
+                let keyPrimitive = try Primitive.fromAny(key, level: level + 1)
+                let valuePrimitive = try Primitive.fromAny(value, level: level + 1)
                 dict[keyPrimitive] = valuePrimitive
             }
             return .orderedDict(dict)
         case let v as [AnyHashable: Any]:
             var dict: [Primitive: Primitive] = [:]
             for (key, value) in v {
-                let keyPrimitive = try Primitive.fromAny(key)
-                let valuePrimitive = try Primitive.fromAny(value)
+                let keyPrimitive = try Primitive.fromAny(key, level: level + 1)
+                let valuePrimitive = try Primitive.fromAny(value, level: level + 1)
                 dict[keyPrimitive] = valuePrimitive
             }
             return .dict(dict)

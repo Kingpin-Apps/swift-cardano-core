@@ -149,63 +149,113 @@ public enum TransactionMetadatum: Serializable, Hashable, Equatable {
     /// `{"map": [{"k": …, "v": …}]}` — which keeps every value as it is. Plain
     /// JSON values are read too: a number as an integer, a string as text, an
     /// array as a list and an object as a map with text keys.
+    ///
+    /// - Throws: When the JSON is not a metadatum, or nests deeper than
+    ///   ``maxConversionDepth``.
     public static func fromDict(_ primitive: Primitive) throws -> TransactionMetadatum {
+        try fromDict(primitive, level: 1)
+    }
+
+    /// Reads the metadatum at depth `level` of the JSON, the outermost at 1.
+    static func fromDict(_ primitive: Primitive, level: Int) throws -> TransactionMetadatum {
+        // This recurses once per level, so containers are read in out-of-line
+        // helpers that keep its frame small: 128 levels fit a 512 KB stack.
+        try checkJSONDepth(level, limit: maxConversionDepth, "Metadata JSON")
         if case .orderedDict(let object) = primitive, object.count == 1,
             case .string(let key) = object.keys[0]
         {
-            let value = object.values[0]
-            switch (key, value) {
-            case ("int", _):
-                return try fromDict(value)
-            case ("bytes", .string(let hex)):
-                guard let data = Data(hexString: hex) else {
-                    throw CardanoCoreError.deserializeError("Invalid hex in metadata bytes: \(hex)")
-                }
-                return .bytes(data)
-            case ("string", .string(let text)):
-                return .text(text)
+            switch (key, object.values[0]) {
             case ("list", .list(let elements)):
-                return .list(try elements.map(fromDict))
+                return try list(elements, level: level)
             case ("map", .list(let entries)):
-                var pairs = MapPairs<TransactionMetadatum, TransactionMetadatum>()
-                for entry in entries {
-                    guard case .orderedDict(let pair) = entry, let k = pair[.string("k")],
-                        let v = pair[.string("v")]
-                    else {
-                        throw CardanoCoreError.deserializeError("Invalid metadata map entry: \(entry)")
-                    }
-                    pairs.append(key: try fromDict(k), value: try fromDict(v))
-                }
-                return .map(pairs)
+                return try detailedMap(entries, level: level)
+            case ("int", _), ("bytes", .string), ("string", .string):
+                return try detailedScalar(key, object.values[0], level: level)
             default:
                 break
             }
         }
         switch primitive {
-        case .uint(let value):
-            return .integer(BigInt(value))
-        case .int(let value):
-            return .integer(BigInt(value))
-        case .bigInt(let value):
-            return .integer(value)
-        case .bigUInt(let value):
-            return .integer(BigInt(value))
         case .string(let string):
             return .text(string)
         case .list(let array):
-            return .list(try array.map(fromDict))
+            return try list(array, level: level)
         case .indefiniteList(let array):
-            return .list(try array.getAll().map(fromDict))
+            return try list(array.getAll(), level: level)
         case .dict, .orderedDict:
-            var pairs = MapPairs<TransactionMetadatum, TransactionMetadatum>()
-            for (key, value) in try Metadata.entries(of: primitive) {
-                pairs.append(key: try fromDict(key), value: try fromDict(value))
-            }
-            return .map(pairs)
+            return try map(Metadata.entries(of: primitive), level: level)
         default:
-            throw CardanoCoreError.deserializeError(
-                "Unsupported JSON for TransactionMetadatum: \(primitive)")
+            if let integer = primitive.integerValue { return .integer(integer) }
+            throw unsupportedJSON(primitive)
         }
+    }
+
+    /// A list whose elements are at `level + 1`.
+    @inline(never)
+    private static func list(_ elements: [Primitive], level: Int) throws -> TransactionMetadatum {
+        var items: [TransactionMetadatum] = []
+        items.reserveCapacity(elements.count)
+        for element in elements {
+            items.append(try fromDict(element, level: level + 1))
+        }
+        return .list(items)
+    }
+
+    /// A map whose keys and values are at `level + 1`.
+    @inline(never)
+    private static func map(
+        _ entries: OrderedDictionary<Primitive, Primitive>, level: Int
+    ) throws -> TransactionMetadatum {
+        var pairs = MapPairs<TransactionMetadatum, TransactionMetadatum>()
+        for (key, value) in entries {
+            pairs.append(
+                key: try fromDict(key, level: level + 1), value: try fromDict(value, level: level + 1))
+        }
+        return .map(pairs)
+    }
+
+    /// The detailed schema's `{"map": [{"k": …, "v": …}]}`.
+    @inline(never)
+    private static func detailedMap(_ entries: [Primitive], level: Int) throws -> TransactionMetadatum {
+        var pairs = MapPairs<TransactionMetadatum, TransactionMetadatum>()
+        for entry in entries {
+            guard case .orderedDict(let pair) = entry, let k = pair[.string("k")],
+                let v = pair[.string("v")]
+            else {
+                throw CardanoCoreError.deserializeError("Invalid metadata map entry: \(entry)")
+            }
+            pairs.append(key: try fromDict(k, level: level + 1), value: try fromDict(v, level: level + 1))
+        }
+        return .map(pairs)
+    }
+
+    /// The detailed schema's `{"int": …}`, `{"bytes": "<hex>"}` and
+    /// `{"string": "…"}`.
+    @inline(never)
+    private static func detailedScalar(
+        _ key: String, _ value: Primitive, level: Int
+    ) throws -> TransactionMetadatum {
+        switch (key, value) {
+        case ("bytes", .string(let hex)):
+            guard let data = Data(hexString: hex) else {
+                throw CardanoCoreError.deserializeError("Invalid hex in metadata bytes: \(hex)")
+            }
+            return .bytes(data)
+        case ("string", .string(let text)):
+            return .text(text)
+        case ("int", .orderedDict), ("int", .dict), ("int", .list), ("int", .indefiniteList):
+            // A container in the integer's place counts as a level of its
+            // own, so it cannot recurse without bound.
+            return try fromDict(value, level: level + 1)
+        default:
+            // The integer is this level's value.
+            return try fromDict(value, level: level)
+        }
+    }
+
+    @inline(never)
+    private static func unsupportedJSON(_ primitive: Primitive) -> CardanoCoreError {
+        CardanoCoreError.deserializeError("Unsupported JSON for TransactionMetadatum: \(primitive)")
     }
 
     /// The metadatum as JSON in cardano-cli's detailed schema, which keeps

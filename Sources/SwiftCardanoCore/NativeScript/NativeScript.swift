@@ -152,7 +152,18 @@ public enum NativeScript: Serializable {
 
     // MARK: - JSONSerializable
     
+    /// Reads a script from its JSON form, in cardano-cli's simple-script
+    /// schema.
+    ///
+    /// - Throws: When the JSON is not a native script, or nests deeper than
+    ///   ``maxConversionDepth``.
     public static func fromDict(_ dict: Primitive) throws -> NativeScript {
+        try fromDict(dict, level: 1)
+    }
+
+    /// Reads the script at depth `level` of the JSON, the outermost at 1.
+    static func fromDict(_ dict: Primitive, level: Int) throws -> NativeScript {
+        try checkJSONDepth(level, limit: maxConversionDepth, "Native script JSON")
         guard case let .orderedDict(dictValue) = dict else {
             throw CardanoCoreError.decodingError("Invalid NativeScript dict format")
         }
@@ -164,9 +175,9 @@ public enum NativeScript: Serializable {
         
         switch type {
             case "sig": return .scriptPubkey(try ScriptPubkey.fromDict(dict))
-            case "all": return .scriptAll(try ScriptAll.fromDict(dict))
-            case "any": return .scriptAny(try ScriptAny.fromDict(dict))
-            case "atLeast": return .scriptNofK(try ScriptNofK.fromDict(dict))
+            case "all": return .scriptAll(try ScriptAll.fromDict(dict, level: level))
+            case "any": return .scriptAny(try ScriptAny.fromDict(dict, level: level))
+            case "atLeast": return .scriptNofK(try ScriptNofK.fromDict(dict, level: level))
             // cardano-cli simple script JSON: "before" = valid only before the slot
             // (invalid_hereafter, code 5); "after" = valid from the slot (invalid_before, code 4).
             case "before": return .invalidHereAfter(try AfterScript.fromDict(dict))

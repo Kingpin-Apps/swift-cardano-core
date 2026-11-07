@@ -164,7 +164,17 @@ public struct Constr: Serializable, CustomStringConvertible, Sendable {
 
     // MARK: - JSONSerializable
 
+    /// Reads a constructor from JSON's dictionary form.
+    ///
+    /// - Throws: When the dictionary is not a valid constructor, or nests
+    ///   deeper than ``PlutusData/maxConversionDepth``.
     public static func fromDict(_ data: Primitive) throws -> Constr {
+        try fromDict(data, level: 1)
+    }
+
+    /// Reads a constructor at depth `level` of a dictionary, the outermost at 1.
+    static func fromDict(_ data: Primitive, level: Int) throws -> Constr {
+        try checkJSONDepth(level, limit: PlutusData.maxConversionDepth, "PlutusData JSON")
         guard case .orderedDict(let orderedDict) = data else {
             throw CardanoCoreError.deserializeError("Invalid Constr dict format")
         }
@@ -179,12 +189,7 @@ public struct Constr: Serializable, CustomStringConvertible, Sendable {
                 "Invalid Constr dict: missing or invalid fields")
         }
 
-        let fields = try fieldsArray.map {
-            guard case .orderedDict(let fieldDict) = $0 else {
-                throw CardanoCoreError.deserializeError("Invalid Constr field dict")
-            }
-            return try PlutusData.fromDict(.orderedDict(fieldDict))
-        }
+        let fields = try PlutusData.elements(fieldsArray, level: level, invalidItem: "Invalid Constr field dict")
         return Constr(tag: tagValue, fields: fields)
     }
 

@@ -58,7 +58,17 @@ public struct ScriptAny: NativeScriptable {
     
     // MARK: - JSONSerializable
     
+    /// Reads the script from its JSON form.
+    ///
+    /// - Throws: When the JSON is not this script, or nests deeper than
+    ///   ``NativeScript/maxConversionDepth``.
     public static func fromDict(_ dict: Primitive) throws -> ScriptAny {
+        try fromDict(dict, level: 1)
+    }
+
+    /// Reads the script at depth `level` of the JSON, the outermost at 1.
+    static func fromDict(_ dict: Primitive, level: Int) throws -> ScriptAny {
+        try checkJSONDepth(level, limit: NativeScript.maxConversionDepth, "Native script JSON")
         guard case let .orderedDict(dictValue) = dict else {
             throw CardanoCoreError.decodingError("Invalid ScriptAny dict format")
         }
@@ -69,7 +79,7 @@ public struct ScriptAny: NativeScriptable {
         }
         
         let nativeScripts = try scripts.map {
-            try NativeScript.fromDict($0)
+            try NativeScript.fromDict($0, level: level + 1)
         }
         
         return ScriptAny(scripts: nativeScripts)

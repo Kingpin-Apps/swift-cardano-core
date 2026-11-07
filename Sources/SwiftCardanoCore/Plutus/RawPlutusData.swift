@@ -338,14 +338,16 @@ public struct RawPlutusData: PlutusDataProtocol {
     ///
     /// - Parameter data: The top-level JSON object.
     /// - Returns: The raw Plutus data.
-    /// - Throws: When the object is not in that form.
+    /// - Throws: When the object is not in that form, or nests deeper than
+    ///   ``PlutusData/maxConversionDepth``.
     public static func fromDict(_ data: [String: Any]) throws -> RawPlutusData {
-        func dfs(_ obj: Any) throws -> Any {
+        func dfs(_ obj: Any, _ level: Int) throws -> Any {
+            try checkJSONDepth(level, limit: PlutusData.maxConversionDepth, "PlutusData JSON")
             if let dict = obj as? [String: Any] {
                 if let constructor = dict["constructor"] as? Int,
                     let fields = dict["fields"] as? [[String: Any]]
                 {
-                    let convertedFields = try fields.map { try dfs($0) }
+                    let convertedFields = try fields.map { try dfs($0, level + 1) }
                     if let tag = getTag(constrID: constructor) {
                         return CBORTag(
                             tag: UInt64(tag),
@@ -366,8 +368,8 @@ public struct RawPlutusData: PlutusDataProtocol {
                         guard let key = item["k"], let value = item["v"] else {
                             throw CardanoCoreError.deserializeError("Invalid map item format")
                         }
-                        resultDict[try AnyValue.wrapped(try dfs(key))] = try AnyValue.wrapped(
-                            try dfs(value))
+                        resultDict[try AnyValue.wrapped(try dfs(key, level + 1))] = try AnyValue.wrapped(
+                            try dfs(value, level + 1))
                     }
                     return resultDict
                 } else if let intValue = dict["int"] as? Int {
@@ -378,14 +380,14 @@ public struct RawPlutusData: PlutusDataProtocol {
                     }
                     return bytes
                 } else if let list = dict["list"] as? [Any] {
-                    return try list.map { try dfs($0) }
+                    return try list.map { try dfs($0, level + 1) }
                 }
                 throw CardanoCoreError.deserializeError("Unexpected data structure: \(dict)")
             }
             throw CardanoCoreError.typeError("Unexpected data type: \(type(of: obj))")
         }
 
-        let value = try dfs(data)
+        let value = try dfs(data, 1)
         return try RawPlutusData.fromPrimitive(value)
     }
 

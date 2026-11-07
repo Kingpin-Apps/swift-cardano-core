@@ -287,48 +287,89 @@ public enum PlutusData: Serializable, Sendable {
     /// Convert a dictionary to PlutusData
     /// - Parameter data: A dictionary representing the PlutusData.
     /// - Returns: Restored PlutusData.
+    /// - Throws: When the dictionary is not valid Plutus data, or nests deeper
+    ///   than ``maxConversionDepth``.
     public static func fromDict(_ data: Primitive) throws -> PlutusData {
+        try fromDict(data, level: 1)
+    }
+
+    /// Reads the value at depth `level` of a dictionary, the outermost at 1.
+    ///
+    /// This recurses once per level, so containers are read in out-of-line
+    /// helpers that keep its frame small: 128 levels fit a 512 KB stack.
+    static func fromDict(_ data: Primitive, level: Int) throws -> PlutusData {
+        try checkJSONDepth(level, limit: maxConversionDepth, "PlutusData JSON")
         guard case .orderedDict(let orderedDict) = data else {
             throw CardanoCoreError.deserializeError("Invalid PlutusData dict format")
         }
         if orderedDict[.string("constructor")] != nil {
-            return .constructor(try Constr.fromDict(.orderedDict(orderedDict)))
+            return .constructor(try Constr.fromDict(data, level: level))
         } else if orderedDict[.string("int")] != nil {
-            return .bigInt(try BigInteger.fromDict(.orderedDict(orderedDict)))
+            return .bigInt(try BigInteger.fromDict(data))
         } else if case .list(let mapArray) = orderedDict[.string("map")] {
-            var plutusDict = MapPairs<PlutusData, PlutusData>()
-            for item in mapArray {
-                guard case .orderedDict(let pairDict) = item else {
-                    throw CardanoCoreError.deserializeError("Invalid PlutusData map item")
-                }
-                guard case .orderedDict(let keyDict) = pairDict[.string("k")],
-                    case .orderedDict(let valueDict) = pairDict[.string("v")]
-                else {
-                    throw CardanoCoreError.deserializeError("Invalid PlutusData map pair")
-                }
-                let keyPlutus = try PlutusData.fromDict(.orderedDict(keyDict))
-                let valuePlutus = try PlutusData.fromDict(.orderedDict(valueDict))
-                plutusDict.append(key: keyPlutus, value: valuePlutus)
-            }
-            return .map(plutusDict)
+            return try map(mapArray, level: level)
         } else if case .list(let listArray) = orderedDict[.string("list")] {
-            let plutusArray = try listArray.map {
-                guard case .orderedDict(let itemDict) = $0 else {
-                    throw CardanoCoreError.deserializeError("Invalid PlutusData array item")
-                }
-                return try PlutusData.fromDict(.orderedDict(itemDict))
-            }
-            return .array(plutusArray)
+            return try list(listArray, level: level)
         } else if case .string(let bytesHex) = orderedDict[.string("bytes")] {
-            let bytesData: Data
-            do {
-                bytesData = try Data(fromHex: bytesHex)
-            } catch {
-                throw CardanoCoreError.deserializeError("Invalid PlutusData bytes hex: \(bytesHex)")
-            }
-            return .bytes(try Bytes(from: bytesData))
+            return try bytes(bytesHex)
         } else {
-            throw CardanoCoreError.deserializeError("Invalid PlutusData dict: \(orderedDict)")
+            throw invalidDict(orderedDict)
         }
+    }
+
+    /// The elements of a `{"list": […]}`, at `level + 1`.
+    @inline(never)
+    static func list(_ items: [Primitive], level: Int) throws -> PlutusData {
+        .array(try elements(items, level: level, invalidItem: "Invalid PlutusData array item"))
+    }
+
+    /// Reads each of `items` at `level + 1`, throwing `invalidItem` for one
+    /// that is not a dictionary.
+    @inline(never)
+    static func elements(_ items: [Primitive], level: Int, invalidItem: String) throws -> [PlutusData] {
+        var result: [PlutusData] = []
+        result.reserveCapacity(items.count)
+        for item in items {
+            guard case .orderedDict = item else {
+                throw CardanoCoreError.deserializeError(invalidItem)
+            }
+            result.append(try fromDict(item, level: level + 1))
+        }
+        return result
+    }
+
+    /// The pairs of a `{"map": [{"k": …, "v": …}]}`, at `level + 1`.
+    @inline(never)
+    private static func map(_ items: [Primitive], level: Int) throws -> PlutusData {
+        var plutusDict = MapPairs<PlutusData, PlutusData>()
+        for item in items {
+            guard case .orderedDict(let pairDict) = item else {
+                throw CardanoCoreError.deserializeError("Invalid PlutusData map item")
+            }
+            guard let key = pairDict[.string("k")], case .orderedDict = key,
+                let value = pairDict[.string("v")], case .orderedDict = value
+            else {
+                throw CardanoCoreError.deserializeError("Invalid PlutusData map pair")
+            }
+            plutusDict.append(
+                key: try fromDict(key, level: level + 1), value: try fromDict(value, level: level + 1))
+        }
+        return .map(plutusDict)
+    }
+
+    @inline(never)
+    private static func bytes(_ bytesHex: String) throws -> PlutusData {
+        let bytesData: Data
+        do {
+            bytesData = try Data(fromHex: bytesHex)
+        } catch {
+            throw CardanoCoreError.deserializeError("Invalid PlutusData bytes hex: \(bytesHex)")
+        }
+        return .bytes(try Bytes(from: bytesData))
+    }
+
+    @inline(never)
+    private static func invalidDict(_ dict: OrderedDictionary<Primitive, Primitive>) -> CardanoCoreError {
+        CardanoCoreError.deserializeError("Invalid PlutusData dict: \(dict)")
     }
 }
