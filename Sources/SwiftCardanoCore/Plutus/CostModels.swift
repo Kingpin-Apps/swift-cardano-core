@@ -160,8 +160,12 @@ public struct CostModels: CBORSerializable, Sendable {
         var dict = [Int: Primitive]()
         for (key, value) in pairs {
             switch key {
-            case .int(let k): dict[Int(k)] = value
-            case .uint(let k): dict[Int(k)] = value
+            case .int, .uint:
+                // The ledger keys cost models by a `Word8` language. A key
+                // outside that range throws instead of trapping in a
+                // narrowing conversion.
+                let language = try key.integer("Cost model language", as: UInt8.self)
+                dict[Int(language)] = value
             default: break
             }
         }
@@ -248,7 +252,14 @@ public struct CostModels: CBORSerializable, Sendable {
         return try items.map {
             switch $0 {
             case .int(let value): return value
-            case .uint(let value): return Int64(value)
+            case .uint(let value):
+                // Cost model values are `Int64` in the ledger. A larger
+                // unsigned value throws instead of trapping.
+                guard let narrowed = Int64(exactly: value) else {
+                    throw CardanoCoreError.deserializeError(
+                        "Cost model parameter value \(value) is out of range for Int64")
+                }
+                return narrowed
             default:
                 throw CardanoCoreError.deserializeError("Invalid cost model parameter value: \($0)")
             }
