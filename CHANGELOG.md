@@ -1,3 +1,29 @@
+## 0.11.0 (2026-11-07)
+
+### Fix
+
+- convert JSON and Any values to Primitive without recursion
+- hash RawPlutusData over the bytes it keeps
+- reject negative PoolParams JSON margins instead of clamping
+- bound JSON decode nesting to 128 levels
+- reject map keys that collide in Primitive instead of trapping
+- keep distinct witness scripts and datums and hash datums as written
+- save envelopes and JSON files owner-only from creation
+- derive text envelopes from current fields and dispatch save to them
+- escape text envelope type and description as JSON strings
+- report the length of invalid envelope hex instead of echoing it
+- limit pool metadata fetch to http(s), 2xx and a bounded body size
+- bind governance credential Bech32 prefixes to their role
+- require an address Bech32 prefix to match its header
+- reject unknown network names and map known magics to named networks
+- make SlotTimeline conversions overflow-safe and reject non-positive slot lengths
+- compare strict map keys and set elements by value hash, not re-decoding
+- allow only one byte-string wrapper around an n2c cost model
+- throw on out-of-range cost-model keys and values instead of trapping
+- check envelope kind and decoded length in the key-type loaders
+- reject invalid hex and non-96-byte seeds in HDWallet.fromSeed
+- require 128-byte extended signing keys and dispatch SigningKeyType by length
+
 ## 0.10.3 (2026-11-06)
 
 ### Fix
