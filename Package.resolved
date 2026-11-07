@@ -1,5 +1,5 @@
 {
-  "originHash" : "a3a71304be4ed6119d7ebd48afaf64c998332136b20e9b066004b931f36f3d69",
+  "originHash" : "8cbcfcc3145159087f8495bac11d5c08ee9bf26cd7bc18bb6629d5b7ddf375d4",
   "pins" : [
     {
       "identity" : "base32",
@@ -51,8 +51,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kingpin-Apps/swift-base58.git",
       "state" : {
-        "revision" : "009c0635973723323ca04f30a1323e03d5952bd2",
-        "version" : "0.1.5"
+        "revision" : "93101beaf45fedae450d78f6413bf0d2362691ab",
+        "version" : "0.2.0"
       }
     },
     {
@@ -60,8 +60,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kingpin-Apps/swift-cbor-codable.git",
       "state" : {
-        "revision" : "033d1cc3b0a055f28a65d4301d6aa751ec06fbd2",
-        "version" : "0.5.0"
+        "revision" : "69ba1b0ec649e3f8e4b52f5dc6ce77ddc6178285",
+        "version" : "0.6.0"
       }
     },
     {
@@ -96,8 +96,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kingpin-Apps/swift-kes.git",
       "state" : {
-        "revision" : "fefaa18a5351ef85fc911a8c9bde75e5d6e86869",
-        "version" : "1.0.3"
+        "revision" : "9c5114c5e7e56abc01e31adcb9e100981d765cd7",
+        "version" : "1.0.4"
       }
     },
     {
@@ -114,8 +114,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kingpin-Apps/swift-mnemonic.git",
       "state" : {
-        "revision" : "97ac7a4a2dc7ef329fe0fb8d6e3e3400fedafbc4",
-        "version" : "0.2.7"
+        "revision" : "90b010176b489996a6169ea610723fa9228ec7ce",
+        "version" : "0.3.0"
       }
     },
     {

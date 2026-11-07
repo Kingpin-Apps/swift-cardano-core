@@ -320,7 +320,12 @@ public enum PlutusData: Serializable, Sendable {
             }
             return .array(plutusArray)
         } else if case .string(let bytesHex) = orderedDict[.string("bytes")] {
-            let bytesData = Data(fromHex: bytesHex)
+            let bytesData: Data
+            do {
+                bytesData = try Data(fromHex: bytesHex)
+            } catch {
+                throw CardanoCoreError.deserializeError("Invalid PlutusData bytes hex: \(bytesHex)")
+            }
             return .bytes(try Bytes(from: bytesData))
         } else {
             throw CardanoCoreError.deserializeError("Invalid PlutusData dict: \(orderedDict)")

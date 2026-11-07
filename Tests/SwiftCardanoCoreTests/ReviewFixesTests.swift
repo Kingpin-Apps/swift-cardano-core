@@ -138,3 +138,14 @@ private func multiAsset(_ entries: [(ScriptHash, BigInt)]) -> MultiAsset {
         #expect(read.hashValue == built.hashValue)
     }
 }
+
+@Suite struct PlutusDataHexTests {
+    @Test("PlutusData JSON bytes must be valid hex")
+    func malformedBytesHex() throws {
+        let valid = try PlutusData.fromDict(.orderedDict([.string("bytes"): .string("cafe")]))
+        #expect(valid == .bytes(try Bytes(from: Data([0xCA, 0xFE]))))
+        #expect(throws: CardanoCoreError.self) {
+            _ = try PlutusData.fromDict(.orderedDict([.string("bytes"): .string("zz")]))
+        }
+    }
+}
