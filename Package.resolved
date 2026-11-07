@@ -1,5 +1,5 @@
 {
-  "originHash" : "8cbcfcc3145159087f8495bac11d5c08ee9bf26cd7bc18bb6629d5b7ddf375d4",
+  "originHash" : "6dc1d9685e0bf626ee27171cd8b8da87204d5214405898101a4211fde7e1ce8e",
   "pins" : [
     {
       "identity" : "base32",
@@ -96,8 +96,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kingpin-Apps/swift-kes.git",
       "state" : {
-        "revision" : "9c5114c5e7e56abc01e31adcb9e100981d765cd7",
-        "version" : "1.0.4"
+        "revision" : "bfaae44b62c3a605950522c52cabfe8de068591d",
+        "version" : "1.0.5"
       }
     },
     {
@@ -123,8 +123,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kingpin-Apps/swift-nacl.git",
       "state" : {
-        "revision" : "32aac9e9f00f362a359b198bc76eae4fa95f329f",
-        "version" : "1.1.0"
+        "revision" : "be05b4970ec37295f9a0605ae57a927a37b4feaf",
+        "version" : "2.0.0"
       }
     },
     {
