@@ -120,38 +120,25 @@ public indirect enum Primitive: CBORSerializable, Sendable {
     /// - Throws: When the value holds a type JSON does not have, or nests
     ///   deeper than 128 levels.
     public static func from(json: Any) throws -> Primitive {
-        try from(json: json, level: 1)
+        try buildTree(json, "A JSON value", expand: jsonNode)
     }
 
-    private static func from(json: Any, level: Int) throws -> Primitive {
-        try checkJSONDepth(level, "A JSON value")
-        if json is NSNull {
-            return .null
-        }
-        // Order matters — NSNumber bridges from Bool, so check Bool first.
-        // Use `objCType` (portable across Darwin and swift-corelibs-foundation)
-        // instead of CoreFoundation helpers, which aren't public on Linux/WASM/Android.
-        if let n = json as? NSNumber {
-            let typeCode = String(cString: n.objCType)
-            if typeCode == "c" {
-                return .bool(n.boolValue)
-            }
-            if typeCode == "f" || typeCode == "d" {
-                return .float(n.doubleValue)
-            }
-            return .int(n.int64Value)
-        }
-        if let s = json as? String {
-            return .string(s)
-        }
+    /// One JSON value as a leaf, or as a container whose children
+    /// ``buildTree(_:_:expand:)`` reads next.
+    private static func jsonNode(_ json: Any) throws -> TreeNode {
+        // Containers first: on swift-corelibs-foundation, asking whether a
+        // nested Swift array or dictionary `is NSNull` or `as? NSNumber`
+        // bridges the whole subtree to Foundation types, recursively, which
+        // overflows a small thread stack on deeply nested input.
         if let arr = json as? [Any] {
-            return .list(try arr.map { try from(json: $0, level: level + 1) })
+            return .list(arr)
         }
         if let dict = json as? [String: Any] {
             // Reconstruct cborTag: Primitive.toJSON() encodes .cborTag as
             // {"tag": N, "value": ...}.
             if dict.count == 2,
-               let tagNum = dict["tag"] as? NSNumber,
+               let tagAny = dict["tag"], !isJSONContainer(tagAny),
+               let tagNum = tagAny as? NSNumber,
                String(cString: tagNum.objCType) != "f",
                String(cString: tagNum.objCType) != "d",
                let valueAny = dict["value"]
@@ -159,14 +146,125 @@ public indirect enum Primitive: CBORSerializable, Sendable {
                 guard let tagRaw = UInt64(exactly: tagNum.int64Value), tagNum.int64Value >= 0 else {
                     throw CardanoCoreError.valueError("Invalid CBOR tag in JSON: \(tagNum)")
                 }
-                let valuePrimitive = try from(json: valueAny, level: level + 1)
-                return .cborTag(CBORTag(tag: tagRaw, value: valuePrimitive))
+                return .tag(tagRaw, valueAny)
             }
-            var result: OrderedDictionary<Primitive, Primitive> = [:]
-            for (k, v) in dict { result[.string(k)] = try from(json: v, level: level + 1) }
-            return .orderedDict(result)
+            var keysAndValues: [Any] = []
+            keysAndValues.reserveCapacity(dict.count * 2)
+            for (k, v) in dict {
+                keysAndValues.append(k)
+                keysAndValues.append(v)
+            }
+            return .orderedDict(keysAndValues)
         }
-        throw CardanoCoreError.valueError("Cannot convert JSON value to Primitive: \(json)")
+        if let s = json as? String {
+            return .leaf(.string(s))
+        }
+        if json is NSNull {
+            return .leaf(.null)
+        }
+        // Order matters — NSNumber bridges from Bool, so check Bool first.
+        // Use `objCType` (portable across Darwin and swift-corelibs-foundation)
+        // instead of CoreFoundation helpers, which aren't public on Linux/WASM/Android.
+        if let n = json as? NSNumber {
+            let typeCode = String(cString: n.objCType)
+            if typeCode == "c" {
+                return .leaf(.bool(n.boolValue))
+            }
+            if typeCode == "f" || typeCode == "d" {
+                return .leaf(.float(n.doubleValue))
+            }
+            return .leaf(.int(n.int64Value))
+        }
+        throw CardanoCoreError.valueError("Cannot convert JSON value to Primitive: \(type(of: json))")
+    }
+
+    /// Whether `value` is a JSON array or object, checked without the
+    /// Foundation bridging a cast to `NSNumber` or `NSNull` can trigger.
+    private static func isJSONContainer(_ value: Any) -> Bool {
+        value is [Any] || value is [String: Any]
+    }
+
+    /// What ``buildTree(_:_:expand:)`` makes of one value: a finished
+    /// primitive, or a container whose children it reads next.
+    private enum TreeNode {
+        case leaf(Primitive)
+        case list([Any])
+        /// Keys and values, alternating.
+        case orderedDict([Any])
+        /// Keys and values, alternating.
+        case dict([Any])
+        case tag(UInt64, Any)
+
+        var children: [Any] {
+            switch self {
+            case .leaf: return []
+            case .list(let children), .orderedDict(let children), .dict(let children): return children
+            case .tag(_, let value): return [value]
+            }
+        }
+    }
+
+    /// Builds the primitive for `root` with an explicit stack instead of
+    /// recursion, so a deeply nested value costs heap rather than thread
+    /// stack. `expand` turns each value into a leaf or a container; every
+    /// value is checked against the depth limit first, the root being level 1.
+    ///
+    /// - Throws: What `expand` throws, or when a value nests deeper than 128
+    ///   levels.
+    private static func buildTree(_ root: Any, _ what: String, expand: (Any) throws -> TreeNode) throws -> Primitive {
+        struct Frame {
+            var node: TreeNode
+            var children: [Any]
+            var built: [Primitive]
+        }
+        var stack: [Frame] = []
+        var current = root
+        descend: while true {
+            try checkJSONDepth(stack.count + 1, what)
+            let node = try expand(current)
+            var value: Primitive
+            if case .leaf(let primitive) = node {
+                value = primitive
+            } else {
+                let children = node.children
+                if let first = children.first {
+                    stack.append(Frame(node: node, children: children, built: []))
+                    current = first
+                    continue descend
+                }
+                value = assemble(node, [])
+            }
+            while var frame = stack.popLast() {
+                frame.built.append(value)
+                if frame.built.count < frame.children.count {
+                    current = frame.children[frame.built.count]
+                    stack.append(frame)
+                    continue descend
+                }
+                value = assemble(frame.node, frame.built)
+            }
+            return value
+        }
+    }
+
+    /// The primitive for a container whose children are `built`, in order.
+    private static func assemble(_ node: TreeNode, _ built: [Primitive]) -> Primitive {
+        switch node {
+        case .leaf(let primitive):
+            return primitive
+        case .list:
+            return .list(built)
+        case .orderedDict:
+            var result: OrderedDictionary<Primitive, Primitive> = [:]
+            for index in stride(from: 0, to: built.count, by: 2) { result[built[index]] = built[index + 1] }
+            return .orderedDict(result)
+        case .dict:
+            var result: [Primitive: Primitive] = [:]
+            for index in stride(from: 0, to: built.count, by: 2) { result[built[index]] = built[index + 1] }
+            return .dict(result)
+        case .tag(let tag, _):
+            return .cborTag(CBORTag(tag: tag, value: built[0]))
+        }
     }
 
     /// Converts `cbor` to a primitive. See
@@ -612,94 +710,83 @@ public indirect enum Primitive: CBORSerializable, Sendable {
     /// - Throws: When the value, or a value inside it, has no primitive form,
     ///   or arrays and dictionaries nest deeper than 128 levels.
     public static func fromAny(_ value: Any) throws -> Primitive {
-        try fromAny(value, level: 1)
+        try buildTree(value, "A value", expand: anyNode)
     }
 
-    private static func fromAny(_ value: Any, level: Int) throws -> Primitive {
-        try checkJSONDepth(level, "A value")
+    /// One value as a leaf, or as a container whose children
+    /// ``buildTree(_:_:expand:)`` reads next.
+    private static func anyNode(_ value: Any) throws -> TreeNode {
         switch value {
         case let v as Primitive:
-            return v
+            return .leaf(v)
         case let v as any CBORSerializable:
             // Its CBOR form, not its JSON one. `Serializable` is both, and
             // reaching for `toDict()` here put a value's *field names* into
             // CBOR: a tagged set of transaction inputs came out as a list of
             // `{"transactionId": …, "index": …}` maps rather than as inputs.
-            return try v.toPrimitive()
+            return .leaf(try v.toPrimitive())
         case let v as OrderedDictionary<Primitive, Primitive>:
-            return .orderedDict(v)
+            return .leaf(.orderedDict(v))
         case let v as Int:
-            return .int(Int64(v))
+            return .leaf(.int(Int64(v)))
         case let v as UInt8:
-            return .uint(UInt64(v))
+            return .leaf(.uint(UInt64(v)))
         case let v as UInt:
-            return .uint(UInt64(v))
+            return .leaf(.uint(UInt64(v)))
         case let v as Int8:
-            return .int(Int64(v))
+            return .leaf(.int(Int64(v)))
         case let v as Int16:
-            return .int(Int64(v))
+            return .leaf(.int(Int64(v)))
         case let v as Int32:
-            return .int(Int64(v))
+            return .leaf(.int(Int64(v)))
         case let v as Int64:
-            return .int(v)
+            return .leaf(.int(v))
         case let v as UInt16:
-            return .uint(UInt64(v))
+            return .leaf(.uint(UInt64(v)))
         case let v as UInt32:
-            return .uint(UInt64(v))
+            return .leaf(.uint(UInt64(v)))
         case let v as UInt64:
-            return .uint(v)
+            return .leaf(.uint(v))
         case let v as Double:
-            return .float(v)
+            return .leaf(.float(v))
         case let v as Float:
-            return .float(Double(v))
+            return .leaf(.float(Double(v)))
         case let v as Decimal:
-            return .decimal(v)
+            return .leaf(.decimal(v))
         case let v as Bool:
-            return .bool(v)
+            return .leaf(.bool(v))
         case let v as String:
-            return .string(v)
+            return .leaf(.string(v))
         case let v as Data:
-            return .bytes(v)
+            return .leaf(.bytes(v))
         case let v as [UInt8]:
-            return .byteArray(v)
+            return .leaf(.byteArray(v))
         case let v as [Any]:
-            return .list(try v.map { try Primitive.fromAny($0, level: level + 1) })
+            return .list(v)
         case let v as OrderedDictionary<AnyHashable, Any>:
-            var dict: OrderedDictionary<Primitive, Primitive> = [:]
-            for (key, value) in v {
-                let keyPrimitive = try Primitive.fromAny(key, level: level + 1)
-                let valuePrimitive = try Primitive.fromAny(value, level: level + 1)
-                dict[keyPrimitive] = valuePrimitive
-            }
-            return .orderedDict(dict)
+            return .orderedDict(v.flatMap { [$0.key as Any, $0.value] })
         case let v as [AnyHashable: Any]:
-            var dict: [Primitive: Primitive] = [:]
-            for (key, value) in v {
-                let keyPrimitive = try Primitive.fromAny(key, level: level + 1)
-                let valuePrimitive = try Primitive.fromAny(value, level: level + 1)
-                dict[keyPrimitive] = valuePrimitive
-            }
-            return .dict(dict)
+            return .dict(v.flatMap { [$0.key as Any, $0.value] })
         case let v as Date:
-            return .datetime(v)
+            return .leaf(.datetime(v))
         case let v as NSRegularExpression:
-            return .regex(v)
+            return .leaf(.regex(v))
         case let v as ByteString:
-            return .byteString(v)
+            return .leaf(.byteString(v))
         case let v as UnitInterval:
-            return .unitInterval(v)
+            return .leaf(.unitInterval(v))
         case let v as CBORTag:
-            return .cborTag(v)
+            return .leaf(.cborTag(v))
         case let v as OrderedSet<Primitive>:
-            return .orderedSet(v)
+            return .leaf(.orderedSet(v))
         case let v as NonEmptyOrderedSet<Primitive>:
-            return .nonEmptyOrderedSet(v)
+            return .leaf(.nonEmptyOrderedSet(v))
         case let v as CBOR:
-            return .cborSimpleValue(v)
+            return .leaf(.cborSimpleValue(v))
         case let v as PlutusData:
-            return .plutusData(v)
+            return .leaf(.plutusData(v))
         case Optional<Any>.none:
-            return .null
+            return .leaf(.null)
         default:
             throw CardanoCoreError.typeError("Cannot convert type \(type(of: value)) to Primitive")
         }
