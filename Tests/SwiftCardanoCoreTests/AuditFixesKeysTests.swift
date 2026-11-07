@@ -132,3 +132,110 @@ private func temporaryKeyPath(_ suffix: String) -> String {
         #expect(fromHex.xPrivateKey == fromData.xPrivateKey)
     }
 }
+
+@Suite struct KeyTypeEnvelopeLoaderTests {
+    @Test("VerificationKeyType.load rejects a signing key file")
+    func verificationLoaderRejectsSigningKey() throws {
+        let path = temporaryKeyPath("skey")
+        defer { try? FileManager.default.removeItem(atPath: path) }
+        try PaymentSigningKey(payload: Data(repeating: 0x33, count: 32)).save(to: path)
+        #expect(throws: CardanoCoreError.self) { _ = try VerificationKeyType.load(from: path) }
+    }
+
+    @Test("VerificationKeyType.load rejects an extended signing key file")
+    func verificationLoaderRejectsExtendedSigningKey() throws {
+        let path = temporaryKeyPath("skey")
+        defer { try? FileManager.default.removeItem(atPath: path) }
+        try PaymentExtendedSigningKey.generate().save(to: path)
+        #expect(throws: CardanoCoreError.self) { _ = try VerificationKeyType.load(from: path) }
+    }
+
+    @Test("SigningKeyType.load rejects a verification key file")
+    func signingLoaderRejectsVerificationKey() throws {
+        let path = temporaryKeyPath("vkey")
+        defer { try? FileManager.default.removeItem(atPath: path) }
+        try PaymentKeyPair.generate().verificationKey.save(to: path)
+        #expect(throws: CardanoCoreError.self) { _ = try SigningKeyType.load(from: path) }
+    }
+
+    @Test("SigningKeyType.load rejects an extended verification key file")
+    func signingLoaderRejectsExtendedVerificationKey() throws {
+        let path = temporaryKeyPath("vkey")
+        defer { try? FileManager.default.removeItem(atPath: path) }
+        let vkey: PaymentExtendedVerificationKey = try PaymentExtendedSigningKey.generate().toVerificationKey()
+        try vkey.save(to: path)
+        #expect(throws: CardanoCoreError.self) { _ = try SigningKeyType.load(from: path) }
+    }
+
+    @Test("A 32-byte verification key file loads as a plain verification key")
+    func plainVerificationKeyLoads() throws {
+        let path = temporaryKeyPath("vkey")
+        defer { try? FileManager.default.removeItem(atPath: path) }
+        let vkey = try PaymentKeyPair.generate().verificationKey
+        try vkey.save(to: path)
+        let loaded = try VerificationKeyType.load(from: path)
+        guard case .verificationKey(let key) = loaded else {
+            Issue.record("Expected a plain verification key, got \(loaded)")
+            return
+        }
+        #expect(key.payload == vkey.payload)
+        #expect(key.type == PaymentVerificationKey.TYPE)
+    }
+
+    @Test("A 64-byte extended verification key file loads as an extended key")
+    func extendedVerificationKeyLoads() throws {
+        let path = temporaryKeyPath("vkey")
+        defer { try? FileManager.default.removeItem(atPath: path) }
+        let vkey: PaymentExtendedVerificationKey = try PaymentExtendedSigningKey.generate().toVerificationKey()
+        try vkey.save(to: path)
+        let loaded = try VerificationKeyType.load(from: path)
+        guard case .extendedVerificationKey(let key) = loaded else {
+            Issue.record("Expected an extended verification key, got \(loaded)")
+            return
+        }
+        #expect(key.payload == vkey.payload)
+    }
+
+    @Test("Plain and extended signing key files load as their own kinds")
+    func signingKeysLoad() throws {
+        let plainPath = temporaryKeyPath("skey")
+        let extendedPath = temporaryKeyPath("skey")
+        defer {
+            try? FileManager.default.removeItem(atPath: plainPath)
+            try? FileManager.default.removeItem(atPath: extendedPath)
+        }
+        let plain = try PaymentSigningKey.generate()
+        let extended = try PaymentExtendedSigningKey.generate()
+        try plain.save(to: plainPath)
+        try extended.save(to: extendedPath)
+
+        guard case .signingKey(let plainKey) = try SigningKeyType.load(from: plainPath) else {
+            Issue.record("Expected a plain signing key")
+            return
+        }
+        #expect(plainKey.payload == plain.payload)
+        guard case .extendedSigningKey(let extendedKey) = try SigningKeyType.load(from: extendedPath) else {
+            Issue.record("Expected an extended signing key")
+            return
+        }
+        #expect(extendedKey.payload == extended.payload)
+    }
+
+    @Test("A verification key envelope with a key of the wrong length is rejected")
+    func verificationLoaderRejectsWrongLength() throws {
+        let path = temporaryKeyPath("vkey")
+        defer { try? FileManager.default.removeItem(atPath: path) }
+        let json = try envelope(type: PaymentVerificationKey.TYPE, payload: Data(repeating: 1, count: 40))
+        try json.write(toFile: path, atomically: true, encoding: .utf8)
+        #expect(throws: CardanoCoreError.self) { _ = try VerificationKeyType.load(from: path) }
+    }
+
+    @Test("A signing key envelope with a key of the wrong length is rejected")
+    func signingLoaderRejectsWrongLength() throws {
+        let path = temporaryKeyPath("skey")
+        defer { try? FileManager.default.removeItem(atPath: path) }
+        let json = try envelope(type: PaymentExtendedSigningKey.TYPE, payload: Data(repeating: 1, count: 80))
+        try json.write(toFile: path, atomically: true, encoding: .utf8)
+        #expect(throws: CardanoCoreError.self) { _ = try SigningKeyType.load(from: path) }
+    }
+}

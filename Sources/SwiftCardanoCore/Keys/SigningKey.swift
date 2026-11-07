@@ -381,32 +381,19 @@ public enum SigningKeyType: CBORSerializable, Sendable {
         }
     }
     
-    /// Load the object from a JSON file.
+    /// Load a signing key from a text-envelope file.
+    ///
+    /// The file's `type` must name a signing key, so a verification key file
+    /// is never read as one. A 32-byte key gives a plain key and a 128-byte key
+    /// an extended key; the file's type and description are kept.
     /// - Parameter path: The file path
     /// - Returns: The object restored from the JSON file.
+    /// - Throws: `CardanoCoreError.invalidKeyTypeError` when the file holds another
+    ///   kind of key, and `CardanoCoreError.deserializeError` when the key is not
+    ///   32 or 128 bytes.
     public static func load(from path: String) throws -> Self {
-        let jsonString = try readTextFile(path)
-        
-        guard let data = jsonString.data(using: .utf8),
-              let dict = try JSONSerialization.jsonObject(with: data) as? [String: String] else {
-            throw CardanoCoreError.valueError("Invalid JSON")
-        }
-        
-        guard let _ = dict["type"],
-              let _ = dict["description"],
-              let cborHex = dict["cborHex"] else {
-            throw CardanoCoreError.valueError("Invalid Dictionary")
-        }
-        
-        if cborHex.count == 68 {
-            return .signingKey(
-                try SigningKey.load(from: path)
-            )
-        } else {
-            return.extendedSigningKey(
-                try ExtendedSigningKey.load(from: path)
-            )
-        }
+        let envelope = try KeyEnvelope(path: path, kind: "SigningKey", otherKind: "VerificationKey")
+        return try fromPayload(envelope.payload, type: envelope.type, description: envelope.description)
     }
     
     /// Save the JSON representation to a file.

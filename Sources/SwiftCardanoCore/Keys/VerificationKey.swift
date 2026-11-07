@@ -57,6 +57,48 @@ func ed25519Verify(publicKey: Data, signature: Data, data: Data) throws -> Bool 
     return (try? verifyKey.verify(smessage: data, signature: signature)) != nil
 }
 
+/// The fields of a key text-envelope file, with `cborHex` decoded to the key bytes.
+struct KeyEnvelope {
+    /// The envelope `type`.
+    let type: String
+    /// The envelope `description`.
+    let description: String
+    /// The key bytes that `cborHex` holds.
+    let payload: Data
+
+    /// Reads a key text-envelope file and checks that its `type` names the
+    /// expected kind of key, so a signing key file is not read as a
+    /// verification key or the other way round.
+    /// - Parameters:
+    ///   - path: The file path.
+    ///   - kind: The kind the `type` must name, `"SigningKey"` or `"VerificationKey"`.
+    ///   - otherKind: The kind the `type` must not name.
+    /// - Throws: `CardanoCoreError.valueError` when the file is not a text envelope,
+    ///   and `CardanoCoreError.invalidKeyTypeError` when its `type` is not of `kind`.
+    init(path: String, kind: String, otherKind: String) throws {
+        let jsonString = try readTextFile(path)
+        guard let data = jsonString.data(using: .utf8),
+              let dict = try JSONSerialization.jsonObject(with: data) as? [String: String] else {
+            throw CardanoCoreError.valueError("Invalid JSON")
+        }
+        guard let type = dict["type"],
+              let _ = dict["description"],
+              let _ = dict["cborHex"] else {
+            throw CardanoCoreError.valueError("Invalid Dictionary")
+        }
+        guard type.contains(kind), !type.contains(otherKind) else {
+            throw CardanoCoreError.invalidKeyTypeError(
+                "Expect a \(kind) envelope type, but got \(type)")
+        }
+        // VerificationKey has no envelope type or length of its own, so it
+        // decodes any key's bytes, type and description unchanged.
+        let raw = try VerificationKey.fromDict(dict, validateType: false)
+        self.type = raw.type
+        self.description = raw.description
+        self.payload = raw.payload
+    }
+}
+
 public extension ExtendedVerificationKeyProtocol {
     /// The 28-byte Blake2b-224 hash of the 32-byte public key, without the chain code.
     /// - Returns: The hash and the non-extended key it was computed from.
@@ -219,33 +261,29 @@ public enum VerificationKeyType: CBORSerializable, Sendable {
         try ed25519Verify(publicKey: payload.prefix(32), signature: signature, data: data)
     }
     
-    /// Load the object from a JSON file.
+    /// Load a verification key from a text-envelope file.
+    ///
+    /// The file's `type` must name a verification key, so a signing key file
+    /// is never read as one. A 32-byte key gives a plain key and a 64-byte key
+    /// an extended key; the file's type and description are kept.
     /// - Parameter path: The file path
     /// - Returns: The object restored from the JSON file.
+    /// - Throws: `CardanoCoreError.invalidKeyTypeError` when the file holds another
+    ///   kind of key, and `CardanoCoreError.deserializeError` when the key is not
+    ///   32 or 64 bytes.
     public static func load(from path: String) throws -> Self {
-        let jsonString = try readTextFile(path)
-        
-        guard let data = jsonString.data(using: .utf8),
-              let dict = try JSONSerialization.jsonObject(with: data) as? [String: String] else {
-            throw CardanoCoreError.valueError("Invalid JSON")
-        }
-        
-        guard let _ = dict["type"],
-              let _ = dict["description"],
-              let cborHex = dict["cborHex"] else {
-            throw CardanoCoreError.valueError("Invalid Dictionary")
-        }
-        
-        let cborData = cborHex.toData
-        
-        if cborData.count == 32 {
-            return .verificationKey(
-                try VerificationKey.load(from: path)
-            )
-        } else {
-            return.extendedVerificationKey(
-                try ExtendedVerificationKey.load(from: path)
-            )
+        let envelope = try KeyEnvelope(path: path, kind: "VerificationKey", otherKind: "SigningKey")
+
+        switch envelope.payload.count {
+            case 32:
+                return .verificationKey(VerificationKey(
+                    payload: envelope.payload, type: envelope.type, description: envelope.description))
+            case 64:
+                return .extendedVerificationKey(ExtendedVerificationKey(
+                    payload: envelope.payload, type: envelope.type, description: envelope.description))
+            default:
+                throw CardanoCoreError.deserializeError(
+                    "Invalid verification key length: \(envelope.payload.count) bytes. Expected 32 or 64 bytes.")
         }
     }
     
