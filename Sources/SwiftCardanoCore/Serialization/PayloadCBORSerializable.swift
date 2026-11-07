@@ -52,19 +52,14 @@ public extension PayloadCBORSerializable where Self: Codable {
     
     /// Returns the value as text envelope JSON.
     ///
-    /// The JSON has three fields: `type`, `description`, and `cborHex`, the
-    /// hex of the payload encoded as a CBOR byte string.
+    /// The JSON has exactly three fields: `type`, `description`, and
+    /// `cborHex`, the hex of the payload encoded as a CBOR byte string.
+    /// `type` and `description` are escaped as JSON strings, so whatever they
+    /// hold, the JSON reads back with the same three values.
     /// - Returns: The text envelope JSON.
     func toTextEnvelope() throws -> String? {
         let cborData = try CBOREncoder().encode(payload)
-        let jsonString = """
-        {
-            "type": "\(type)",
-            "description": "\(description)",
-            "cborHex": "\(cborData.toHex)"
-        }
-        """
-        return jsonString
+        return textEnvelopeJSON(type: type, description: description, cborHex: cborData.toHex)
     }
     
     /// Restore from a JSON string.

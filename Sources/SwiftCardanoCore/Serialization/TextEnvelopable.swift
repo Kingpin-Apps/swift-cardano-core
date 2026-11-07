@@ -27,19 +27,14 @@ public extension TextEnvelopable {
         try fromCBOR(data: data)
     }
 
-    /// Serialize to TextEnvelople JSON.
+    /// Returns the value as text envelope JSON, with `cborHex` the hex of
+    /// the payload.
     ///
-    /// The json output has three fields: "type", "description", and "cborHex".
-    /// - Returns: TextEnvelople JSON representation
+    /// The JSON has exactly three fields: `type`, `description`, and
+    /// `cborHex`, with `type` and `description` escaped as JSON strings.
+    /// - Returns: The text envelope JSON.
     func toTextEnvelope() throws -> String? {
-        let jsonString = """
-        {
-            "type": "\(_type)",
-            "description": "\(_description)",
-            "cborHex": "\(_payload.toHex)"
-        }
-        """
-        return jsonString
+        textEnvelopeJSON(type: _type, description: _description, cborHex: _payload.toHex)
     }
     
     /// Restore from a JSON string.
@@ -97,4 +92,44 @@ public extension TextEnvelopable {
         let jsonString = try readTextFile(path)
         return try fromTextEnvelope(jsonString)
     }
+}
+
+/// The text envelope JSON cardano-cli writes: `type`, `description` and
+/// `cborHex` in that order, indented by four spaces.
+///
+/// `type` and `description` may come from a file another party wrote, so
+/// they are escaped as JSON strings: a quote in either cannot end the string
+/// and add a key of its own. Slashes are left as they are, as cardano-cli
+/// leaves them.
+func textEnvelopeJSON(type: String, description: String, cborHex: String) -> String {
+    """
+    {
+        "type": "\(jsonEscaped(type))",
+        "description": "\(jsonEscaped(description))",
+        "cborHex": "\(jsonEscaped(cborHex))"
+    }
+    """
+}
+
+/// `string` with a backslash before every quote and backslash, and every
+/// control character from U+0000 to U+001F written as a JSON escape.
+func jsonEscaped(_ string: String) -> String {
+    var escaped = String.UnicodeScalarView()
+    for scalar in string.unicodeScalars {
+        switch scalar {
+            case "\"": escaped.append(contentsOf: "\\\"".unicodeScalars)
+            case "\\": escaped.append(contentsOf: "\\\\".unicodeScalars)
+            case "\n": escaped.append(contentsOf: "\\n".unicodeScalars)
+            case "\r": escaped.append(contentsOf: "\\r".unicodeScalars)
+            case "\t": escaped.append(contentsOf: "\\t".unicodeScalars)
+            case "\u{08}": escaped.append(contentsOf: "\\b".unicodeScalars)
+            case "\u{0C}": escaped.append(contentsOf: "\\f".unicodeScalars)
+            case let control where control.value < 0x20:
+                let hex = String(control.value, radix: 16)
+                escaped.append(contentsOf: ("\\u" + String(repeating: "0", count: 4 - hex.count) + hex).unicodeScalars)
+            default:
+                escaped.append(scalar)
+        }
+    }
+    return String(escaped)
 }

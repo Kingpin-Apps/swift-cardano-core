@@ -392,15 +392,8 @@ public struct Transaction: Serializable, TextEnvelopable {
             era: Self.era(ofEnvelopeType: _type),
             witnessed: !transactionWitnessSet.isEmpty()
         )
-        
-        let jsonString = """
-        {
-            "type": "\(updatedType)",
-            "description": "\(self._description)",
-            "cborHex": "\(try self.toCBORHex())"
-        }
-        """
-        return jsonString
+        return textEnvelopeJSON(
+            type: updatedType, description: _description, cborHex: try toCBORHex())
     }
     
     // MARK: - Equatable

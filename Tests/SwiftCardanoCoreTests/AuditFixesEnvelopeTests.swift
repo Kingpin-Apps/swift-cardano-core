@@ -37,6 +37,68 @@ private func blake2b256(_ data: Data) throws -> Data {
     try Hash().blake2b(data: data, digestSize: 32, encoder: RawEncoder.self)
 }
 
+// MARK: - serialization/toTextEnvelope:unescaped-string-interpolation
+
+@Suite struct EnvelopeEscapingTests {
+    @Test("A description holding a quote cannot add a type key to a key envelope")
+    func injectedTypeInSigningKeyEnvelope() throws {
+        let injected = #"x", "type": "PaymentVerificationKeyShelley_ed25519"#
+        let json = """
+        {"type": "PaymentSigningKeyShelley_ed25519", "description": \(String(reflecting: injected)), "cborHex": "\(skeyHex)"}
+        """
+        let key = try PaymentSigningKey.fromTextEnvelope(json, validateType: true)
+        #expect(key.description == injected)
+
+        let saved = try #require(try key.toTextEnvelope())
+        let dict = try envelopeDict(saved)
+        #expect(dict.count == 3)
+        #expect(dict["type"] == "PaymentSigningKeyShelley_ed25519")
+        #expect(dict["description"] == injected)
+        #expect(dict["cborHex"] == skeyHex)
+        #expect(throws: CardanoCoreError.self) {
+            try PaymentVerificationKey.fromTextEnvelope(saved, validateType: true)
+        }
+        #expect(try PaymentSigningKey.fromTextEnvelope(saved, validateType: true) == key)
+    }
+
+    @Test("Control characters, quotes and backslashes in a TextEnvelopable round-trip as valid JSON")
+    func controlCharactersInTextEnvelopable() throws {
+        var body = testBody()
+        body._description = "line\nbreak \"quoted\" back\\slash \u{01}\u{1F}\t\r\u{08}\u{0C} a/b"
+        body._type = "TxBody ConwayEra\", \"type\": \"Other"
+        let saved = try #require(try body.toTextEnvelope())
+        let dict = try envelopeDict(saved)
+        #expect(dict.count == 3)
+        #expect(dict["description"] == body._description)
+        #expect(dict["type"] == body._type)
+        #expect(saved.contains("a/b"))
+        #expect(saved.contains(#"\u0001"#) && saved.contains(#"\u001f"#))
+    }
+
+    @Test("Envelopes keep cardano-cli's layout: type, description, cborHex, four-space indent")
+    func cardanoCliLayout() throws {
+        let key = try PaymentSigningKey(payload: Data(repeating: 0xAB, count: 32))
+        let saved = try #require(try key.toTextEnvelope())
+        #expect(saved == """
+        {
+            "type": "PaymentSigningKeyShelley_ed25519",
+            "description": "Payment Signing Key",
+            "cborHex": "\(skeyHex)"
+        }
+        """)
+    }
+
+    @Test("A transaction envelope escapes its description too")
+    func transactionDescriptionEscaped() throws {
+        var tx = Transaction(transactionBody: testBody(), transactionWitnessSet: TransactionWitnessSet())
+        tx._description = #"", "type": "Tx BabbageEra"#
+        let dict = try envelopeDict(try #require(try tx.toTextEnvelope()))
+        #expect(dict.count == 3)
+        #expect(dict["type"] == "Unwitnessed Tx ConwayEra")
+        #expect(dict["description"] == tx._description)
+    }
+}
+
 // MARK: - SwiftCardanoCore/Serialization/CBORSerializable.swift:fromCBORHex:secret-hex-in-error
 
 @Suite struct HexErrorRedactionTests {
