@@ -1,6 +1,7 @@
 import Foundation
 import CBORCodable
 import OrderedCollections
+import SwiftNaCl
 
 /// A key witness: a verification key and its signature over the transaction id, written as `[vkey, signature]`.
 public struct VerificationKeyWitness: Serializable, TextEnvelopable {
@@ -202,9 +203,10 @@ public struct TransactionWitnessSet: Serializable, Equatable {
     public var plutusV1Script: ListOrNonEmptyOrderedSet<PlutusV1Script>? {
         didSet { originalCBOR = nil }
     }
-    /// The datums. Key 4 in the witness set map. Setting it also clears ``originalPlutusDataCBOR``.
+    /// The datums. Key 4 in the witness set map. Setting it also clears ``originalPlutusDataCBOR``
+    /// and the bytes ``plutusDataHashes()`` hashes.
     public var plutusData: ListOrNonEmptyOrderedSet<PlutusData>? {
-        didSet { originalCBOR = nil; originalPlutusDataCBOR = nil }
+        didSet { originalCBOR = nil; originalPlutusDataCBOR = nil; originalDatumCBOR = nil }
     }
     /// The redeemers. Key 5 in the witness set map. Setting it also clears ``originalRedeemersCBOR``.
     public var redeemers: Redeemers? {
@@ -232,6 +234,32 @@ public struct TransactionWitnessSet: Serializable, Equatable {
     /// The bytes the redeemers (key 5) were decoded from, while they are
     /// unchanged. See ``originalPlutusDataCBOR``.
     public internal(set) var originalRedeemersCBOR: Data? = nil
+    /// The bytes each witness datum was decoded from, in the order of
+    /// `plutusData`, while the datums are unchanged.
+    var originalDatumCBOR: [Data]? = nil
+
+    /// The hash of each witness datum, in the order of `plutusData`: Blake2b-256
+    /// of the datum as written while the datums are unchanged, otherwise of its
+    /// encoding; `nil` when there are none.
+    ///
+    /// The ledger keys a witness datum by the hash of the bytes it was written
+    /// as. A typed ``PlutusData`` does not keep those bytes — the width of an
+    /// integer's header, for one — so ``PlutusData/hash()`` of a decoded datum
+    /// can differ from the hash an output's datum hash names. Match witness
+    /// datums to datum hashes with these instead.
+    /// - Returns: One datum hash per datum, or `nil` when there are no datums.
+    /// - Throws: When a datum built in code cannot be encoded.
+    public func plutusDataHashes() throws -> [DatumHash]? {
+        guard let plutusData else { return nil }
+        let datums = plutusData.asList
+        if let originalDatumCBOR, originalDatumCBOR.count == datums.count {
+            return try originalDatumCBOR.map {
+                DatumHash(payload: try Hash().blake2b(
+                    data: $0, digestSize: DATUM_HASH_SIZE, encoder: RawEncoder.self))
+            }
+        }
+        return try datums.map { try $0.hash() }
+    }
 
     /// The witness datums as `script_data_hash` takes them: as written while
     /// they are unchanged, otherwise freshly encoded; `nil` when there are none.
@@ -318,13 +346,14 @@ public struct TransactionWitnessSet: Serializable, Equatable {
     mutating func keepBytes(_ bytes: Data) throws {
         let scanner = CBORItemScanner(bytes)
         var datums: Data?
+        var datumBytes: [Data]?
         var redeemers: Data?
         for (key, value) in try scanner.entries(ofMapAt: scanner.untagged(at: 0)) {
             switch try scanner.unsignedInteger(at: key.lowerBound) {
                 case UInt64(CodingKeys.nativeScripts.rawValue):
                     try readNativeScripts(scanner, at: value.lowerBound)
                 case UInt64(CodingKeys.plutusData.rawValue):
-                    try readDatums(scanner, at: value.lowerBound)
+                    datumBytes = try readDatums(scanner, at: value.lowerBound)
                     datums = scanner.bytes.subdata(in: value)
                 case UInt64(CodingKeys.redeemers.rawValue):
                     try readRedeemerData(scanner, at: value.lowerBound)
@@ -335,37 +364,59 @@ public struct TransactionWitnessSet: Serializable, Equatable {
         }
         // Set after the values above, whose setters clear them.
         originalPlutusDataCBOR = datums
+        originalDatumCBOR = datumBytes
         originalRedeemersCBOR = redeemers
         originalCBOR = scanner.bytes
     }
 
     /// Reads the native scripts again from their bytes, which they keep: a
     /// script's hash is taken over the bytes it was written as.
+    ///
+    /// A definite `#6.258` set keeps every script whose bytes differ, even
+    /// when two are the same script written differently: their hashes
+    /// differ, and the ledger keeps both. Only byte-identical repeats are
+    /// dropped, as the ledger does. Lists keep every element.
     private mutating func readNativeScripts(_ scanner: CBORItemScanner, at offset: Int) throws {
-        let scripts = try NativeScript.read(scanner, arrayAt: offset)
+        var spans = try scanner.elements(ofArrayAt: scanner.untagged(at: offset))
+        if case .nonEmptyOrderedSet = nativeScripts {
+            spans = Self.distinctSpans(spans, in: scanner.bytes)
+        }
+        let scripts = try spans.map { try NativeScriptReader.read(scanner.bytes.subdata(in: $0)) }
         switch nativeScripts {
             case .list: nativeScripts = .list(scripts)
             case .indefiniteList: nativeScripts = .indefiniteList(IndefiniteList(scripts))
             case .nonEmptyOrderedSet where !scripts.isEmpty:
-                nativeScripts = .nonEmptyOrderedSet(NonEmptyOrderedSet(scripts))
+                nativeScripts = .nonEmptyOrderedSet(NonEmptyOrderedSet(keepingEvery: scripts))
             case .indefiniteNonEmptyOrderedSet: nativeScripts = .indefiniteNonEmptyOrderedSet(IndefiniteList(scripts))
             default: break
         }
     }
 
-    private mutating func readDatums(_ scanner: CBORItemScanner, at offset: Int) throws {
+    /// Reads the datums again from their bytes, keeping, as for native
+    /// scripts, every datum of a definite `#6.258` set whose bytes differ.
+    /// - Returns: The bytes of each datum kept, in order.
+    private mutating func readDatums(_ scanner: CBORItemScanner, at offset: Int) throws -> [Data] {
         let reader = PlutusDataReader(scanner.bytes)
-        let datums = try scanner.elements(ofArrayAt: scanner.untagged(at: offset)).map {
-            try reader.read(at: $0.lowerBound).0
+        var spans = try scanner.elements(ofArrayAt: scanner.untagged(at: offset))
+        if case .nonEmptyOrderedSet = plutusData {
+            spans = Self.distinctSpans(spans, in: scanner.bytes)
         }
+        let datums = try spans.map { try reader.read(at: $0.lowerBound).0 }
         switch plutusData {
             case .list: plutusData = .list(datums)
             case .indefiniteList: plutusData = .indefiniteList(IndefiniteList(datums))
             case .nonEmptyOrderedSet where !datums.isEmpty:
-                plutusData = .nonEmptyOrderedSet(NonEmptyOrderedSet(datums))
+                plutusData = .nonEmptyOrderedSet(NonEmptyOrderedSet(keepingEvery: datums))
             case .indefiniteNonEmptyOrderedSet: plutusData = .indefiniteNonEmptyOrderedSet(IndefiniteList(datums))
             default: break
         }
+        return spans.map { scanner.bytes.subdata(in: $0) }
+    }
+
+    /// `spans` without the later of any two whose bytes are the same.
+    private static func distinctSpans(_ spans: [Range<Int>], in bytes: Data) -> [Range<Int>] {
+        var seen = Set<Data>()
+        return spans.filter { seen.insert(bytes.subdata(in: $0)).inserted }
     }
 
     private mutating func readRedeemerData(_ scanner: CBORItemScanner, at offset: Int) throws {

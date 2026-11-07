@@ -265,3 +265,62 @@ private func blake2b256(_ data: Data) throws -> Data {
         #expect(try mode(of: loadablePath) == 0o600)
     }
 }
+
+// MARK: - Witness.swift:TransactionWitnessSet.keepBytes:nonempty-set-structural-dedup
+
+@Suite struct WitnessSetDistinctBytesTests {
+    @Test("A definite #6.258 native-script set keeps two encodings of the same script")
+    func nativeScriptsKeepEveryEncoding() throws {
+        let keyHash = String(repeating: "11", count: 28)
+        let first = "8200581c" + keyHash
+        let second = "9f00581c" + keyHash + "ff"
+        let hex = "a101d9010282" + first + second
+        let witnessSet = try TransactionWitnessSet.fromCBOR(data: try #require(Data(hexString: hex)))
+        let scripts = try #require(witnessSet.nativeScripts)
+        #expect(scripts.count == 2)
+        let hashes = try scripts.asList.map { try $0.scriptHash() }
+        #expect(Set(hashes).count == 2)
+        #expect(try witnessSet.toCBORHex() == hex)
+
+        // Byte-identical repeats are still one script.
+        let repeated = "a101d9010282" + first + first
+        let deduplicated = try TransactionWitnessSet.fromCBOR(data: try #require(Data(hexString: repeated)))
+        #expect(deduplicated.nativeScripts?.count == 1)
+    }
+
+    @Test("A definite #6.258 datum set keeps two encodings of the same datum")
+    func datumsKeepEveryEncoding() throws {
+        let hex = "a104d90102828201029f0102ff"
+        let witnessSet = try TransactionWitnessSet.fromCBOR(data: try #require(Data(hexString: hex)))
+        #expect(witnessSet.plutusData?.count == 2)
+        let hashes = try #require(try witnessSet.plutusDataHashes())
+        #expect(hashes.map(\.payload) == [
+            try blake2b256(Data([0x82, 0x01, 0x02])),
+            try blake2b256(Data([0x9F, 0x01, 0x02, 0xFF])),
+        ])
+        #expect(try witnessSet.toCBORHex() == hex)
+    }
+}
+
+// MARK: - Witness.swift:TransactionWitnessSet.plutusData:per-datum-bytes-not-kept
+
+@Suite struct WitnessDatumHashTests {
+    @Test("plutusDataHashes() hashes each datum as written")
+    func hashesAsWritten() throws {
+        let witnessSet = try TransactionWitnessSet.fromCBOR(data: try #require(Data(hexString: "a10481d879811805")))
+        let hashes = try #require(try witnessSet.plutusDataHashes())
+        #expect(hashes.map(\.payload.toHex) == ["0a3893be21942c19a6922f07116ce2b1eb1a6b990f98682a3a312b061917a0fa"])
+        // The typed datum's own hash is of its minimal re-encoding.
+        #expect(try witnessSet.plutusData?.asList[0].hash() != hashes[0])
+    }
+
+    @Test("Setting plutusData drops the kept bytes, and datums built in code hash their encoding")
+    func settingDatumsClearsKeptBytes() throws {
+        var witnessSet = try TransactionWitnessSet.fromCBOR(data: try #require(Data(hexString: "a10481d879811805")))
+        let datums = try #require(witnessSet.plutusData)
+        witnessSet.plutusData = datums
+        let hashes = try #require(try witnessSet.plutusDataHashes())
+        #expect(hashes == [try datums.asList[0].hash()])
+        #expect(try TransactionWitnessSet().plutusDataHashes() == nil)
+    }
+}

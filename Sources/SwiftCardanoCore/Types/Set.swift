@@ -417,6 +417,10 @@ public struct NonEmptyOrderedSet<T: CBORSerializable & Hashable & Sendable>: Set
         set { assign(Self.deduplicated(newValue)) }
     }
 
+    /// The number of elements in order: those ``elementsOrdered`` holds and
+    /// the set is encoded with.
+    public var count: Int { ordered.count }
+
     /// Replaces the elements with `unique`, which holds no duplicates.
     private mutating func assign(_ unique: [Element]) {
         precondition(!unique.isEmpty, "NonEmptyOrderedSet must contain at least one element")
@@ -452,6 +456,19 @@ public struct NonEmptyOrderedSet<T: CBORSerializable & Hashable & Sendable>: Set
     ///   elements that come from input.
     public init(_ elements: [Element]) {
         assign(Self.deduplicated(elements))
+    }
+
+    /// Keeps every element given, in order, even those `==` to an earlier one.
+    ///
+    /// For elements read off the wire whose written bytes differ although
+    /// they compare equal — a script or datum the ledger keys by the hash of
+    /// its bytes — so each is kept as written.
+    ///
+    /// - Precondition: `elements` is not empty.
+    init(keepingEvery elements: [Element]) {
+        precondition(!elements.isEmpty, "NonEmptyOrderedSet must contain at least one element")
+        ordered = elements
+        members = Set(elements)
     }
 
     /// Keeps the order the elements are given in, dropping later duplicates.
