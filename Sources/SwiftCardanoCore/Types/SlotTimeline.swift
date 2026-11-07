@@ -17,6 +17,10 @@ import Foundation
 /// timeline.milliseconds(forSlot: 4492800)  // 1596059091000
 /// ```
 ///
+/// A slot or a time too far out to represent converts to `nil`, never to a
+/// wrapped value or a crash: a validity interval is often supplied by someone
+/// else.
+///
 /// The authoritative source for any network is the node's own era history —
 /// ``init(systemStart:eraHistory:)`` reads what `cardano-cli query era-history`
 /// writes. The built-in timelines below are checked against mainnet's era
@@ -75,32 +79,67 @@ public struct SlotTimeline: Sendable, Hashable {
 
     /// A chain whose slots have all been the same length since its first —
     /// a devnet, or any network that never had a Byron era.
-    public init(systemStart: Date, slotLengthMilliseconds: Int64) {
-        self.eras = [
+    ///
+    /// - Parameters:
+    ///   - systemStart: The time slot 0 begins.
+    ///   - slotLengthMilliseconds: How long each slot lasts, in milliseconds.
+    /// - Throws: ``CardanoCoreError/valueError(_:)`` when the slot length is
+    ///   not positive, or the system start is not a representable number of
+    ///   milliseconds.
+    public init(systemStart: Date, slotLengthMilliseconds: Int64) throws {
+        try self.init(eras: [
             Era(
                 startSlot: 0,
-                startMilliseconds: Int64((systemStart.timeIntervalSince1970 * 1000).rounded()),
+                startMilliseconds: try Self.milliseconds(since1970: systemStart),
                 slotLengthMilliseconds: slotLengthMilliseconds
             )
-        ]
+        ])
     }
 
-    /// The POSIX time, in milliseconds, at which `slot` begins.
+    /// The POSIX time, in milliseconds, at which `slot` begins, or `nil` when
+    /// that time does not fit an `Int64`.
     ///
     /// A slot past the last era is read with that era's slot length. That is what
     /// a node does within its forecast horizon, and beyond the horizon nobody can
     /// say — a future hard fork could change the slot length.
-    public func milliseconds(forSlot slot: UInt64) -> Int64 {
+    public func milliseconds(forSlot slot: UInt64) -> Int64? {
         let era = eras.last { $0.startSlot <= slot } ?? eras[0]
-        let elapsed = Int64(slot) - Int64(era.startSlot)
-        return era.startMilliseconds + elapsed * era.slotLengthMilliseconds
+        // `era.startSlot <= slot`: the first era starts at slot 0.
+        guard let elapsed = Int64(exactly: slot - era.startSlot) else { return nil }
+        let (offset, multiplyOverflow) = elapsed.multipliedReportingOverflow(
+            by: era.slotLengthMilliseconds)
+        guard !multiplyOverflow else { return nil }
+        let (time, addOverflow) = era.startMilliseconds.addingReportingOverflow(offset)
+        return addOverflow ? nil : time
     }
 
-    /// The slot that contains a POSIX time given in milliseconds.
-    public func slot(atMilliseconds milliseconds: Int64) -> UInt64 {
+    /// The slot that contains a POSIX time given in milliseconds, or `nil`
+    /// when that slot does not fit a `UInt64`.
+    ///
+    /// A time before the system start is in slot 0.
+    public func slot(atMilliseconds milliseconds: Int64) -> UInt64? {
         let era = eras.last { $0.startMilliseconds <= milliseconds } ?? eras[0]
-        let elapsed = milliseconds - era.startMilliseconds
-        return era.startSlot + UInt64(max(0, elapsed / era.slotLengthMilliseconds))
+        guard milliseconds > era.startMilliseconds else { return era.startSlot }
+        // Both are `Int64`, and `milliseconds` is the larger, so the
+        // difference fits a `UInt64`.
+        let elapsed = UInt64(bitPattern: milliseconds &- era.startMilliseconds)
+        // Every initializer checks the slot length is positive.
+        let (slot, overflow) = era.startSlot.addingReportingOverflow(
+            elapsed / UInt64(era.slotLengthMilliseconds))
+        return overflow ? nil : slot
+    }
+
+    /// A date as whole POSIX milliseconds.
+    ///
+    /// - Throws: ``CardanoCoreError/valueError(_:)`` when it does not fit an
+    ///   `Int64`.
+    fileprivate static func milliseconds(since1970 date: Date) throws -> Int64 {
+        let milliseconds = (date.timeIntervalSince1970 * 1000).rounded()
+        guard milliseconds.isFinite, milliseconds >= -0x1p63, milliseconds < 0x1p63 else {
+            throw CardanoCoreError.valueError(
+                "A system start of \(date.timeIntervalSince1970) seconds is out of range.")
+        }
+        return Int64(milliseconds)
     }
 }
 
@@ -150,8 +189,11 @@ extension SlotTimeline {
     /// - Parameters:
     ///   - systemStart: the chain's start, from its Byron genesis.
     ///   - eraHistory: the CBOR the node reports.
+    /// - Throws: When the bytes are not an era history, when an era's start
+    ///   or slot length is out of range, or when the eras are not a valid
+    ///   timeline (see ``init(eras:)``).
     public init(systemStart: Date, eraHistory: Data) throws {
-        let startMilliseconds = Int64((systemStart.timeIntervalSince1970 * 1000).rounded())
+        let startMilliseconds = try Self.milliseconds(since1970: systemStart)
         guard let summaries = (try Primitive.fromCBOR(data: eraHistory)).elementsOrNil else {
             throw CardanoCoreError.deserializeError(
                 "An era history has to be a list of era summaries."
@@ -176,7 +218,8 @@ extension SlotTimeline {
                   let slotLength = try? BigInteger(from: parameters[1]).value,
                   let startSlot = UInt64(exactly: slot),
                   let slotLengthMilliseconds = Int64(exactly: slotLength),
-                  let relativeMilliseconds = Int64(exactly: relativePicoseconds / 1_000_000_000)
+                  let relativeMilliseconds = Int64(exactly: relativePicoseconds / 1_000_000_000),
+                  case (let eraStart, false) = startMilliseconds.addingReportingOverflow(relativeMilliseconds)
             else {
                 throw CardanoCoreError.deserializeError(
                     "An era summary's start and slot length have to be integers in range."
@@ -185,7 +228,7 @@ extension SlotTimeline {
             eras.append(
                 Era(
                     startSlot: startSlot,
-                    startMilliseconds: startMilliseconds + relativeMilliseconds,
+                    startMilliseconds: eraStart,
                     slotLengthMilliseconds: slotLengthMilliseconds
                 )
             )
@@ -224,7 +267,8 @@ extension SlotTimeline {
     /// chain gets a single-era timeline only when its genesis shows it has always
     /// used one slot length. Anything else returns `nil` rather than a guess —
     /// a wrong time makes a script's deadline check pass or fail for the wrong
-    /// reason, which is worse than refusing to build the context at all.
+    /// reason, which is worse than refusing to build the context at all. A
+    /// slot length that is not positive returns `nil` too.
     public static func forChain(genesis: GenesisParameters) -> SlotTimeline? {
         switch genesis.networkMagic {
             case NetworkMagic.mainnet: return .mainnet
@@ -251,6 +295,6 @@ extension SlotTimeline {
            byronMilliseconds != milliseconds {
             return nil
         }
-        return SlotTimeline(systemStart: systemStart, slotLengthMilliseconds: milliseconds)
+        return try? SlotTimeline(systemStart: systemStart, slotLengthMilliseconds: milliseconds)
     }
 }

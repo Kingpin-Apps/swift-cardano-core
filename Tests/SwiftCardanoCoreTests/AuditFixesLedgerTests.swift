@@ -205,3 +205,65 @@ import FoundationNetworking
         try Self.rules(item).checkTransaction()
     }
 }
+
+// MARK: - Slot timeline
+
+@Suite struct AuditSlotTimelineArithmeticTests {
+    @Test("A slot whose time does not fit an Int64 converts to nil instead of trapping")
+    func hugeSlots() {
+        #expect(SlotTimeline.mainnet.milliseconds(forSlot: UInt64.max) == nil)
+        #expect(SlotTimeline.mainnet.milliseconds(forSlot: UInt64(Int64.max)) == nil)
+        #expect(SlotTimeline.mainnet.milliseconds(forSlot: 1 << 54) == nil)
+        #expect(SlotTimeline.mainnet.milliseconds(forSlot: 1 << 40) != nil)
+    }
+
+    @Test("Extreme times convert without trapping")
+    func extremeTimes() {
+        #expect(SlotTimeline.mainnet.slot(atMilliseconds: Int64.min) == 0)
+        #expect(SlotTimeline.mainnet.slot(atMilliseconds: Int64.max) != nil)
+        #expect(SlotTimeline.mainnet.slot(atMilliseconds: 1_596_059_091_000) == 4_492_800)
+    }
+
+    @Test("A slot length that is not positive is refused by every initializer")
+    func nonPositiveSlotLength() {
+        let start = Date(timeIntervalSince1970: 1_700_000_000)
+        #expect(throws: CardanoCoreError.self) {
+            try SlotTimeline(systemStart: start, slotLengthMilliseconds: 0)
+        }
+        #expect(throws: CardanoCoreError.self) {
+            try SlotTimeline(systemStart: start, slotLengthMilliseconds: -1_000)
+        }
+        for slotLength: Decimal in [0, -1] {
+            let genesis = GenesisParameters(
+                activeSlotsCoefficient: UnitInterval(numerator: 1, denominator: 20),
+                epochLength: 432_000, maxKesEvolutions: 62, maxLovelaceSupply: 45_000_000_000_000_000,
+                networkId: "Testnet", networkMagic: 42, securityParam: 2160,
+                slotLength: slotLength, slotsPerKesPeriod: 129_600, systemStart: start,
+                updateQuorum: 5)
+            #expect(SlotTimeline.forChain(genesis: genesis) == nil)
+        }
+    }
+
+    @Test("A system start out of range throws instead of trapping")
+    func hugeSystemStart() {
+        #expect(throws: CardanoCoreError.self) {
+            try SlotTimeline(systemStart: Date(timeIntervalSince1970: 1e300), slotLengthMilliseconds: 1_000)
+        }
+    }
+
+    @Test("An era history whose start overflows Int64 throws instead of trapping")
+    func eraHistoryOverflow() throws {
+        let relativeMilliseconds = BigInt(Int64.max) - 1_000
+        let bound = Primitive.list([
+            .bigInt(relativeMilliseconds * 1_000_000_000), .uint(0), .uint(0),
+        ])
+        let history = Primitive.list([
+            .list([bound, bound, .list([.uint(432_000), .uint(1_000)])])
+        ])
+        let bytes = try CBORSerialization.data(from: try history.toCBOR())
+        #expect(throws: CardanoCoreError.self) {
+            try SlotTimeline(
+                systemStart: Date(timeIntervalSince1970: 1_506_203_091), eraHistory: bytes)
+        }
+    }
+}

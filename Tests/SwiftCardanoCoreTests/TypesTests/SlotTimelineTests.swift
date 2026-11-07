@@ -49,19 +49,19 @@ struct SlotTimelineTests {
     /// Reading a present-day slot with the Shelley slot length from the *system*
     /// start — the obvious mistake — is out by about two and a half years.
     @Test("A single-era reading of mainnet would be wrong by years")
-    func theMistakeThisPrevents() {
-        let naive = SlotTimeline(
+    func theMistakeThisPrevents() throws {
+        let naive = try SlotTimeline(
             systemStart: Date(timeIntervalSince1970: 1_506_203_091), slotLengthMilliseconds: 1_000
         )
         let slot: UInt64 = 198_657_810
-        let difference = SlotTimeline.mainnet.milliseconds(forSlot: slot)
-            - naive.milliseconds(forSlot: slot)
+        let difference = try #require(SlotTimeline.mainnet.milliseconds(forSlot: slot))
+            - #require(naive.milliseconds(forSlot: slot))
         #expect(difference == 85_363_200_000)  // 988 days
     }
 
     @Test("A chain with one slot length needs no eras spelled out")
-    func singleEra() {
-        let timeline = SlotTimeline(
+    func singleEra() throws {
+        let timeline = try SlotTimeline(
             systemStart: Date(timeIntervalSince1970: 1_700_000_000), slotLengthMilliseconds: 500
         )
         #expect(timeline.milliseconds(forSlot: 0) == 1_700_000_000_000)
@@ -70,9 +70,9 @@ struct SlotTimelineTests {
     }
 
     @Test("A slot maps back from its time")
-    func roundTrip() {
+    func roundTrip() throws {
         for slot: UInt64 in [0, 1, 4_492_799, 4_492_800, 198_657_810] {
-            let milliseconds = SlotTimeline.mainnet.milliseconds(forSlot: slot)
+            let milliseconds = try #require(SlotTimeline.mainnet.milliseconds(forSlot: slot))
             #expect(SlotTimeline.mainnet.slot(atMilliseconds: milliseconds) == slot)
         }
     }
