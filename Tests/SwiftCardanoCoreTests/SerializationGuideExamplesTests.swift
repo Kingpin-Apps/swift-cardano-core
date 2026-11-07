@@ -169,7 +169,7 @@ struct SerializationGuideExamplesTests {
         #expect(decodeTransaction("80") == nil) // an empty CBOR array
 
         // Each failure is the case the example catches.
-        #expect(throws: CardanoCoreError.invalidArgument("Invalid hex string: not hex")) {
+        #expect(throws: CardanoCoreError.invalidArgument("Invalid hex string (7 characters)")) {
             try Transaction.fromCBORHex("not hex")
         }
         let error = #expect(throws: CardanoCoreError.self) {

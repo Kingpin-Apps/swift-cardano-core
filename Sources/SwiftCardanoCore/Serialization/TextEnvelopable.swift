@@ -66,7 +66,7 @@ public extension TextEnvelopable {
         }
         
         guard let cbor = Data(hexString: cborHex) else {
-            throw CardanoCoreError.invalidArgument("Invalid hex string: \(cborHex)")
+            throw CardanoCoreError.invalidArgument("Invalid hex string (\(cborHex.count) characters)")
         }
         var obj = try Self.fromEnvelopeCBOR(cbor, type: type)
         obj._type = type

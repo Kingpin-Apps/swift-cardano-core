@@ -113,7 +113,8 @@ extension CBORSerializable {
     ///   valid hex, or a decoding error from ``fromCBOR(data:)``.
     public static func fromCBORHex(_ hexString: String) throws -> Self {
         guard let data = Data(hexString: hexString) else {
-            throw CardanoCoreError.invalidArgument("Invalid hex string: \(hexString)")
+            // The hex may be a signing key's: name its length, never its content.
+            throw CardanoCoreError.invalidArgument("Invalid hex string (\(hexString.count) characters)")
         }
         return try fromCBOR(data: data)
     }
