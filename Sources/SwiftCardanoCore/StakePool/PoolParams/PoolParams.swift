@@ -188,9 +188,11 @@ public struct PoolParams: Serializable {
         }
         let margin: UnitInterval
         if case let .list(marginElements) = marginPrimitive,
-           marginElements.count == 2,
-           let num = marginElements[0].uint64Value,
-           let den = marginElements[1].uint64Value {
+           marginElements.count == 2 {
+            // Read exactly: a negative or too-large component throws rather
+            // than being clamped into range.
+            let num = try marginElements[0].integer("PoolParams margin numerator", as: UInt64.self)
+            let den = try marginElements[1].integer("PoolParams margin denominator", as: UInt64.self)
             // unit_interval: the ledger rejects a zero denominator and a value above one.
             guard den > 0, num <= den else {
                 throw CardanoCoreError.deserializeError("Invalid margin in PoolParams: \(num)/\(den)")

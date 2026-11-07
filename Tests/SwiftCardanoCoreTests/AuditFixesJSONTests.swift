@@ -290,3 +290,42 @@ private func poolMetadataJSON(extraDepth: Int) -> String {
         expectSucceedsOnSmallStack { _ = try RawPlutusData.fromJSON(nestedPlutusList(50)) }
     }
 }
+
+// MARK: - PoolParams margin
+
+@Suite struct AuditPoolParamsMarginTests {
+    static func poolJSON(margin: String) throws -> String {
+        let params = PoolParams(
+            poolOperator: PoolKeyHash(payload: Data(repeating: 0x01, count: 28)),
+            vrfKeyHash: VrfKeyHash(payload: Data(repeating: 0x02, count: 32)),
+            pledge: 1_000,
+            cost: 340_000_000,
+            margin: UnitInterval(numerator: 1, denominator: 10),
+            rewardAccount: RewardAccountHash(payload: Data([0xE1] + Array(repeating: 0x03, count: 28))),
+            poolOwners: .list([VerificationKeyHash(payload: Data(repeating: 0x04, count: 28))]),
+            relays: [],
+            poolMetadata: nil)
+        let json = try #require(try params.toJSON())
+        let regex = try NSRegularExpression(pattern: "\"margin\":\\s*\\[[^\\]]*\\]")
+        let range = NSRange(json.startIndex..., in: json)
+        #expect(regex.firstMatch(in: json, range: range) != nil)
+        return regex.stringByReplacingMatches(
+            in: json, range: range, withTemplate: "\"margin\":\(margin)")
+    }
+
+    @Test("A negative margin numerator is rejected, not clamped to zero")
+    func negativeMarginRejected() throws {
+        for margin in ["[-1,10]", "[-7,3]", "[-9223372036854775808,1]", "[1,-1]", "[11,10]"] {
+            let json = try Self.poolJSON(margin: margin)
+            #expect(throws: CardanoCoreError.self, "margin \(margin)") {
+                _ = try PoolParams.fromJSON(json)
+            }
+        }
+    }
+
+    @Test("A valid margin still decodes")
+    func validMarginDecodes() throws {
+        let params = try PoolParams.fromJSON(try Self.poolJSON(margin: "[3,10]"))
+        #expect(params.margin == UnitInterval(numerator: 3, denominator: 10))
+    }
+}
