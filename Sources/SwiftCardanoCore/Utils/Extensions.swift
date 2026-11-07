@@ -65,7 +65,7 @@ extension CBOR {
         else if let taggedValue = value as? (UInt64, CBOR) {
             return .tagged(taggedValue.0, taggedValue.1)
         } else if let taggedValue = value as? CBORTag {
-            return taggedValue.taggedCBOR()
+            return (try? taggedValue.taggedCBOR()) ?? .null
         }
         // Handle binary and dictionary data
         else if let dataValue = value as? Data {

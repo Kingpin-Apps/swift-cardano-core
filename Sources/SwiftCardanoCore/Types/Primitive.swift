@@ -226,12 +226,16 @@ public indirect enum Primitive: CBORSerializable, Sendable {
         _ preservingEncoding: Bool
     ) throws -> OrderedDictionary<Primitive, Primitive> {
         // Distinct CBOR keys can map to the same Primitive (null/undefined,
-        // half/float/double, definite/indefinite strings), so assign rather
-        // than use `uniqueKeysWithValues:`, which traps on duplicates.
+        // half/float/double, definite/indefinite strings). Such a map repeats
+        // a key, so it throws; `uniqueKeysWithValues:` would trap instead.
         var dict = OrderedDictionary<Primitive, Primitive>()
         for (key, value) in entries {
-            dict[try Primitive.from(cbor: key, preservingEncoding: preservingEncoding)] =
-                try Primitive.from(cbor: value, preservingEncoding: preservingEncoding)
+            let primitiveKey = try Primitive.from(cbor: key, preservingEncoding: preservingEncoding)
+            guard dict[primitiveKey] == nil else {
+                throw CardanoCoreError.deserializeError(
+                    "A CBOR map repeats the key \(primitiveKey) once its keys are read")
+            }
+            dict[primitiveKey] = try Primitive.from(cbor: value, preservingEncoding: preservingEncoding)
         }
         return dict
     }
@@ -329,10 +333,25 @@ public indirect enum Primitive: CBORSerializable, Sendable {
     private static func toCBOR<S: Sequence>(
         entries: S
     ) throws -> OrderedDictionary<CBOR, CBOR> where S.Element == (key: Primitive, value: Primitive) {
-        OrderedDictionary(
-            uniqueKeysWithValues: try entries.map {
-                (try $0.key.toCBOR(), try $0.value.toCBOR())
-            })
+        // Distinct primitives can be the same CBOR key (`.int(1)` and
+        // `.uint(1)`, say), so assign and throw on a repeat rather than use
+        // `uniqueKeysWithValues:`, which traps on one.
+        var result = OrderedDictionary<CBOR, CBOR>()
+        for entry in entries {
+            try insert(try entry.key.toCBOR(), try entry.value.toCBOR(), into: &result)
+        }
+        return result
+    }
+
+    /// Adds a map entry, throwing when the map already has the key.
+    private static func insert(
+        _ key: CBOR, _ value: CBOR, into map: inout OrderedDictionary<CBOR, CBOR>
+    ) throws {
+        guard map[key] == nil else {
+            throw CardanoCoreError.serializeError(
+                "A map repeats the key \(key) once its keys are written as CBOR")
+        }
+        map[key] = value
     }
 
     @inline(never)
@@ -363,9 +382,11 @@ public indirect enum Primitive: CBORSerializable, Sendable {
                 return (keyCBOR, valueCBOR, writer.data)
             }
             let sorted = pairs.sorted { $0.2.lexicographicallyPrecedes($1.2) }
-            return .map(
-                OrderedDictionary(uniqueKeysWithValues: sorted.map { ($0.0, $0.1) })
-            )
+            var map = OrderedDictionary<CBOR, CBOR>()
+            for (key, value, _) in sorted {
+                try Primitive.insert(key, value, into: &map)
+            }
+            return .map(map)
         case .indefiniteDictionary(let dict):
             return .indefiniteMap(try Primitive.toCBOR(entries: dict.elements))
         case .datetime(let date):
@@ -487,7 +508,9 @@ public indirect enum Primitive: CBORSerializable, Sendable {
         case (.uint(let a), .uint(let b)):
             return a == b
         case (.float(let a), .float(let b)):
-            return a == b
+            // By bit pattern, as CBOR compares its floats: NaN equals itself,
+            // so a map cannot hold two NaN keys that CBOR writes as one.
+            return a.bitPattern == b.bitPattern
         case (.decimal(let a), .decimal(let b)):
             return a == b
         case (.bool(let a), .bool(let b)):
@@ -536,6 +559,43 @@ public indirect enum Primitive: CBORSerializable, Sendable {
             return true
         default:
             return false
+        }
+    }
+
+    /// Hashes the case and its value, as ``==(_:_:)`` compares them: a float
+    /// by its bit pattern and a regular expression by its pattern.
+    public func hash(into hasher: inout Hasher) {
+        switch self {
+        case .bytes(let value): hasher.combine(0); hasher.combine(value)
+        case .byteArray(let value): hasher.combine(1); hasher.combine(value)
+        case .string(let value): hasher.combine(2); hasher.combine(value)
+        case .int(let value): hasher.combine(3); hasher.combine(value)
+        case .uint(let value): hasher.combine(4); hasher.combine(value)
+        case .bigInt(let value): hasher.combine(5); hasher.combine(value)
+        case .bigUInt(let value): hasher.combine(6); hasher.combine(value)
+        case .float(let value): hasher.combine(7); hasher.combine(value.bitPattern)
+        case .decimal(let value): hasher.combine(8); hasher.combine(value)
+        case .bool(let value): hasher.combine(9); hasher.combine(value)
+        case .tuple(let value): hasher.combine(10); hasher.combine(value)
+        case .list(let value): hasher.combine(11); hasher.combine(value)
+        case .indefiniteList(let value): hasher.combine(12); hasher.combine(value)
+        case .dict(let value): hasher.combine(13); hasher.combine(value)
+        case .indefiniteDictionary(let value): hasher.combine(14); hasher.combine(value)
+        case .orderedDict(let value): hasher.combine(15); hasher.combine(value)
+        case .datetime(let value): hasher.combine(16); hasher.combine(value)
+        case .regex(let value): hasher.combine(17); hasher.combine(value.pattern)
+        case .cborSimpleValue(let value): hasher.combine(18); hasher.combine(value)
+        case .cborTag(let value): hasher.combine(19); hasher.combine(value)
+        case .orderedSet(let value): hasher.combine(20); hasher.combine(value)
+        case .nonEmptyOrderedSet(let value): hasher.combine(21); hasher.combine(value)
+        case .unitInterval(let value): hasher.combine(22); hasher.combine(value)
+        case .frozenSet(let value): hasher.combine(23); hasher.combine(value)
+        case .frozenDict(let value): hasher.combine(24); hasher.combine(value)
+        case .frozenList(let value): hasher.combine(25); hasher.combine(value)
+        case .indefiniteFrozenList(let value): hasher.combine(26); hasher.combine(value)
+        case .byteString(let value): hasher.combine(27); hasher.combine(value)
+        case .plutusData(let value): hasher.combine(28); hasher.combine(value)
+        case .null: hasher.combine(29)
         }
     }
 

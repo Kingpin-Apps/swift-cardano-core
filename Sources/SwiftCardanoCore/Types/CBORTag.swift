@@ -23,9 +23,11 @@ public protocol CBORTaggable: Serializable, Sendable {
 extension CBORTaggable {
     /// This value as a tagged CBOR item, `#6.<tag>(value)`.
     ///
-    /// The function traps if ``value`` cannot be converted to CBOR.
-    public func taggedCBOR() -> CBOR {
-        let cborData = try! value.toCBOR()
+    /// - Returns: The tagged CBOR item.
+    /// - Throws: When ``value`` cannot be converted to CBOR, such as a map
+    ///   whose keys repeat once written as CBOR.
+    public func taggedCBOR() throws -> CBOR {
+        let cborData = try value.toCBOR()
         return .tagged(
             UInt64(tag),
             cborData
@@ -62,7 +64,7 @@ extension CBORTaggable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
-        try container.encode(taggedCBOR())
+        try container.encode(try taggedCBOR())
     }
     
     // MARK: - CBORSerializable
