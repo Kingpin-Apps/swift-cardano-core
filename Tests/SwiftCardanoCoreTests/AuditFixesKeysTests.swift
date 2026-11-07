@@ -1,0 +1,98 @@
+import Testing
+import Foundation
+
+import CBORCodable
+@testable import SwiftCardanoCore
+
+/// A text envelope whose `cborHex` is `payload` as a CBOR byte string.
+private func envelope(type: String, payload: Data) throws -> String {
+    let cborHex = try CBOREncoder().encode(payload).toHex
+    return """
+    {"type": "\(type)", "description": "x", "cborHex": "\(cborHex)"}
+    """
+}
+
+/// A fresh path in the temporary directory.
+private func temporaryKeyPath(_ suffix: String) -> String {
+    NSTemporaryDirectory() + "audit-keys-\(UUID().uuidString).\(suffix)"
+}
+
+@Suite struct ExtendedSigningKeyLengthTests {
+    @Test("Extended signing keys reject every payload that is not 128 bytes",
+          arguments: [0, 32, 64, 80, 95, 96, 127, 129])
+    func initializersRejectWrongLengths(count: Int) {
+        let payload = Data(repeating: 0x11, count: count)
+        #expect(throws: CardanoCoreError.self) { try ExtendedSigningKey(payload: payload) }
+        #expect(throws: CardanoCoreError.self) { try PaymentExtendedSigningKey(payload: payload) }
+        #expect(throws: CardanoCoreError.self) { try StakeExtendedSigningKey(payload: payload) }
+    }
+
+    @Test("A short extended key envelope throws instead of trapping in sign",
+          arguments: [32, 80])
+    func shortEnvelopeThrows(count: Int) throws {
+        let json = try envelope(
+            type: PaymentExtendedSigningKey.TYPE,
+            payload: Data(repeating: 0x11, count: count))
+        #expect(throws: CardanoCoreError.self) {
+            let key = try PaymentExtendedSigningKey.fromTextEnvelope(json, validateType: true)
+            _ = try key.sign(data: Data("message".utf8))
+        }
+    }
+
+    @Test("sign and toVerificationKey check the payload length before slicing it",
+          arguments: [0, 32, 63, 64, 80, 95])
+    func signAndDeriveCheckLength(count: Int) throws {
+        var key = try PaymentExtendedSigningKey.generate()
+        key._payload = Data(repeating: 0x11, count: count)
+        #expect(throws: CardanoCoreError.self) { _ = try key.sign(data: Data("message".utf8)) }
+        #expect(throws: CardanoCoreError.self) {
+            let _: PaymentExtendedVerificationKey = try key.toVerificationKey()
+        }
+    }
+
+    @Test("A well-formed 128-byte key still round-trips, signs and derives its key")
+    func wellFormedKeyWorks() throws {
+        let key = try PaymentExtendedSigningKey.generate()
+        let json = try #require(try key.toTextEnvelope())
+        let restored = try PaymentExtendedSigningKey.fromTextEnvelope(json, validateType: true)
+        #expect(restored.payload.count == 128)
+        let signature = try restored.sign(data: Data("message".utf8))
+        #expect(signature.count == 64)
+        let vkey: PaymentExtendedVerificationKey = try restored.toVerificationKey()
+        #expect(vkey.payload.count == 64)
+        #expect(try vkey.verify(signature: signature, data: Data("message".utf8)))
+    }
+
+    @Test("SigningKeyType reads 32 bytes as a plain key")
+    func signingKeyTypeReadsPlainKey() throws {
+        var cbor = Data([0x58, 0x20])
+        cbor.append(Data(repeating: 0x11, count: 32))
+        let keyType = try SigningKeyType.fromCBOR(data: cbor)
+        guard case .signingKey(let key) = keyType else {
+            Issue.record("Expected a plain signing key, got \(keyType)")
+            return
+        }
+        #expect(key.payload == Data(repeating: 0x11, count: 32))
+        let vkey = try keyType.toVerificationKeyType()
+        #expect(vkey.payload.count == 32)
+        #expect(try keyType.sign(data: Data("message".utf8)).count == 64)
+    }
+
+    @Test("SigningKeyType reads 128 bytes as an extended key")
+    func signingKeyTypeReadsExtendedKey() throws {
+        let key = try PaymentExtendedSigningKey.generate()
+        let keyType = try SigningKeyType(from: .bytes(key.payload))
+        guard case .extendedSigningKey = keyType else {
+            Issue.record("Expected an extended signing key, got \(keyType)")
+            return
+        }
+        #expect(try keyType.toVerificationKeyType().payload.count == 32)
+    }
+
+    @Test("SigningKeyType rejects every other length", arguments: [0, 31, 33, 64, 80, 96, 127, 129])
+    func signingKeyTypeRejectsOtherLengths(count: Int) {
+        #expect(throws: CardanoCoreError.self) {
+            _ = try SigningKeyType(from: .bytes(Data(repeating: 0x11, count: count)))
+        }
+    }
+}

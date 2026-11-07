@@ -49,12 +49,27 @@ public extension SigningKeyProtocol {
     }
 }
 
+/// The length of an extended signing key payload: the 64-byte extended private
+/// key, the 32-byte public key and the 32-byte chain code.
+let EXTENDED_SIGNING_KEY_SIZE = 128
+
+/// Checks that `payload` is the 128 bytes of an extended signing key.
+/// - Throws: `CardanoCoreError.invalidKeyTypeError` when it is any other length.
+func validateExtendedSigningKeyPayload(_ payload: Data) throws {
+    guard payload.count == EXTENDED_SIGNING_KEY_SIZE else {
+        throw CardanoCoreError.invalidKeyTypeError(
+            "An extended signing key is \(EXTENDED_SIGNING_KEY_SIZE) bytes, got \(payload.count)")
+    }
+}
+
 public extension ExtendedSigningKeyProtocol {
-    
+
     /// Signs data with the BIP32-Ed25519 extended private key in the first 64 bytes of the payload.
     /// - Parameter data: The data to sign.
     /// - Returns: The signature.
-    func sign(data: Data) throws -> Data {        
+    /// - Throws: `CardanoCoreError.invalidKeyTypeError` when the payload is not 128 bytes.
+    func sign(data: Data) throws -> Data {
+        try validateExtendedSigningKeyPayload(payload)
         let privateKey = try BIP32ED25519PrivateKey(
             privateKey: payload.prefix(64),  // First 64 bytes
             chainCode: payload.suffix(from: 96)  // From byte 96 onwards
@@ -67,7 +82,9 @@ public extension ExtendedSigningKeyProtocol {
     /// The extended verification key of this signing key: the payload from byte 64 on,
     /// which is the public key followed by the chain code.
     /// - Returns: The extended verification key, of the type the caller asks for.
+    /// - Throws: `CardanoCoreError.invalidKeyTypeError` when the payload is not 128 bytes.
     func toVerificationKey<T>() throws -> T where T: ExtendedVerificationKeyProtocol {
+        try validateExtendedSigningKeyPayload(payload)
         return try T(
             payload: payload.suffix(from: 64),
             type: type.replacingOccurrences(of: "Signing", with: "Verification"),
@@ -129,7 +146,9 @@ public struct ExtendedSigningKey: ExtendedSigningKeyProtocol {
     ///   - payload: The key bytes.
     ///   - type: The text-envelope type, or `nil` for the default.
     ///   - description: The text-envelope description, or `nil` for the default.
-    public init(payload: Data, type: String?, description: String?) {
+    /// - Throws: `CardanoCoreError.invalidKeyTypeError` when the payload is not 128 bytes.
+    public init(payload: Data, type: String?, description: String?) throws {
+        try validateExtendedSigningKeyPayload(payload)
         self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
@@ -137,6 +156,7 @@ public struct ExtendedSigningKey: ExtendedSigningKeyProtocol {
 }
 
 /// A signing key that is either a plain or an extended signing key.
+/// From a primitive, 32 bytes give a plain key and 128 bytes an extended key.
 public enum SigningKeyType: CBORSerializable, Sendable {
 
     /// An extended (BIP32-Ed25519) signing key.
@@ -144,15 +164,34 @@ public enum SigningKeyType: CBORSerializable, Sendable {
     /// A plain Ed25519 signing key.
     case signingKey(any SigningKeyProtocol)
 
+    /// Creates a key from a CBOR byte string: a 32-byte Ed25519 seed gives a
+    /// plain key and a 128-byte payload an extended key.
+    /// - Parameter primitive: A `.bytes` primitive holding the key.
+    /// - Throws: `CardanoCoreError.deserializeError` when the primitive is not
+    ///   bytes or the key is any other length.
     public init(from primitive: Primitive) throws {
         guard case let .bytes(data) = primitive else {
             throw CardanoCoreError.deserializeError("Invalid SigningKeyType primitive")
         }
+        self = try Self.fromPayload(data)
+    }
 
-        if data.count == 64 {
-            self = .signingKey(try SigningKey(payload: data))
-        } else {
-            self = .extendedSigningKey(try ExtendedSigningKey(payload: data))
+    /// The plain or extended signing key that `payload` holds, chosen by its length.
+    /// - Parameters:
+    ///   - payload: A 32-byte Ed25519 seed or a 128-byte extended key.
+    ///   - type: The text-envelope type, or `nil` for the default.
+    ///   - description: The text-envelope description, or `nil` for the default.
+    /// - Throws: `CardanoCoreError.deserializeError` when the key is any other length.
+    static func fromPayload(_ payload: Data, type: String? = nil, description: String? = nil) throws -> Self {
+        switch payload.count {
+            case 32:
+                return .signingKey(SigningKey(payload: payload, type: type, description: description))
+            case EXTENDED_SIGNING_KEY_SIZE:
+                return .extendedSigningKey(
+                    try ExtendedSigningKey(payload: payload, type: type, description: description))
+            default:
+                throw CardanoCoreError.deserializeError(
+                    "Invalid signing key length: \(payload.count) bytes. Expected 32 or \(EXTENDED_SIGNING_KEY_SIZE) bytes.")
         }
     }
 

@@ -77,7 +77,9 @@ public struct StakeExtendedSigningKey: ExtendedSigningKeyProtocol {
     ///   - payload: The key bytes.
     ///   - type: The text-envelope type, or `nil` for ``TYPE``.
     ///   - description: The text-envelope description, or `nil` for ``DESCRIPTION``.
-    public init(payload: Data, type: String?, description: String?) {
+    /// - Throws: `CardanoCoreError.invalidKeyTypeError` when the payload is not 128 bytes.
+    public init(payload: Data, type: String?, description: String?) throws {
+        try validateExtendedSigningKeyPayload(payload)
         self._payload = payload
         self._type = type ?? Self.TYPE
         self._description = description ?? Self.DESCRIPTION
