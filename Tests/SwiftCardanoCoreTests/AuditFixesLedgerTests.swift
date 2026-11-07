@@ -267,3 +267,39 @@ import FoundationNetworking
         }
     }
 }
+
+// MARK: - Network decoding
+
+@Suite struct AuditNetworkDecodingTests {
+    static func decode(_ json: String) throws -> Network {
+        try JSONDecoder().decode(Network.self, from: Data(json.utf8))
+    }
+
+    @Test(
+        "An unknown network name throws instead of reading as mainnet",
+        arguments: ["\"testnet\"", "\"custom(42)\"", "\"Preview \"", "\"\"", "\"mainnet2\""]
+    )
+    func unknownName(json: String) {
+        #expect(throws: DecodingError.self) { try Self.decode(json) }
+    }
+
+    @Test(
+        "Known magics read as their named networks",
+        arguments: [
+            ("764824073", Network.mainnet), ("1", .preprod), ("2", .preview),
+            ("4", .sanchonet), ("141", .guildnet), ("42", .custom(42)),
+            ("\"764824073\"", .mainnet), ("\"1\"", .preprod), ("\"42\"", .custom(42)),
+            ("\"PREPROD\"", .preprod), ("\"mainnet\"", .mainnet),
+        ]
+    )
+    func knownMagic(json: String, network: Network) throws {
+        let decoded = try Self.decode(json)
+        #expect(decoded == network)
+        #expect(decoded.networkId == network.networkId)
+    }
+
+    @Test("The mainnet magic has the mainnet network id")
+    func mainnetMagicId() throws {
+        #expect(try Self.decode("764824073").networkId == .mainnet)
+    }
+}

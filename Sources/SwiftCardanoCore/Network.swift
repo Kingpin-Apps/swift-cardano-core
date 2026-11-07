@@ -91,6 +91,24 @@ public enum Network: Sendable, Equatable {
 extension Network: CustomStringConvertible {}
 
 extension Network: Codable {
+    /// The network a magic stands for: a named case for the known magics,
+    /// including mainnet's `764824073`, and ``custom(_:)`` otherwise.
+    static func fromMagic(_ magic: Int) -> Network {
+        switch magic {
+        case 764_824_073: return .mainnet
+        case 1: return .preprod
+        case 2: return .preview
+        case 4: return .sanchonet
+        case 141: return .guildnet
+        default: return .custom(magic)
+        }
+    }
+
+    /// Reads a network from a name (any case) or a magic, given as an integer
+    /// or a decimal string. A known magic reads as its named case.
+    ///
+    /// - Throws: `DecodingError.dataCorrupted` for any other value, so a
+    ///   misspelt or unknown name is never read as mainnet.
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         if let stringValue = try? container.decode(String.self) {
@@ -101,10 +119,16 @@ extension Network: Codable {
             case "guildnet": self = .guildnet
             case "sanchonet": self = .sanchonet
             default:
-                if let magic = Int(stringValue) { self = .custom(magic) } else { self = .mainnet }
+                guard let magic = Int(stringValue) else {
+                    throw DecodingError.dataCorrupted(
+                        DecodingError.Context(
+                            codingPath: decoder.codingPath,
+                            debugDescription: "Unknown network name \"\(stringValue)\""))
+                }
+                self = Self.fromMagic(magic)
             }
         } else if let intValue = try? container.decode(Int.self) {
-            self = .custom(intValue)
+            self = Self.fromMagic(intValue)
         } else {
             throw DecodingError.dataCorrupted(
                 DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid network value")
