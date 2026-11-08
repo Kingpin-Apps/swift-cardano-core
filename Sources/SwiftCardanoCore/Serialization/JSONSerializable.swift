@@ -85,6 +85,7 @@ extension JSONSerializable {
             throw CardanoCoreError.valueError("Invalid JSON: cannot convert to UTF-8")
         }
 
+        try checkRawJSONDepth(data)
         do {
             let jsonObject = try JSONSerialization.jsonObject(with: data, options: .fragmentsAllowed)
             let primitive = try JSONPrimitiveReader.read(jsonObject)
@@ -323,6 +324,10 @@ enum JSONPrimitiveReader {
 /// conversions to JSON allow, which fits a 512 KB thread stack.
 let maxJSONDecodeDepth = 128
 
+/// Raw bracket depth allowed before JSONSerialization runs. A 512 KiB
+/// cooperative-thread stack holds JSONSerialization at this depth.
+let maxRawJSONDepth = 400
+
 /// Throws when `level` is past `limit`.
 ///
 /// - Parameters:
@@ -356,5 +361,45 @@ extension Primitive {
         }
         let size = count.map { "\($0) bytes of " } ?? ""
         throw CardanoCoreError.deserializeError("\(field) must be \(size)hex or base64, got \(self)")
+    }
+}
+
+/// Checks nesting depth on raw UTF-8 JSON bytes before JSONSerialization
+/// parses them. Apple's JSONSerialization recurses once per level and can
+/// overflow a 512 KiB cooperative-thread stack before its own limit, so deep
+/// input from a third party must be refused first. String contents are
+/// skipped. A zero byte is refused too: it is never valid in UTF-8 JSON, and
+/// it could make JSONSerialization read the bytes as UTF-16 or UTF-32, which
+/// this scan would misread.
+///
+/// The limit counts raw brackets, not logical levels: one PlutusData map
+/// level is three (`{"map":[{`), so ``maxRawJSONDepth`` leaves room for the
+/// deepest values the typed limits allow (128 levels).
+func checkRawJSONDepth(_ data: Data, limit: Int = maxRawJSONDepth) throws {
+    guard !data.contains(0) else {
+        throw CardanoCoreError.valueError("Invalid JSON: contains a zero byte")
+    }
+    var depth = 0
+    var inString = false
+    var escaped = false
+    for byte in data {
+        if inString {
+            if escaped { escaped = false }
+            else if byte == UInt8(ascii: "\\") { escaped = true }
+            else if byte == UInt8(ascii: "\"") { inString = false }
+            continue
+        }
+        switch byte {
+        case UInt8(ascii: "\""): inString = true
+        case UInt8(ascii: "["), UInt8(ascii: "{"):
+            depth += 1
+            guard depth <= limit else {
+                throw CardanoCoreError.valueError("Invalid JSON: nested deeper than \(limit) levels")
+            }
+        case UInt8(ascii: "]"), UInt8(ascii: "}"):
+            depth -= 1
+            guard depth >= 0 else { throw CardanoCoreError.valueError("Invalid JSON: unbalanced brackets") }
+        default: break
+        }
     }
 }

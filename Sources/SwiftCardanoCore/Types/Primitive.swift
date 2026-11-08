@@ -94,6 +94,7 @@ public indirect enum Primitive: CBORSerializable, Sendable {
             guard let data = jsonString.data(using: .utf8) else {
                 throw CardanoCoreError.valueError("Invalid JSON string")
             }
+            try checkRawJSONDepth(data)
             let json = try JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed])
             return try Primitive.from(json: json)
         }
