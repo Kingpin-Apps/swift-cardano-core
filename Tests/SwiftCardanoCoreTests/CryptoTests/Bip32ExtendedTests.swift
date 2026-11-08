@@ -400,6 +400,23 @@ struct DerivationPathTests {
             _ = try accountWallet.derive(index: 1815, isPrivate: false, hardened: true)
         }
     }
+
+    @Test("Indices of 2^31 and above are rejected instead of aliasing hardened ones")
+    func indexAliasingRejected() async throws {
+        let wallet = try HDWallet.fromMnemonic(mnemonic: TestVectors.mnemonic12)
+        for path in ["m/2147483648", "m/2147483648'", "m/4294967295", "m/1852'/2147485463'"] {
+            #expect(throws: BIP32Error.self) { _ = try wallet.derive(fromPath: path) }
+        }
+        #expect(throws: BIP32Error.self) {
+            _ = try wallet.derive(index: 0x8000_0000, isPrivate: true, hardened: false)
+        }
+        #expect(throws: BIP32Error.self) {
+            _ = try wallet.derive(index: 0x8000_0000, isPrivate: true, hardened: true)
+        }
+        // The largest valid index still derives.
+        _ = try wallet.derive(fromPath: "m/2147483647'")
+        _ = try wallet.derive(fromPath: "m/2147483647")
+    }
 }
 
 // MARK: - Entropy Wallet Tests

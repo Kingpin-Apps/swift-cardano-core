@@ -476,17 +476,23 @@ public class HDWallet {
 
     /// Derives a child node at one index.
     /// - Parameters:
-    ///   - index: The child index, without the hardened bit.
+    ///   - index: The child index, without the hardened bit. Must be below `0x80000000`.
     ///   - isPrivate: Whether to derive from the private key (`true`) or the public key.
     ///   - hardened: Whether to set the hardened bit (`0x80000000`) on `index`.
     /// - Returns: The child node.
     /// - Throws: `CardanoCoreError.invalidDataError` when the wallet has no root keys,
-    ///   or when a hardened index is derived from the public key.
+    ///   or when a hardened index is derived from the public key;
+    ///   ``BIP32Error/invalidPath(_:)`` when `index` is `0x80000000` or above.
     public func derive(index: UInt32, isPrivate: Bool = true, hardened: Bool = false) throws -> HDWallet {
         guard !self.rootXPrivateKey.isEmpty && !self.rootPublicKey.isEmpty else {
             throw CardanoCoreError.invalidDataError("Missing root keys. Can't do derivation.")
         }
 
+        // The hardened bit is chosen by `hardened`, so `index` must not carry
+        // it: otherwise `m/2147483648` would silently mean `m/0'`.
+        guard index < 0x8000_0000 else {
+            throw BIP32Error.invalidPath("Index \(index) is out of range; it must be below 2^31")
+        }
         let index = hardened ? index | 0x8000_0000 : index
 
         if isPrivate {
