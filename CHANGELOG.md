@@ -1,3 +1,9 @@
+## 0.11.2 (2026-11-08)
+
+### Fix
+
+- check raw JSON depth before JSONSerialization parses it
+
 ## 0.11.1 (2026-11-08)
 
 ### Fix
