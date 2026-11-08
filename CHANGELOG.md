@@ -1,3 +1,9 @@
+## 0.11.1 (2026-11-08)
+
+### Fix
+
+- reject derivation indices of 2^31 and above
+
 ## 0.11.0 (2026-11-07)
 
 ### Fix
